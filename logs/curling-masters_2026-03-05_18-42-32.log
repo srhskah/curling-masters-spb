@@ -1,0 +1,75 @@
+2026-03-05 18:42:48.041{Asia/Shanghai} [main] INFO  com.example.demo.DemoApplication - Starting DemoApplication using Java 21.0.10 with PID 278973 (/home/srhskah/SpB/curling-masters/build/classes/java/main started by srhskah in /home/srhskah/SpB/curling-masters)
+2026-03-05 18:42:48.045{Asia/Shanghai} [main] DEBUG com.example.demo.DemoApplication - Running with Spring Boot v3.1.10, Spring v6.0.18
+2026-03-05 18:42:48.046{Asia/Shanghai} [main] INFO  com.example.demo.DemoApplication - No active profile set, falling back to 1 default profile: "default"
+2026-03-05 18:42:49.026{Asia/Shanghai} [main] DEBUG o.apache.ibatis.logging.LogFactory - Logging initialized using 'class org.apache.ibatis.logging.slf4j.Slf4jImpl' adapter.
+2026-03-05 18:42:49.711{Asia/Shanghai} [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port(s): 8080 (http)
+2026-03-05 18:42:49.722{Asia/Shanghai} [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-03-05 18:42:49.724{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-03-05 18:42:49.725{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.19]
+2026-03-05 18:42:49.878{Asia/Shanghai} [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-03-05 18:42:49.880{Asia/Shanghai} [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1726 ms
+2026-03-05 18:42:50.289{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 9.16.3 by Redgate
+2026-03-05 18:42:50.290{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - See release notes here: https://rd.gt/416ObMi
+2026-03-05 18:42:50.290{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - 
+2026-03-05 18:42:50.299{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-03-05 18:42:50.520{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@6d293993
+2026-03-05 18:42:50.523{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-03-05 18:42:50.561{Asia/Shanghai} [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://localhost:3306/curling_masters (MySQL 8.0)
+2026-03-05 18:42:50.714{Asia/Shanghai} [main] INFO  o.f.core.internal.command.DbValidate - Successfully validated 1 migration (execution time 00:00.047s)
+2026-03-05 18:42:50.736{Asia/Shanghai} [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `curling_masters`: 1
+2026-03-05 18:42:50.737{Asia/Shanghai} [main] INFO  o.f.core.internal.command.DbMigrate - Schema `curling_masters` is up to date. No migration necessary.
+2026-03-05 18:42:52.074{Asia/Shanghai} [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@6d7b2319, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@acb5508, org.springframework.security.web.context.SecurityContextHolderFilter@60fc7f43, org.springframework.security.web.header.HeaderWriterFilter@6903ed0e, org.springframework.security.web.authentication.logout.LogoutFilter@3095d401, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter@720a1fd0, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@3212d853, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@77c23d90, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@1f45db49, org.springframework.security.web.access.ExceptionTranslationFilter@67afe909, org.springframework.security.web.access.intercept.AuthorizationFilter@4d290757]
+2026-03-05 18:42:52.325{Asia/Shanghai} [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-03-05 18:42:52.333{Asia/Shanghai} [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+2026-03-05 18:42:52.336{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2026-03-05 18:42:52.348{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2026-03-05 18:42:52.351{Asia/Shanghai} [main] INFO  o.a.coyote.http11.Http11NioProtocol - Pausing ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-03-05 18:42:52.351{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+2026-03-05 18:42:52.356{Asia/Shanghai} [main] INFO  o.a.coyote.http11.Http11NioProtocol - Stopping ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-03-05 18:42:52.357{Asia/Shanghai} [main] INFO  o.a.coyote.http11.Http11NioProtocol - Destroying ProtocolHandler ["http-nio-0.0.0.0-8080"]
+2026-03-05 18:42:52.365{Asia/Shanghai} [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-03-05 18:42:52.384{Asia/Shanghai} [main] ERROR o.s.boot.SpringApplication - Application run failed
+org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+	at org.springframework.context.support.DefaultLifecycleProcessor.doStart(DefaultLifecycleProcessor.java:186)
+	at org.springframework.context.support.DefaultLifecycleProcessor$LifecycleGroup.start(DefaultLifecycleProcessor.java:363)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at org.springframework.context.support.DefaultLifecycleProcessor.startBeans(DefaultLifecycleProcessor.java:160)
+	at org.springframework.context.support.DefaultLifecycleProcessor.onRefresh(DefaultLifecycleProcessor.java:128)
+	at org.springframework.context.support.AbstractApplicationContext.finishRefresh(AbstractApplicationContext.java:968)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:618)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:738)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:440)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:324)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1317)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1306)
+	at com.example.demo.DemoApplication.main(DemoApplication.java:14)
+Caused by: org.springframework.boot.web.server.WebServerException: Unable to start embedded Tomcat server
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.start(TomcatWebServer.java:229)
+	at org.springframework.boot.web.servlet.context.WebServerStartStopLifecycle.start(WebServerStartStopLifecycle.java:44)
+	at org.springframework.context.support.DefaultLifecycleProcessor.doStart(DefaultLifecycleProcessor.java:183)
+	... 13 common frames omitted
+Caused by: java.lang.IllegalArgumentException: standardService.connector.startFailed
+	at org.apache.catalina.core.StandardService.addConnector(StandardService.java:235)
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.addPreviouslyRemovedConnectors(TomcatWebServer.java:282)
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.start(TomcatWebServer.java:213)
+	... 15 common frames omitted
+Caused by: org.apache.catalina.LifecycleException: Protocol handler start failed
+	at org.apache.catalina.connector.Connector.startInternal(Connector.java:1046)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171)
+	at org.apache.catalina.core.StandardService.addConnector(StandardService.java:232)
+	... 17 common frames omitted
+Caused by: java.net.BindException: 地址已在使用
+	at java.base/sun.nio.ch.Net.bind0(Native Method)
+	at java.base/sun.nio.ch.Net.bind(Net.java:577)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.netBind(ServerSocketChannelImpl.java:344)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.bind(ServerSocketChannelImpl.java:301)
+	at org.apache.tomcat.util.net.NioEndpoint.initServerSocket(NioEndpoint.java:247)
+	at org.apache.tomcat.util.net.NioEndpoint.bind(NioEndpoint.java:202)
+	at org.apache.tomcat.util.net.AbstractEndpoint.bindWithCleanup(AbstractEndpoint.java:1282)
+	at org.apache.tomcat.util.net.AbstractEndpoint.start(AbstractEndpoint.java:1368)
+	at org.apache.coyote.AbstractProtocol.start(AbstractProtocol.java:635)
+	at org.apache.catalina.connector.Connector.startInternal(Connector.java:1043)
+	... 19 common frames omitted

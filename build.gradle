@@ -1,0 +1,56 @@
+plugins {
+	id 'java'
+	id 'war'
+	id 'org.springframework.boot' version '3.1.10'   // Downgraded for MyBatis-Plus compatibility
+    id 'io.spring.dependency-management' version '1.1.4' // 配套版本
+	id 'com.qqviaja.gradle.MybatisGenerator' version '2.5'
+}
+
+task runCodeGenerator(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.example.demo.CodeGenerator'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'Demo project for Spring Boot'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+    // implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-mysql'
+    
+    // MyBatis-Plus 完整 starter（包含 extension、core 等所有模块）
+    implementation 'com.baomidou:mybatis-plus-boot-starter:3.5.7'
+
+	// 仅用于代码生成，不会影响运行时
+	implementation 'com.baomidou:mybatis-plus-generator:3.5.7'
+	implementation 'org.apache.velocity:velocity-engine-core:2.3' // 模板引擎
+    
+	runtimeOnly 'com.mysql:mysql-connector-j'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.3'
+    testRuntimeOnly 'com.h2database:h2'
+}
+
+mybatisGenerator {
+    configFile = 'src/main/resources/generatoConfig.xml'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}

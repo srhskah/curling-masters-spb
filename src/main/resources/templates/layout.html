@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments :: head(__${title}__)}">
+</head>
+
+<body>
+    <!-- 导航栏 -->
+    <div th:if="${loggedIn == null or loggedIn}" th:replace="~{fragments :: navbar}"></div>
+    <div th:if="${loggedIn != null and not loggedIn}" th:replace="~{fragments :: navbar-login}"></div>
+
+    <!-- 消息提示 -->
+    <div th:replace="~{fragments :: success-alert}"></div>
+    <div th:replace="~{fragments :: error-alert}"></div>
+
+    <!-- 主要内容 -->
+    <div th:replace="${content}"></div>
+
+    <!-- 页脚 -->
+    <div th:replace="~{fragments :: footer}"></div>
+
+    <!-- 脚本 -->
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

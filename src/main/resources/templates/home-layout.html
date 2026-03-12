@@ -1,0 +1,47 @@
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: layout(
+  title = '首页',
+  content = ~{::content}
+)}">
+
+<th:block th:fragment="content">
+    <div class="container">
+        <div class="welcome-card">
+            <h1 class="text-center mb-4">欢迎来到 Curling Masters</h1>
+            <p class="text-center">您已成功登录系统</p>
+
+            <div class="row mt-4">
+                <div class="col-md-4">
+                    <div class="card bg-light text-dark">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">用户信息</h5>
+                            <p class="card-text">用户名: <span th:text="${username}"></span></p>
+                            <p class="card-text">角色: 
+                                <span th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}" class="badge bg-danger">超级管理员</span>
+                                <span th:if="${#authorization.expression('hasRole(''ROLE_ADMIN'')') and not #authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}" class="badge bg-warning text-dark">管理员</span>
+                                <span th:if="${#authorization.expression('hasRole(''ROLE_USER'')') and not #authorization.expression('hasRole(''ROLE_ADMIN'')') and not #authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}" class="badge bg-info">普通用户</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-light text-dark">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">账户管理</h5>
+                            <a href="/user/reset-password" class="btn btn-primary">重置密码</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4" th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'') or hasRole(''ROLE_ADMIN'')')}">
+                    <div class="card bg-light text-dark">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">用户管理</h5>
+                            <a href="/user/manage" class="btn btn-success">管理用户</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
+</html>
