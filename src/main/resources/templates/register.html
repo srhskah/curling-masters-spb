@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册 - Curling Masters</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link th:href="@{/css/main.css?v=1.1}" rel="stylesheet">
+    <style>
+        .register-container {
+            max-width: 400px;
+            margin: 3rem auto;
+            padding: 2rem;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+        .register-container {
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div th:replace="~{fragments :: navbar}"></div>
+
+    <div class="container">
+        <div class="register-container">
+            <h2 class="text-center mb-4">注册账号</h2>
+
+            <!-- 显示错误消息 -->
+            <div th:if="${error}" class="alert alert-danger" role="alert">
+                <span th:text="${error}"></span>
+            </div>
+
+            <!-- 显示成功消息 -->
+            <div th:if="${success}" class="alert alert-success" role="alert">
+                <span th:text="${success}"></span>
+            </div>
+
+            <form th:action="@{/user/register}" method="post">
+                <div class="mb-3">
+                    <label for="username" class="form-label">用户名 <small class="text-muted">(支持中文、emoji、Unicode字符)</small></label>
+                    <input type="text" class="form-control" id="username" name="username" required
+                           placeholder="例如：张三、Dragon、🎯玩家、ユーザー">
+                    <div class="form-text">用户名包含"admin"将自动设为超级管理员（仅限一个）</div>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">邮箱</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">密码</label>
+                    <input type="password" class="form-control" id="password" name="password" required minlength="6">
+                    <div class="form-text">密码至少6位</div>
+                </div>
+                <div class="mb-3">
+                    <label for="confirmPassword" class="form-label">确认密码</label>
+                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-success">注册</button>
+                </div>
+            </form>
+
+            <div class="text-center mt-3">
+                <p>已有账号？<a href="/user/login">立即登录</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 简单的密码确认验证
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('两次输入的密码不一致');
+            }
+        });
+    </script>
+
+    <!-- 页脚 -->
+    <div th:replace="~{fragments :: footer}"></div>
+    
+    <script th:src="@{/js/main.js?v=1.1}"></script>
+</body>
+</html>
