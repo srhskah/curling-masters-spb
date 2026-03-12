@@ -1,0 +1,85 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+# 常见的 Java 编译产物
+*.class
+
+# 打包文件
+*.jar
+*.war
+*.ear
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# Eclipse / Spring Tool Suite
+.classpath
+.project
+.settings/
+.apt_generated
+.factorypath
+.springBeans
+.sts4-cache
+
+### VS Code ###
+.vscode/
+
+### 系统文件 ###
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+### 数据库相关 ###
+# 本地数据库文件（如果你在本地用文件型数据库如 H2，请取消下一行注释）
+# *.db
+# *.mdb
+
+### 配置文件 ###
+# 包含敏感信息的配置文件
+application-local.yml
+application-dev.yml
+application-prod.yml
+application-*.properties
+# 注意：保留 application.yml 或 application-template.yml 作为模板提交
+
+### MyBatis 相关 ###
+# MyBatis 的生成器配置文件（如果包含数据库连接信息，建议忽略）
+mybatis-generator.xml
+# MyBatis 的缓存文件（如果有）
+*.cache
+
+### 其他临时文件 ###
+*.swp
+*.swo
+*~
