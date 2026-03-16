@@ -39,14 +39,25 @@ body {
     color: #000 !important;
 }
 
+/* Badge styles*/
+.badge{
+    margin: 5% 0;
+    font-size: 0.9em;
+    border-radius: .6rem;
+}
+
 /* Button styles */
-.btn-primary {
-    background: linear-gradient(45deg, #667eea, #764ba2);
+.btn-primary, .btn-secondary, .btn-light, .btn-outline-light, .btn-warning, .btn-danger, .btn-success {
+    /* background: linear-gradient(45deg, #667eea, #764ba2); */
     border: none;
     border-radius: 25px;
     padding: 0.5rem 1.5rem;
     font-weight: 500;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-outline-light{
+    border: 1px solid #f8f9fa;
 }
 
 .btn-primary:hover {
@@ -65,6 +76,10 @@ body {
 .card:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.card-header:first-child{
+    border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0;
 }
 
 /* Form styles */
@@ -101,10 +116,10 @@ body {
         padding: 1.5rem;
     }
     
-    .btn-primary {
+    /* .btn-primary {
         padding: 0.4rem 1rem;
         font-size: 0.9rem;
-    }
+    } */
 }
 
 /* Animation classes */
@@ -126,11 +141,11 @@ body {
     to { transform: translateX(0); }
 }
 
-.col-md-6 p{
-    /* line-height: 1.5em;
-    height: 1.5em; */
+/* .col-md-6 p{
+    line-height: 1.5em;
+    height: 1.5em;
     margin: 0.5em 0;
-}
+} */
 
 /* Cookie 相关样式 */
 .cookie-info {

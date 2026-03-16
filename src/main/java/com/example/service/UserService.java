@@ -3,6 +3,8 @@ package com.example.service;
 import com.example.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.util.List;
+
 /**
  * <p>
  *  服务类
@@ -13,6 +15,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface UserService extends IService<User> {
 
+    
     /**
      * 用户注册
      * @param username 用户名
@@ -51,4 +54,17 @@ public interface UserService extends IService<User> {
      */
     boolean existsSuperAdmin();
 
+    /**
+     * 批量添加用户
+     * @param usernames 用户名字符串，用分隔符分隔
+     * @return 成功创建的用户列表
+     */
+    List<String> batchAddUsers(String usernames);
+
+    /**
+     * 根据用户名查找用户
+     * @param username 用户名
+     * @return 用户信息
+     */
+    User findByUsername(String username);
 }

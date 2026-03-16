@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments :: head('个人中心')}">
+</head>
+
+<body>
+    <!-- 导航栏 -->
+    <div th:replace="~{fragments :: navbar}"></div>
+
+    <!-- 消息提示 -->
+    <div th:replace="~{fragments :: success-alert}"></div>
+    <div th:replace="~{fragments :: error-alert}"></div>
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">个人中心</h4>
+                    </div>
+                    <div class="card-body">
+                        <!-- 个人信息显示 -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5>基本信息</h5>
+                                <hr>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>用户ID:</strong> <span th:text="${user.id}"></span></p>
+                                        <p><strong>用户名:</strong> <span th:text="${user.username}"></span></p>
+                                        <p><strong>邮箱:</strong> <span th:text="${user.email}"></span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>角色:</strong> 
+                                            <span th:if="${user.role == 0}" class="badge bg-danger">超级管理员</span>
+                                            <span th:if="${user.role == 1}" class="badge bg-warning">普通管理员</span>
+                                            <span th:if="${user.role == 2}" class="badge bg-secondary">普通用户</span>
+                                        </p>
+                                        <p><strong>注册时间:</strong> <span th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></span></p>
+                                        <p><strong>最后更新:</strong> <span th:text="${#temporals.format(user.updatedAt, 'yyyy-MM-dd HH:mm')}"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 本人可以编辑，非本人只能查看 -->
+                        <div th:if="${isOwner}" class="row">
+                            <div class="col-md-12">
+                                <h5>编辑信息</h5>
+                                <hr>
+                                <form th:action="@{/user/profile/update}" method="post">
+                                    <div class="mb-3">
+                                        <label for="username" class="form-label">用户名</label>
+                                        <input type="text" class="form-control" id="username" name="username" 
+                                               th:value="${user.username}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="email" class="form-label">邮箱</label>
+                                        <input type="email" class="form-control" id="email" name="email" 
+                                               th:value="${user.email}" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary me-2">保存修改</button>
+                                    <a href="/user/change-password" class="btn btn-warning me-2">修改密码</a>
+                                    <a href="/" class="btn btn-secondary">
+                                        <i class="bi bi-arrow-left"></i> 返回首页
+                                    </a>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- 非本人查看时的提示 -->
+                        <div th:unless="${isOwner}" class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> 您只能查看自己的个人信息。如需修改，请访问您的个人中心。
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <!--
+                        <div class="row mt-4">
+                            <div class="col-md-12">
+                                <div class="d-flex justify-content-between">
+                                    <a href="/" class="btn btn-secondary">
+                                        <i class="bi bi-arrow-left"></i> 返回首页
+                                    </a>
+                                    <div th:if="${isOwner}">
+                                        <a href="/user/change-password" class="btn btn-warning me-2">
+                                            <i class="bi bi-key"></i> 修改密码
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div th:replace="~{fragments :: footer}"></div>
+
+    <!-- 脚本 -->
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

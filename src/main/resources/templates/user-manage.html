@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>用户管理 - Curling Masters</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
     <link th:href="@{/css/main.css?v=1.1}" rel="stylesheet">
     <style>
         body {
@@ -17,6 +18,164 @@
             padding: 2rem;
             margin: 2rem 0;
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        .batch-add-container {
+            background: white;
+            border-radius: 10px;
+            padding: 2rem;
+            margin: 2rem 0;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        
+        /* 移动端优化的用户卡片样式 */
+        .user-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .user-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        .user-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .user-card-body {
+            margin-bottom: 1rem;
+        }
+        .user-card-footer {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .user-info-item {
+            margin-bottom: 0.5rem;
+        }
+        .user-info-label {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.85rem;
+            margin-bottom: 0.25rem;
+        }
+        .user-info-value {
+            color: #212529;
+            font-size: 0.95rem;
+        }
+        
+        /* 搜索框样式 */
+        .search-container {
+            margin-bottom: 1.5rem;
+        }
+        .search-input {
+            border-radius: 25px;
+            border: 2px solid #e9ecef;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .search-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            outline: none;
+        }
+        
+        /* 移动端按钮优化 */
+        .btn-mobile {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .table-container {
+                padding: 1rem;
+                margin: 1rem 0;
+            }
+            .batch-add-container {
+                padding: 1rem;
+                margin: 1rem 0;
+            }
+            .user-card {
+                padding: 1rem;
+            }
+            .user-card-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .user-card-footer {
+                justify-content: stretch;
+                flex-direction: column;
+            }
+            .btn-mobile {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+            .btn-mobile:last-child {
+                margin-bottom: 0;
+            }
+            h2 {
+                font-size: 1.5rem;
+            }
+            /* 搜索框移动端优化 */
+            .search-container {
+                width: 100%;
+                margin-top: 1rem;
+            }
+            .input-group {
+                flex-wrap: nowrap;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .user-card {
+                padding: 0.75rem;
+            }
+            .user-info-item {
+                margin-bottom: 0.75rem;
+            }
+            .search-input {
+                font-size: 16px; /* 防止iOS缩放 */
+            }
+            .btn-mobile {
+                padding: 0.75rem 1rem; /* 更大的触摸区域 */
+                font-size: 1rem;
+            }
+            .user-card-header {
+                gap: 1rem;
+            }
+            .badge {
+                font-size: 0.8rem;
+                padding: 0.5rem 0.75rem;
+            }
+        }
+        
+        /* 桌面端显示表格，移动端显示卡片 */
+        .users-table-desktop {
+            display: block;
+        }
+        .users-cards-mobile {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .users-table-desktop {
+                display: none;
+            }
+            .users-cards-mobile {
+                display: block;
+            }
         }
     </style>
 </head>
@@ -34,7 +193,22 @@
 
     <div class="container">
         <div class="table-container">
-            <h2 class="mb-4">用户管理</h2>
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <h2 class="mb-0">用户管理</h2>
+                <div class="search-container">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" 
+                               class="form-control search-input" 
+                               id="userSearch" 
+                               placeholder="搜索用户名、邮箱或角色..."
+                               autocomplete="off">
+                        <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <!-- 显示消息 -->
             <div th:if="${success}" class="alert alert-success" role="alert">
@@ -44,50 +218,103 @@
                 <span th:text="${error}"></span>
             </div>
 
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>ID</th>
-                            <th>用户名</th>
-                            <th>邮箱</th>
-                            <th>角色</th>
-                            <th>注册时间</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr th:each="user : ${users}">
-                            <td th:text="${user.id}"></td>
-                            <td th:text="${user.username}"></td>
-                            <td th:text="${user.email}"></td>
-                            <td>
-                                <span th:if="${user.role == 0}" class="badge bg-danger">超级管理员</span>
-                                <span th:if="${user.role == 1}" class="badge bg-warning">普通管理员</span>
-                                <span th:if="${user.role == 2}" class="badge bg-secondary">普通用户</span>
-                            </td>
-                            <td th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
-                            <td>
-                                <!-- 编辑权限：只有超级管理员可以编辑其他用户 -->
-                                <a th:if="${#authentication.principal.role == 0}" th:href="@{'/user/edit/' + ${user.id}}" class="btn btn-sm btn-primary">编辑</a>
-                                
-                                <!-- 重置密码权限：超级管理员和普通管理员都可以使用 -->
-                                <button th:if="${#authentication.principal.role <= 1 and user.id != #authentication.principal.id}" 
-                                        type="button" class="btn btn-sm btn-warning"
-                                        onclick="resetPassword(this)" th:data-id="${user.id}" th:data-username="${user.username}">
-                                    重置密码
-                                </button>
-                                
-                                <!-- 删除权限：只有超级管理员可以删除其他用户 -->
-                                <button th:if="${#authentication.principal.role == 0 and user.role != 0 and user.id != #authentication.principal.id}" 
-                                        type="button" class="btn btn-sm btn-danger"
-                                        onclick="deleteUser(this)" th:data-id="${user.id}" th:data-username="${user.username}">
-                                    删除
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- 搜索结果提示 -->
+            <div id="searchResults" class="alert alert-info d-none" role="alert">
+                <span id="searchResultText"></span>
+            </div>
+
+            <!-- 桌面端表格视图 -->
+            <div class="users-table-desktop">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>用户名</th>
+                                <th>邮箱</th>
+                                <th>角色</th>
+                                <th>注册时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <tr th:each="user : ${users}" class="user-row" th:data-username="${user.username}" th:data-email="${user.email}" th:data-role="${user.role}">
+                                <td th:text="${user.id}"></td>
+                                <td th:text="${user.username}"></td>
+                                <td th:text="${user.email}"></td>
+                                <td>
+                                    <span th:if="${user.role == 0}" class="badge bg-danger">超级管理员</span>
+                                    <span th:if="${user.role == 1}" class="badge bg-warning">普通管理员</span>
+                                    <span th:if="${user.role == 2}" class="badge bg-secondary">普通用户</span>
+                                </td>
+                                <td th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                                <td>
+                                    <!-- 编辑权限：只有超级管理员可以编辑其他用户 -->
+                                    <a th:if="${#authentication.principal.role == 0}" th:href="@{'/user/edit/' + ${user.id}}" class="btn btn-sm btn-primary btn-mobile">编辑</a>
+                                    
+                                    <!-- 重置密码权限：超级管理员和普通管理员都可以使用 -->
+                                    <button th:if="${#authentication.principal.role <= 1 and user.id != #authentication.principal.id}" 
+                                            type="button" class="btn btn-sm btn-warning btn-mobile"
+                                            onclick="resetPassword(this)" th:data-id="${user.id}" th:data-username="${user.username}">
+                                        重置密码
+                                    </button>
+                                    
+                                    <!-- 删除权限：只有超级管理员可以删除其他用户 -->
+                                    <button th:if="${#authentication.principal.role == 0 and user.role != 0 and user.id != #authentication.principal.id}" 
+                                            type="button" class="btn btn-sm btn-danger btn-mobile"
+                                            onclick="deleteUser(this)" th:data-id="${user.id}" th:data-username="${user.username}">
+                                        删除
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 移动端卡片视图 -->
+            <div class="users-cards-mobile" id="usersCardsContainer">
+                <div th:each="user : ${users}" class="user-card" th:data-username="${user.username}" th:data-email="${user.email}" th:data-role="${user.role}">
+                    <div class="user-card-header">
+                        <div>
+                            <h5 class="mb-1" th:text="${user.username}">用户名</h5>
+                            <small class="text-muted">ID: <span th:text="${user.id}"></span></small>
+                        </div>
+                        <span th:if="${user.role == 0}" class="badge bg-danger">超级管理员</span>
+                        <span th:if="${user.role == 1}" class="badge bg-warning">普通管理员</span>
+                        <span th:if="${user.role == 2}" class="badge bg-secondary">普通用户</span>
+                    </div>
+                    <div class="user-card-body">
+                        <div class="user-info-item">
+                            <div class="user-info-label">邮箱</div>
+                            <div class="user-info-value" th:text="${user.email}">user@example.com</div>
+                        </div>
+                        <div class="user-info-item">
+                            <div class="user-info-label">注册时间</div>
+                            <div class="user-info-value" th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}">2024-01-01 12:00</div>
+                        </div>
+                    </div>
+                    <div class="user-card-footer">
+                        <!-- 编辑权限：只有超级管理员可以编辑其他用户 -->
+                        <a th:if="${#authentication.principal.role == 0}" th:href="@{'/user/edit/' + ${user.id}}" class="btn btn-sm btn-primary btn-mobile">
+                            <i class="bi bi-pencil"></i> 编辑
+                        </a>
+                        
+                        <!-- 重置密码权限：超级管理员和普通管理员都可以使用 -->
+                        <button th:if="${#authentication.principal.role <= 1 and user.id != #authentication.principal.id}" 
+                                type="button" class="btn btn-sm btn-warning btn-mobile"
+                                onclick="resetPassword(this)" th:data-id="${user.id}" th:data-username="${user.username}">
+                            <i class="bi bi-key"></i> 重置密码
+                        </button>
+                        
+                        <!-- 删除权限：只有超级管理员可以删除其他用户 -->
+                        <button th:if="${#authentication.principal.role == 0 and user.role != 0 and user.id != #authentication.principal.id}" 
+                                type="button" class="btn btn-sm btn-danger btn-mobile"
+                                onclick="deleteUser(this)" th:data-id="${user.id}" th:data-username="${user.username}">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -145,6 +372,30 @@
         </div>
     </div>
 
+    <!-- 批量添加用户 -->
+    <div class="batch-add-container">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">批量添加用户</h5>
+            </div>
+            <div class="card-body">
+                <form id="batchAddForm">
+                    <div class="mb-3">
+                        <label for="usernames" class="form-label">用户名列表</label>
+                        <textarea class="form-control" id="usernames" name="usernames" rows="5" 
+                                  placeholder="输入用户名，可以用以下分隔符分隔：\n英文逗号(,) 中文逗号(，) 英文分号(;) 中文分号(；) 制表符(Tab) 换行符\n\n例如：\nuser1,user2,user3\n或者：\nuser1\nuser2\nuser3"></textarea>
+                        <small class="form-text text-muted">
+                            支持多种分隔符：英文逗号(,) 中文逗号(，) 英文分号(;) 中文分号(；) 制表符(Tab) 换行符
+                        </small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> 批量添加
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function deleteUser(button) {
@@ -166,6 +417,182 @@
 
             new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
         }
+
+        // 批量添加用户功能
+        document.addEventListener('DOMContentLoaded', function() {
+            const batchAddForm = document.getElementById('batchAddForm');
+            if (batchAddForm) {
+                batchAddForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const usernames = document.getElementById('usernames').value;
+                    
+                    if (!usernames || usernames.trim().length === 0) {
+                        alert('请输入用户名列表');
+                        return;
+                    }
+                    
+                    try {
+                        const submitButton = batchAddForm.querySelector('button[type="submit"]');
+                        const originalText = submitButton.innerHTML;
+                        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 处理中...';
+                        submitButton.disabled = true;
+                        
+                        const response = await fetch('/user/batch-add', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                usernames: usernames
+                            })
+                        });
+                        
+                        if (!response.ok) {
+                            throw new Error('批量添加用户失败');
+                        }
+                        
+                        const result = await response.json();
+                        
+                        if (result.length > 0) {
+                            alert(`成功添加 ${result.length} 个用户：\n${result.join('\n')}`);
+                            document.getElementById('usernames').value = '';
+                            // 刷新页面以显示新用户
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            alert('没有成功添加任何用户，请检查用户名格式或是否已存在');
+                        }
+                        
+                    } catch (error) {
+                        console.error('批量添加用户错误:', error);
+                        alert('批量添加用户失败：' + error.message);
+                    } finally {
+                        submitButton.innerHTML = originalText;
+                        submitButton.disabled = false;
+                    }
+                });
+            }
+        });
+
+        // 模糊搜索功能
+        function initializeSearch() {
+            const searchInput = document.getElementById('userSearch');
+            const clearButton = document.getElementById('clearSearch');
+            const searchResults = document.getElementById('searchResults');
+            const searchResultText = document.getElementById('searchResultText');
+            
+            if (!searchInput) return;
+            
+            let searchTimeout;
+            
+            // 搜索输入事件
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const searchTerm = this.value.trim().toLowerCase();
+                
+                if (searchTerm === '') {
+                    clearSearchResults();
+                    return;
+                }
+                
+                // 延迟搜索，避免频繁操作
+                searchTimeout = setTimeout(() => {
+                    performSearch(searchTerm);
+                }, 300);
+            });
+            
+            // 清空搜索
+            clearButton.addEventListener('click', function() {
+                searchInput.value = '';
+                clearSearchResults();
+                searchInput.focus();
+            });
+            
+            // 执行搜索
+            function performSearch(searchTerm) {
+                const tableRows = document.querySelectorAll('.user-row');
+                const userCards = document.querySelectorAll('.user-card');
+                let visibleCount = 0;
+                let totalCount = 0;
+                
+                // 搜索表格行
+                tableRows.forEach(row => {
+                    const username = row.getAttribute('data-username') || '';
+                    const email = row.getAttribute('data-email') || '';
+                    const role = row.getAttribute('data-role') || '';
+                    
+                    const matchesUsername = username.toLowerCase().includes(searchTerm);
+                    const matchesEmail = email.toLowerCase().includes(searchTerm);
+                    const matchesRole = getRoleDisplayName(role).toLowerCase().includes(searchTerm);
+                    
+                    const isVisible = matchesUsername || matchesEmail || matchesRole;
+                    
+                    row.style.display = isVisible ? '' : 'none';
+                    if (isVisible) visibleCount++;
+                    totalCount++;
+                });
+                
+                // 搜索用户卡片
+                userCards.forEach(card => {
+                    const username = card.getAttribute('data-username') || '';
+                    const email = card.getAttribute('data-email') || '';
+                    const role = card.getAttribute('data-role') || '';
+                    
+                    const matchesUsername = username.toLowerCase().includes(searchTerm);
+                    const matchesEmail = email.toLowerCase().includes(searchTerm);
+                    const matchesRole = getRoleDisplayName(role).toLowerCase().includes(searchTerm);
+                    
+                    const isVisible = matchesUsername || matchesEmail || matchesRole;
+                    
+                    card.style.display = isVisible ? '' : 'none';
+                });
+                
+                // 显示搜索结果
+                if (visibleCount === 0) {
+                    searchResultText.textContent = `未找到与 "${searchTerm}" 相关的用户`;
+                    searchResults.classList.remove('alert-info', 'alert-success');
+                    searchResults.classList.add('alert-warning');
+                } else {
+                    searchResultText.textContent = `找到 ${visibleCount} 个与 "${searchTerm}" 相关的用户`;
+                    searchResults.classList.remove('alert-warning');
+                    searchResults.classList.add('alert-info', 'alert-success');
+                }
+                searchResults.classList.remove('d-none');
+            }
+            
+            // 清空搜索结果
+            function clearSearchResults() {
+                const tableRows = document.querySelectorAll('.user-row');
+                const userCards = document.querySelectorAll('.user-card');
+                
+                tableRows.forEach(row => {
+                    row.style.display = '';
+                });
+                
+                userCards.forEach(card => {
+                    card.style.display = '';
+                });
+                
+                searchResults.classList.add('d-none');
+            }
+            
+            // 获取角色显示名称
+            function getRoleDisplayName(role) {
+                switch (role) {
+                    case '0': return '超级管理员';
+                    case '1': return '普通管理员';
+                    case '2': return '普通用户';
+                    default: return '';
+                }
+            }
+        }
+        
+        // 页面加载完成后初始化搜索功能
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSearch();
+        });
     </script>
 
     <!-- 页脚 -->

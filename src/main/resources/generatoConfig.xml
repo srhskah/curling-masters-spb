@@ -12,9 +12,9 @@
 
         <!-- 数据库连接信息 -->
         <jdbcConnection driverClass="com.mysql.cj.jdbc.Driver"
-                        connectionURL="jdbc:mysql://localhost:3306/curling_masters"
-                        userId="cmofficial"
-                        password="Win3000.375">
+                        connectionURL="${MYSQL_DB_URL}"
+                        userId="${MYSQL_USER}"
+                        password="${MYSQL_ROOT_PASSWORD}">
         </jdbcConnection>
 
         <!-- Java 类型解析器 -->

@@ -1,5 +1,6 @@
 package com.example.controller;
 
+import java.util.Map;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.entity.User;
 import com.example.service.UserService;
@@ -221,9 +222,20 @@ public class UserController {
     // 用户管理页面（仅限超级管理员和普通管理员）
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN')")
     @GetMapping("/manage")
-    public String manageUsers(Model model) {
-        List<User> users = userService.list();
+    public String manageUsers(@RequestParam(required = false) String search, Model model) {
+        List<User> users;
+        if (search != null && !search.trim().isEmpty()) {
+            // 模糊搜索：用户名、邮箱、角色
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.like("username", search.trim())
+                       .or()
+                       .like("email", search.trim());
+            users = userService.list(queryWrapper);
+        } else {
+            users = userService.list();
+        }
         model.addAttribute("users", users);
+        model.addAttribute("searchQuery", search);
         return "user-manage";
     }
 
@@ -304,5 +316,69 @@ public class UserController {
             redirectAttributes.addFlashAttribute("error", "重置密码失败：" + e.getMessage());
         }
         return "redirect:/user/manage";
+    }
+
+    // 批量添加用户（超级管理员和普通管理员都可以使用）
+    @PostMapping("/batch-add")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN')")
+    @ResponseBody
+    public List<String> batchAddUsers(@RequestBody Map<String, String> request) {
+        String usernames = request.get("usernames");
+        if (usernames == null || usernames.trim().isEmpty()) {
+            throw new RuntimeException("用户名不能为空");
+        }
+        return userService.batchAddUsers(usernames);
+    }
+
+    // 个人中心页面（所有登录用户都可以访问）
+    @GetMapping("/profile/{id}")
+    public String userProfile(@PathVariable Long id, Model model) {
+        User user = userService.getById(id);
+        if (user == null) {
+            return "redirect:/";
+        }
+        
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = auth.getName();
+        User currentUser = userService.findByUsername(currentUsername);
+        
+        model.addAttribute("user", user);
+        model.addAttribute("isOwner", currentUser.getId().equals(id));
+        
+        return "user-profile";
+    }
+
+    // 更新个人信息（只能修改自己的信息）
+    @PostMapping("/profile/update")
+    public String updateProfile(@RequestParam String username,
+                               @RequestParam String email,
+                               RedirectAttributes redirectAttributes) {
+        User currentUser = null;
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String currentUsername = auth.getName();
+            currentUser = userService.findByUsername(currentUsername);
+            
+            // 检查用户名是否已被其他用户使用
+            if (!currentUser.getUsername().equals(username)) {
+                User existingUser = userService.findByUsername(username);
+                if (existingUser != null) {
+                    redirectAttributes.addFlashAttribute("error", "该用户名已被使用");
+                    return "redirect:/user/profile/" + currentUser.getId();
+                }
+            }
+            
+            currentUser.setUsername(username);
+            currentUser.setEmail(email);
+            currentUser.setUpdatedAt(LocalDateTime.now());
+            
+            userService.updateById(currentUser);
+            redirectAttributes.addFlashAttribute("success", "个人信息更新成功");
+            
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "更新失败：" + e.getMessage());
+        }
+        
+        return "redirect:/user/profile/" + currentUser.getId();
     }
 }

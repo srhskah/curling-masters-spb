@@ -1,0 +1,74 @@
+# version: '3.8'
+
+services:
+  mysql:
+    image: crpi-d81nvhgjqrzw3ppw.cn-hangzhou.personal.cr.aliyuncs.com/jw_docker_sql/tournament-mysql:fixed
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=curling_masters
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - mysql_data:/var/lib/mysql
+      - ./curling_masters.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+  
+  app:
+    image: curling-masters:latest
+    env_file:
+      - .env
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      # 数据库配置（使用环境变量覆盖默认配置）
+      - MYSQL_DB_URL=${MYSQL_DB_URL}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      # JVM参数
+      - JAVA_OPTS=-Xmx1g -Xms512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+    command: java -Duser.timezone=Asia/Shanghai -jar /app/app.jar
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: unless-stopped
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+      - ./logs:/app/logs
+  # redis:
+  #   image: crpi-d81nvhgjqrzw3ppw.cn-hangzhou.aliyuncs.com/acs/redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - app-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+
+volumes:
+  mysql_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge

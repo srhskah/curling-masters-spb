@@ -9,8 +9,22 @@ import java.util.Collections;
 
 public class CodeGenerator {
     public static void main(String[] args) {
-        FastAutoGenerator.create("jdbc:mysql://localhost:3306/curling_masters?useSSL=false&serverTimezone=UTC",
-                                "cmofficial", "Win3000.375")
+        String dbUrl = System.getenv("MYSQL_DB_URL");
+        String dbUser = System.getenv("MYSQL_USER");
+        String dbPassword = System.getenv("MYSQL_ROOT_PASSWORD");
+        
+        // Fallback to system properties if environment variables are not set
+        if (dbUrl == null) {
+            dbUrl = System.getProperty("MYSQL_DB_URL", "${MYSQL_DB_URL}");
+        }
+        if (dbUser == null) {
+            dbUser = System.getProperty("MYSQL_USER", "${MYSQL_USER}");
+        }
+        if (dbPassword == null) {
+            dbPassword = System.getProperty("MYSQL_ROOT_PASSWORD", "${MYSQL_ROOT_PASSWORD}");
+        }
+        
+        FastAutoGenerator.create(dbUrl, dbUser, dbPassword)
             .globalConfig(builder ->
                 builder.author("Curling Masters") // 设置作者
                        .outputDir(System.getProperty("user.dir") + "/src/main/java") // 输出路径
