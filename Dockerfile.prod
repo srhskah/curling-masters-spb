@@ -1,0 +1,62 @@
+# 生产环境Dockerfile - 多阶段构建优化镜像大小
+FROM mcr.microsoft.com/openjdk/jdk:21-ubuntu
+
+# 设置工作目录
+WORKDIR /build
+
+# 复制Gradle wrapper文件
+COPY gradlew .
+COPY gradle/ gradle/
+
+# 复制构建配置
+COPY build.gradle .
+COPY settings.gradle .
+
+# 下载Gradle（使用阿里云镜像）
+RUN sed -i 's/services.gradle.org/mirrors.aliyun.com/g' gradle/wrapper/gradle-wrapper.properties && \
+    chmod +x ./gradlew && \
+    ./gradlew --version
+
+# 复制源代码
+COPY src/ src/
+
+# 构建应用
+RUN ./gradlew build -x test
+
+# 生产镜像
+FROM crpi-d81nvhgjqrzw3ppw.cn-hangzhou.aliyuncs.com/acs/openjdk:21-jre-slim
+
+# 安装必要的工具
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list.d/debian.sources && \
+    sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# 创建应用用户
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# 设置工作目录
+WORKDIR /app
+
+# 从构建阶段复制WAR文件
+COPY --from=builder /build/build/libs/demo-0.0.1-SNAPSHOT.war app.war
+
+# 设置文件权限
+RUN chown -R appuser:appuser /app
+
+# 切换到非root用户
+USER appuser
+
+# 暴露端口
+EXPOSE 8080
+
+# 设置JVM参数（生产环境优化）
+ENV JAVA_OPTS="-Xmx2g -Xms1g -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/heapdump.hprof"
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+# 启动应用
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.war"]

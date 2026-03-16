@@ -56,7 +56,7 @@ private static final Pattern[] SQL_INJECTION_PATTERNS = {
 ### 1. **UTF8MB4配置**
 ```properties
 # 数据库连接配置
-spring.datasource.url=jdbc:mysql://localhost:3306/curling_masters?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=utf8mb4&useUnicode=true&connectionCollation=utf8mb4_unicode_ci
+spring.datasource.url=${MYSQL_DB_URL}
 
 # Jackson JSON配置
 spring.jackson.charset=UTF-8

@@ -1,5 +1,7 @@
 package com.example.service.impl;
 
+import java.util.ArrayList;
+import java.util.List;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.entity.User;
 import com.example.mapper.UserMapper;
@@ -24,6 +26,7 @@ import java.time.LocalDateTime;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
 
     @Override
     public User register(String username, String password, String email) {
@@ -129,5 +132,39 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("role", 0);
         return count(queryWrapper) > 0;
+    }
+
+    @Override
+    public List<String> batchAddUsers(String usernames) {
+        List<String> createdUsers = new ArrayList<>();
+        String[] userArray = usernames.split("[,，;；\\t\\n]+");
+        for (String username : userArray) {
+            username = username.trim();
+            if (username.isEmpty()) continue;
+            // Validate username
+            UsernameValidator.ValidationResult validation = UsernameValidator.validateUsername(username);
+            if (!validation.isValid()) continue;
+            String cleanUsername = UsernameValidator.sanitizeUsername(username);
+            // Check if exists
+            if (existsByUsername(cleanUsername)) continue;
+            User user = new User();
+            user.setUsername(cleanUsername);
+            user.setPassword(passwordEncoder.encode("123456"));
+            user.setEmail("lorem.ipsum@example.com");
+            user.setRole(2);
+            user.setPasswordChanged(true);
+            user.setCreatedAt(LocalDateTime.now());
+            user.setUpdatedAt(LocalDateTime.now());
+            save(user);
+            createdUsers.add(cleanUsername);
+        }
+        return createdUsers;
+    }
+
+    @Override
+    public User findByUsername(String username) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("username", username);
+        return getOne(queryWrapper);
     }
 }
