@@ -107,7 +107,10 @@ mybatis-generator.xml
 *.rar
 
 # 
-6.env
+*.env
+*.sh
+*.bat
+*.ps1
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
