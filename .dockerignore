@@ -1,0 +1,56 @@
+# Git
+.git
+.gitignore
+
+# Gradle
+.gradle/
+build/
+!build/libs/
+gradlew
+gradlew.bat
+gradle/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Documentation
+*.md
+
+# SQL files (except Flyway migrations)
+*.sql
+!src/main/resources/db/*.sql
+
+# Test files
+src/test/
+
+# Configuration files with sensitive data
+application-local.properties
+.env
+*.sh
+
+# Static resources that will be packaged in WAR
+src/main/resources/static/
+src/main/resources/templates/

@@ -5,11 +5,20 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import jakarta.annotation.PostConstruct;
+import java.util.TimeZone;
+
 /**
  * Web configuration for CORS and static resources
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
+
+    @PostConstruct
+    public void init() {
+        // 确保Web层使用正确的时区
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+    }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {

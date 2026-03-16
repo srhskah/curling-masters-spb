@@ -2,6 +2,7 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 
 <head th:replace="~{fragments :: head('首页')}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
 </head>
 
 <body>
@@ -18,32 +19,57 @@
             <p class="text-center">您已成功登录系统</p>
 
             <div class="row mt-4">
-                <div class="col-md-4">
-                    <div class="card bg-light text-dark">
+                <div class="col-md-6" style="margin-bottom: calc(var(--bs-gutter-x) * .5);">
+                    <div class="card bg-primary text-white">
                         <div class="card-body text-center">
-                            <h5 class="card-title">用户信息</h5>
-                            <p class="card-text">用户名: <span th:text="${username}"></span></p>
-                            <p class="card-text">角色: 
-                                <span th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}" class="badge bg-danger">超级管理员</span>
-                                <span th:if="${#authorization.expression('hasRole(''ROLE_ADMIN'')') and not #authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}" class="badge bg-warning text-dark">管理员</span>
-                                <span th:if="${#authorization.expression('hasRole(''ROLE_USER'')') and not #authorization.expression('hasRole(''ROLE_ADMIN'')') and not #authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}" class="badge bg-info">普通用户</span>
-                            </p>
+                            <h5 class="card-title">
+                                <i class="bi bi-compass"></i> 快速导航
+                            </h5>
+                            <p class="card-text">访问您的个人中心或管理系统功能</p>
+                            <a th:href="@{'/user/profile/' + ${#authentication.principal.id}}" class="btn btn-light btn-sm me-2">
+                                <i class="bi bi-person-circle"></i> 个人中心
+                            </a>
+                            <a th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'') or hasRole(''ROLE_ADMIN'')')}" href="/user/manage" class="btn btn-outline-light btn-sm">
+                                <i class="bi bi-people"></i> 用户管理
+                            </a>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card bg-light text-dark">
-                        <div class="card-body text-center">
-                            <h5 class="card-title">账户管理</h5>
-                            <a href="/user/reset-password" class="btn btn-primary">重置密码</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4" th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'') or hasRole(''ROLE_ADMIN'')')}">
-                    <div class="card bg-light text-dark">
-                        <div class="card-body text-center">
-                            <h5 class="card-title">用户管理</h5>
-                            <a href="/user/manage" class="btn btn-success">管理用户</a>
+                <div class="col-md-6">
+                    <div class="card bg-dark text-white">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="bi bi-server"></i> 系统信息
+                            </h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <small class="text-muted">Java运行环境</small>
+                                    <p class="mb-1" th:text="${systemInfo.javaVersion}">Java版本</p>
+                                    <small class="text-muted">操作系统</small>
+                                    <p class="mb-1" th:text="${systemInfo.osName}">操作系统</p>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">内存使用</small>
+                                    <p class="mb-1" th:text="${systemInfo.memoryUsagePercent} + '%'" style="display: inline-block;">内存使用率</p>
+                                    <div class="progress mb-2" style="height: 8px; margin:0.5em 0;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             th:style="'width: ' + ${systemInfo.memoryUsagePercent} + '%'"
+                                             th:aria-valuenow="${systemInfo.memoryUsagePercent}" aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">处理器</small>
+                                    <p class="mb-0">
+                                        <span th:text="${systemInfo.availableProcessors}">4</span> 核心
+                                    </p>
+                                </div>
+                            </div>
+                            <hr class="my-2">
+                            <div class="text-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> 
+                                    <span th:text="${#temporals.format(currentTime, 'yyyy-MM-dd HH:mm:ss')}">当前时间</span>
+                                </small>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -1,3 +1,6 @@
+-- 设置数据库时区
+SET time_zone = '+8:00';
+
 CREATE TABLE `user` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `username` VARCHAR(50) NOT NULL UNIQUE COMMENT '登录名',

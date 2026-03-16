@@ -34,6 +34,7 @@
                         <span th:text="${username ?: '用户'}">用户名</span>
                     </a>
                     <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" th:href="@{'/user/profile/' + ${#authentication.principal.id}}">个人中心</a></li>
                         <li><a class="dropdown-item" href="/user/reset-password">重置密码</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="#" onclick="document.getElementById('logoutForm').submit();">退出登录</a></li>
