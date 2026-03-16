@@ -33142,3 +33142,35 @@ org.springframework.security.web.firewall.RequestRejectedException: The request 
 2026-03-16 15:03:15.265{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-3] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
 2026-03-16 15:03:15.282{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-3] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
 2026-03-16 15:03:15.283{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-3] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
+2026-03-16 15:03:45.403{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-6] DEBUG o.s.security.web.FilterChainProxy - Securing GET /actuator/health
+2026-03-16 15:03:45.404{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-6] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
+2026-03-16 15:03:45.405{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-6] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
+2026-03-16 15:03:45.405{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-6] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
+2026-03-16 15:04:15.772{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-7] DEBUG o.s.security.web.FilterChainProxy - Securing GET /actuator/health
+2026-03-16 15:04:15.777{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-7] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
+2026-03-16 15:04:15.801{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-7] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
+2026-03-16 15:04:15.805{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-7] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
+2026-03-16 15:04:46.140{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-10] DEBUG o.s.security.web.FilterChainProxy - Securing GET /actuator/health
+2026-03-16 15:04:46.141{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-10] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
+2026-03-16 15:04:46.151{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-10] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
+2026-03-16 15:04:46.155{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-10] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
+2026-03-16 15:05:16.402{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-1] DEBUG o.s.security.web.FilterChainProxy - Securing GET /actuator/health
+2026-03-16 15:05:16.403{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-1] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
+2026-03-16 15:05:16.406{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-1] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
+2026-03-16 15:05:16.406{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-1] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
+2026-03-16 15:05:46.520{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-3] DEBUG o.s.security.web.FilterChainProxy - Securing GET /actuator/health
+2026-03-16 15:05:46.521{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-3] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
+2026-03-16 15:05:46.524{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-3] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
+2026-03-16 15:05:46.525{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-3] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
+2026-03-16 15:06:16.632{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-6] DEBUG o.s.security.web.FilterChainProxy - Securing GET /actuator/health
+2026-03-16 15:06:16.633{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-6] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
+2026-03-16 15:06:16.635{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-6] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
+2026-03-16 15:06:16.635{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-6] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
+2026-03-16 15:06:46.730{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-7] DEBUG o.s.security.web.FilterChainProxy - Securing GET /actuator/health
+2026-03-16 15:06:46.730{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-7] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
+2026-03-16 15:06:46.731{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-7] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
+2026-03-16 15:06:46.731{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-7] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
+2026-03-16 15:07:16.856{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-10] DEBUG o.s.security.web.FilterChainProxy - Securing GET /actuator/health
+2026-03-16 15:07:16.857{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-10] DEBUG o.s.s.w.a.AnonymousAuthenticationFilter - Set SecurityContextHolder to anonymous SecurityContext
+2026-03-16 15:07:16.860{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-10] DEBUG o.s.s.w.s.HttpSessionRequestCache - Saved request http://localhost:8080/actuator/health?continue to session
+2026-03-16 15:07:16.861{Asia/Shanghai} [http-nio-0.0.0.0-8080-exec-10] DEBUG o.s.s.web.DefaultRedirectStrategy - Redirecting to http://localhost:8080/user/login
