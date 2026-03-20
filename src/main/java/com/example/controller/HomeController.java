@@ -2,6 +2,9 @@ package com.example.controller;
 
 import com.example.util.CookieUtil;
 import com.example.util.TimezoneUtil;
+import com.example.entity.Season;
+import com.example.service.RankingService;
+import com.example.service.SeasonService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,12 +13,17 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.Map;
 
 @Controller
 public class HomeController {
 
     private static final Logger logger = LoggerFactory.getLogger(HomeController.class);
+
+    @Autowired private RankingService rankingService;
+    @Autowired private SeasonService seasonService;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model, HttpServletRequest request) {
@@ -59,6 +67,17 @@ public class HomeController {
         
         // 添加系统统计信息
         addSystemStatistics(model);
+
+        // 首页排名模块：总排名/当前赛季排名（仅前24）
+        model.addAttribute("totalRankingTop24", rankingService.getTotalRanking(24));
+        Season currentSeason = seasonService.lambdaQuery()
+                .orderByDesc(Season::getYear)
+                .orderByDesc(Season::getHalf)
+                .last("LIMIT 1")
+                .one();
+        model.addAttribute("currentSeason", currentSeason);
+        model.addAttribute("currentSeasonRankingTop24",
+                currentSeason == null ? java.util.List.of() : rankingService.getSeasonRanking(currentSeason.getId(), 24));
         
         // 验证时区设置
         TimezoneUtil.logTimezoneInfo();

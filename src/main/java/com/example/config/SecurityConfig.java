@@ -15,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -63,7 +64,16 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/", "/user/login", "/user/register", "/user/change-password", "/css/**", "/js/**", "/images/**").permitAll()
+                // docker 健康检查等需要匿名访问（用 Ant matcher，避免 MVC matcher 匹配不到）
+                .requestMatchers(new AntPathRequestMatcher("/actuator/**")).permitAll()
+                .requestMatchers(
+                        "/",
+                        "/ranking", "/ranking/**",
+                        "/season/list", "/season/detail/**",
+                        "/tournament/list", "/tournament/detail/**",
+                        "/user/login", "/user/register", "/user/change-password",
+                        "/css/**", "/js/**", "/images/**"
+                ).permitAll()
                 .requestMatchers("/user/manage/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
                 .anyRequest().authenticated()
             )

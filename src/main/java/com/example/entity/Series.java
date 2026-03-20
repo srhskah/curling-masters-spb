@@ -1,5 +1,6 @@
 package com.example.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import java.time.LocalDateTime;
 
 public class Series {
@@ -48,5 +49,14 @@ public class Series {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+    
+    // 为了兼容性，提供createTime方法
+    public LocalDateTime getCreateTime() {
+        return createdAt;
+    }
+    
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createdAt = createTime;
     }
 }

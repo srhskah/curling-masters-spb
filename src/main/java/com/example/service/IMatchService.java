@@ -9,8 +9,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * </p>
  *
  * @author Curling Masters
- * @since 2026-03-04
+ * @since 2026-03-16
  */
-public interface MatchService extends IService<Match> {
+public interface IMatchService extends IService<Match> {
 
 }

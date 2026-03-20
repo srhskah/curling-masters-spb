@@ -1,61 +1,47 @@
 package com.example.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import java.io.Serializable;
 import java.math.BigDecimal;
+import lombok.Getter;
+import lombok.Setter;
 
-public class TournamentLevel {
+/**
+ * <p>
+ * 
+ * </p>
+ *
+ * @author Curling Masters
+ * @since 2026-03-17
+ */
+@Getter
+@Setter
+@TableName("tournament_level")
+public class TournamentLevel implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @TableId(value = "id", type = IdType.AUTO)
     private Integer id;
-    private String code; // 等级代码，如年终总决赛、2000赛等
+
+    /**
+     * 等级代码，如年终总决赛、2000赛等
+     */
+    private String code;
+
     private String name;
-    private BigDecimal defaultChampionRatio; // 默认冠军积分比率(%)
-    private Integer defaultBottomPoints; // 垫底积分
+
+    /**
+     * 默认冠军积分比率(%)
+     */
+    private BigDecimal defaultChampionRatio;
+
+    /**
+     * 垫底积分
+     */
+    private Integer defaultBottomPoints;
+
     private String description;
-
-    // Getters and Setters
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public BigDecimal getDefaultChampionRatio() {
-        return defaultChampionRatio;
-    }
-
-    public void setDefaultChampionRatio(BigDecimal defaultChampionRatio) {
-        this.defaultChampionRatio = defaultChampionRatio;
-    }
-
-    public Integer getDefaultBottomPoints() {
-        return defaultBottomPoints;
-    }
-
-    public void setDefaultBottomPoints(Integer defaultBottomPoints) {
-        this.defaultBottomPoints = defaultBottomPoints;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
 }

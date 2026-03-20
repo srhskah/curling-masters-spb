@@ -4,7 +4,7 @@
 <head th:replace="~{fragments :: head(__${title}__)}">
 </head>
 
-<body>
+<body th:classappend="${ipBgClass}">
     <!-- 导航栏 -->
     <div th:if="${loggedIn == null or loggedIn}" th:replace="~{fragments :: navbar}"></div>
     <div th:if="${loggedIn != null and not loggedIn}" th:replace="~{fragments :: navbar-login}"></div>

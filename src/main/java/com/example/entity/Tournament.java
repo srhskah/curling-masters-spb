@@ -1,9 +1,14 @@
 package com.example.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.Setter;
 
+@Getter
+@Setter
 public class Tournament {
     private Long id;
     private Long seriesId;
@@ -13,87 +18,19 @@ public class Tournament {
     private Integer status; // 0-筹备中,1-进行中,2-已结束
     private LocalDate startDate;
     private LocalDate endDate;
+    
+    @TableField("created_at")
     private LocalDateTime createdAt;
+    
+    @TableField("updated_at")
     private LocalDateTime updatedAt;
-
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getSeriesId() {
-        return seriesId;
-    }
-
-    public void setSeriesId(Long seriesId) {
-        this.seriesId = seriesId;
-    }
-
-    public String getLevelCode() {
-        return levelCode;
-    }
-
-    public void setLevelCode(String levelCode) {
-        this.levelCode = levelCode;
-    }
-
-    public Long getHostUserId() {
-        return hostUserId;
-    }
-
-    public void setHostUserId(Long hostUserId) {
-        this.hostUserId = hostUserId;
-    }
-
-    public BigDecimal getChampionPointsRatio() {
-        return championPointsRatio;
-    }
-
-    public void setChampionPointsRatio(BigDecimal championPointsRatio) {
-        this.championPointsRatio = championPointsRatio;
-    }
-
-    public Integer getStatus() {
-        return status;
-    }
-
-    public void setStatus(Integer status) {
-        this.status = status;
-    }
-
-    public LocalDate getStartDate() {
-        return startDate;
-    }
-
-    public void setStartDate(LocalDate startDate) {
-        this.startDate = startDate;
-    }
-
-    public LocalDate getEndDate() {
-        return endDate;
-    }
-
-    public void setEndDate(LocalDate endDate) {
-        this.endDate = endDate;
-    }
-
-    public LocalDateTime getCreatedAt() {
+    
+    // 为了兼容性，提供createTime方法
+    public LocalDateTime getCreateTime() {
         return createdAt;
     }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
+    
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createdAt = createTime;
     }
 }

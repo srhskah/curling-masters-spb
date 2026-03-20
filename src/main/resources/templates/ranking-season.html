@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments :: head(${pageTitle})}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <link rel="shortcut icon"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+</head>
+
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+
+<div th:replace="~{fragments :: success-alert}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+
+<div class="container mt-4">
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="bi bi-calendar3"></i>
+                <span th:text="${season.year + '年' + (season.half == 1 ? '上半年' : '下半年') + ' 赛季排名'}"></span>
+            </h5>
+            <a class="btn btn-light btn-sm" th:href="@{/ranking}">返回排名主页</a>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                    <tr>
+                        <th style="width: 80px;">排名</th>
+                        <th>选手</th>
+                        <th style="width: 140px;">积分</th>
+                        <th style="width: 170px;">战绩</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="entry, stat : ${seasonRanking}">
+                        <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                        <td th:text="${entry.username}"></td>
+                        <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                    th:attr="data-user-id=${entry.userId},data-season-id=${season.id}">
+                                复制文本
+                            </button>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(seasonRanking)}">
+                        <td colspan="4" class="text-center text-muted">暂无数据</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-muted small">
+                规则：赛季排名取本赛季中每个选手系列积分（同系列取最高）前10个系列累加。
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+
+<script>
+    (() => {
+        const copyToClipboard = async (text) => {
+            if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.top = '-1000px';
+            textarea.style.left = '-1000px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+        };
+
+        const fetchJson = async (url) => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('请求失败：' + res.status);
+            return await res.json();
+        };
+
+        const formatUserPerformancePlain = (data) => {
+            const title = data && data.title ? data.title : '战绩';
+            const username = data && data.username ? data.username : '';
+            const totalPoints = data && data.totalPoints != null ? data.totalPoints : '';
+            const regularTop10Sum = data && data.regularTop10Sum != null ? data.regularTop10Sum : 0;
+            const finalsSum = data && data.finalsSum != null ? data.finalsSum : 0;
+
+            const lines = [];
+            lines.push(`${title}`);
+            if (username) lines.push(`选手：${username}`);
+            lines.push(`常规Top10累计：${regularTop10Sum}分`);
+            lines.push(`决赛/年终累计：${finalsSum}分`);
+            lines.push(`合计：${totalPoints}分`);
+            lines.push('');
+
+            const regular = (data && data.regularSeries) ? data.regularSeries : [];
+            lines.push('【常规系列（Top10已标记）】');
+            for (const r of regular) {
+                const mark = r.countedInTop10 ? 'Top10' : '-';
+                const seasonLabel = r.seasonLabel || '';
+                const seriesName = r.seriesName || '';
+                lines.push(`${mark} | ${seasonLabel} | ${seriesName} | ${r.points ?? 0}分`);
+            }
+            if (!regular.length) lines.push('（无）');
+            lines.push('');
+
+            const finals = (data && data.finals) ? data.finals : [];
+            lines.push('【赛季总决赛/年终总决赛】');
+            for (const f of finals) {
+                const seasonLabel = f.seasonLabel || '';
+                const seriesName = f.seriesName || '';
+                const levelName = f.levelName || '';
+                lines.push(`${seasonLabel} | ${seriesName} | ${levelName} | ${f.points ?? 0}分`);
+            }
+            if (!finals.length) lines.push('（无）');
+
+            return lines.join('\n');
+        };
+
+        document.querySelectorAll('.user-perf-copy-btn').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const userId = btn.dataset.userId;
+                const seasonId = btn.dataset.seasonId;
+                if (!userId || !seasonId) return;
+                try {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.85';
+                    const data = await fetchJson(`/ranking/api/user/${encodeURIComponent(userId)}/season/${encodeURIComponent(seasonId)}/performance`);
+                    await copyToClipboard(formatUserPerformancePlain(data));
+                    if (typeof showAlert === 'function') showAlert('复制成功', 'success');
+                    else alert('复制成功');
+                } catch (e) {
+                    console.error(e);
+                    if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                    else alert(e.message || '复制失败');
+                } finally {
+                    btn.disabled = false;
+                    btn.style.opacity = '';
+                }
+            });
+        });
+    })();
+</script>
+</body>
+</html>
+

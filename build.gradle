@@ -9,6 +9,13 @@ plugins {
 task runCodeGenerator(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'com.example.demo.CodeGenerator'
+
+    // 从环境变量传递系统属性
+    // systemProperties = [
+    //     'MYSQL_DB_URL': System.getenv('MYSQL_DB_URL') ?: 'jdbc:mysql://localhost:3306/curling_masters',
+    //     'MYSQL_USER': System.getenv('MYSQL_USER') ?: 'root',
+    //     'MYSQL_ROOT_PASSWORD': System.getenv('MYSQL_ROOT_PASSWORD') ?: 'password'
+    // ]
 }
 
 group = 'com.example'
@@ -30,6 +37,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+    // HTML -> PDF 渲染
+    implementation 'io.github.openhtmltopdf:openhtmltopdf-pdfbox:1.1.28'
     // 注意：Spring Boot 3.x 中 Java8 时间支持已集成到核心，不需要额外依赖
     // implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.3'
 	implementation 'org.flywaydb:flyway-core'
@@ -41,6 +50,10 @@ dependencies {
 	// 仅用于代码生成，不会影响运行时
 	implementation 'com.baomidou:mybatis-plus-generator:3.5.7'
 	implementation 'org.apache.velocity:velocity-engine-core:2.3' // 模板引擎
+    
+    // Lombok for annotations like @Getter, @Setter
+    implementation 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
     
 	runtimeOnly 'com.mysql:mysql-connector-j'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Curling Masters</title>
+
+  <!-- soft ice shadow -->
+  <ellipse cx="32" cy="54" rx="18" ry="5" fill="#0ea5e9" opacity="0.12"/>
+
+  <!-- stone body (top slightly tapered like a real curling stone) -->
+  <path d="M32 14 C23 14 16 21 16 30 C16 40 22 50 32 50 C42 50 48 40 48 30 C48 21 41 14 32 14 Z" fill="#0f172a"/>
+
+  <!-- stone rim / seam -->
+  <path d="M20 30 C20 22 26 17 32 17 C38 17 44 22 44 30 C44 38 39 46 32 46 C25 46 20 38 20 30 Z" fill="#111c34" opacity="0.95"/>
+
+  <!-- highlight -->
+  <path d="M27 20 C22 22 20 26 20 30 C20 38 25 44 32 44 C26 41 24 34 24 29 C24 25 25 22 27 20 Z" fill="#1e293b" opacity="0.85"/>
+
+  <!-- handle -->
+  <path d="M29 9 C29 7 30.5 6 32 6 C33.5 6 35 7 35 9 L35 20 C35 22 33.5 23 32 23 C30.5 23 29 22 29 20 Z" fill="#0f172a"/>
+  <circle cx="32" cy="9.5" r="2.3" fill="#0ea5e9" opacity="0.9"/>
+
+  <!-- small texture dots -->
+  <circle cx="25" cy="33" r="1" fill="#334155" opacity="0.9"/>
+  <circle cx="28" cy="37" r="0.9" fill="#334155" opacity="0.85"/>
+  <circle cx="36" cy="36" r="1" fill="#334155" opacity="0.85"/>
+</svg>
+

@@ -10,9 +10,9 @@ import java.util.regex.Matcher;
 public class UsernameValidator {
 
     // 支持Unicode字符和emoji的正则表达式
-    // 允许：中文、日文、韩文、emoji、英文字母、数字、下划线、连字符
+    // 允许：中文、日文、韩文、emoji、英文字母、数字、空格、下划线、连字符、点号，以及常用中英文标点（! ? ！ ？ 。 ( )）
     private static final Pattern VALID_USERNAME_PATTERN = Pattern.compile(
-        "^[\\p{L}\\p{M}\\p{N}\\p{Zs}\\p{So}\\p{Sk}\\p{Sm}_-]{2,50}$"
+        "^[\\p{L}\\p{M}\\p{N}\\p{Zs}\\p{So}\\p{Sk}\\p{Sm}_.\\-!\\?！？。()]{1,50}$"
     );
 
     // SQL注入检测模式
@@ -51,8 +51,8 @@ public class UsernameValidator {
             return ValidationResult.error("用户名不能为空");
         }
 
-        if (trimmedUsername.length() < 2) {
-            return ValidationResult.error("用户名长度至少为2个字符");
+        if (trimmedUsername.length() < 1) {
+            return ValidationResult.error("用户名长度至少为1个字符");
         }
 
         if (trimmedUsername.length() > 50) {
@@ -78,7 +78,7 @@ public class UsernameValidator {
 
         // 检查是否符合允许的字符模式
         if (!VALID_USERNAME_PATTERN.matcher(trimmedUsername).matches()) {
-            return ValidationResult.error("用户名只能包含字母、数字、中文、emoji和下划线、连字符");
+            return ValidationResult.error("用户名只能包含字母、数字、中文、emoji、空格以及 _ - . ! ? ！ ？ 。 ( )");
         }
 
         // 检查是否全为空白字符

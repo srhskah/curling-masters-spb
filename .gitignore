@@ -84,11 +84,13 @@ mybatis-generator.xml
 *.swp
 *.swo
 *~
+backup/
 =======
 # Compiled class file
 *.class
 
 # Log file
+logs/
 *.log
 
 # BlueJ files
@@ -119,4 +121,6 @@ replay_pid*
 
 *.md
 !README.md
+
+cookies.txt
 >>>>>>> 85cdcc9e06822b14c178d5df4d8af11f9e3fdf71

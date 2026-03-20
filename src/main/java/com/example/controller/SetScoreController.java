@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
  * </p>
  *
  * @author Curling Masters
- * @since 2026-03-04
+ * @since 2026-03-16
  */
 @RestController
 @RequestMapping("/setScore")

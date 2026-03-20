@@ -254,6 +254,7 @@ public class UserController {
     public String updateUser(@PathVariable Long id,
                             @RequestParam String email,
                             @RequestParam Integer role,
+                            @RequestParam(value = "includeInTotalRanking", required = false) Boolean includeInTotalRanking,
                             RedirectAttributes redirectAttributes) {
         try {
             User user = userService.getById(id);
@@ -270,6 +271,7 @@ public class UserController {
 
             user.setEmail(email);
             user.setRole(role);
+            user.setIncludeInTotalRanking(includeInTotalRanking != null ? includeInTotalRanking : Boolean.FALSE);
             userService.updateById(user);
             redirectAttributes.addFlashAttribute("success", "用户信息更新成功");
         } catch (Exception e) {
@@ -331,35 +333,105 @@ public class UserController {
     }
 
     // 个人中心页面（所有登录用户都可以访问）
+    // @GetMapping("/profile/{id}")
+    // public String userProfile(@PathVariable Long id, Model model) {
+    //     User user = userService.getById(id);
+    //     if (user == null) {
+    //         return "redirect:/";
+    //     }
+        
+    //     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    //     String currentUsername = auth.getName();
+    //     User currentUser = userService.findByUsername(currentUsername);
+        
+    //     model.addAttribute("user", user);
+    //     model.addAttribute("isOwner", currentUser.getId().equals(id));
+        
+    //     return "user-profile";
+    // }
+
+    // 修复 userProfile 方法
     @GetMapping("/profile/{id}")
     public String userProfile(@PathVariable Long id, Model model) {
-        User user = userService.getById(id);
-        if (user == null) {
+        try {
+            User user = userService.getById(id);
+            if (user == null) {
+                return "redirect:/";
+            }
+            
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getName() == null) {
+                return "redirect:/login";
+            }
+            
+            String currentUsername = auth.getName();
+            User currentUser = userService.findByUsername(currentUsername);
+            
+            // 检查当前用户是否存在
+            if (currentUser == null) {
+                return "redirect:/login";
+            }
+            
+            model.addAttribute("user", user);
+            model.addAttribute("isOwner", currentUser.getId().equals(id));
+            
+            return "user-profile";
+        } catch (Exception e) {
+            e.printStackTrace();
             return "redirect:/";
         }
+    }
+
+
+    // 更新个人信息（只能修改自己的信息）
+    // @PostMapping("/profile/update")
+    // public String updateProfile(@RequestParam String username,
+    //                            @RequestParam String email,
+    //                            RedirectAttributes redirectAttributes) {
+    //     User currentUser = null;
+    //     try {
+    //         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    //         String currentUsername = auth.getName();
+    //         currentUser = userService.findByUsername(currentUsername);
+            
+    //         // 检查用户名是否已被其他用户使用
+    //         if (!currentUser.getUsername().equals(username)) {
+    //             User existingUser = userService.findByUsername(username);
+    //             if (existingUser != null) {
+    //                 redirectAttributes.addFlashAttribute("error", "该用户名已被使用");
+    //                 return "redirect:/user/profile/" + currentUser.getId();
+    //             }
+    //         }
+            
+    //         currentUser.setUsername(username);
+    //         currentUser.setEmail(email);
+    //         currentUser.setUpdatedAt(LocalDateTime.now());
+            
+    //         userService.updateById(currentUser);
+    //         redirectAttributes.addFlashAttribute("success", "个人信息更新成功");
+            
+    //     } catch (Exception e) {
+    //         redirectAttributes.addFlashAttribute("error", "更新失败：" + e.getMessage());
+    //     }
         
+    //     return "redirect:/user/profile/" + currentUser.getId();
+    // }
+    @PostMapping("/profile/update")
+    public String updateProfile(@RequestParam String username,
+                            @RequestParam String email,
+                            RedirectAttributes redirectAttributes) {
+        // 1. 提前获取当前用户，并进行空值检查
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String currentUsername = auth.getName();
         User currentUser = userService.findByUsername(currentUsername);
         
-        model.addAttribute("user", user);
-        model.addAttribute("isOwner", currentUser.getId().equals(id));
+        if (currentUser == null) {
+            redirectAttributes.addFlashAttribute("error", "当前用户不存在或未登录");
+            return "redirect:/user/login";  // 或返回错误页面
+        }
         
-        return "user-profile";
-    }
-
-    // 更新个人信息（只能修改自己的信息）
-    @PostMapping("/profile/update")
-    public String updateProfile(@RequestParam String username,
-                               @RequestParam String email,
-                               RedirectAttributes redirectAttributes) {
-        User currentUser = null;
         try {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            String currentUsername = auth.getName();
-            currentUser = userService.findByUsername(currentUsername);
-            
-            // 检查用户名是否已被其他用户使用
+            // 2. 检查用户名是否被其他用户占用
             if (!currentUser.getUsername().equals(username)) {
                 User existingUser = userService.findByUsername(username);
                 if (existingUser != null) {
@@ -368,17 +440,19 @@ public class UserController {
                 }
             }
             
+            // 3. 更新用户信息
             currentUser.setUsername(username);
             currentUser.setEmail(email);
             currentUser.setUpdatedAt(LocalDateTime.now());
-            
             userService.updateById(currentUser);
+            
             redirectAttributes.addFlashAttribute("success", "个人信息更新成功");
+            return "redirect:/user/profile/" + currentUser.getId();
             
         } catch (Exception e) {
+            // 4. 异常时，currentUser 仍然可用，返回原页面并提示错误
             redirectAttributes.addFlashAttribute("error", "更新失败：" + e.getMessage());
+            return "redirect:/user/profile/" + currentUser.getId();
         }
-        
-        return "redirect:/user/profile/" + currentUser.getId();
     }
 }

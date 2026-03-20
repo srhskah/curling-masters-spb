@@ -6,12 +6,12 @@
     <title>用户管理 - Curling Masters</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <link rel="shortcut icon"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
     <link th:href="@{/css/main.css?v=1.1}" rel="stylesheet">
     <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
         .table-container {
             background: white;
             border-radius: 10px;
@@ -92,7 +92,7 @@
         .btn-mobile {
             padding: 0.5rem 1rem;
             font-size: 0.875rem;
-            border-radius: 6px;
+            /* border-radius: 6px; */
             min-width: 80px;
             text-align: center;
         }
@@ -179,7 +179,7 @@
         }
     </style>
 </head>
-<body>
+<body th:classappend="${ipBgClass}">
     <!-- 导航栏 -->
     <div th:replace="~{fragments :: navbar}"></div>
     <!-- <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -233,6 +233,7 @@
                                 <th>用户名</th>
                                 <th>邮箱</th>
                                 <th>角色</th>
+                                <th>计入总排名</th>
                                 <th>注册时间</th>
                                 <th>操作</th>
                             </tr>
@@ -240,12 +241,16 @@
                         <tbody id="usersTableBody">
                             <tr th:each="user : ${users}" class="user-row" th:data-username="${user.username}" th:data-email="${user.email}" th:data-role="${user.role}">
                                 <td th:text="${user.id}"></td>
-                                <td th:text="${user.username}"></td>
+                                <td th:text="${user.username}" th:href="@{'/user/profile/' + ${user.id}}"></td>
                                 <td th:text="${user.email}"></td>
                                 <td>
                                     <span th:if="${user.role == 0}" class="badge bg-danger">超级管理员</span>
                                     <span th:if="${user.role == 1}" class="badge bg-warning">普通管理员</span>
                                     <span th:if="${user.role == 2}" class="badge bg-secondary">普通用户</span>
+                                </td>
+                                <td>
+                                    <span th:if="${user.includeInTotalRanking == null or user.includeInTotalRanking}" class="badge bg-success">是</span>
+                                    <span th:if="${user.includeInTotalRanking != null and !user.includeInTotalRanking}" class="badge bg-secondary">否</span>
                                 </td>
                                 <td th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
                                 <td>
@@ -253,12 +258,26 @@
                                     <a th:if="${#authentication.principal.role == 0}" th:href="@{'/user/edit/' + ${user.id}}" class="btn btn-sm btn-primary btn-mobile">编辑</a>
                                     
                                     <!-- 重置密码权限：超级管理员和普通管理员都可以使用 -->
-                                    <button th:if="${#authentication.principal.role <= 1 and user.id != #authentication.principal.id}" 
+                                    <!-- <button th:if="${#authentication.principal.role <= 1}" 
                                             type="button" class="btn btn-sm btn-warning btn-mobile"
                                             onclick="resetPassword(this)" th:data-id="${user.id}" th:data-username="${user.username}">
                                         重置密码
-                                    </button>
+                                    </button> -->
                                     
+                                    <!-- 桌面端表格 - 重置密码按钮权限修改 -->
+                                    <button th:if="${user.id == #authentication.principal.id or (#authentication.principal.role == 0 and user.role > 0) or (#authentication.principal.role == 1 and user.role == 2)}"  
+                                            type="button" class="btn btn-sm btn-warning btn-mobile" id="resetPassword_desktop"
+                                            onclick="resetPassword(this)" th:data-id="${user.id}" th:data-username="${user.username}">
+                                        重置密码
+                                    </button>
+
+                                    <!-- 移动端卡片 - 重置密码按钮权限修改 -->
+                                    <button th:if="${user.id == #authentication.principal.id or (#authentication.principal.role == 0 and user.role > 0) or (#authentication.principal.role == 1 and user.role == 2)}"  
+                                            type="button" class="btn btn-sm btn-warning btn-mobile" id="resetPassword_mobile"
+                                            onclick="resetPassword(this)" th:data-id="${user.id}" th:data-username="${user.username}">
+                                        <i class="bi bi-key"></i> 重置密码
+                                    </button>
+
                                     <!-- 删除权限：只有超级管理员可以删除其他用户 -->
                                     <button th:if="${#authentication.principal.role == 0 and user.role != 0 and user.id != #authentication.principal.id}" 
                                             type="button" class="btn btn-sm btn-danger btn-mobile"
@@ -288,6 +307,13 @@
                         <div class="user-info-item">
                             <div class="user-info-label">邮箱</div>
                             <div class="user-info-value" th:text="${user.email}">user@example.com</div>
+                        </div>
+                        <div class="user-info-item">
+                            <div class="user-info-label">计入总排名</div>
+                            <div class="user-info-value">
+                                <span th:if="${user.includeInTotalRanking == null or user.includeInTotalRanking}" class="badge bg-success">是</span>
+                                <span th:if="${user.includeInTotalRanking != null and !user.includeInTotalRanking}" class="badge bg-secondary">否</span>
+                            </div>
                         </div>
                         <div class="user-info-item">
                             <div class="user-info-label">注册时间</div>
