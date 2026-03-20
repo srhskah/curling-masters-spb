@@ -219,7 +219,7 @@ public class RankingExportPdfController {
         List<RankingListEntryDto> result = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
             RankingEntry e = entries.get(i);
-            result.add(new RankingListEntryDto(i + 1, e.getUsername(), e.getPoints()));
+            result.add(new RankingListEntryDto(i + 1, e.getUserId(), e.getUsername(), e.getPoints()));
         }
         return result;
     }
