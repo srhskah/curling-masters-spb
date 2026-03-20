@@ -3,6 +3,7 @@ package com.example.controller;
 import com.example.entity.*;
 import com.example.service.*;
 import com.example.util.IpAddressUtil;
+import com.example.util.HtmlEscaper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -231,7 +232,7 @@ public class TournamentController {
             
             item.put("data", Arrays.asList(
                 tournament.getId(),
-                "<strong>" + levelName + "</strong>" +
+                "<strong>" + HtmlEscaper.escapeHtml(levelName) + "</strong>" +
                         (edition != null ? " <span class=\"badge bg-light text-dark border\">第" + edition + "届</span>" : ""),
                 seriesName,
                 seasonName,
