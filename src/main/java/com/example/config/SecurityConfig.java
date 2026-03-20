@@ -16,6 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -107,7 +108,11 @@ public class SecurityConfig {
                 .logoutSuccessUrl("/user/login?logout=true")
                 .permitAll()
             )
-            .csrf(csrf -> csrf.disable()); // 暂时禁用CSRF，生产环境应启用
+            .csrf(csrf -> csrf
+                // 用 Cookie 承载 CSRF token，前端 fetch 可以从 cookie 里读取并带到请求头
+                // （同时表单会使用 thymeleaf 的 _csrf hidden input）
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            );
 
         return http.build();
     }

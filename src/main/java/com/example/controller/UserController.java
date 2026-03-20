@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.entity.User;
 import com.example.service.UserService;
 import com.example.util.CookieUtil;
+import com.example.util.UsernameValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -431,9 +432,17 @@ public class UserController {
         }
         
         try {
+            // 用户名更新走严格校验，避免绕过 UsernameValidator（注册/批量新增已做）
+            UsernameValidator.ValidationResult validation = UsernameValidator.validateUsername(username);
+            if (!validation.isValid()) {
+                redirectAttributes.addFlashAttribute("error", validation.getMessage());
+                return "redirect:/user/profile/" + currentUser.getId();
+            }
+            String cleanUsername = UsernameValidator.sanitizeUsername(username);
+
             // 2. 检查用户名是否被其他用户占用
-            if (!currentUser.getUsername().equals(username)) {
-                User existingUser = userService.findByUsername(username);
+            if (!currentUser.getUsername().equals(cleanUsername)) {
+                User existingUser = userService.findByUsername(cleanUsername);
                 if (existingUser != null) {
                     redirectAttributes.addFlashAttribute("error", "该用户名已被使用");
                     return "redirect:/user/profile/" + currentUser.getId();
@@ -441,7 +450,7 @@ public class UserController {
             }
             
             // 3. 更新用户信息
-            currentUser.setUsername(username);
+            currentUser.setUsername(cleanUsername);
             currentUser.setEmail(email);
             currentUser.setUpdatedAt(LocalDateTime.now());
             userService.updateById(currentUser);

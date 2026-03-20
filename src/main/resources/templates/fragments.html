@@ -118,6 +118,7 @@
                 </li>
             </ul>
             <form id="logoutForm" th:action="@{/logout}" method="post" style="display: none;">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
             </form>
         </div>
     </div>

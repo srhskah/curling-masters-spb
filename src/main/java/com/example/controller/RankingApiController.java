@@ -446,6 +446,19 @@ public class RankingApiController {
         return buildUserPerformance(userId, seriesIds, "总排名（最近20系列）");
     }
 
+    @GetMapping("/username/{username}/total/performance")
+    public Map<String, Object> getUserTotalPerformanceByUsername(@PathVariable String username) {
+        User u = userService.findByUsername(username);
+        Long userId = u != null ? u.getId() : null;
+
+        List<Series> recentSeries = seriesService.lambdaQuery()
+                .orderByDesc(Series::getCreatedAt)
+                .last("LIMIT 20")
+                .list();
+        List<Long> seriesIds = recentSeries.stream().map(Series::getId).filter(Objects::nonNull).toList();
+        return buildUserPerformance(userId, seriesIds, "总排名（最近20系列）");
+    }
+
     /**
      * 赛季排名：导出单个选手在该赛季中的战绩（Top10 常规系列 + 决赛/年终系列另外标记）
      */
@@ -459,6 +472,25 @@ public class RankingApiController {
                 .map(Series::getId)
                 .filter(Objects::nonNull)
                 .toList();
+        Season season = seasonService.getById(seasonId);
+        String seasonLabel = season == null ? ("赛季" + seasonId) : (season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年"));
+        return buildUserPerformance(userId, seriesIds, "赛季排名（" + seasonLabel + "）");
+    }
+
+    @GetMapping("/username/{username}/season/{seasonId}/performance")
+    public Map<String, Object> getUserSeasonPerformanceByUsername(@PathVariable String username, @PathVariable Long seasonId) {
+        User u = userService.findByUsername(username);
+        Long userId = u != null ? u.getId() : null;
+
+        List<Long> seriesIds = seriesService.lambdaQuery()
+                .eq(Series::getSeasonId, seasonId)
+                .orderByAsc(Series::getSequence)
+                .list()
+                .stream()
+                .map(Series::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
         Season season = seasonService.getById(seasonId);
         String seasonLabel = season == null ? ("赛季" + seasonId) : (season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年"));
         return buildUserPerformance(userId, seriesIds, "赛季排名（" + seasonLabel + "）");
@@ -604,12 +636,34 @@ public class RankingApiController {
         }
     }
 
-    private static List<RankingListEntryDto> toRankedList(List<RankingEntry> entries) {
+    private List<RankingListEntryDto> toRankedList(List<RankingEntry> entries) {
         if (entries == null || entries.isEmpty()) return List.of();
+
+        // 兜底：有些排名查询可能只拿到 username 而 userId 为空，
+        // 复制战绩功能依赖 userId（用于调用 /ranking/api/user/{userId}/...）。
+        Set<String> needResolve = entries.stream()
+                .filter(e -> e != null && e.getUserId() == null)
+                .map(RankingEntry::getUsername)
+                .filter(u -> u != null && !u.trim().isEmpty())
+                .collect(Collectors.toSet());
+
+        Map<String, Long> userIdByUsername = new HashMap<>();
+        for (String uname : needResolve) {
+            User u = userService.findByUsername(uname);
+            if (u != null && u.getId() != null) {
+                userIdByUsername.put(uname, u.getId());
+            }
+        }
+
         List<RankingListEntryDto> result = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
             RankingEntry e = entries.get(i);
-            result.add(new RankingListEntryDto(i + 1, e.getUserId(), e.getUsername(), e.getPoints()));
+            String username = e.getUsername();
+            Long userId = e.getUserId();
+            if (userId == null && username != null) {
+                userId = userIdByUsername.get(username);
+            }
+            result.add(new RankingListEntryDto(i + 1, userId, username, e.getPoints()));
         }
         return result;
     }
