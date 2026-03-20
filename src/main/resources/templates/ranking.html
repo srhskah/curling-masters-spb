@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments :: head(${pageTitle})}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <link rel="shortcut icon"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+</head>
+
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+
+<div th:replace="~{fragments :: success-alert}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+
+<div class="container mt-4">
+    <!-- ≥1400px：总排名 + 赛季排名并排展示 -->
+    <div class="row g-4 d-none d-xxl-flex">
+        <div class="col-xxl-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-ol"></i> 总排名</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check form-switch mb-0 ranking-scope-switch">
+                            <input class="form-check-input" type="checkbox" id="totalLimitToggleXxl">
+                            <label class="form-check-label text-white-50 small" for="totalLimitToggleXxl">
+                                <span id="totalLimitLabelXxl">全量</span>
+                            </label>
+                        </div>
+                        <select id="totalCopyFormatXxl" class="form-select form-select-sm" style="width: 180px;">
+                            <option value="plain">纯文本行</option>
+                            <option value="markdown">Markdown 表格</option>
+                            <option value="tsv">TSV/制表符表格</option>
+                        </select>
+                        <button type="button" class="btn btn-light btn-sm ranking-scope-copy" data-scope="total">复制</button>
+                        <button type="button" class="btn btn-outline-light btn-sm ranking-scope-export" data-scope="total">导出PDF</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" data-scope-table="total">
+                            <thead class="table-light">
+                            <tr>
+                                <th style="width: 80px;">排名</th>
+                                <th>选手</th>
+                                <th style="width: 140px;">积分</th>
+                                <th style="width: 170px;">战绩</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="entry, stat : ${totalRanking}">
+                                <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                                <td th:text="${entry.username}"></td>
+                                <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                            th:attr="data-user-id=${entry.userId}"
+                                            data-scope="total">
+                                        复制文本
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(totalRanking)}">
+                                <td colspan="4" class="text-center text-muted">暂无数据</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-muted small">
+                        规则：总排名取最近20个系列中每个选手系列积分（同系列取最高）前10个系列累加。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xxl-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-calendar3"></i> 赛季排名</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="form-check form-switch mb-0 ranking-scope-switch">
+                            <input class="form-check-input" type="checkbox" id="seasonLimitToggleXxl" checked>
+                            <label class="form-check-label text-white-50 small" for="seasonLimitToggleXxl">
+                                <span id="seasonLimitLabelXxl">前24</span>
+                            </label>
+                        </div>
+                        <select id="seasonCopyFormatXxl" class="form-select form-select-sm" style="width: 180px;">
+                            <option value="plain">纯文本行</option>
+                            <option value="markdown">Markdown 表格</option>
+                            <option value="tsv">TSV/制表符表格</option>
+                        </select>
+                        <button type="button" class="btn btn-light btn-sm ranking-scope-copy" data-scope="season">复制</button>
+                        <button type="button" class="btn btn-outline-light btn-sm ranking-scope-export" data-scope="season">导出PDF</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-pills mb-3 flex-nowrap overflow-auto" role="tablist" style="white-space: nowrap;">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="tab-current-season"
+                                    th:attr="data-season-id=${currentSeason != null ? currentSeason.id : ''}"
+                                    data-bs-toggle="pill" data-bs-target="#pane-current-season" type="button" role="tab">
+                                当前赛季
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation" th:each="s : ${seasons}">
+                            <button class="nav-link"
+                                    th:id="'tab-season-' + ${s.id}"
+                                    th:attr="data-season-id=${s.id}"
+                                    data-bs-toggle="pill"
+                                    th:data-bs-target="'#pane-season-' + ${s.id}"
+                                    type="button" role="tab"
+                                    th:text="${s.year + '年' + (s.half == 1 ? '上半年' : '下半年')}"></button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="pane-current-season" role="tabpanel">
+                            <div th:if="${currentSeason != null}" class="text-muted mb-2">
+                                <span th:text="${currentSeason.year + '年' + (currentSeason.half == 1 ? '上半年' : '下半年')}"></span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover" data-scope-table="season">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 80px;">排名</th>
+                                        <th>选手</th>
+                                        <th style="width: 140px;">积分</th>
+                                        <th style="width: 170px;">战绩</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:each="entry, stat : ${currentSeasonRankingTop24}">
+                                        <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                                        <td th:text="${entry.username}"></td>
+                                        <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                                    th:attr="data-user-id=${entry.userId},data-season-id=${currentSeason != null ? currentSeason.id : ''}"
+                                                    data-scope="season">
+                                                复制文本
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(currentSeasonRankingTop24)}">
+                                        <td colspan="4" class="text-center text-muted">暂无数据</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" th:each="s : ${seasons}"
+                             th:id="'pane-season-' + ${s.id}" role="tabpanel">
+                            <!-- <div class="text-muted mb-2" th:text="${s.year + '年' + (s.half == 1 ? '上半年' : '下半年')}"></div> -->
+                            <div class="table-responsive">
+                                <table class="table table-hover" data-scope-table="season">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 80px;">排名</th>
+                                        <th>选手</th>
+                                        <th style="width: 140px;">积分</th>
+                                        <th style="width: 170px;">战绩</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:each="entry, stat : ${seasonTop24[s.id]}">
+                                        <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                                        <td th:text="${entry.username}"></td>
+                                        <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                                    th:attr="data-user-id=${entry.userId},data-season-id=${s.id}"
+                                                    data-scope="season">
+                                                复制文本
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(seasonTop24[s.id])}">
+                                        <td colspan="4" class="text-center text-muted">暂无数据</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-muted small">
+                        规则：赛季排名取本赛季中每个选手系列积分（同系列取最高）前10个系列累加；本页每个赛季仅展示前24。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- <1400px：用选项卡切换两块内容 -->
+    <div class="d-xxl-none">
+        <ul class="nav nav-pills mb-3" id="rankingMainTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-total"
+                        data-bs-toggle="pill" data-bs-target="#pane-total" type="button" role="tab">
+                    总排名
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-season"
+                        data-bs-toggle="pill" data-bs-target="#pane-season" type="button" role="tab">
+                    赛季排名
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="pane-total" role="tabpanel">
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-list-ol"></i> 总排名</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="form-check form-switch mb-0 ranking-scope-switch">
+                                <input class="form-check-input" type="checkbox" id="totalLimitToggleMobile">
+                                <label class="form-check-label text-white-50 small" for="totalLimitToggleMobile">
+                                    <span id="totalLimitLabelMobile">全量</span>
+                                </label>
+                            </div>
+                            <!-- <576px：折叠“导出为文本”控件为单按钮 + 弹窗 -->
+                            <button type="button"
+                                    class="btn btn-light btn-sm d-sm-none ranking-text-export-open"
+                                    data-scope="total"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#textExportModal">
+                                导出为文本
+                            </button>
+                            <select id="totalCopyFormatMobile" class="form-select form-select-sm d-none d-sm-block" style="width: 160px;">
+                                <option value="plain">纯文本行</option>
+                                <option value="markdown">Markdown 表格</option>
+                                <option value="tsv">TSV/制表符表格</option>
+                            </select>
+                            <button type="button" class="btn btn-light btn-sm d-none d-sm-inline-block ranking-scope-copy" data-scope="total">复制</button>
+                            <button type="button" class="btn btn-outline-light btn-sm ranking-scope-export" data-scope="total">PDF</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" data-scope-table="total">
+                                <thead class="table-light">
+                                <tr>
+                                    <th style="width: 80px;">排名</th>
+                                    <th>选手</th>
+                                    <th style="width: 140px;">积分</th>
+                                    <th style="width: 170px;">战绩</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="entry, stat : ${totalRanking}">
+                                    <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                                    <td th:text="${entry.username}"></td>
+                                    <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                                th:attr="data-user-id=${entry.userId}"
+                                                data-scope="total">
+                                            复制文本
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(totalRanking)}">
+                                    <td colspan="4" class="text-center text-muted">暂无数据</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-muted small">
+                            规则：总排名取最近20个系列中每个选手系列积分（同系列取最高）前10个系列累加。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="pane-season" role="tabpanel">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-calendar3"></i> 赛季排名</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="form-check form-switch mb-0 ranking-scope-switch">
+                                <input class="form-check-input" type="checkbox" id="seasonLimitToggleMobile" checked>
+                                <label class="form-check-label text-white-50 small" for="seasonLimitToggleMobile">
+                                    <span id="seasonLimitLabelMobile">前24</span>
+                                </label>
+                            </div>
+                            <button type="button"
+                                    class="btn btn-light btn-sm d-sm-none ranking-text-export-open"
+                                    data-scope="season"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#textExportModal">
+                                导出为文本
+                            </button>
+                            <select id="seasonCopyFormatMobile" class="form-select form-select-sm d-none d-sm-block" style="width: 160px;">
+                                <option value="plain">纯文本行</option>
+                                <option value="markdown">Markdown 表格</option>
+                                <option value="tsv">TSV/制表符表格</option>
+                            </select>
+                            <button type="button" class="btn btn-light btn-sm d-none d-sm-inline-block ranking-scope-copy" data-scope="season">复制</button>
+                            <button type="button" class="btn btn-outline-light btn-sm ranking-scope-export" data-scope="season">PDF</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-pills mb-3 flex-nowrap overflow-auto" role="tablist" style="white-space: nowrap;">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="tab-current-season-sm"
+                                        th:attr="data-season-id=${currentSeason != null ? currentSeason.id : ''}"
+                                        data-bs-toggle="pill" data-bs-target="#pane-current-season-sm" type="button" role="tab">
+                                    当前赛季
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation" th:each="s : ${seasons}">
+                                <button class="nav-link"
+                                        th:id="'tab-season-sm-' + ${s.id}"
+                                        th:attr="data-season-id=${s.id}"
+                                        data-bs-toggle="pill"
+                                        th:data-bs-target="'#pane-season-sm-' + ${s.id}"
+                                        type="button" role="tab"
+                                        th:text="${s.year + '年' + (s.half == 1 ? '上半年' : '下半年')}"></button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content">
+                            <div class="tab-pane fade show active" id="pane-current-season-sm" role="tabpanel">
+                                <div th:if="${currentSeason != null}" class="text-muted mb-2">
+                                    <span th:text="${currentSeason.year + '年' + (currentSeason.half == 1 ? '上半年' : '下半年')}"></span>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-hover" data-scope-table="season">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 80px;">排名</th>
+                                            <th>选手</th>
+                                            <th style="width: 140px;">积分</th>
+                                            <th style="width: 170px;">战绩</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr th:each="entry, stat : ${currentSeasonRankingTop24}">
+                                            <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                                            <td th:text="${entry.username}"></td>
+                                            <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                                        th:attr="data-user-id=${entry.userId},data-season-id=${currentSeason != null ? currentSeason.id : ''}"
+                                                        data-scope="season">
+                                                    复制文本
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(currentSeasonRankingTop24)}">
+                                            <td colspan="4" class="text-center text-muted">暂无数据</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="tab-pane fade" th:each="s : ${seasons}"
+                                 th:id="'pane-season-sm-' + ${s.id}" role="tabpanel">
+                                <!-- <div class="text-muted mb-2" th:text="${s.year + '年' + (s.half == 1 ? '上半年' : '下半年')}"></div> -->
+                                <div class="table-responsive">
+                                    <table class="table table-hover" data-scope-table="season">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 80px;">排名</th>
+                                            <th>选手</th>
+                                            <th style="width: 140px;">积分</th>
+                                            <th style="width: 170px;">战绩</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr th:each="entry, stat : ${seasonTop24[s.id]}">
+                                            <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                                            <td th:text="${entry.username}"></td>
+                                            <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                                        th:attr="data-user-id=${entry.userId},data-season-id=${s.id}"
+                                                        data-scope="season">
+                                                    复制文本
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <tr th:if="${#lists.isEmpty(seasonTop24[s.id])}">
+                                            <td colspan="4" class="text-center text-muted">暂无数据</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-muted small">
+                            规则：赛季排名取本赛季中每个选手系列积分（同系列取最高）前10个系列累加；本页每个赛季仅展示前24。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+
+<!-- <576px：文本导出弹窗（选择格式后复制到剪贴板） -->
+<div class="modal fade" id="textExportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="textExportModalTitle">导出为文本</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="textExportFormat" class="form-label">复制格式</label>
+                    <select id="textExportFormat" class="form-select">
+                        <option value="plain">纯文本行</option>
+                        <option value="markdown">Markdown 表格</option>
+                        <option value="tsv">TSV/制表符表格</option>
+                    </select>
+                </div>
+                <div class="text-muted small" id="textExportHint"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="textExportConfirmBtn">复制到剪贴板</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (() => {
+        const getVisibleValue = (ids) => {
+            for (const id of ids) {
+                const el = document.getElementById(id);
+                if (!el) continue;
+                const style = window.getComputedStyle(el);
+                if (style && style.display !== 'none' && el.offsetParent !== null) return el;
+            }
+            return null;
+        };
+
+        const getLimitFor = (scope) => {
+            const ids = scope === 'total'
+                ? ['totalLimitToggleXxl', 'totalLimitToggleMobile']
+                : ['seasonLimitToggleXxl', 'seasonLimitToggleMobile'];
+            const el = getVisibleValue(ids);
+            return el && el.checked ? '24' : 'all';
+        };
+
+        const setToggleLabel = (scope) => {
+            const toggleIds = scope === 'total'
+                ? ['totalLimitToggleXxl', 'totalLimitToggleMobile']
+                : ['seasonLimitToggleXxl', 'seasonLimitToggleMobile'];
+            const labelIds = scope === 'total'
+                ? ['totalLimitLabelXxl', 'totalLimitLabelMobile']
+                : ['seasonLimitLabelXxl', 'seasonLimitLabelMobile'];
+            const toggle = getVisibleValue(toggleIds);
+            const labelEl = getVisibleValue(labelIds);
+            if (!toggle || !labelEl) return;
+            labelEl.textContent = toggle.checked ? '前24' : '全量';
+        };
+
+        const getCopyFormatFor = (scope) => {
+            const ids = scope === 'total'
+                ? ['totalCopyFormatXxl', 'totalCopyFormatMobile']
+                : ['seasonCopyFormatXxl', 'seasonCopyFormatMobile'];
+            const el = getVisibleValue(ids);
+            return el ? (el.value || 'plain') : 'plain';
+        };
+
+        const getActiveSeasonId = () => {
+            const candidates = document.querySelectorAll('button.nav-link.active[data-season-id]');
+            for (const el of candidates) {
+                // 只取可见的 tab，避免 desktop/mobile 同时存在但先被选到
+                const style = window.getComputedStyle(el);
+                if (style && style.display !== 'none' && el.offsetParent !== null) {
+                    const v = el.getAttribute('data-season-id');
+                    if (v) return v;
+                }
+            }
+            return null;
+        };
+
+        const copyToClipboard = async (text) => {
+            if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.top = '-1000px';
+            textarea.style.left = '-1000px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            document.execCommand('copy');
+            textarea.remove();
+        };
+
+        const formatRanking = (entries, format, header) => {
+            const list = (entries || []);
+            if (format === 'tsv') {
+                const lines = ['排名\t选手\t积分'];
+                for (const e of list) {
+                    lines.push(`${e.rank}\t${e.username}\t${e.points}`);
+                }
+                return [header, '', ...lines].join('\n');
+            }
+            if (format === 'markdown') {
+                const lines = ['|排名|选手|积分|', '|---|---|---|'];
+                for (const e of list) {
+                    lines.push(`|${e.rank}|${String(e.username).replaceAll('|', '\\\\|')}|${e.points}|`);
+                }
+                return [header, '', ...lines].join('\n');
+            }
+
+            // plain
+            const lines = [];
+            for (const e of list) {
+                lines.push(`${e.rank}. ${e.username} - ${e.points}分`);
+            }
+            return [header, ...lines].join('\n');
+        };
+
+        const fetchJson = async (url) => {
+            const res = await fetch(url);
+            const contentType = (res.headers.get('content-type') || '').toLowerCase();
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                throw new Error(`请求失败：${res.status}${text ? (' - ' + text.slice(0, 120)) : ''}`);
+            }
+            if (!contentType.includes('application/json')) {
+                const text = await res.text().catch(() => '');
+                throw new Error(`返回非JSON（${contentType || 'unknown'}）：${text.slice(0, 120)}`);
+            }
+            return await res.json();
+        };
+
+        const renderTotalTable = (entries) => {
+            const rows = entries || [];
+            const tables = document.querySelectorAll('table[data-scope-table="total"]');
+            tables.forEach(table => {
+                const tbody = table.querySelector('tbody');
+                if (!tbody) return;
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">暂无数据</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = rows.map((e, idx) => `
+                  <tr>
+                    <td><span class="badge bg-primary">${idx + 1}</span></td>
+                    <td>${String(e.username ?? '')}</td>
+                    <td><span class="badge bg-success">${e.points ?? 0}</span></td>
+                    <td>
+                      ${e.userId != null
+                        ? `<button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                   data-user-id="${e.userId}" data-scope="total">复制文本</button>`
+                        : `<span class="text-muted small">无法复制</span>`}
+                    </td>
+                  </tr>
+                `).join('');
+            });
+
+            // 重新绑定总排名“战绩复制”按钮事件
+            document.querySelectorAll('.user-perf-copy-btn').forEach((btn) => {
+                if (btn.dataset._bound === '1') return;
+                btn.dataset._bound = '1';
+                btn.addEventListener('click', async () => {
+                    try {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.85';
+                        await handleCopyUserPerformance(btn);
+                    } catch (e) {
+                        console.error(e);
+                        if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                        else alert(e.message || '复制失败');
+                    } finally {
+                        btn.disabled = false;
+                        btn.style.opacity = '';
+                    }
+                });
+            });
+        };
+
+        const renderSeasonTable = (entries) => {
+            const rows = entries || [];
+            const tables = document.querySelectorAll('table[data-scope-table="season"]');
+            const seasonId = getActiveSeasonId();
+            tables.forEach(table => {
+                const tbody = table.querySelector('tbody');
+                if (!tbody) return;
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">暂无数据</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = rows.map((e, idx) => `
+                  <tr>
+                    <td><span class="badge bg-primary">${idx + 1}</span></td>
+                    <td>${String(e.username ?? '')}</td>
+                    <td><span class="badge bg-success">${e.points ?? 0}</span></td>
+                    <td>
+                      ${e.userId != null
+                        ? `<button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
+                                   data-user-id="${e.userId}" data-season-id="${seasonId ?? ''}" data-scope="season">复制文本</button>`
+                        : `<span class="text-muted small">无法复制</span>`}
+                    </td>
+                  </tr>
+                `).join('');
+            });
+
+            // 重新绑定行内“战绩复制”按钮事件
+            document.querySelectorAll('.user-perf-copy-btn').forEach((btn) => {
+                if (btn.dataset._bound === '1') return;
+                btn.dataset._bound = '1';
+                btn.addEventListener('click', async () => {
+                    try {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.85';
+                        await handleCopyUserPerformance(btn);
+                    } catch (e) {
+                        console.error(e);
+                        if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                        else alert(e.message || '复制失败');
+                    } finally {
+                        btn.disabled = false;
+                        btn.style.opacity = '';
+                    }
+                });
+            });
+        };
+
+        const handleCopyScope = async (scope) => {
+            const limit = getLimitFor(scope);
+            const format = getCopyFormatFor(scope);
+            if (scope === 'total') {
+                const header = limit === '24' ? '总排名（前24）' : '总排名（全量）';
+                const data = await fetchJson(`/ranking/api/total?limit=${encodeURIComponent(limit)}`);
+                await copyToClipboard(formatRanking(data, format, header));
+                if (typeof showAlert === 'function') showAlert('复制成功', 'success');
+                else alert('复制成功');
+                return;
+            }
+            const seasonId = getActiveSeasonId();
+            if (!seasonId) {
+                alert('请先在页面中选择一个赛季');
+                return;
+            }
+            const header = limit === '24' ? `赛季排名（前24，赛季ID=${seasonId}）` : `赛季排名（全量，赛季ID=${seasonId}）`;
+            const data = await fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
+            await copyToClipboard(formatRanking(data, format, header));
+            if (typeof showAlert === 'function') showAlert('复制成功', 'success');
+            else alert('复制成功');
+        };
+
+        const handleExportScopePdf = (scope) => {
+            const limit = getLimitFor(scope);
+            if (scope === 'total') {
+                window.location.href = `/ranking/export/pdf/total?limit=${encodeURIComponent(limit)}`;
+                return;
+            }
+            const seasonId = getActiveSeasonId();
+            if (!seasonId) {
+                alert('请先在页面中选择一个赛季');
+                return;
+            }
+            window.location.href = `/ranking/export/pdf/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`;
+        };
+
+        // <576px：弹窗复制（不依赖标题栏下拉框是否可见）
+        let modalScope = null;
+        const setModalMeta = () => {
+            const title = document.getElementById('textExportModalTitle');
+            const hint = document.getElementById('textExportHint');
+            if (!title || !hint) return;
+            const limit = getLimitFor(modalScope);
+            const scopeLabel = modalScope === 'season' ? '赛季排名' : '总排名';
+            title.textContent = `${scopeLabel} - 导出为文本`;
+            hint.textContent = limit === '24' ? '当前范围：前24（由开关决定）' : '当前范围：全量（由开关决定）';
+        };
+        const copyScopeWithFormat = async (scope, format) => {
+            const limit = getLimitFor(scope);
+            if (scope === 'total') {
+                const header = limit === '24' ? '总排名（前24）' : '总排名（全量）';
+                const data = await fetchJson(`/ranking/api/total?limit=${encodeURIComponent(limit)}`);
+                await copyToClipboard(formatRanking(data, format, header));
+                return;
+            }
+            const seasonId = getActiveSeasonId();
+            if (!seasonId) throw new Error('请先在页面中选择一个赛季');
+            const header = limit === '24' ? `赛季排名（前24，赛季ID=${seasonId}）` : `赛季排名（全量，赛季ID=${seasonId}）`;
+            const data = await fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
+            await copyToClipboard(formatRanking(data, format, header));
+        };
+
+        const formatUserPerformancePlain = (data) => {
+            const title = data && data.title ? data.title : '战绩';
+            const username = data && data.username ? data.username : '';
+            const totalPoints = data && data.totalPoints != null ? data.totalPoints : '';
+            const regularTop10Sum = data && data.regularTop10Sum != null ? data.regularTop10Sum : 0;
+            const finalsSum = data && data.finalsSum != null ? data.finalsSum : 0;
+
+            const lines = [];
+            lines.push(`${title}`);
+            if (username) lines.push(`选手：${username}`);
+            lines.push(`常规Top10累计：${regularTop10Sum}分`);
+            lines.push(`决赛/年终累计：${finalsSum}分`);
+            lines.push(`合计：${totalPoints}分`);
+            lines.push('');
+
+            const regular = (data && data.regularSeries) ? data.regularSeries : [];
+            lines.push('【常规系列（Top10已标记）】');
+            for (const r of regular) {
+                const mark = r.countedInTop10 ? 'Top10' : '-';
+                const seasonLabel = r.seasonLabel || '';
+                const seriesName = r.seriesName || '';
+                lines.push(`${mark} | ${seasonLabel} | ${seriesName} | ${r.points ?? 0}分`);
+            }
+            if (!regular.length) lines.push('（无）');
+            lines.push('');
+
+            const finals = (data && data.finals) ? data.finals : [];
+            lines.push('【赛季总决赛/年终总决赛】');
+            for (const f of finals) {
+                const seasonLabel = f.seasonLabel || '';
+                const seriesName = f.seriesName || '';
+                const levelName = f.levelName || '';
+                lines.push(`${seasonLabel} | ${seriesName} | ${levelName} | ${f.points ?? 0}分`);
+            }
+            if (!finals.length) lines.push('（无）');
+
+            return lines.join('\n');
+        };
+
+        const handleCopyUserPerformance = async (btn) => {
+            const userIdRaw = btn.dataset.userId;
+            const scope = btn.dataset.scope;
+            const seasonId = btn.dataset.seasonId;
+            if (!userIdRaw || userIdRaw === 'undefined' || userIdRaw === 'null') {
+                throw new Error('该行缺少用户ID，无法复制战绩');
+            }
+            const userId = userIdRaw;
+            let data;
+            if (scope === 'season') {
+                const sid = seasonId || getActiveSeasonId();
+                if (!sid) throw new Error('缺少 seasonId');
+                data = await fetchJson(`/ranking/api/user/${encodeURIComponent(userId)}/season/${encodeURIComponent(sid)}/performance`);
+            } else {
+                data = await fetchJson(`/ranking/api/user/${encodeURIComponent(userId)}/total/performance`);
+            }
+            await copyToClipboard(formatUserPerformancePlain(data));
+            if (typeof showAlert === 'function') showAlert('复制成功', 'success');
+            else alert('复制成功');
+        };
+
+        document.querySelectorAll('.ranking-scope-copy').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const scope = btn.dataset.scope;
+                if (!scope) return;
+                try {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.85';
+                    await handleCopyScope(scope);
+                } catch (e) {
+                    console.error(e);
+                    if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                    else alert(e.message || '复制失败');
+                } finally {
+                    btn.disabled = false;
+                    btn.style.opacity = '';
+                }
+            });
+        });
+
+        document.querySelectorAll('.ranking-scope-export').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const scope = btn.dataset.scope;
+                if (!scope) return;
+                handleExportScopePdf(scope);
+            });
+        });
+
+        // <576px：打开弹窗
+        document.querySelectorAll('.ranking-text-export-open').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                modalScope = btn.dataset.scope || null;
+                setModalMeta();
+            });
+        });
+        // 弹窗确认复制
+        document.getElementById('textExportConfirmBtn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('textExportConfirmBtn');
+            const format = document.getElementById('textExportFormat')?.value || 'plain';
+            if (!modalScope) return;
+            try {
+                btn.disabled = true;
+                btn.style.opacity = '0.85';
+                await copyScopeWithFormat(modalScope, format);
+                if (typeof showAlert === 'function') showAlert('复制成功', 'success');
+                else alert('复制成功');
+                const modalEl = document.getElementById('textExportModal');
+                if (modalEl && window.bootstrap && bootstrap.Modal) {
+                    const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                    inst.hide();
+                }
+            } catch (e) {
+                console.error(e);
+                if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                else alert(e.message || '复制失败');
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '';
+            }
+        });
+
+        document.querySelectorAll('.user-perf-copy-btn').forEach((btn) => {
+            if (btn.dataset._bound === '1') return;
+            btn.dataset._bound = '1';
+            btn.addEventListener('click', async () => {
+                try {
+                    btn.disabled = true;
+                    btn.style.opacity = '0.85';
+                    await handleCopyUserPerformance(btn);
+                } catch (e) {
+                    console.error(e);
+                    if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                    else alert(e.message || '复制失败');
+                } finally {
+                    btn.disabled = false;
+                    btn.style.opacity = '';
+                }
+            });
+        });
+
+        // 开关变化：刷新显示范围 + 更新“全量/前24”文案
+        ['totalLimitToggleXxl','totalLimitToggleMobile'].forEach(id => {
+            const el = document.getElementById(id);
+            el?.addEventListener('change', () => {
+                setToggleLabel('total');
+                // 重新抓取并刷新显示
+                const limit = getLimitFor('total');
+                fetchJson(`/ranking/api/total?limit=${encodeURIComponent(limit)}`)
+                    .then(renderTotalTable)
+                    .catch(console.error);
+            });
+        });
+        ['seasonLimitToggleXxl','seasonLimitToggleMobile'].forEach(id => {
+            const el = document.getElementById(id);
+            el?.addEventListener('change', () => {
+                setToggleLabel('season');
+                const seasonId = getActiveSeasonId();
+                if (!seasonId) return;
+                const limit = getLimitFor('season');
+                fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`)
+                    .then(renderSeasonTable)
+                    .catch(console.error);
+            });
+        });
+
+        // 赛季tab切换时：按当前开关范围刷新赛季表格
+        document.querySelectorAll('button[data-season-id]').forEach((btn) => {
+            btn.addEventListener('shown.bs.tab', () => {
+                const seasonId = getActiveSeasonId();
+                if (!seasonId) return;
+                const limit = getLimitFor('season');
+                fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`)
+                    .then(renderSeasonTable)
+                    .catch(console.error);
+            });
+        });
+
+        // 初始：同步文案 + 刷新一次（总排名全量；赛季排名默认前24）
+        setToggleLabel('total');
+        setToggleLabel('season');
+        fetchJson(`/ranking/api/total?limit=${encodeURIComponent(getLimitFor('total'))}`)
+            .then(renderTotalTable)
+            .catch(console.error);
+        const initSeasonId = getActiveSeasonId();
+        if (initSeasonId) {
+            fetchJson(`/ranking/api/season/${encodeURIComponent(initSeasonId)}?limit=${encodeURIComponent(getLimitFor('season'))}`)
+                .then(renderSeasonTable)
+                .catch(console.error);
+        }
+    })();
+</script>
+
+</body>
+</html>

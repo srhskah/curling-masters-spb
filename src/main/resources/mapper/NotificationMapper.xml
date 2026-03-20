@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.NotificationMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.example.entity.Notification">
+        <id column="id" property="id" />
+        <result column="type" property="type" />
+        <result column="receiver_user_id" property="receiverUserId" />
+        <result column="receiver_role" property="receiverRole" />
+        <result column="content" property="content" />
+        <result column="related_id" property="relatedId" />
+        <result column="is_read" property="isRead" />
+        <result column="created_at" property="createdAt" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, type, receiver_user_id, receiver_role, content, related_id, is_read, created_at
+    </sql>
+
+</mapper>

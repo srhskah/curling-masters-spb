@@ -2,7 +2,7 @@ package com.example.service.impl;
 
 import com.example.entity.Match;
 import com.example.mapper.MatchMapper;
-import com.example.service.MatchService;
+import com.example.service.IMatchService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
@@ -12,9 +12,9 @@ import org.springframework.stereotype.Service;
  * </p>
  *
  * @author Curling Masters
- * @since 2026-03-04
+ * @since 2026-03-16
  */
 @Service
-public class MatchServiceImpl extends ServiceImpl<MatchMapper, Match> implements MatchService {
+public class MatchServiceImpl extends ServiceImpl<MatchMapper, Match> implements IMatchService {
 
 }

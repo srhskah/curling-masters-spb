@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('赛季管理')}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <link rel="shortcut icon"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <style>
+        /* 移动端：表格改卡片，提升可读性与可点按 */
+        @media (max-width: 767.98px) {
+            .generic-table-desktop { display: none; }
+            .generic-cards-mobile { display: block; }
+            .generic-cards-grid > [class^="col-"] { display: flex; }
+            .generic-cards-grid .card { width: 100%; }
+            .generic-list-actions .btn,
+            .generic-list-actions button.btn {
+                padding: 0.5rem 0.75rem;
+            }
+            .generic-card-row {
+                display: grid;
+                grid-template-columns: 96px 1fr;
+                gap: 0.25rem 0.75rem;
+                align-items: start;
+            }
+            .generic-card-label {
+                color: #6c757d;
+                font-weight: 600;
+                font-size: 0.85rem;
+            }
+        }
+        @media (min-width: 768px) {
+            .generic-table-desktop { display: block; }
+            .generic-cards-mobile { display: none; }
+        }
+    </style>
+</head>
+<body th:classappend="${ipBgClass}">
+    <div th:replace="~{fragments :: navbar}"></div>
+
+    <!-- 消息提示 -->
+    <div th:replace="~{fragments :: success-alert}"></div>
+    <div th:replace="~{fragments :: error-alert}"></div>
+    
+    <div class="container mt-4">
+        <!-- 赛季管理部分 -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-calendar3"></i> 赛季管理</h5>
+                <a th:if="${isAdmin}" href="/season/add" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle"></i> 新增赛季
+                </a>
+            </div>
+            <div class="card-body">
+                <!-- 顶部：通用模糊搜索 -->
+                <div class="row g-2 mb-3">
+                    <div class="col-12 col-md-5">
+                        <input id="genericSearchInput"
+                               type="search"
+                               class="form-control"
+                               placeholder="模糊搜索（ID、年份、半年度、创建时间）">
+                    </div>
+                </div>
+
+                <div th:if="${#lists.isEmpty(seasons)}" class="text-center py-4">
+                    <i class="bi bi-calendar3 fs-1 text-muted"></i>
+                    <p class="mt-2 text-muted">暂无赛季数据</p>
+                </div>
+
+                <!-- 数据：移动端卡片 + 桌面表格 -->
+                <div th:if="${!#lists.isEmpty(seasons)}">
+                    <!-- 移动端：卡片 -->
+                    <div class="d-md-none mb-3">
+                        <div class="generic-cards-mobile">
+                            <div class="row g-3 generic-cards-grid">
+                                <div class="col-12 col-sm-6" th:each="season : ${seasons}">
+                                    <div class="card border-0 shadow-sm h-100"
+                                         th:attr="data-filters=|${season.id} ${season.year} ${season.half == 1 ? '上半年' : '下半年'} ${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy-MM-dd HH:mm') : '-'}|">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-end align-items-start mb-2">
+                                                <span class="badge bg-light text-dark border"
+                                                      th:text="${'ID: ' + season.id}"></span>
+                                            </div>
+
+                                            <div class="generic-card-row" style="display:flex; flex-direction:column; gap:0.15rem;">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div class="generic-card-label">年份</div>
+                                                    <div class="text-end" th:text="${season.year}"></div>
+                                                </div>
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div class="generic-card-label">半年度</div>
+                                                    <div class="text-end"
+                                                         th:text="${season.half == 1 ? '上半年' : '下半年'}"></div>
+                                                </div>
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div class="generic-card-label">创建时间</div>
+                                                    <div class="text-end"
+                                                         th:text="${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy-MM-dd HH:mm') : '-'}"></div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mt-3 d-flex flex-wrap gap-2 generic-list-actions">
+                                                <a th:href="@{/season/detail/{id}(id=${season.id})}"
+                                                   class="btn btn-sm btn-outline-info">
+                                                    <i class="bi bi-eye"></i> 详情
+                                                </a>
+                                                <a th:if="${isAdmin}" th:href="@{/season/edit/{id}(id=${season.id})}"
+                                                   class="btn btn-sm btn-outline-warning">
+                                                    <i class="bi bi-pencil"></i> 编辑
+                                                </a>
+                                                <form th:if="${isAdmin}" th:action="@{/season/delete/{id}(id=${season.id})}"
+                                                      method="post" style="display: inline;"
+                                                      onsubmit="return confirm('确定要删除这个赛季吗？')">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                            style="border: 1px #dc3545 solid;">
+                                                        <i class="bi bi-trash"></i> 删除
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 桌面：表格 -->
+                    <div class="d-none d-md-block">
+                        <div class="table-responsive generic-table-desktop">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>年份</th>
+                                    <th>半年度</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="season : ${seasons}"
+                                    th:attr="data-filters=|${season.id} ${season.year} ${season.half == 1 ? '上半年' : '下半年'} ${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy-MM-dd HH:mm') : '-'}|">
+                                    <td th:text="${season.id}"></td>
+                                    <td th:text="${season.year}"></td>
+                                    <td th:text="${season.half == 1 ? '上半年' : '下半年'}"></td>
+                                    <td th:text="${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy-MM-dd HH:mm') : '-'}"></td>
+                                    <td>
+                                        <a th:href="@{/season/detail/{id}(id=${season.id})}"
+                                           class="btn btn-sm btn-outline-info me-1">
+                                            <i class="bi bi-eye"></i> 详情
+                                        </a>
+                                        <a th:if="${isAdmin}" th:href="@{/season/edit/{id}(id=${season.id})}"
+                                           class="btn btn-sm btn-outline-warning me-1">
+                                            <i class="bi bi-pencil"></i> 编辑
+                                        </a>
+                                        <form th:if="${isAdmin}" th:action="@{/season/delete/{id}(id=${season.id})}"
+                                              method="post" style="display: inline;"
+                                              onsubmit="return confirm('确定要删除这个赛季吗？')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                    style="border: 1px #dc3545 solid;">
+                                                <i class="bi bi-trash"></i> 删除
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+
+    <!-- 通用列表：前端模糊搜索（作用于卡片和表格） -->
+    <script>
+        (() => {
+            const input = document.getElementById('genericSearchInput');
+            if (!input) return;
+
+            const norm = (s) => (s || '').toString().toLowerCase();
+
+            const applyFilter = () => {
+                const kw = norm(input.value).trim();
+
+                // 移动端卡片：generic-cards-grid 中带 data-filters 的元素
+                document.querySelectorAll('.generic-cards-grid [data-filters]').forEach((el) => {
+                    // 让整张卡片所在的列一起隐藏，避免出现空白间距
+                    const col = el.closest('[class*="col-"]') || el;
+                    const text = norm(el.textContent);
+                    const meta = norm(el.getAttribute('data-filters') || '');
+                    const hay = text + ' ' + meta;
+                    if (!kw) {
+                        col.classList.remove('d-none');
+                    } else {
+                        col.classList.toggle('d-none', !hay.includes(kw));
+                    }
+                });
+
+                // 桌面表格：generic-table-desktop 中带 data-filters 的行
+                document.querySelectorAll('.generic-table-desktop tbody tr[data-filters]').forEach((tr) => {
+                    const text = norm(tr.textContent);
+                    const meta = norm(tr.getAttribute('data-filters') || '');
+                    const hay = text + ' ' + meta;
+                    if (!kw) {
+                        tr.classList.remove('d-none');
+                    } else {
+                        tr.classList.toggle('d-none', !hay.includes(kw));
+                    }
+                });
+            };
+
+            input.addEventListener('input', applyFilter);
+        })();
+    </script>
+</body>
+</html>

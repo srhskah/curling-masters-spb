@@ -4,7 +4,7 @@
 <head th:replace="~{fragments :: head('个人中心')}">
 </head>
 
-<body>
+<body th:classappend="${ipBgClass}">
     <!-- 导航栏 -->
     <div th:replace="~{fragments :: navbar}"></div>
 
