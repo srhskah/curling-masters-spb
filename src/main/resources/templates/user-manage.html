@@ -161,19 +161,19 @@
             }
         }
         
-        /* 桌面端显示表格，移动端显示卡片 */
-        .users-table-desktop {
+        /* 桌面端显示表格，移动端显示卡片（与 generic-list 对齐） */
+        .generic-table-desktop {
             display: block;
         }
-        .users-cards-mobile {
+        .generic-cards-mobile {
             display: none;
         }
         
         @media (max-width: 768px) {
-            .users-table-desktop {
+            .generic-table-desktop {
                 display: none;
             }
-            .users-cards-mobile {
+            .generic-cards-mobile {
                 display: block;
             }
         }
@@ -191,22 +191,23 @@
         </div>
     </nav> -->
 
-    <div class="container">
+        <div class="container">
         <div class="table-container">
-            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                <h2 class="mb-0">用户管理</h2>
-                <div class="search-container">
-                    <div class="input-group">
-                        <span class="input-group-text"><i class="bi bi-search"></i></span>
-                        <input type="text" 
-                               class="form-control search-input" 
-                               id="userSearch" 
-                               placeholder="搜索用户名、邮箱或角色..."
+            <div class="row g-2 mb-4 align-items-center">
+                <div class="col-12 col-md-5">
+                    <h2 class="mb-0">用户管理</h2>
+                </div>
+                <div class="col-12 col-md-7 d-flex justify-content-md-end gap-2 align-items-center flex-wrap">
+                    <div class="search-container" style="min-width: 260px; flex: 1 1 260px;">
+                        <input type="search"
+                               id="genericSearchInput"
+                               class="form-control"
+                               placeholder="模糊搜索（用户名、邮箱、角色）"
                                autocomplete="off">
-                        <button class="btn btn-outline-secondary" type="button" id="clearSearch">
-                            <i class="bi bi-x"></i>
-                        </button>
                     </div>
+                    <button class="btn btn-primary btn-mobile" type="button" data-bs-toggle="modal" data-bs-target="#batchAddModal">
+                        <i class="bi bi-plus-circle"></i> 批量添加
+                    </button>
                 </div>
             </div>
 
@@ -224,10 +225,10 @@
             </div>
 
             <!-- 桌面端表格视图 -->
-            <div class="users-table-desktop">
+            <div class="generic-table-desktop">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
                             <tr>
                                 <th>ID</th>
                                 <th>用户名</th>
@@ -292,7 +293,7 @@
             </div>
 
             <!-- 移动端卡片视图 -->
-            <div class="users-cards-mobile" id="usersCardsContainer">
+            <div class="generic-cards-mobile" id="usersCardsContainer">
                 <div th:each="user : ${users}" class="user-card" th:data-username="${user.username}" th:data-email="${user.email}" th:data-role="${user.role}">
                     <div class="user-card-header">
                         <div>
@@ -359,6 +360,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                     <form id="deleteForm" method="post" style="display: inline;">
+                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                         <button type="submit" class="btn btn-danger">删除</button>
                     </form>
                 </div>
@@ -389,6 +391,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
                     <form id="resetPasswordForm" method="post" style="display: inline;">
+                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                         <button type="submit" class="btn btn-warning">
                             <i class="bi bi-key"></i> 确认重置
                         </button>
@@ -398,26 +401,30 @@
         </div>
     </div>
 
-    <!-- 批量添加用户 -->
-    <div class="batch-add-container">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">批量添加用户</h5>
-            </div>
-            <div class="card-body">
-                <form id="batchAddForm">
-                    <div class="mb-3">
-                        <label for="usernames" class="form-label">用户名列表</label>
-                        <textarea class="form-control" id="usernames" name="usernames" rows="5" 
-                                  placeholder="输入用户名，可以用以下分隔符分隔：\n英文逗号(,) 中文逗号(，) 英文分号(;) 中文分号(；) 制表符(Tab) 换行符\n\n例如：\nuser1,user2,user3\n或者：\nuser1\nuser2\nuser3"></textarea>
-                        <small class="form-text text-muted">
-                            支持多种分隔符：英文逗号(,) 中文逗号(，) 英文分号(;) 中文分号(；) 制表符(Tab) 换行符
-                        </small>
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> 批量添加
-                    </button>
-                </form>
+    <!-- 批量添加用户弹窗 -->
+    <div class="modal fade" id="batchAddModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">批量添加用户</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="batchAddForm">
+                        <input type="hidden" id="csrfTokenValue" th:if="${_csrf != null}" th:value="${_csrf.token}"/>
+                        <div class="mb-3">
+                            <label for="usernames" class="form-label">用户名列表</label>
+                            <textarea class="form-control" id="usernames" name="usernames" rows="5" 
+                                      placeholder="输入用户名，可以用以下分隔符分隔：\n英文逗号(,) 中文逗号(，) 英文分号(;) 中文分号(；) 制表符(Tab) 换行符\n\n例如：\nuser1,user2,user3\n或者：\nuser1\nuser2\nuser3"></textarea>
+                            <small class="form-text text-muted">
+                                支持多种分隔符：英文逗号(,) 中文逗号(，) 英文分号(;) 中文分号(；) 制表符(Tab) 换行符
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> 批量添加
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -448,6 +455,12 @@
         document.addEventListener('DOMContentLoaded', function() {
             const batchAddForm = document.getElementById('batchAddForm');
             if (batchAddForm) {
+                const getCookie = (name) => {
+                    const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+                    return match ? decodeURIComponent(match[2]) : null;
+                };
+                const csrfToken = getCookie('XSRF-TOKEN') || document.getElementById('csrfTokenValue')?.value;
+
                 batchAddForm.addEventListener('submit', async function(e) {
                     e.preventDefault();
                     
@@ -463,12 +476,16 @@
                         const originalText = submitButton.innerHTML;
                         submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 处理中...';
                         submitButton.disabled = true;
-                        
+
+                        const headers = { 'Content-Type': 'application/json' };
+                        if (csrfToken) {
+                            headers['X-CSRF-TOKEN'] = csrfToken;
+                            headers['X-XSRF-TOKEN'] = csrfToken;
+                        }
+
                         const response = await fetch('/user/batch-add', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
+                            headers,
                             body: JSON.stringify({
                                 usernames: usernames
                             })
@@ -504,8 +521,7 @@
 
         // 模糊搜索功能
         function initializeSearch() {
-            const searchInput = document.getElementById('userSearch');
-            const clearButton = document.getElementById('clearSearch');
+            const searchInput = document.getElementById('genericSearchInput');
             const searchResults = document.getElementById('searchResults');
             const searchResultText = document.getElementById('searchResultText');
             
@@ -529,12 +545,7 @@
                 }, 300);
             });
             
-            // 清空搜索
-            clearButton.addEventListener('click', function() {
-                searchInput.value = '';
-                clearSearchResults();
-                searchInput.focus();
-            });
+            // 不再使用独立“清空”按钮：当输入为空时自动恢复全量
             
             // 执行搜索
             function performSearch(searchTerm) {

@@ -16,6 +16,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.math.BigDecimal;
 // import java.time.LocalDate;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -124,7 +125,7 @@ public class TournamentController {
             }
             for (Map.Entry<GroupKey, List<Tournament>> e : groups.entrySet()) {
                 List<Tournament> list = e.getValue();
-                list.sort(Comparator.comparing(Tournament::getCreateTime, Comparator.nullsLast(Comparator.naturalOrder())));
+                list.sort(Comparator.comparing(Tournament::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
                 for (int i = 0; i < list.size(); i++) {
                     Tournament t = list.get(i);
                     if (t.getId() != null) {
@@ -225,8 +226,8 @@ public class TournamentController {
             }
             
             // 构建创建时间显示
-            String createTimeStr = tournament.getCreateTime() != null ? 
-                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(tournament.getCreateTime()) : "-";
+            String createTimeStr = tournament.getCreatedAt() != null ?
+                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(tournament.getCreatedAt()) : "-";
             
             item.put("data", Arrays.asList(
                 tournament.getId(),
@@ -767,7 +768,7 @@ public class TournamentController {
                         .in(Tournament::getSeriesId, seasonSeriesIds)
                         .eq(Tournament::getLevelCode, tournament.getLevelCode())
                         .list();
-                sameGroup.sort(Comparator.comparing(Tournament::getCreateTime, Comparator.nullsLast(Comparator.naturalOrder())));
+                sameGroup.sort(Comparator.comparing(Tournament::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
                 for (int i = 0; i < sameGroup.size(); i++) {
                     Tournament tt = sameGroup.get(i);
                     if (tt.getId() != null && tt.getId().equals(tournament.getId())) {
@@ -778,6 +779,260 @@ public class TournamentController {
             }
         }
         tournamentInfo.put("edition", edition);
+
+        // ===== 新增：同系列 tabs + 同级别上下一个赛事导航 =====
+        // 1) 同系列所有赛事（用于 tabs）
+        List<Tournament> seriesTournaments = tournamentService.lambdaQuery()
+                .eq(Tournament::getSeriesId, tournament.getSeriesId())
+                .orderByAsc(Tournament::getCreatedAt)
+                .list();
+
+        // 2) 同级别上下一个赛事（用于箭头导航）
+        // 切换规则：先看赛季（year + half），再看该赛季内系列的 sequence。
+        Tournament prevSameLevelTournament = null;
+        Tournament nextSameLevelTournament = null;
+        if (tournament.getLevelCode() != null && tournament.getSeriesId() != null) {
+            List<Tournament> levelTournaments = tournamentService.lambdaQuery()
+                    .eq(Tournament::getLevelCode, tournament.getLevelCode())
+                    .orderByAsc(Tournament::getCreatedAt)
+                    .list();
+
+            // 同一个 seriesId 内可能存在多场同等级（一般应为1场）；这里取最早的一场作为代表，用于“按系列切换”
+            Map<Long, Tournament> tournamentBySeriesId = new HashMap<>();
+            for (Tournament t : levelTournaments) {
+                if (t == null || t.getSeriesId() == null) continue;
+                tournamentBySeriesId.putIfAbsent(t.getSeriesId(), t);
+            }
+
+            Set<Long> levelSeriesIds = tournamentBySeriesId.keySet();
+            if (!levelSeriesIds.isEmpty()) {
+                List<Series> levelSeriesList = seriesService.listByIds(new ArrayList<>(levelSeriesIds));
+                Set<Long> levelSeasonIds = levelSeriesList.stream()
+                        .map(Series::getSeasonId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+
+                Map<Long, Season> levelSeasonById = levelSeasonIds.isEmpty()
+                        ? Map.of()
+                        : seasonService.listByIds(new ArrayList<>(levelSeasonIds)).stream()
+                        .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+
+                levelSeriesList.sort(Comparator
+                        .comparing((Series s) -> {
+                            Season se = levelSeasonById.get(s.getSeasonId());
+                            return se != null ? se.getYear() : Integer.MIN_VALUE;
+                        })
+                        .thenComparing(s -> {
+                            Season se = levelSeasonById.get(s.getSeasonId());
+                            return se != null ? se.getHalf() : Integer.MIN_VALUE;
+                        })
+                        .thenComparing(Series::getSequence, Comparator.nullsLast(Comparator.naturalOrder())));
+
+                int currentIdx = -1;
+                for (int i = 0; i < levelSeriesList.size(); i++) {
+                    Series s = levelSeriesList.get(i);
+                    if (s != null && tournament.getSeriesId().equals(s.getId())) {
+                        currentIdx = i;
+                        break;
+                    }
+                }
+
+                if (currentIdx > 0) {
+                    Long prevSeriesId = levelSeriesList.get(currentIdx - 1).getId();
+                    prevSameLevelTournament = prevSeriesId != null ? tournamentBySeriesId.get(prevSeriesId) : null;
+                }
+                if (currentIdx >= 0 && currentIdx < levelSeriesList.size() - 1) {
+                    Long nextSeriesId = levelSeriesList.get(currentIdx + 1).getId();
+                    nextSameLevelTournament = nextSeriesId != null ? tournamentBySeriesId.get(nextSeriesId) : null;
+                }
+            }
+        }
+
+        // 预加载：等级 code -> levelName
+        Map<String, TournamentLevel> levelByCode = tournamentLevelService.list().stream()
+                .filter(l -> l.getCode() != null)
+                .collect(Collectors.toMap(TournamentLevel::getCode, l -> l, (a, b) -> a));
+
+        // 预加载：seriesId -> seasonId，及 seasonId -> seasonName
+        Set<Long> seriesIdsToLoad = new HashSet<>();
+        for (Tournament t : seriesTournaments) {
+            if (t != null && t.getSeriesId() != null) seriesIdsToLoad.add(t.getSeriesId());
+        }
+        if (prevSameLevelTournament != null && prevSameLevelTournament.getSeriesId() != null) {
+            seriesIdsToLoad.add(prevSameLevelTournament.getSeriesId());
+        }
+        if (nextSameLevelTournament != null && nextSameLevelTournament.getSeriesId() != null) {
+            seriesIdsToLoad.add(nextSameLevelTournament.getSeriesId());
+        }
+
+        Map<Long, Series> seriesById = seriesIdsToLoad.isEmpty()
+                ? Map.of()
+                : seriesService.listByIds(seriesIdsToLoad).stream()
+                .collect(Collectors.toMap(Series::getId, s -> s, (a, b) -> a));
+
+        Set<Long> seasonIdsToLoad = seriesById.values().stream()
+                .map(Series::getSeasonId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, Season> seasonById = seasonIdsToLoad.isEmpty()
+                ? Map.of()
+                : seasonService.listByIds(seasonIdsToLoad).stream()
+                .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+
+        // 预计算：{tournamentId -> edition}（用于 tabs 文案/箭头文案）
+        Map<Long, Integer> editionByTournamentId = new HashMap<>();
+        // keys: seasonId|levelCode
+        Set<String> editionKeys = new HashSet<>();
+        for (Tournament t : seriesTournaments) {
+            if (t == null || t.getLevelCode() == null) continue;
+            Series ts = seriesById.get(t.getSeriesId());
+            if (ts == null || ts.getSeasonId() == null) continue;
+            editionKeys.add(ts.getSeasonId() + "|" + t.getLevelCode());
+        }
+        // 注意：prev/next 可能为 null，不能直接用 List.of(...) 包含 null
+        List<Tournament> prevNext = new ArrayList<>();
+        if (prevSameLevelTournament != null) prevNext.add(prevSameLevelTournament);
+        if (nextSameLevelTournament != null) prevNext.add(nextSameLevelTournament);
+        for (Tournament t : prevNext) {
+            if (t == null || t.getLevelCode() == null) continue;
+            Series ts = seriesById.get(t.getSeriesId());
+            if (ts == null || ts.getSeasonId() == null) continue;
+            editionKeys.add(ts.getSeasonId() + "|" + t.getLevelCode());
+        }
+
+        for (String key : editionKeys) {
+            String[] sp = key.split("\\|", 2);
+            if (sp.length != 2) continue;
+            Long seasonId = Long.valueOf(sp[0]);
+            String lc = sp[1];
+
+            // 同赛季的所有系列
+            List<Series> seasonSeries = seriesService.lambdaQuery()
+                    .eq(Series::getSeasonId, seasonId)
+                    .list();
+            List<Long> seasonSeriesIds = seasonSeries.stream()
+                    .map(Series::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            if (seasonSeriesIds.isEmpty()) continue;
+
+            List<Tournament> sameGroup = tournamentService.lambdaQuery()
+                    .in(Tournament::getSeriesId, seasonSeriesIds)
+                    .eq(Tournament::getLevelCode, lc)
+                    .list();
+            sameGroup.sort(Comparator.comparing(Tournament::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
+            for (int i = 0; i < sameGroup.size(); i++) {
+                Tournament tt = sameGroup.get(i);
+                if (tt != null && tt.getId() != null) {
+                    editionByTournamentId.put(tt.getId(), i + 1);
+                }
+            }
+        }
+
+        // tabs 数据：以“赛事等级”为单位去重展示（同一等级可能有多届/多场，但 tab 只显示该等级有哪些）
+        String currentLevelCode = tournament.getLevelCode();
+        Map<String, Tournament> repByLevelCode = new LinkedHashMap<>();
+        for (Tournament t : seriesTournaments) {
+            if (t == null || t.getLevelCode() == null) continue;
+            String lc = t.getLevelCode();
+            // 默认取该等级在 series 内出现的第一场；若当前赛事本身属于该等级，则用当前赛事作为代表
+            if (!repByLevelCode.containsKey(lc) || (t.getId() != null && t.getId().equals(tournament.getId()))) {
+                repByLevelCode.put(lc, t);
+            }
+        }
+
+        List<Map<String, Object>> seriesTournamentTabs = new ArrayList<>();
+        Map<String, String> finalsTypeByLevelCode = new HashMap<>();
+        finalsTypeByLevelCode.put("CM Fi-A", "赛季总决赛（A）");
+        finalsTypeByLevelCode.put("CM Fi-B", "赛季总决赛（B）");
+        finalsTypeByLevelCode.put("CM An-Fi", "年终总决赛");
+        for (Map.Entry<String, Tournament> e : repByLevelCode.entrySet()) {
+            String lc = e.getKey();
+            Tournament t = e.getValue();
+            TournamentLevel tl = lc != null ? levelByCode.get(lc) : null;
+            String levelName = tl != null && tl.getName() != null ? tl.getName() : (lc != null ? lc : "");
+            Integer ed = (t != null && t.getId() != null) ? editionByTournamentId.get(t.getId()) : null;
+            // 选项卡：
+            // - 赛季总决赛（A/B）、年终总决赛：{赛事等级}（不加任何其它文字）
+            // - 其它赛事等级：{赛事等级}-{对应赛事等级在本赛季的届次}（去掉“第/届”）
+            String tabLabel;
+            if (lc != null && finalsTypeByLevelCode.containsKey(lc)) {
+                tabLabel = levelName;
+            } else {
+                tabLabel = ed != null ? (levelName + "-" + ed) : levelName;
+            }
+
+            seriesTournamentTabs.add(Map.of(
+                    "id", t != null ? t.getId() : null,
+                    "label", tabLabel,
+                    "active", lc != null && currentLevelCode != null && lc.equals(currentLevelCode)
+            ));
+        }
+
+        // 箭头文案（按宽屏/窄屏分别准备）
+        Long currentSeasonId = series != null ? series.getSeasonId() : null;
+        String currentSeasonName = season != null
+                ? (season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年"))
+                : "";
+
+        Function<Tournament, Map<String, Object>> buildNavMap = (Tournament t) -> {
+            if (t == null) return null;
+            Series ts = seriesById.get(t.getSeriesId());
+            Long sid = ts != null ? ts.getSeasonId() : null;
+            Season se = sid != null ? seasonById.get(sid) : null;
+            String seasonName = se != null
+                    ? (se.getYear() + "年" + (se.getHalf() == 1 ? "上半年" : "下半年"))
+                    : "";
+            String lc = t.getLevelCode();
+            TournamentLevel tl = lc != null ? levelByCode.get(lc) : null;
+            String levelName = tl != null && tl.getName() != null ? tl.getName() : (lc != null ? lc : "");
+            Integer ed = editionByTournamentId.get(t.getId());
+            boolean crossSeason = currentSeasonId != null && sid != null && !currentSeasonId.equals(sid);
+            boolean isFinalsType = lc != null && finalsTypeByLevelCode.containsKey(lc);
+
+            String desktopText;
+            if (isFinalsType) {
+                // 赛季总决赛（A/B）、年终总决赛
+                if (!crossSeason) {
+                    // 不跨赛季：只显示 {赛事等级}
+                    desktopText = levelName;
+                } else {
+                    // 跨赛季：A/B 显示赛季；年终显示年份
+                    String finalsPrefix = finalsTypeByLevelCode.get(lc);
+                    if ("CM An-Fi".equals(lc)) {
+                        // desktopText = finalsPrefix + "：" + (se != null ? se.getYear() : "");
+                        desktopText = se != null ? se.getYear().toString() : "";
+                    } else {
+                        // desktopText = finalsPrefix + "：" + seasonName;
+                        desktopText = seasonName;
+                    }
+                }
+            } else {
+                // 其它赛事等级
+                String edText = ed != null ? ed.toString() : "";
+                if (!crossSeason) {
+                    // 不跨赛季：{赛事等级}-{届次}（无“第/届”）
+                    desktopText = edText.isEmpty() ? levelName : (levelName + "-" + edText);
+                } else {
+                    // 跨赛季：{赛季}-{赛事等级}-{届次}（无“第/届”）
+                    desktopText = edText.isEmpty() ? (seasonName + "-" + levelName) : (seasonName + "-" + levelName + "-" + edText);
+                }
+            }
+
+            // 跨赛季要求：不管宽屏/窄屏都呈现 desktopText
+            String mobileText = crossSeason ? desktopText : desktopText;
+
+            return Map.of(
+                    "id", t.getId(),
+                    "desktopText", desktopText,
+                    "mobileText", mobileText
+            );
+        };
+
+        model.addAttribute("seriesTournamentTabs", seriesTournamentTabs);
+        model.addAttribute("prevSameLevelTournamentNav", buildNavMap.apply(prevSameLevelTournament));
+        model.addAttribute("nextSameLevelTournamentNav", buildNavMap.apply(nextSameLevelTournament));
         
         List<Match> matches = matchService.lambdaQuery().eq(Match::getTournamentId, id).orderByAsc(Match::getRound).list();
         List<Map<String, Object>> matchInfoList = new ArrayList<>();

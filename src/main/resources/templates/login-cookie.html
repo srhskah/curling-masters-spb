@@ -19,6 +19,7 @@
             <div th:replace="~{fragments :: success-alert}"></div>
 
             <form th:action="@{/login}" method="post" id="loginForm">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="mb-3">
                     <label for="username" class="form-label">用户名</label>
                     <input type="text" class="form-control" id="username" name="username" 
