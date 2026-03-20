@@ -44,5 +44,26 @@ public final class InputSanitizer {
 
         return s.trim();
     }
+
+    /**
+     * 保留换行/回车（用于“名单/排名粘贴”这类依赖换行分割的输入）。
+     * 仍会做控制字符清理与明显危险片段移除，但不会把 \n 替换为空格。
+     */
+    public static String sanitizeAllowNewlines(String input) {
+        if (input == null) return null;
+
+        String s = input.replace("\0", "");
+
+        // 不替换 \r/\n/\t，允许业务通过换行分隔。
+        // 但仍移除其它控制字符（不包含 \r/\n/\t）。
+        s = CONTROL_CHARS.matcher(s).replaceAll("");
+
+        // 屏蔽常见危险片段
+        for (Pattern p : DANGEROUS_PATTERNS) {
+            s = p.matcher(s).replaceAll("");
+        }
+
+        return s.trim();
+    }
 }
 
