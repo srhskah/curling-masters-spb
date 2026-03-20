@@ -43,6 +43,7 @@
             </div>
 
             <form th:action="@{/user/register}" method="post">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="mb-3">
                     <label for="username" class="form-label">用户名 <small class="text-muted">(支持中文、emoji、Unicode字符)</small></label>
                     <input type="text" class="form-control" id="username" name="username" required

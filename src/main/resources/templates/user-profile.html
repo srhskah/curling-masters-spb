@@ -50,6 +50,7 @@
                                 <h5>编辑信息</h5>
                                 <hr>
                                 <form th:action="@{/user/profile/update}" method="post">
+                                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                                     <div class="mb-3">
                                         <label for="username" class="form-label">用户名</label>
                                         <input type="text" class="form-control" id="username" name="username" 

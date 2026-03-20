@@ -113,7 +113,11 @@
                                                     <div class="generic-card-label me-2" th:text="${column['title']}"></div>
                                                     <div class="text-end flex-grow-1">
                                                         <div th:if="${column['type'] == 'custom'}"
-                                                             th:utext="${column['content'] != null ? #strings.replace(column['content'], '{item}', cellValue != null ? cellValue.toString() : '') : (cellValue != null ? cellValue : '')}"></div>
+                                                             th:utext="${column['content'] != null ? #strings.replace(
+                                                                     column['content'],
+                                                                     '{item}',
+                                                                     cellValue != null ? #strings.escapeXml(cellValue.toString()) : ''
+                                                                 ) : (cellValue != null ? #strings.escapeXml(cellValue.toString()) : '')}"></div>
                                                         <div th:if="${column['type'] == 'link'}">
                                                             <a th:href="${column['linkPrefix'] + cellValue}"
                                                                class="text-decoration-none"
@@ -179,7 +183,11 @@
                                         <td th:each="column, colStat : ${columns}"
                                             th:with="cellValue=${itemData[colStat.index]}">
                                             <div th:if="${column['type'] == 'custom'}"
-                                                 th:utext="${column['content'] != null ? #strings.replace(column['content'], '{item}', cellValue != null ? cellValue.toString() : '') : (cellValue != null ? cellValue : '')}"></div>
+                                                 th:utext="${column['content'] != null ? #strings.replace(
+                                                     column['content'],
+                                                     '{item}',
+                                                     cellValue != null ? #strings.escapeXml(cellValue.toString()) : ''
+                                                 ) : (cellValue != null ? #strings.escapeXml(cellValue.toString()) : '')}"></div>
                                             <div th:if="${column['type'] == 'link'}">
                                                 <a th:href="${column['linkPrefix'] + cellValue}"
                                                    class="text-decoration-none"

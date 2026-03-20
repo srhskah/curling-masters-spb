@@ -108,6 +108,59 @@
             </div>
         </div>
         
+        <!-- 同系列赛事 Tabs + 同级别上下一个导航 -->
+        <div class="row g-3 mb-3">
+            <!-- 宽屏左侧：同系列所有赛事 Tabs；窄屏独占一行 -->
+            <div class="col-12 col-lg-8">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <ul class="nav nav-pills flex-nowrap overflow-auto w-100 justify-content-center" role="tablist">
+                            <li class="nav-item" th:each="tab : ${seriesTournamentTabs}">
+                                <a class="nav-link"
+                                   th:href="@{/tournament/detail/{id}(id=${tab.id})}"
+                                   th:classappend="${tab.active} ? ' active' : ''"
+                                   th:text="${tab.label}">
+                                    标签
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 宽屏右侧：同级别上下一个赛事；窄屏独占一行 -->
+            <div class="col-12 col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex flex-column flex-lg-row gap-2 align-items-stretch"
+                             th:if="${prevSameLevelTournamentNav != null or nextSameLevelTournamentNav != null}">
+                            <a th:if="${prevSameLevelTournamentNav != null}"
+                               class="btn btn-outline-primary w-100 w-lg-auto"
+                               th:href="@{/tournament/detail/{id}(id=${prevSameLevelTournamentNav.id})}">
+                                <span class="me-1">⬅️</span>
+                                <!-- <span class="me-1">上一个同级别赛事：</span> -->
+                                <span class="d-lg-inline" th:text="${prevSameLevelTournamentNav.desktopText}"></span>
+                                <span class="d-lg-none" th:text="${prevSameLevelTournamentNav.mobileText}"></span>
+                            </a>
+
+                            <!-- 只有 prev 和 next 都存在时，才显示中间间隔 -->
+                            <div th:if="${prevSameLevelTournamentNav != null and nextSameLevelTournamentNav != null}"
+                                 class="flex-grow-1 d-none d-lg-block"></div>
+
+                            <a th:if="${nextSameLevelTournamentNav != null}"
+                               class="btn btn-outline-primary w-100 w-lg-auto"
+                               th:href="@{/tournament/detail/{id}(id=${nextSameLevelTournamentNav.id})}">
+                                <!-- <span class="me-1">下一个同级别赛事：</span> -->
+                                <span th:text="${nextSameLevelTournamentNav.desktopText}" class="d-lg-inline"></span>
+                                <span th:text="${nextSameLevelTournamentNav.mobileText}" class="d-lg-none"></span>
+                                <span class="me-1">➡️</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div class="row">
             <!-- 比赛列表 -->
             <div class="col-lg-8">

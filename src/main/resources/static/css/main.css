@@ -9,12 +9,21 @@ body {
 
 /* 内网/本地访问 - 绿色渐变 */
 body.bg-internal {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    background: radial-gradient(circle farthest-corner at center,  #1cec, #3c9c) !important;
 }
 
 /* 外网访问 - 保持默认紫色渐变 */
 body.bg-external {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: radial-gradient(circle farthest-corner at center,  #9333, #3393, #3933) !important;
+}
+
+/* 公用控件标题栏渐变背景 */
+.bg-primary {
+    background: linear-gradient(90deg, #393a 15%, #339c, #933e 90%) !important;
+}
+
+.badge.bg-primary {
+    background: radial-gradient(circle farthest-corner at center, #339, #933e 66.666666%) !important;
 }
 
 input[type=number]::-webkit-inner-spin-button,
@@ -327,6 +336,24 @@ table.table-hover.align-middle tbody tr > td {
     .navbar-dark .navbar-collapse {
         position: relative;
         z-index: 4;
+    }
+}
+
+@media (max-width: 992px) {
+    .d-lg-inline{
+        display: none;
+    }
+    .d-lg-none{
+        display: inline !important;
+    }
+}
+
+@media (min-width: 993px) {
+    .d-lg-inline{
+        display: inline !important;
+    }
+    .d-lg-none{
+        display: none;
     }
 }
 

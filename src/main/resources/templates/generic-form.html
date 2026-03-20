@@ -29,6 +29,7 @@
                         </div>
                         
                         <form th:action="${saveUrl}" method="post" th:object="${formData}">
+                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                             <input type="hidden" th:if="*{id != null}" th:field="*{id}"/>
                             
                             <div th:each="field : ${fields}">

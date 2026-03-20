@@ -636,6 +636,17 @@
                 lab.textContent = el.checked ? '前24' : '全量';
             };
 
+            // Escape dynamic text before inserting into HTML strings (avoid XSS).
+            const escapeHtml = (s) => {
+                const str = s == null ? '' : String(s);
+                return str
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#x27;');
+            };
+
             const renderTable = (entries) => {
                 const rows = entries || [];
                 const allTables = Array.from(document.querySelectorAll('table[data-scope-table=\"season-detail\"]'));
@@ -649,7 +660,7 @@
                 tbody.innerHTML = rows.map((e, idx) => `
                   <tr>
                     <td><span class=\"badge bg-primary\">${idx + 1}</span></td>
-                    <td>${String(e.username ?? '')}</td>
+                    <td>${escapeHtml(e.username ?? '')}</td>
                     <td><span class=\"badge bg-success\">${e.points ?? 0}</span></td>
                   </tr>
                 `).join('');
