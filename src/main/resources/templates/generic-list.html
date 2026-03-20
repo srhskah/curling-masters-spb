@@ -116,8 +116,8 @@
                                                              th:utext="${column['content'] != null ? #strings.replace(
                                                                      column['content'],
                                                                      '{item}',
-                                                                     cellValue != null ? #strings.escapeXml(cellValue.toString()) : ''
-                                                                 ) : (cellValue != null ? #strings.escapeXml(cellValue.toString()) : '')}"></div>
+                                                                     cellValue != null ? cellValue.toString() : ''
+                                                                 ) : (cellValue != null ? cellValue : '')}"></div>
                                                         <div th:if="${column['type'] == 'link'}">
                                                             <a th:href="${column['linkPrefix'] + cellValue}"
                                                                class="text-decoration-none"
@@ -186,8 +186,8 @@
                                                  th:utext="${column['content'] != null ? #strings.replace(
                                                      column['content'],
                                                      '{item}',
-                                                     cellValue != null ? #strings.escapeXml(cellValue.toString()) : ''
-                                                 ) : (cellValue != null ? #strings.escapeXml(cellValue.toString()) : '')}"></div>
+                                                     cellValue != null ? cellValue.toString() : ''
+                                                 ) : (cellValue != null ? cellValue : '')}"></div>
                                             <div th:if="${column['type'] == 'link'}">
                                                 <a th:href="${column['linkPrefix'] + cellValue}"
                                                    class="text-decoration-none"

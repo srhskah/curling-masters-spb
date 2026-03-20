@@ -3,6 +3,7 @@ package com.example.controller;
 import com.example.entity.*;
 import com.example.service.*;
 import com.example.util.IpAddressUtil;
+import com.example.util.HtmlEscaper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -128,11 +129,11 @@ public class MatchController {
             }
             
             // 构建比赛显示
-            String matchDisplay = player1Name + " vs " + player2Name;
+            String matchDisplay = HtmlEscaper.escapeHtml(player1Name) + " vs " + HtmlEscaper.escapeHtml(player2Name);
             if (match.getWinnerId() != null && match.getWinnerId().equals(match.getPlayer1Id())) {
-                matchDisplay += " <span class=\"text-success\">(" + player1Name + "胜)</span>";
+                matchDisplay += " <span class=\"text-success\">(" + HtmlEscaper.escapeHtml(player1Name) + "胜)</span>";
             } else if (match.getWinnerId() != null && match.getWinnerId().equals(match.getPlayer2Id())) {
-                matchDisplay += " <span class=\"text-success\">(" + player2Name + "胜)</span>";
+                matchDisplay += " <span class=\"text-success\">(" + HtmlEscaper.escapeHtml(player2Name) + "胜)</span>";
             }
             
             // 构建时间显示
@@ -149,7 +150,7 @@ public class MatchController {
             
             item.put("data", Arrays.asList(
                 match.getId(),
-                "<strong>" + tournamentName + "</strong>",
+                "<strong>" + HtmlEscaper.escapeHtml(tournamentName) + "</strong>",
                 match.getCategory() != null ? match.getCategory() : "-",
                 match.getRound() != null ? "第" + match.getRound() + "轮" : "-",
                 matchDisplay,

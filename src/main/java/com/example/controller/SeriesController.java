@@ -3,6 +3,7 @@ package com.example.controller;
 import com.example.entity.*;
 import com.example.service.*;
 import com.example.util.IpAddressUtil;
+import com.example.util.HtmlEscaper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -126,7 +127,7 @@ public class SeriesController {
             
             item.put("data", Arrays.asList(
                 series.getId(),
-                "<strong>" + seriesName + "</strong>",
+                "<strong>" + HtmlEscaper.escapeHtml(seriesName) + "</strong>",
                 seasonName,
                 series.getSequence(),
                 "-", // Series表没有status字段，显示占位符

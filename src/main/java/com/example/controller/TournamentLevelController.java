@@ -6,6 +6,7 @@ import com.example.service.ITournamentLevelService;
 import com.example.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.example.util.HtmlEscaper;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -50,7 +51,7 @@ public class TournamentLevelController {
             
             item.put("data", Arrays.asList(
                 level.getId(),
-                "<strong>" + level.getCode() + "</strong>",
+                "<strong>" + HtmlEscaper.escapeHtml(level.getCode()) + "</strong>",
                 level.getName(),
                 level.getDefaultChampionRatio(),
                 level.getDefaultBottomPoints(),

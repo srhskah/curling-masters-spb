@@ -57,7 +57,13 @@ public class InputSanitizationFilter extends OncePerRequestFilter {
             }
 
             String[] clean = Arrays.stream(values)
-                    .map(InputSanitizer::sanitize)
+                    .map(v -> {
+                        // 保留名单/排名的换行分隔符：否则会破坏你的解析规则
+                        if (key != null && (key.equals("rankingData") || key.equals("usernames"))) {
+                            return InputSanitizer.sanitizeAllowNewlines(v);
+                        }
+                        return InputSanitizer.sanitize(v);
+                    })
                     .toArray(String[]::new);
             sanitized.put(key, clean);
         }
