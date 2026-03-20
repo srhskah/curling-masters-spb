@@ -1,16 +1,2 @@
-package com.example.service;
-
-import com.example.entity.SetScore;
-import com.baomidou.mybatisplus.extension.service.IService;
-
-/**
- * <p>
- *  服务类
- * </p>
- *
- * @author Curling Masters
- * @since 2026-03-04
- */
-public interface SetScoreService extends IService<SetScore> {
-
-}
+// This file has been deleted to avoid duplicate interface conflicts
+// Please use ISetScoreService instead

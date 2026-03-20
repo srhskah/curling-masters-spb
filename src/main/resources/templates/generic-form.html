@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments :: head(${pageTitle})}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+</head>
+
+<body th:classappend="${ipBgClass}">
+    <!-- 导航栏 -->
+    <div th:replace="~{fragments :: navbar}"></div>
+
+    <!-- 消息提示 -->
+    <div th:replace="~{fragments :: success-alert}"></div>
+    <div th:replace="~{fragments :: error-alert}"></div>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i th:class="${pageIcon}"></i> <span th:text="${pageTitle}"></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <span th:text="${error}"></span>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        
+                        <form th:action="${saveUrl}" method="post" th:object="${formData}">
+                            <input type="hidden" th:if="*{id != null}" th:field="*{id}"/>
+                            
+                            <div th:each="field : ${fields}">
+                                <!-- 文本输入 -->
+                                <div th:if="${field['type'] == 'text' or field['type'] == 'number' or field['type'] == 'date' or field['type'] == 'datetime-local'}" 
+                                     class="mb-3">
+                                    <label th:for="${field['id']}" class="form-label">
+                                        <span th:text="${field['label']}"></span>
+                                        <span th:if="${field['required']}" class="text-danger">*</span>
+                                    </label>
+                                    <input th:type="${field['type']}" 
+                                           class="form-control" 
+                                           th:id="${field['id']}" 
+                                           th:field="*{__${field['name']}__}" 
+                                           th:placeholder="${field['placeholder']}"
+                                           th:min="${field['min']}"
+                                           th:max="${field['max']}"
+                                           th:step="${field['step']}"
+                                           th:required="${field['required'] == true}">
+                                    <div th:if="${field['help']}" class="form-text" th:text="${field['help']}"></div>
+                                </div>
+                                
+                                <!-- 下拉选择 -->
+                                <div th:if="${field['type'] == 'select'}" class="mb-3">
+                                    <label th:for="${field['id']}" class="form-label">
+                                        <span th:text="${field['label']}"></span>
+                                        <span th:if="${field['required']}" class="text-danger">*</span>
+                                    </label>
+                                    <select class="form-select" 
+                                            th:id="${field['id']}" 
+                                            th:field="*{__${field['name']}__}" 
+                                            th:required="${field['required'] == true}">
+                                        <option value="" th:text="${field['placeholder']}"></option>
+                                        <option th:each="option : ${field['options']}" 
+                                                th:value="${option['value']}"
+                                                th:text="${option['text']}"
+                                                th:selected="${option['selected']}"
+                                                th:data-default-champion-points-ratio="${option['defaultChampionPointsRatio']}">
+                                        </option>
+                                    </select>
+                                    <div th:if="${field['help']}" class="form-text" th:text="${field['help']}"></div>
+                                </div>
+                                
+                                <!-- 文本域 -->
+                                <div th:if="${field['type'] == 'textarea'}" class="mb-3">
+                                    <label th:for="${field['id']}" class="form-label">
+                                        <span th:text="${field['label']}"></span>
+                                        <span th:if="${field['required']}" class="text-danger">*</span>
+                                    </label>
+                                    <textarea class="form-control" 
+                                              th:id="${field['id']}" 
+                                              th:field="*{__${field['name']}__}" 
+                                              th:placeholder="${field['placeholder']}"
+                                              th:rows="${field['rows'] ?: 3}"
+                                              th:required="${field['required'] == true}"></textarea>
+                                    <div th:if="${field['help']}" class="form-text" th:text="${field['help']}"></div>
+                                </div>
+                                
+                                <!-- 行内字段组 -->
+                                <div th:if="${field['type'] == 'row'}" class="row">
+                                    <div th:each="subField : ${field['fields']}" 
+                                         th:class="${subField['colClass'] ?: 'col-md-6'}"
+                                         class="mb-3">
+                                        <!-- 递归处理子字段 -->
+                                        <div th:if="${subField['type'] == 'text' or subField['type'] == 'number' or subField['type'] == 'date' or subField['type'] == 'datetime-local'}">
+                                            <label th:for="${subField['id']}" class="form-label">
+                                                <span th:text="${subField['label']}"></span>
+                                                <span th:if="${subField['required']}" class="text-danger">*</span>
+                                            </label>
+                                            <input th:type="${subField['type']}" 
+                                                   class="form-control" 
+                                                   th:id="${subField['id']}" 
+                                                   th:field="*{__${subField['name']}__}" 
+                                                   th:placeholder="${subField['placeholder']}"
+                                                   th:min="${subField['min']}"
+                                                   th:max="${subField['max']}"
+                                                   th:step="${subField['step']}"
+                                                   th:required="${subField['required'] == true}">
+                                            <div th:if="${subField['help']}" class="form-text" th:text="${subField['help']}"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <a th:href="${backUrl}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> 返回
+                                </a>
+                                <div>
+                                    <button type="reset" class="btn btn-outline-secondary me-2">
+                                        <i class="bi bi-arrow-clockwise"></i> 重置
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-check-lg"></i> 保存
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div th:replace="~{fragments :: footer}"></div>
+
+    <!-- 脚本 -->
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+    
+    <script th:if="${customScript != null}" th:utext="${customScript}"></script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">排名导出</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        h2 { margin: 18px 0 8px; font-size: 16px; }
+        h3 { margin: 12px 0 6px; font-size: 14px; }
+        .rule { margin: 4px 0 12px; color: #555; }
+        .muted { color: #666; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 14px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; table-layout: auto; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; vertical-align: middle; text-align: center; }
+        th { background: #f3f3f3; }
+        .muted { color: #666; }
+        .withdrawn { text-decoration: line-through; color: #777; }
+        .tournament-block { margin-bottom: 10px; }
+        .tournament-meta { color: #666; margin: 0 0 6px; }
+        .page-break { page-break-after: always; }
+        .podium-gold { background: #d4af37; color: #000; font-weight: 700; }
+        .podium-silver { background: #c0c0c0; color: #000; font-weight: 700; }
+        .podium-bronze { background: #cd7f32; color: #fff; font-weight: 700; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 style="margin:0;" th:text="${title}">排名导出</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<h2>总排名</h2>
+<table>
+    <thead>
+    <tr>
+        <th>排名</th>
+        <th>选手</th>
+        <th>积分</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="entry : ${totalRanking}">
+        <td th:text="${entry.rank}">1</td>
+        <td th:text="${entry.username}">用户名</td>
+        <td th:text="${entry.points}">0</td>
+    </tr>
+    <tr th:if="${totalRanking == null or #lists.isEmpty(totalRanking)}">
+        <td colspan="3" class="muted" style="text-align:center;">暂无数据</td>
+    </tr>
+    </tbody>
+</table>
+
+<h2>赛季排名</h2>
+<table>
+    <thead>
+    <tr>
+        <th>排名</th>
+        <th>选手</th>
+        <th>积分</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="entry : ${seasonRanking}">
+        <td th:text="${entry.rank}">1</td>
+        <td th:text="${entry.username}">用户名</td>
+        <td th:text="${entry.points}">0</td>
+    </tr>
+    <tr th:if="${seasonRanking == null or #lists.isEmpty(seasonRanking)}">
+        <td colspan="3" class="muted" style="text-align:center;">暂无数据</td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<h2 th:text="${seriesTournamentRanking != null ? ('赛事系列：' + seriesTournamentRanking.seriesLabel) : '赛事系列'}">赛事系列</h2>
+
+<div th:if="${seriesTournamentRanking != null and seriesTournamentRanking.tournaments != null}">
+    <div th:each="tournament : ${seriesTournamentRanking.tournaments}" class="tournament-block">
+        <h3 th:text="${tournament.tournamentLabel}">赛事</h3>
+        <div class="tournament-meta" th:text="${tournament.statusLabel}">状态</div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>排名</th>
+                <th>选手</th>
+                <th>积分</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:each="r : ${tournament.rankings}">
+                <td th:classappend="${r.rank == 1 ? ' podium-gold' : (r.rank == 2 ? ' podium-silver' : (r.rank == 3 ? ' podium-bronze' : ''))}"
+                    th:text="${r.rank}">1</td>
+                <td>
+                    <span th:if="${r.withdrawn}" class="withdrawn" th:text="${r.username}">退赛</span>
+                    <span th:if="${!r.withdrawn}" th:text="${r.username}">选手</span>
+                    <span th:if="${r.withdrawn}" th:text="'（退赛（不计入排名））'">（退赛（不计入排名））</span>
+                </td>
+                <td th:text="${r.points}">0</td>
+            </tr>
+            <tr th:if="${tournament.rankings == null or #lists.isEmpty(tournament.rankings)}">
+                <td colspan="3" class="muted" style="text-align:center;">暂无数据</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div th:if="${seriesTournamentRanking == null or seriesTournamentRanking.tournaments == null or #lists.isEmpty(seriesTournamentRanking.tournaments)}"
+     class="muted" style="text-align:center;">
+    暂无赛事数据
+</div>
+
+</body>
+</html>
+

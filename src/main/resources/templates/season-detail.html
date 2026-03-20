@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${season.year + '年' + (season.half == 1 ? '上半年' : '下半年') + ' - 赛季详情'})}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <link rel="shortcut icon"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <style>
+        /* ≥1400px：左右两列并排；右侧系列可滚动，避免被裁切 */
+        @media (min-width: 1400px) {
+            .season-xxl-row { align-items: stretch; }
+            .season-xxl-col { min-height: 0; }
+            .season-series-scroll {
+                max-height: calc(100vh - 260px);
+                overflow: auto;
+                padding-right: .25rem;
+            }
+        }
+    </style>
+</head>
+<body th:classappend="${ipBgClass}">
+    <div th:replace="~{fragments :: navbar}"></div>
+
+    <!-- 消息提示 -->
+    <div th:replace="~{fragments :: success-alert}"></div>
+    <div th:replace="~{fragments :: error-alert}"></div>
+    
+    <div class="container mt-4">
+        <!-- 赛季信息 -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-calendar3"></i>
+                        <span th:text="${season.year + '年' + (season.half == 1 ? '上半年' : '下半年')}"></span>
+                    </h5>
+                    <div>
+                        <a th:if="${isAdmin}" th:href="@{/season/edit/{id}(id=${season.id})}" 
+                           class="btn btn-light btn-sm me-2">
+                            <i class="bi bi-pencil"></i> 编辑赛季
+                        </a>
+                        <a href="/season/management" class="btn btn-outline-light btn-sm">
+                            <i class="bi bi-arrow-left"></i> 返回管理
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-0">
+                    创建时间：
+                    <span th:text="${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy年MM月dd日 HH:mm') : '-'}"></span>
+                </p>
+            </div>
+        </div>
+        
+        <!-- ≥1400px：并排展示（不走 tab-pane hack，避免裁切/高度问题） -->
+        <div class="row g-4 d-none d-xxl-flex season-xxl-row">
+            <div class="col-xxl-5 season-xxl-col">
+                <div class="card border-0 shadow-sm mb-4 mb-xxl-0">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-list-ol"></i> 本赛季排名</h5>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="form-check form-switch mb-0 ranking-scope-switch">
+                                <input class="form-check-input" type="checkbox" id="seasonDetailLimitToggleXxl" checked>
+                                <label class="form-check-label text-white-50 small" for="seasonDetailLimitToggleXxl">
+                                    <span id="seasonDetailLimitLabelXxl">前24</span>
+                                </label>
+                            </div>
+                            <button type="button"
+                                    class="btn btn-light btn-sm"
+                                    id="seasonDetailCopyOpenBtn"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#seasonDetailTextModal">
+                                复制文本
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-light btn-sm"
+                                    id="seasonDetailPdfBtnXxl">
+                                PDF
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" data-scope-table="season-detail">
+                                <thead class="table-light">
+                                <tr>
+                                    <th style="width: 80px;">排名</th>
+                                    <th>选手</th>
+                                    <th style="width: 140px;">积分</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="entry, stat : ${seasonRanking}">
+                                    <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                                    <td th:text="${entry.username}"></td>
+                                    <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(seasonRanking)}">
+                                    <td colspan="3" class="text-center text-muted">暂无数据</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-muted small">
+                            规则：同系列取最高积分；赛季内取最好10个系列累加。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xxl-7 season-xxl-col">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-collection"></i> 赛事系列</h5>
+                <a th:if="${isAdmin}" th:href="@{/series/add(seasonId=${season.id})}" 
+                           class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle"></i> 新增系列
+                </a>
+            </div>
+            <div class="card-body">
+                        <!-- ≥1400px：桌面端系列选择器（与小屏分离，避免 ID 冲突） -->
+                        <div th:if="${!#lists.isEmpty(seriesInfoList)}" class="mb-3">
+                            <label for="seriesSelectorXxl" class="form-label mb-1">选择系列</label>
+                            <select id="seriesSelectorXxl" class="form-select">
+                                <option th:each="seriesInfo : ${seriesInfoList}"
+                                        th:with="series=${seriesInfo['series']}"
+                                        th:value="${series.id}"
+                                        th:selected="${latestSeriesId != null ? (series.id == latestSeriesId) : false}"
+                                        th:text="${season.year + '年' + (season.half == 1 ? '上半年' : '下半年') + ' - ' + seriesInfo['seriesDisplayName']}"></option>
+                            </select>
+                            <div class="form-text">默认展示本赛季最新系列，可在此切换其他系列</div>
+
+                            <!-- 上一个 / 下一个（任何用户可用） -->
+                            <div class="mt-2 d-flex justify-content-between align-items-center gap-2 series-prev-next-bar"
+                                 th:attr="data-prev-url=${prevSeasonLastSeriesId != null ? ('/season/detail/by-series/' + prevSeasonLastSeriesId) : ''},
+                                          data-prev-label=${prevSeasonLastSeriesLabel != null ? prevSeasonLastSeriesLabel : ''},
+                                          data-next-url=${nextSeasonFirstSeriesId != null ? ('/season/detail/by-series/' + nextSeasonFirstSeriesId) : ''},
+                                          data-next-label=${nextSeasonFirstSeriesLabel != null ? nextSeasonFirstSeriesLabel : ''}">
+                                <button type="button" class="btn btn-link p-0 text-decoration-none series-prev-btn text-start" style="max-width: 48%;">
+                                    ⬅️ <span class="series-prev-label text-primary"></span>
+                                </button>
+                                <button type="button" class="btn btn-link p-0 text-decoration-none series-next-btn text-end" style="max-width: 48%;">
+                                    <span class="series-next-label text-primary"></span> ➡️
+                                </button>
+                            </div>
+
+                            <!-- 复制/导出（任何用户可用） -->
+                            <div class="mt-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <span class="text-muted small">复制格式：</span>
+                                    <select id="seriesCopyFormatXxl" class="form-select form-select-sm" style="width: 200px;">
+                                        <option value="plain">纯文本行</option>
+                                        <option value="markdown">Markdown 表格</option>
+                                        <option value="tsv">TSV/制表符表格</option>
+                                    </select>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <button type="button" class="btn btn-outline-primary btn-sm series-copy-btn"
+                                            data-copy-type="series-summary">
+                                        复制系列积分汇总
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm series-exportpdf-btn"
+                                            data-export-type="series-summary">
+                                        导出本系列多合一PDF
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+            
+                <div th:if="${#lists.isEmpty(seriesInfoList)}" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox fs-1"></i>
+                    <p class="mt-2">该赛季暂无赛事系列</p>
+                    <a th:if="${isAdmin}" th:href="@{/series/add(seasonId=${season.id})}" 
+                       class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> 创建第一个系列
+                    </a>
+                </div>
+                
+                <div th:if="${!#lists.isEmpty(seriesInfoList)}">
+                            <div th:each="seriesInfo : ${seriesInfoList}"
+                                 th:with="series=${seriesInfo['series']}, tournaments=${seriesInfo['tournaments']}"
+                                 class="series-panel-xxl"
+                                 th:attr="data-series-id=${series.id}"
+                                 th:style="${latestSeriesId != null and series.id != latestSeriesId ? 'display:none;' : ''}">
+            
+                                <div class="mb-3 d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                        <h6 class="mb-1">
+                                            <strong th:text="${season.year + '年' + (season.half == 1 ? '上半年' : '下半年')}"></strong>
+                                            <span class="text-muted" th:text="${' - ' + seriesInfo['seriesDisplayName']}"></span>
+                                        </h6>
+                                    </div>
+                                    <div th:if="${isAdmin}">
+                                        <a th:href="@{/tournament/add(seriesId=${series.id})}"
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-plus-circle"></i> 新增赛事
+                                        </a>
+                                    </div>
+                                    </div>
+                                    
+                                <div th:if="${#lists.isEmpty(tournaments)}" class="text-center text-muted py-3">
+                                        <i class="bi bi-trophy fs-3"></i>
+                                    <p class="mt-2 mb-0">该系列暂无赛事</p>
+                                    </div>
+                                    
+                                <div th:if="${!#lists.isEmpty(tournaments)}" class="vstack gap-3">
+                                    <div class="card border-0 shadow-sm"
+                                         th:each="tournamentInfo : ${tournaments}"
+                                         th:with="t=${tournamentInfo['tournament']},
+                                                  levelName=${tournamentInfo['levelName']},
+                                                  hostUserName=${tournamentInfo['hostUserName']}">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                                <div>
+                                                    <h6 class="mb-1">
+                                                        <a th:href="@{/tournament/detail/{id}(id=${t.id})}"
+                                                           class="text-decoration-none">
+                                                            <i class="bi bi-trophy"></i>
+                                                            <span th:text="${tournamentInfo['edition'] != null ? ('第' + tournamentInfo['edition'] + '届') : (t.levelCode != null ? t.levelCode : '')}"></span>
+                                                        </a>
+                                                    </h6>
+                                                    <div class="text-muted small">
+                                                        <span class="badge bg-info text-dark me-1"
+                                                              th:text="${levelName}"></span>
+                                                        <span th:text="${'主办：' + hostUserName}"></span>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <span th:if="${t.status == 0}" class="badge bg-secondary">筹备中</span>
+                                                    <span th:if="${t.status == 1}" class="badge bg-primary">进行中</span>
+                                                    <span th:if="${t.status == 2}" class="badge bg-success">已结束</span>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2 text-muted small">
+                                                时间：
+                                                <span th:if="${t.startDate != null}"
+                                                      th:text="${#temporals.format(t.startDate, 'MM-dd')}"></span>
+                                                <span th:if="${t.startDate != null and t.endDate != null}">~</span>
+                                                <span th:if="${t.endDate != null}"
+                                                      th:text="${#temporals.format(t.endDate, 'MM-dd')}"></span>
+                                                <span th:if="${t.startDate == null}">待定</span>
+                                            </div>
+                                            <div class="mt-3 d-flex flex-wrap gap-2">
+                                                <a th:href="@{/tournament/detail/{id}(id=${t.id})}"
+                                                           class="btn btn-sm btn-outline-info">
+                                                            <i class="bi bi-eye"></i> 详情
+                                                        </a>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-primary tournament-copy-btn"
+                                                        th:attr="data-tournament-id=${t.id}">
+                                                    复制排名
+                                                </button>
+                                                <a class="btn btn-sm btn-outline-secondary"
+                                                   th:href="@{/ranking/export/pdf/tournament/{id}(id=${t.id})}">
+                                                    导出PDF
+                                                </a>
+                                                <a th:if="${isAdmin}"
+                                                   th:href="@{/tournament/edit/{id}(id=${t.id})}"
+                                                   class="btn btn-sm btn-outline-warning">
+                                                    <i class="bi bi-pencil"></i> 编辑
+                                                </a>
+                                                <form th:if="${isAdmin}"
+                                                      th:action="@{/tournament/delete/{id}(id=${t.id})}"
+                                                      method="post" style="display:inline;"
+                                                      onsubmit="return confirm('确定要删除这个赛事吗？');">
+                                                    <input type="hidden" th:if="${_csrf != null}"
+                                                           th:name="${_csrf.parameterName}"
+                                                           th:value="${_csrf.token}"/>
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" style="border: 1px #dc3545 solid;">
+                                                        <i class="bi bi-trash"></i> 删除
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+            
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- <1400px：排名/系列用选项卡切换 -->
+        <div class="d-xxl-none">
+            <ul class="nav nav-pills mb-3" id="seasonMainTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="tab-season-ranking"
+                            data-bs-toggle="pill" data-bs-target="#pane-season-ranking" type="button" role="tab">
+                        排名
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="tab-season-series"
+                            data-bs-toggle="pill" data-bs-target="#pane-season-series" type="button" role="tab">
+                        系列
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="pane-season-ranking" role="tabpanel">
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-list-ol"></i> 排名</h5>
+                            <!-- <a class="btn btn-light btn-sm" th:href="@{/ranking/season/{id}(id=${season.id})}">
+                                <i class="bi bi-box-arrow-up-right"></i> 打开排名页
+                            </a> -->
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="form-check form-switch mb-0 ranking-scope-switch">
+                                    <input class="form-check-input" type="checkbox" id="seasonDetailLimitToggleXxl" checked>
+                                    <label class="form-check-label text-white-50 small" for="seasonDetailLimitToggleXxl">
+                                        <span id="seasonDetailLimitLabelXxl">前24</span>
+                                    </label>
+                                </div>
+                                <button type="button"
+                                        class="btn btn-light btn-sm"
+                                        id="seasonDetailCopyOpenBtn"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#seasonDetailTextModal">
+                                    复制
+                                </button>
+                                <button type="button"
+                                        class="btn btn-outline-light btn-sm"
+                                        id="seasonDetailPdfBtnXxl">
+                                    PDF
+                                </button>
+                            </div>
+                        </div>
+                                <div class="card-body">
+                            <div class="table-responsive">
+                                        <table class="table table-hover" data-scope-table="season-detail">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 80px;">排名</th>
+                                        <th>选手</th>
+                                        <th style="width: 140px;">积分</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:each="entry, stat : ${seasonRanking}">
+                                        <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
+                                        <td th:text="${entry.username}"></td>
+                                        <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
+                                    </tr>
+                                    <tr th:if="${#lists.isEmpty(seasonRanking)}">
+                                        <td colspan="3" class="text-center text-muted">暂无数据</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                            </div>
+                            <div class="text-muted small">
+                                规则：同系列取最高积分；赛季内取最好10个系列累加。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="pane-season-series" role="tabpanel">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-collection"></i> 赛事系列</h5>
+                            <a th:if="${isAdmin}" th:href="@{/series/add(seasonId=${season.id})}"
+                               class="btn btn-light btn-sm">
+                                <i class="bi bi-plus-circle"></i> 新增系列
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <!-- 小屏：只显示卡片 + 系列选择，下拉格式与桌面一致 -->
+                            <div th:if="${!#lists.isEmpty(seriesInfoList)}" class="mb-3">
+                                <label for="seriesSelector" class="form-label mb-1">选择系列</label>
+                                <select id="seriesSelector" class="form-select">
+                                    <option th:each="seriesInfo : ${seriesInfoList}"
+                                            th:with="series=${seriesInfo['series']}"
+                                            th:value="${series.id}"
+                                            th:selected="${latestSeriesId != null ? (series.id == latestSeriesId) : false}"
+                                            th:text="${season.year + '年' + (season.half == 1 ? '上半年' : '下半年') + ' - ' + seriesInfo['seriesDisplayName']}"></option>
+                                </select>
+                                <div class="form-text">默认展示本赛季最新系列，可在此切换其他系列</div>
+
+                                <!-- 上一个 / 下一个（任何用户可用） -->
+                                <div class="mt-2 d-flex justify-content-between align-items-center gap-2 series-prev-next-bar"
+                                     th:attr="data-prev-url=${prevSeasonLastSeriesId != null ? ('/season/detail/by-series/' + prevSeasonLastSeriesId) : ''},
+                                              data-prev-label=${prevSeasonLastSeriesLabel != null ? prevSeasonLastSeriesLabel : ''},
+                                              data-next-url=${nextSeasonFirstSeriesId != null ? ('/season/detail/by-series/' + nextSeasonFirstSeriesId) : ''},
+                                              data-next-label=${nextSeasonFirstSeriesLabel != null ? nextSeasonFirstSeriesLabel : ''}">
+                                    <button type="button" class="btn btn-link p-0 text-decoration-none series-prev-btn text-start" style="max-width: 48%;">
+                                        ⬅️<span class="series-prev-label text-primary"></span>
+                                    </button>
+                                    <button type="button" class="btn btn-link p-0 text-decoration-none series-next-btn text-end" style="max-width: 48%;">
+                                        <span class="series-next-label text-primary"></span> ➡️
+                                    </button>
+                                </div>
+
+                                <!-- 复制/导出（任何用户可用） -->
+                                <div class="mt-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <span class="text-muted small">复制格式：</span>
+                                        <select id="seriesCopyFormatMobile" class="form-select form-select-sm" style="width: 200px;">
+                                            <option value="plain">纯文本行</option>
+                                            <option value="markdown">Markdown 表格</option>
+                                            <option value="tsv">TSV/制表符表格</option>
+                                        </select>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                                        <button type="button" class="btn btn-outline-primary btn-sm series-copy-btn"
+                                                data-copy-type="series-summary">
+                                            复制系列积分汇总
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm series-exportpdf-btn"
+                                                data-export-type="series-summary">
+                                            导出本系列多合一PDF
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                
+                            <div th:if="${#lists.isEmpty(seriesInfoList)}" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-1"></i>
+                                <p class="mt-2">该赛季暂无赛事系列</p>
+                                <a th:if="${isAdmin}" th:href="@{/series/add(seasonId=${season.id})}"
+                                   class="btn btn-outline-primary">
+                                    <i class="bi bi-plus-circle"></i> 创建第一个系列
+                                </a>
+                            </div>
+                
+                            <div th:if="${!#lists.isEmpty(seriesInfoList)}">
+                                <div th:each="seriesInfo : ${seriesInfoList}"
+                                     th:with="series=${seriesInfo['series']}, tournaments=${seriesInfo['tournaments']}"
+                                     class="series-panel-mobile"
+                                     th:attr="data-series-id=${series.id}"
+                                     th:style="${latestSeriesId != null and series.id != latestSeriesId ? 'display:none;' : ''}">
+                
+                                    <div class="mb-3 d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <h6 class="mb-1">
+                                                <strong th:text="${season.year + '年' + (season.half == 1 ? '上半年' : '下半年')}"></strong>
+                                                <span class="text-muted" th:text="${' - ' + seriesInfo['seriesDisplayName']}"></span>
+                                            </h6>
+                                        </div>
+                                        <div th:if="${isAdmin}">
+                                            <a th:href="@{/tournament/add(seriesId=${series.id})}"
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-plus-circle"></i> 新增赛事
+                                            </a>
+                                        </div>
+                                    </div>
+                
+                                    <div th:if="${#lists.isEmpty(tournaments)}" class="text-center text-muted py-3">
+                                        <i class="bi bi-trophy fs-3"></i>
+                                        <p class="mt-2 mb-0">该系列暂无赛事</p>
+                                    </div>
+                
+                                    <div th:if="${!#lists.isEmpty(tournaments)}" class="vstack gap-3">
+                                        <div class="card border-0 shadow-sm"
+                                             th:each="tournamentInfo : ${tournaments}"
+                                             th:with="t=${tournamentInfo['tournament']},
+                                                      levelName=${tournamentInfo['levelName']},
+                                                      hostUserName=${tournamentInfo['hostUserName']}">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                                    <div>
+                                                        <h6 class="mb-1">
+                                                            <a th:href="@{/tournament/detail/{id}(id=${t.id})}"
+                                                               class="text-decoration-none">
+                                                                <i class="bi bi-trophy"></i>
+                                                                <span th:text="${t.levelCode}"></span>
+                                                            </a>
+                                                        </h6>
+                                                        <div class="text-muted small">
+                                                            <span class="badge bg-info text-dark me-1"
+                                                                  th:text="${levelName}"></span>
+                                                            <span th:text="${'主办：' + hostUserName}"></span>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <span th:if="${t.status == 0}" class="badge bg-secondary">筹备中</span>
+                                                        <span th:if="${t.status == 1}" class="badge bg-primary">进行中</span>
+                                                        <span th:if="${t.status == 2}" class="badge bg-success">已结束</span>
+                                                    </div>
+                                                </div>
+                                                <div class="mt-2 text-muted small">
+                                                    时间：
+                                                    <span th:if="${t.startDate != null}"
+                                                          th:text="${#temporals.format(t.startDate, 'MM-dd')}"></span>
+                                                    <span th:if="${t.startDate != null and t.endDate != null}">~</span>
+                                                    <span th:if="${t.endDate != null}"
+                                                          th:text="${#temporals.format(t.endDate, 'MM-dd')}"></span>
+                                                    <span th:if="${t.startDate == null}">待定</span>
+                                                </div>
+                                                <div class="mt-3 d-flex flex-wrap gap-2">
+                                                    <a th:href="@{/tournament/detail/{id}(id=${t.id})}"
+                                                       class="btn btn-sm btn-outline-info">
+                                                        <i class="bi bi-eye"></i> 详情
+                                                    </a>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-primary tournament-copy-btn"
+                                                        th:attr="data-tournament-id=${t.id}">
+                                                    复制排名
+                                                </button>
+                                                <a class="btn btn-sm btn-outline-secondary"
+                                                   th:href="@{/ranking/export/pdf/tournament/{id}(id=${t.id})}">
+                                                    导出PDF
+                                                </a>
+                                                    <a th:if="${isAdmin}"
+                                                       th:href="@{/tournament/edit/{id}(id=${t.id})}"
+                                                       class="btn btn-sm btn-outline-warning">
+                                                        <i class="bi bi-pencil"></i> 编辑
+                                                    </a>
+                                                    <form th:if="${isAdmin}"
+                                                          th:action="@{/tournament/delete/{id}(id=${t.id})}"
+                                                          method="post" style="display:inline;"
+                                                          onsubmit="return confirm('确定要删除这个赛事吗？');">
+                                                        <input type="hidden" th:if="${_csrf != null}"
+                                                               th:name="${_csrf.parameterName}"
+                                                               th:value="${_csrf.token}"/>
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger" style="border: 1px #dc3545 solid;">
+                                                            <i class="bi bi-trash"></i> 删除
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+
+    <!-- 赛季详情页：本赛季排名复制为文本弹窗 -->
+    <div class="modal fade" id="seasonDetailTextModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="seasonDetailTextModalTitle">本赛季排名 - 导出为文本</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="seasonDetailTextFormat" class="form-label">复制格式</label>
+                        <select id="seasonDetailTextFormat" class="form-select">
+                            <option value="plain">纯文本行</option>
+                            <option value="markdown">Markdown 表格</option>
+                            <option value="tsv">TSV/制表符表格</option>
+                        </select>
+                    </div>
+                    <div class="text-muted small" id="seasonDetailTextHint"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="seasonDetailTextConfirmBtn">复制到剪贴板</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        (() => {
+            const seasonId = /*[[${season.id}]]*/ '';
+
+            const copyToClipboard = async (text) => {
+                if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
+                    await navigator.clipboard.writeText(text);
+                    return;
+                }
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.top = '-1000px';
+                textarea.style.left = '-1000px';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                document.execCommand('copy');
+                textarea.remove();
+            };
+
+            const fetchJson = async (url) => {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('请求失败：' + res.status);
+                return await res.json();
+            };
+
+            const formatRanking = (entries, format, header) => {
+                const list = (entries || []);
+                if (format === 'tsv') {
+                    const lines = ['排名\t选手\t积分'];
+                    for (const e of list) lines.push(`${e.rank}\t${e.username}\t${e.points}`);
+                    return [header, '', ...lines].join('\n');
+                }
+                if (format === 'markdown') {
+                    const lines = ['|排名|选手|积分|', '|---|---|---|'];
+                    for (const e of list) lines.push(`|${e.rank}|${String(e.username).replaceAll('|','\\\\|')}|${e.points}|`);
+                    return [header, '', ...lines].join('\n');
+                }
+                return [header, ...(list.map(e => `${e.rank}. ${e.username} - ${e.points}分`))].join('\n');
+            };
+
+            const isVisible = (el) => {
+                if (!el) return false;
+                const rect = el.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            };
+
+            const getActiveLimitToggleEl = () => {
+                const all = Array.from(document.querySelectorAll('input#seasonDetailLimitToggleXxl'));
+                if (!all.length) return null;
+                return all.find(isVisible) || all[0];
+            };
+
+            const getActiveLimitToggleLabEl = (toggleEl) => {
+                if (!toggleEl) return null;
+                const scope = toggleEl.closest('.ranking-scope-switch') || toggleEl.parentElement;
+                return scope ? scope.querySelector('span#seasonDetailLimitLabelXxl') : null;
+            };
+
+            const getLimit = () => {
+                const el = getActiveLimitToggleEl();
+                return el && el.checked ? '24' : 'all';
+            };
+
+            const setLimitLabel = () => {
+                const el = getActiveLimitToggleEl();
+                const lab = getActiveLimitToggleLabEl(el);
+                if (!el || !lab) return;
+                lab.textContent = el.checked ? '前24' : '全量';
+            };
+
+            const renderTable = (entries) => {
+                const rows = entries || [];
+                const allTables = Array.from(document.querySelectorAll('table[data-scope-table=\"season-detail\"]'));
+                const table = allTables.find(isVisible) || allTables[0];
+                const tbody = table ? table.querySelector('tbody') : null;
+                if (!tbody) return;
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr><td colspan=\"3\" class=\"text-center text-muted\">暂无数据</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = rows.map((e, idx) => `
+                  <tr>
+                    <td><span class=\"badge bg-primary\">${idx + 1}</span></td>
+                    <td>${String(e.username ?? '')}</td>
+                    <td><span class=\"badge bg-success\">${e.points ?? 0}</span></td>
+                  </tr>
+                `).join('');
+            };
+
+            const refresh = async () => {
+                const limit = getLimit();
+                const data = await fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
+                renderTable(data);
+            };
+
+            const init = () => {
+                setLimitLabel();
+                refresh().catch(console.error);
+
+                // 同一页面宽屏/窄屏会渲染两个“重复 id”的开关；统一给两者都绑定 change，
+                // 由 getLimit/renderTable 自动选择当前可见区域。
+                const toggles = Array.from(document.querySelectorAll('input#seasonDetailLimitToggleXxl'));
+                toggles.forEach((t) => {
+                    t.addEventListener('change', () => {
+                        setLimitLabel();
+                        refresh().catch(console.error);
+                    });
+                });
+
+                // 打开“复制为文本”弹窗
+                document.getElementById('seasonDetailCopyOpenBtn')?.addEventListener('click', () => {
+                    const hint = document.getElementById('seasonDetailTextHint');
+                    if (hint) {
+                        const limit = getLimit();
+                        hint.textContent = limit === '24'
+                            ? '当前范围：前24（由开关决定）'
+                            : '当前范围：全量（由开关决定）';
+                    }
+                });
+
+                // 弹窗内：复制到剪贴板
+                document.getElementById('seasonDetailTextConfirmBtn')?.addEventListener('click', async () => {
+                    const btn = document.getElementById('seasonDetailTextConfirmBtn');
+                    try {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.85';
+                        const limit = getLimit();
+                        const format = document.getElementById('seasonDetailTextFormat')?.value || 'plain';
+                        const header = limit === '24' ? '赛季排名（前24）' : '赛季排名（全量）';
+                        const data = await fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
+                        await copyToClipboard(formatRanking(data, format, header));
+                        if (typeof showAlert === 'function') showAlert('复制成功', 'success');
+                        else alert('复制成功');
+
+                        const modalEl = document.getElementById('seasonDetailTextModal');
+                        if (modalEl && window.bootstrap && bootstrap.Modal) {
+                            const inst = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                            inst.hide();
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                        else alert(e.message || '复制失败');
+                    } finally {
+                        btn.disabled = false;
+                        btn.style.opacity = '';
+                    }
+                });
+
+                document.getElementById('seasonDetailPdfBtnXxl')?.addEventListener('click', () => {
+                    const limit = getLimit();
+                    window.location.href = `/ranking/export/pdf/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`;
+                });
+            };
+
+            init();
+        })();
+    </script>
+    
+    <script>
+        (() => {
+            const bindSeriesSelector = (selectorId, panelClass) => {
+                const selector = document.getElementById(selectorId);
+                if (!selector) return;
+                const panels = document.querySelectorAll('.' + panelClass);
+                if (!panels || panels.length === 0) return;
+
+                const show = sid => {
+                    panels.forEach(p => {
+                        const pid = p.dataset.seriesId;
+                        p.style.display = (sid && pid === sid) ? '' : 'none';
+                    });
+                };
+
+                if (selector.value) show(selector.value);
+                selector.addEventListener('change', () => {
+                    if (!selector.value) return;
+                    show(selector.value);
+                });
+            };
+
+            // 宽屏：seriesSelectorXxl + series-panel-xxl
+            bindSeriesSelector('seriesSelectorXxl', 'series-panel-xxl');
+            // 小屏：seriesSelector + series-panel-mobile
+            bindSeriesSelector('seriesSelector', 'series-panel-mobile');
+
+            const buildSeriesLabel = (fullText) => {
+                if (!fullText) return '';
+                // 窄屏（<512px）：只显示“系列名称”部分（去掉“赛季 - ”前缀）
+                if (window.innerWidth < 512) {
+                    const idx = fullText.indexOf(' - ');
+                    return idx >= 0 ? fullText.substring(idx + 3) : fullText;
+                }
+                // 更宽屏幕：保留完整“赛季 - 系列名称”
+                return fullText;
+            };
+
+            const updatePrevNextFor = (selectEl, barRoot) => {
+                if (!selectEl || !barRoot) return;
+                const opts = Array.from(selectEl.options || []);
+                const idx = selectEl.selectedIndex;
+                const prev = idx > 0 ? opts[idx - 1] : null;
+                const next = idx >= 0 && idx < opts.length - 1 ? opts[idx + 1] : null;
+
+                const prevBtn = barRoot.querySelector('.series-prev-btn');
+                const nextBtn = barRoot.querySelector('.series-next-btn');
+                const prevLabel = barRoot.querySelector('.series-prev-label');
+                const nextLabel = barRoot.querySelector('.series-next-label');
+
+                const prevUrl = barRoot.dataset.prevUrl || '';
+                const nextUrl = barRoot.dataset.nextUrl || '';
+                const prevCrossLabel = barRoot.dataset.prevLabel || '';
+                const nextCrossLabel = barRoot.dataset.nextLabel || '';
+
+                if (prev && prevBtn && prevLabel) {
+                    prevBtn.disabled = false;
+                    prevBtn.style.opacity = '';
+                    prevLabel.textContent = buildSeriesLabel(prev.textContent || '');
+                } else if (prevBtn && prevLabel && prevUrl) {
+                    // 本赛季第一个系列之前：跳到上赛季最后一个系列（显示完整 label，不随屏幕缩短）
+                    prevBtn.disabled = false;
+                    prevBtn.style.opacity = '';
+                    prevLabel.textContent = prevCrossLabel || '';
+                } else if (prevBtn && prevLabel) {
+                    prevBtn.disabled = true;
+                    prevBtn.style.opacity = '0.45';
+                    prevLabel.textContent = '';
+                }
+
+                if (next && nextBtn && nextLabel) {
+                    nextBtn.disabled = false;
+                    nextBtn.style.opacity = '';
+                    nextLabel.textContent = buildSeriesLabel(next.textContent || '');
+                } else if (nextBtn && nextLabel && nextUrl) {
+                    // 本赛季最后一个系列之后：跳到下赛季第一个系列（显示完整 label）
+                    nextBtn.disabled = false;
+                    nextBtn.style.opacity = '';
+                    nextLabel.textContent = nextCrossLabel || '';
+                } else if (nextBtn && nextLabel) {
+                    nextBtn.disabled = true;
+                    nextBtn.style.opacity = '0.45';
+                    nextLabel.textContent = '';
+                }
+            };
+
+            const bindPrevNext = (selectId, barSelector) => {
+                const selectEl = document.getElementById(selectId);
+                const barRoot = document.querySelector(barSelector);
+                if (!selectEl || !barRoot) return;
+
+                const go = (delta) => {
+                    const opts = Array.from(selectEl.options || []);
+                    const idx = selectEl.selectedIndex;
+                    if (delta < 0 && idx <= 0) {
+                        const url = barRoot.dataset.prevUrl || '';
+                        if (url) window.location.href = url;
+                        return;
+                    }
+                    if (delta > 0 && idx >= opts.length - 1) {
+                        const url = barRoot.dataset.nextUrl || '';
+                        if (url) window.location.href = url;
+                        return;
+                    }
+                    const target = idx + delta;
+                    if (target < 0 || target >= opts.length) return;
+                    selectEl.selectedIndex = target;
+                    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+                };
+
+                barRoot.querySelector('.series-prev-btn')?.addEventListener('click', () => go(-1));
+                barRoot.querySelector('.series-next-btn')?.addEventListener('click', () => go(1));
+
+                selectEl.addEventListener('change', () => updatePrevNextFor(selectEl, barRoot));
+                updatePrevNextFor(selectEl, barRoot);
+            };
+
+            // 宽屏/小屏各自绑定
+            bindPrevNext('seriesSelectorXxl', '.season-xxl-col .series-prev-next-bar');
+            bindPrevNext('seriesSelector', '.d-xxl-none .series-prev-next-bar');
+
+            const copyToClipboard = async (text) => {
+                if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
+                    await navigator.clipboard.writeText(text);
+                    return;
+                }
+
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.top = '-1000px';
+                textarea.style.left = '-1000px';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                document.execCommand('copy');
+                textarea.remove();
+            };
+
+            const fetchJson = async (url) => {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('请求失败：' + res.status);
+                return await res.json();
+            };
+
+            const getVisibleSelectorValue = (selectorIds) => {
+                for (const id of selectorIds) {
+                    const el = document.getElementById(id);
+                    if (!el) continue;
+                    const style = window.getComputedStyle(el);
+                    if (style && style.display !== 'none' && el.offsetParent !== null) {
+                        const v = el.value;
+                        if (v) return v;
+                    }
+                }
+                return null;
+            };
+
+            const getVisibleSeriesId = () => getVisibleSelectorValue(['seriesSelectorXxl', 'seriesSelector']);
+            const getVisibleSeriesCopyFormat = () => getVisibleSelectorValue(['seriesCopyFormatXxl', 'seriesCopyFormatMobile']);
+
+            const formatSeriesSummary = (data, format) => {
+                const rows = (data && data.rows) ? data.rows : [];
+                const seriesLabel = data && data.seriesLabel ? data.seriesLabel : '';
+                const columns = (data && data.columns) ? data.columns : [];
+                const showFinalRank = !!(data && data.showFinalRank);
+
+                const withdrawSuffix = username => `${username}（退赛（不计入排名））`;
+
+                const headers = showFinalRank
+                    ? ['选手', '最终排名', '最终积分']
+                    : ['选手', '最终积分'];
+                if (columns && columns.length) {
+                    for (const c of columns) headers.push(c.label || '');
+                }
+
+                const toCells = (r) => {
+                    const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
+                    const cells = showFinalRank
+                        ? [uname, r.finalRank == null ? '' : String(r.finalRank), String(r.finalPoints ?? 0)]
+                        : [uname, String(r.finalPoints ?? 0)];
+                    if (columns && columns.length) {
+                        for (const c of columns) {
+                            const key = c.key;
+                            const v = r.pointsByKey && key ? r.pointsByKey[key] : null;
+                            cells.push(v == null ? '' : String(v));
+                        }
+                    }
+                    return cells;
+                };
+
+                if (format === 'tsv') {
+                    const lines = [headers.join('\t')];
+                    for (const r of rows) lines.push(toCells(r).join('\t'));
+                    return [`系列积分汇总（${seriesLabel}）`, '', ...lines].join('\n');
+                }
+
+                if (format === 'markdown') {
+                    const lines = [
+                        `|${headers.join('|')}|`,
+                        `|${headers.map(() => '---').join('|')}|`
+                    ];
+                    for (const r of rows) {
+                        const cells = toCells(r).map(v => String(v).replaceAll('|', '\\|'));
+                        lines.push(`|${cells.join('|')}|`);
+                    }
+                    return [`系列积分汇总（${seriesLabel}）`, '', ...lines].join('\n');
+                }
+
+                // plain
+                const out = [`系列积分汇总（${seriesLabel}）`];
+                out.push(headers.join(' | '));
+                for (const r of rows) out.push(toCells(r).join(' | '));
+                return out.join('\n');
+            };
+
+            const handleCopySeriesSummary = async () => {
+                const seriesId = getVisibleSeriesId();
+                if (!seriesId) {
+                    alert('请先选择一个系列');
+                    return;
+                }
+                const format = getVisibleSeriesCopyFormat() || 'plain';
+                const data = await fetchJson(`/ranking/api/series/${encodeURIComponent(seriesId)}/summary`);
+                await copyToClipboard(formatSeriesSummary(data, format));
+                if (typeof showAlert === 'function') showAlert('复制成功', 'success');
+                else alert('复制成功');
+            };
+
+            const handleExportSeriesSummaryPdf = () => {
+                const seriesId = getVisibleSeriesId();
+                if (!seriesId) {
+                    alert('请先选择一个系列');
+                    return;
+                }
+                window.location.href = `/ranking/export/pdf/series/${encodeURIComponent(seriesId)}`;
+            };
+
+            const getTournamentCopyFormat = () => getVisibleSeriesCopyFormat() || 'plain';
+
+            const formatTournamentRanking = (data, format) => {
+                const rankings = (data && data.rankings) ? data.rankings : [];
+                const label = data && data.tournamentLabel ? data.tournamentLabel : '';
+                const withdrawSuffix = username => `${username}（退赛（不计入排名））`;
+
+                if (format === 'tsv') {
+                    const lines = ['排名\t选手\t积分'];
+                    for (const r of rankings) {
+                        const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
+                        lines.push(`${r.rank}\t${uname}\t${r.points}`);
+                    }
+                    return [`赛事排名（${label}）`, '', ...lines].join('\n');
+                }
+                if (format === 'markdown') {
+                    const lines = ['|排名|选手|积分|', '|---|---|---|'];
+                    for (const r of rankings) {
+                        const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
+                        lines.push(`|${r.rank}|${String(uname).replaceAll('|','\\\\|')}|${r.points}|`);
+                    }
+                    return [`赛事排名（${label}）`, '', ...lines].join('\n');
+                }
+                const out = [`赛事排名（${label}）`];
+                for (const r of rankings) {
+                    const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
+                    out.push(`${r.rank}. ${uname} - ${r.points}分`);
+                }
+                return out.join('\n');
+            };
+
+            const handleCopyTournamentRanking = async (tournamentId) => {
+                const format = getTournamentCopyFormat();
+                const data = await fetchJson(`/ranking/api/tournament/${encodeURIComponent(tournamentId)}/ranking`);
+                await copyToClipboard(formatTournamentRanking(data, format));
+                if (typeof showAlert === 'function') showAlert('复制成功', 'success');
+                else alert('复制成功');
+            };
+
+            document.querySelectorAll('.series-copy-btn').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    try {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.85';
+                        await handleCopySeriesSummary();
+                    } catch (e) {
+                        console.error(e);
+                        if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                        else alert(e.message || '复制失败');
+                    } finally {
+                        btn.disabled = false;
+                        btn.style.opacity = '';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.series-exportpdf-btn').forEach((btn) => {
+                btn.addEventListener('click', () => handleExportSeriesSummaryPdf());
+            });
+
+            document.querySelectorAll('.tournament-copy-btn').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    const tid = btn.dataset.tournamentId;
+                    if (!tid) return;
+                    try {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.85';
+                        await handleCopyTournamentRanking(tid);
+                    } catch (e) {
+                        console.error(e);
+                        if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger');
+                        else alert(e.message || '复制失败');
+                    } finally {
+                        btn.disabled = false;
+                        btn.style.opacity = '';
+                    }
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

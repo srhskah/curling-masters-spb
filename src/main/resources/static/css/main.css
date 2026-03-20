@@ -1,11 +1,34 @@
 /* Main CSS file for Curling Masters */
-
 /* Global styles */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     color: #333;
+}
+
+/* 内网/本地访问 - 绿色渐变 */
+body.bg-internal {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+/* 外网访问 - 保持默认紫色渐变 */
+body.bg-external {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  text-align: center;
+}
+
+/* 移除 Firefox 中的箭头 */
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* Welcome card styles */
@@ -28,6 +51,8 @@ body {
 
 .navbar{
     background: #eee !important;
+    padding-top: 0.8rem;
+    padding-bottom: 0.8rem;
 }
 
 .navbar-dark .navbar-nav .nav-link {
@@ -41,15 +66,14 @@ body {
 
 /* Badge styles*/
 .badge{
-    margin: 5% 0;
     font-size: 0.9em;
     border-radius: .6rem;
 }
 
 /* Button styles */
-.btn-primary, .btn-secondary, .btn-light, .btn-outline-light, .btn-warning, .btn-danger, .btn-success {
+.btn-primary, .btn-secondary, .btn-light, .btn-outline-primary, .btn-outline-secondary, .btn-outline-info, .btn-outline-light, .btn-outline-warning, .btn-outline-danger, .btn-warning, .btn-danger, .btn-success {
     /* background: linear-gradient(45deg, #667eea, #764ba2); */
-    border: none;
+    /* border: none; */
     border-radius: 25px;
     padding: 0.5rem 1.5rem;
     font-weight: 500;
@@ -59,6 +83,82 @@ body {
 .btn-outline-light{
     border: 1px solid #f8f9fa;
 }
+
+/* .d-xxl-none .nav-link{
+    color: white !important;
+} */
+
+/* 排名页/赛季详情页：全量/前24 开关的高对比边框 */
+.ranking-scope-switch {
+    padding: 0.15rem 0.6rem 0.15rem 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.ranking-scope-switch *{
+    color: white !important;
+}
+
+/* Bootstrap form-switch 会把 input 用负 margin 往左挪，导致视觉上“跑出边框” */
+.ranking-scope-switch.form-switch {
+    /* padding-left: 0; 覆盖 .form-switch 的 padding-left: 2.5em */
+    min-height: auto;
+}
+.ranking-scope-switch.form-switch .form-check-input {
+    margin-left: 0; /* 覆盖 .form-switch .form-check-input 的 margin-left: -2.5em */
+}
+
+#rankingMainTabs, #seasonMainTabs{
+    background: #eeeeeebb;
+    padding: 0.3rem;
+    border-radius: 0.5em;
+}
+
+/* 排名页等 nav-pills 选项卡：标签内容水平垂直居中 */
+.nav.nav-pills .nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 通用列表（generic-list）卡片/表格样式微调 */
+.generic-cards-grid {
+    row-gap: 1rem;
+}
+
+.generic-cards-grid .card {
+    border-radius: 1rem;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.generic-cards-grid .card-body {
+    padding: 1rem 1.1rem 0.9rem;
+}
+
+.generic-card-row {
+    row-gap: 0.15rem;
+}
+
+.generic-card-label {
+    margin-bottom: 0.05rem;
+}
+
+.generic-list-actions {
+    margin-top: 0.25rem;
+}
+
+.generic-list-actions .btn {
+    border-radius: 999px;
+    padding-inline: 0.9rem;
+}
+
+/* 通用列表桌面表格：略紧凑但不拥挤 */
+table.table-hover.align-middle tbody tr > td {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
 
 .btn-primary:hover {
     transform: translateY(-2px);
@@ -80,6 +180,10 @@ body {
 
 .card-header:first-child{
     border-radius: calc(1rem - 1px) calc(1rem - 1px) 0 0;
+}
+
+.card-header .btn {
+    padding: 0.3rem 0.6rem;
 }
 
 /* Form styles */
@@ -110,16 +214,120 @@ body {
 }
 
 /* Responsive adjustments */
+/* 针对1400px以下设备的优化 */
+@media (max-width: 1400px) {
+    .user-card-header {
+        position: relative;
+        padding-right: 80px; /* 为标签留出空间 */
+    }
+    .user-card-header .badge {
+        position: absolute;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    .user-card-header > div:first-child {
+        flex: 1;
+    }
+}
+
+/* 针对512-768px设备的优化 */
+@media (min-width: 512px) and (max-width: 768px) {
+    .user-card-footer {
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+    }
+    .user-card-footer .btn-mobile {
+        width: auto !important;
+        margin-bottom: 0 !important;
+        margin-right: 0.5rem;
+    }
+    .user-card-footer .btn-mobile:last-child {
+        margin-right: 0;
+    }
+    .user-card-body {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    .user-info-item {
+        flex: 1;
+        min-width: 200px;
+        margin-bottom: 0 !important;
+    }
+}
+
+/* 针对769-1400px设备的优化 */
+@media (min-width: 769px) and (max-width: 1400px) {
+    .table-container {
+        padding: 1.5rem;
+    }
+    .user-card {
+        padding: 1.25rem;
+    }
+    .btn-mobile {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+        min-width: 70px;
+    }
+}
+
+@media (min-width: 769px){
+    #usersTableBody .badge{
+        margin: 5% 0;
+    }
+    #resetPassword_mobile{
+        display: none;
+    }
+}
+
 @media (max-width: 768px) {
     .welcome-card {
         margin: 1rem;
         padding: 1.5rem;
     }
     
-    /* .btn-primary {
-        padding: 0.4rem 1rem;
+    .btn {
+        padding: 0.4rem 0.5rem;
         font-size: 0.9rem;
-    } */
+    }
+
+    /* 窄屏：banner/logo 水平垂直居中（含登录页 navbar-login） */
+    .navbar .container,
+    .navbar-dark .container {
+        position: relative;
+    }
+    .navbar .navbar-brand,
+    .navbar-dark .navbar-brand {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        margin: 0;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1;
+        /* 避免遮挡右侧 toggler 点击区域 */
+        pointer-events: none;
+    }
+    .navbar .navbar-brand img,
+    .navbar-dark .navbar-brand img {
+        display: block;
+    }
+
+    /* 修复：logo 绝对定位可能遮挡 toggler，导致二次点击无法收回 */
+    .navbar .navbar-toggler,
+    .navbar-dark .navbar-toggler {
+        position: relative;
+        z-index: 5;
+    }
+    .navbar .navbar-collapse,
+    .navbar-dark .navbar-collapse {
+        position: relative;
+        z-index: 4;
+    }
 }
 
 /* Animation classes */

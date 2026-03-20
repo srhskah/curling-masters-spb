@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.MatchMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.example.entity.Match">
+        <id column="id" property="id" />
+        <result column="tournament_id" property="tournamentId" />
+        <result column="category" property="category" />
+        <result column="round" property="round" />
+        <result column="player1_id" property="player1Id" />
+        <result column="player2_id" property="player2Id" />
+        <result column="winner_id" property="winnerId" />
+        <result column="status" property="status" />
+        <result column="scheduled_time" property="scheduledTime" />
+        <result column="created_at" property="createdAt" />
+        <result column="updated_at" property="updatedAt" />
+        <result column="first_end_hammer" property="firstEndHammer" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, tournament_id, category, round, player1_id, player2_id, winner_id, status, scheduled_time, created_at, updated_at, first_end_hammer
+    </sql>
+
+</mapper>

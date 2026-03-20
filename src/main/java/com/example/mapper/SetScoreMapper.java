@@ -9,7 +9,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
  * </p>
  *
  * @author Curling Masters
- * @since 2026-03-04
+ * @since 2026-03-16
  */
 public interface SetScoreMapper extends BaseMapper<SetScore> {
 

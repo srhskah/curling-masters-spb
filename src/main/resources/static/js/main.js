@@ -449,8 +449,8 @@ class FormValidator {
 
         const trimmed = username.trim();
         
-        if (trimmed.length < 2) {
-            return { valid: false, message: '用户名长度至少为2个字符' };
+        if (trimmed.length < 1) {
+            return { valid: false, message: '用户名长度至少为1个字符' };
         }
 
         if (trimmed.length > 50) {
@@ -458,11 +458,11 @@ class FormValidator {
         }
 
         // 支持Unicode字符和emoji的正则表达式
-        // 允许：中文、日文、韩文、emoji、英文字母、数字、下划线、连字符
-        const unicodePattern = /^[\p{L}\p{M}\p{N}\p{Zs}\p{So}\p{Sk}\p{Sm}_-]{2,50}$/u;
+        // 允许：中文、日文、韩文、emoji、英文字母、数字、空格、下划线、连字符、点号
+        const unicodePattern = /^[\p{L}\p{M}\p{N}\p{Zs}\p{So}\p{Sk}\p{Sm}_.-]{1,50}$/u;
         
         if (!unicodePattern.test(trimmed)) {
-            return { valid: false, message: '用户名只能包含字母、数字、中文、emoji和下划线、连字符' };
+            return { valid: false, message: '用户名只能包含字母、数字、中文、emoji、空格以及 _ - .' };
         }
 
         // 检查SQL注入模式

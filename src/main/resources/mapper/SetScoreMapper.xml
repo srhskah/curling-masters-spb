@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.mapper.SetScoreMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.example.entity.SetScore">
+        <id column="id" property="id" />
+        <result column="match_id" property="matchId" />
+        <result column="set_number" property="setNumber" />
+        <result column="player1_score" property="player1Score" />
+        <result column="player2_score" property="player2Score" />
+        <result column="created_at" property="createdAt" />
+        <result column="hammer_player_id" property="hammerPlayerId" />
+        <result column="is_blank_end" property="isBlankEnd" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, match_id, set_number, player1_score, player2_score, created_at, hammer_player_id, is_blank_end
+    </sql>
+
+</mapper>

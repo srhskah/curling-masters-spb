@@ -10,6 +10,7 @@ public class User {
     private String email;
     private Integer role; // 0-超级管理员,1-普通管理员,2-普通用户
     private Boolean passwordChanged; // 是否已修改初始密码(123456)
+    private Boolean includeInTotalRanking; // 是否计入总排名
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -68,6 +69,14 @@ public class User {
 
     public void setPasswordChanged(Boolean passwordChanged) {
         this.passwordChanged = passwordChanged;
+    }
+
+    public Boolean getIncludeInTotalRanking() {
+        return includeInTotalRanking;
+    }
+
+    public void setIncludeInTotalRanking(Boolean includeInTotalRanking) {
+        this.includeInTotalRanking = includeInTotalRanking;
     }
 
     public LocalDateTime getCreatedAt() {

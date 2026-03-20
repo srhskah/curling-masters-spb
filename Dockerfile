@@ -18,7 +18,17 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         fonts-wqy-zenhei \
         fonts-wqy-microhei \
+        fonts-dejavu-core \
+        fonts-noto-core \
+        fonts-noto-unhinted \
+        fonts-noto-color-emoji \
         && rm -rf /var/lib/apt/lists/*
+
+# 安装单色 Noto Emoji（PDFBox 兼容；使用历史稳定版本链接）
+RUN mkdir -p /usr/share/fonts/truetype/noto && \
+    curl -fsSL -o /usr/share/fonts/truetype/noto/NotoEmoji-Regular.ttf \
+      https://raw.githubusercontent.com/googlefonts/noto-emoji/2f1ffdd6fbbd05d6f382138a3d3adcd89c5ce800/fonts/NotoEmoji-Regular.ttf && \
+    fc-cache -f
 
 # 复制WAR文件到容器
 COPY build/libs/demo-0.0.1-SNAPSHOT.war app.war
