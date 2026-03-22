@@ -9,14 +9,6 @@ import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * <p>
- * 
- * </p>
- *
- * @author Curling Masters
- * @since 2026-03-16
- */
 @Getter
 @Setter
 @TableName("`match`")
@@ -30,14 +22,18 @@ public class Match implements Serializable {
     @TableField("tournament_id")
     private Long tournamentId;
 
-    /**
-     * 类别：1000赛资格赛、1/8决赛等
-     */
+    /** 类别：1000赛资格赛、1/8决赛等 */
     private String category;
 
-    /**
-     * 轮次，用于排序
-     */
+    /** 阶段：GROUP/QUALIFIER/MAIN/FINAL */
+    @TableField("phase_code")
+    private String phaseCode;
+
+    /** 小组赛对应分组 */
+    @TableField("group_id")
+    private Long groupId;
+
+    /** 轮次，用于排序 */
     private Integer round;
 
     @TableField("player1_id")
@@ -46,16 +42,28 @@ public class Match implements Serializable {
     @TableField("player2_id")
     private Long player2Id;
 
-    /**
-     * 冗余胜者，可通过比分计算
-     */
+    @TableField("home_user_id")
+    private Long homeUserId;
+
+    @TableField("away_user_id")
+    private Long awayUserId;
+
+    /** 冗余胜者，可通过比分计算 */
     @TableField("winner_id")
     private Long winnerId;
 
-    /**
-     * 0-未开始,1-进行中,2-已结束,3-退赛
-     */
+    /** 0-未开始,1-进行中,2-已结束,3-退赛 */
     private Byte status;
+
+    /** 管理员/主办验收后锁定比分 */
+    @TableField("result_locked")
+    private Boolean resultLocked;
+
+    @TableField("accepted_by_user_id")
+    private Long acceptedByUserId;
+
+    @TableField("accepted_at")
+    private LocalDateTime acceptedAt;
 
     @TableField("scheduled_time")
     private LocalDateTime scheduledTime;
@@ -66,17 +74,14 @@ public class Match implements Serializable {
     @TableField("updated_at")
     private LocalDateTime updatedAt;
 
-    /**
-     * 1-player1, 2-player2
-     */
+    /** 1-player1, 2-player2 */
     @TableField("first_end_hammer")
     private Byte firstEndHammer;
-    
-    // 为了兼容性，提供createTime方法
+
     public LocalDateTime getCreateTime() {
         return createdAt;
     }
-    
+
     public void setCreateTime(LocalDateTime createTime) {
         this.createdAt = createTime;
     }

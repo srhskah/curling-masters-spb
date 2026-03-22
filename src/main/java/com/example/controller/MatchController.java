@@ -26,6 +26,7 @@ public class MatchController {
     @Autowired private SeasonService seasonService;
     @Autowired private ISetScoreService setScoreService;
     @Autowired private UserService userService;
+    @Autowired private ITournamentCompetitionService tournamentCompetitionService;
 
     private boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -33,6 +34,16 @@ public class MatchController {
             String username = auth.getName();
             User user = userService.findByUsername(username);
             return user != null && user.getRole() <= 1;
+        }
+        return false;
+    }
+
+    private boolean isSuperAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+            String username = auth.getName();
+            User user = userService.findByUsername(username);
+            return user != null && user.getRole() != null && user.getRole() == 0;
         }
         return false;
     }
@@ -99,6 +110,7 @@ public class MatchController {
         
         User currentUser = getCurrentUser();
         boolean admin = isAdmin();
+        boolean superAdmin = isSuperAdmin();
         
         // 构建通用列表数据
         List<Map<String, Object>> dataList = new ArrayList<>();
@@ -177,9 +189,10 @@ public class MatchController {
         
         // 构建操作按钮
         List<Map<String, Object>> actions = new ArrayList<>();
-        actions.add(Map.of("urlPrefix", "/match/detail/", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情"));
         actions.add(Map.of("urlPrefix", "/match/edit/", "btnClass", "btn btn-sm btn-outline-warning", "icon", "bi bi-pencil", "text", "编辑"));
-        actions.add(Map.of("urlPrefix", "/match/score/", "btnClass", "btn btn-sm btn-outline-success", "icon", "bi bi-pencil-square", "text", "录入比分"));
+        if (superAdmin) {
+            actions.add(Map.of("urlPrefix", "/match/score/", "btnClass", "btn btn-sm btn-outline-success", "icon", "bi bi-pencil-square", "text", "录入比分"));
+        }
         
         // 通用列表参数
         model.addAttribute("pageTitle", "比赛列表");
@@ -194,9 +207,151 @@ public class MatchController {
         model.addAttribute("emptyMessage", "暂无比赛数据");
         model.addAttribute("tournamentId", tournamentId);
         model.addAttribute("isAdmin", admin);
+        model.addAttribute("isSuperAdmin", superAdmin);
         model.addAttribute("currentUser", currentUser);
+        model.addAttribute("customScript", """
+(() => {
+  let modal;
+  const ensureModal = () => {
+    let el = document.getElementById('matchListScoreModal');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'matchListScoreModal';
+    el.className = 'modal fade';
+    el.tabIndex = -1;
+    el.innerHTML = `
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="mlModalTitle">单场比赛录分</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="mlMatchId">
+            <div class="mb-2 small text-muted" id="mlMatchSubTitle"></div>
+            <div class="row g-2 mb-2">
+              <div class="col-md-4">
+                <label class="form-label">开局先后手</label>
+                <select class="form-select" id="mlFirstEndHammer">
+                  <option value="">不设置</option>
+                  <option value="1" id="mlHammerP1">player1</option>
+                  <option value="2" id="mlHammerP2">player2</option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">局数</label>
+                <input type="number" min="1" max="20" id="mlSetCount" class="form-control" value="8">
+              </div>
+              <div class="col-md-4 d-flex align-items-end">
+                <button type="button" class="btn btn-outline-primary w-100" id="mlRenderBtn">生成/重置局数</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered align-middle">
+                <thead><tr><th>局</th><th id="mlP1Header">player1</th><th id="mlP2Header">player2</th></tr></thead>
+                <tbody id="mlRows"></tbody>
+              </table>
+            </div>
+            <div class="mt-2"><div class="small fw-bold">验收信息</div><div class="small text-muted" id="mlAcceptInfo">暂无</div></div>
+            <div class="mt-2"><div class="small fw-bold">比分修改记录</div><div class="small text-muted" id="mlEditLogInfo">暂无</div></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            <button type="button" class="btn btn-primary" id="mlSaveBtn">保存并锁定</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+    return el;
+  };
+  const csrf = () => { const i = document.querySelector('input[name="_csrf"]'); return i ? {name: i.name, value: i.value} : null; };
+  const fetchJson = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error('请求失败：' + r.status); return await r.json(); };
+  const opts = ['0','1','2','3','4','5','6','7','8','X'];
+  const renderRows = (existing) => {
+    const tbody = document.getElementById('mlRows');
+    const n = Number(document.getElementById('mlSetCount').value || 0);
+    if (!tbody || !Number.isInteger(n) || n < 1) return;
+    tbody.innerHTML = '';
+    for (let i = 1; i <= n; i++) {
+      const p1 = existing && existing[i - 1] ? (existing[i - 1].player1IsX ? 'X' : String(existing[i - 1].player1Score ?? 0)) : '0';
+      const p2 = existing && existing[i - 1] ? (existing[i - 1].player2IsX ? 'X' : String(existing[i - 1].player2Score ?? 0)) : '0';
+      const a = opts.map(v => `<option value="${v}" ${p1===v?'selected':''}>${v}</option>`).join('');
+      const b = opts.map(v => `<option value="${v}" ${p2===v?'selected':''}>${v}</option>`).join('');
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i}</td><td><select class="form-select form-select-sm ml-p1">${a}</select></td><td><select class="form-select form-select-sm ml-p2">${b}</select></td>`;
+      tbody.appendChild(tr);
+    }
+  };
+  const extractNames = (link) => {
+    const tr = link.closest('tr');
+    if (tr && tr.children && tr.children.length >= 5) {
+      const txt = (tr.children[4].innerText || '').replace(/\\([^)]*胜\\)/g, '').trim();
+      const ps = txt.split(' vs ');
+      if (ps.length >= 2) return [ps[0].trim(), ps[1].trim()];
+    }
+    return ['player1','player2'];
+  };
+  const openMatchModal = async (matchId, title, names) => {
+    const el = ensureModal();
+    if (!modal) modal = bootstrap.Modal.getOrCreateInstance(el);
+    const data = await fetchJson(`/tournament/competition/match/detail/${matchId}`);
+    if (!data.ok) throw new Error(data.message || '加载失败');
+    document.getElementById('mlModalTitle').textContent = title;
+    document.getElementById('mlMatchId').value = String(matchId);
+    document.getElementById('mlMatchSubTitle').textContent = (data.match.category || '') + ' / round ' + (data.match.round || '-');
+    document.getElementById('mlHammerP1').textContent = names[0];
+    document.getElementById('mlHammerP2').textContent = names[1];
+    document.getElementById('mlP1Header').textContent = names[0];
+    document.getElementById('mlP2Header').textContent = names[1];
+    document.getElementById('mlFirstEndHammer').value = data.match.firstEndHammer || '';
+    const defaultSetCount = Number(data.defaultSetCount || 8);
+    document.getElementById('mlSetCount').value = (data.setScores && data.setScores.length) ? data.setScores.length : defaultSetCount;
+    renderRows(data.setScores || []);
+    document.getElementById('mlAcceptInfo').textContent = (data.acceptances || []).map(a => `${a.username}（${a.signature || '无签名'}）@${(a.acceptedAt||'').replace('T',' ')}`).join('；') || '暂无';
+    document.getElementById('mlEditLogInfo').textContent = (data.editLogs || []).slice(0, 20).map(l => `第${l.setNumber}局：${l.editorUsername} ${l.oldPlayer1IsX?'X':(l.oldPlayer1Score??0)}:${l.oldPlayer2IsX?'X':(l.oldPlayer2Score??0)} -> ${l.newPlayer1IsX?'X':(l.newPlayer1Score??0)}:${l.newPlayer2IsX?'X':(l.newPlayer2Score??0)} @${(l.editedAt||'').replace('T',' ')}`).join('；') || '暂无';
+    document.getElementById('mlSaveBtn').style.display = '';
+    document.getElementById('mlRenderBtn').style.display = '';
+    document.getElementById('mlFirstEndHammer').disabled = false;
+    document.getElementById('mlSetCount').disabled = false;
+    document.querySelectorAll('.ml-p1,.ml-p2').forEach(i => i.disabled = false);
+    modal.show();
+  };
+  document.addEventListener('click', async (e) => {
+    const a = e.target.closest('a');
+    if (!a || !a.href) return;
+    const u = new URL(a.href, window.location.origin);
+    try {
+      if (u.pathname.startsWith('/match/score/')) { e.preventDefault(); await openMatchModal(u.pathname.split('/').pop(), '单场比赛录分', extractNames(a)); }
+    } catch (err) { alert(err.message || '加载失败'); }
+  }, true);
+  document.addEventListener('click', async (e) => {
+    if (e.target && e.target.id === 'mlRenderBtn') renderRows();
+    if (e.target && e.target.id === 'mlSaveBtn') {
+      const matchId = document.getElementById('mlMatchId').value;
+      if (!matchId) return;
+      const hammer = document.getElementById('mlFirstEndHammer').value;
+      const p1 = Array.from(document.querySelectorAll('.ml-p1')).map(i => i.value || '0');
+      const p2 = Array.from(document.querySelectorAll('.ml-p2')).map(i => i.value || '0');
+      const form = new URLSearchParams();
+      if (hammer) form.append('firstEndHammer', hammer);
+      p1.forEach(v => form.append('player1Scores', v));
+      p2.forEach(v => form.append('player2Scores', v));
+      const c = csrf(); if (c) form.append(c.name, c.value);
+      const res = await fetch(`/tournament/competition/match/save-super-admin/${matchId}`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:form.toString()});
+      const data = await res.json();
+      if (!data.ok) return alert(data.message || '保存失败');
+      window.location.reload();
+    }
+  });
+})();
+""");
         
         return "generic-list";
+    }
+
+    @GetMapping("/detail/{id}")
+    public String matchDetailPage(@PathVariable Long id) {
+        return "redirect:/match/score/" + id;
     }
     
     @GetMapping("/add")
@@ -503,6 +658,18 @@ public class MatchController {
         model.addAttribute("totalPlayer1", totalPlayer1);
         model.addAttribute("totalPlayer2", totalPlayer2);
         model.addAttribute("seriesId", seriesId);
+        int defaultSetCount = 8;
+        TournamentCompetitionConfig cfg = tournamentCompetitionService.getConfig(match.getTournamentId());
+        if (cfg != null) {
+            if ("GROUP".equalsIgnoreCase(match.getPhaseCode())) {
+                defaultSetCount = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : defaultSetCount;
+            } else if ("FINAL".equalsIgnoreCase(match.getPhaseCode())) {
+                defaultSetCount = (cfg.getFinalStageSets() != null && cfg.getFinalStageSets() > 0) ? cfg.getFinalStageSets() : defaultSetCount;
+            } else {
+                defaultSetCount = (cfg.getKnockoutStageSets() != null && cfg.getKnockoutStageSets() > 0) ? cfg.getKnockoutStageSets() : defaultSetCount;
+            }
+        }
+        model.addAttribute("defaultSetCount", defaultSetCount);
         
         return "match-score";
     }

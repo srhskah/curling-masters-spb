@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">小组赛排名与对阵明细</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        .section-title { margin: 12px 0 6px; font-size: 14px; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; table-layout: auto; margin-bottom: 8px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; vertical-align: middle; }
+        th { background: #f3f3f3; }
+        .muted { color: #666; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">小组赛排名与对阵明细</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<div class="section-title">小组排名</div>
+<div th:if="${groups == null or #lists.isEmpty(groups)}" class="muted">暂无数据</div>
+<div th:each="g : ${groups}" style="margin-bottom: 10px;">
+    <div style="font-weight:700; margin-bottom:4px;" th:text="${g.groupName}">A组</div>
+    <table>
+        <thead><tr><th>排名</th><th>选手</th><th>积分</th><th>净胜分</th><th>总得分</th><th>≥2局数总和</th><th>单局最高</th><th>偷分次数</th><th>偷分单次最高</th></tr></thead>
+        <tbody>
+        <tr th:each="r : ${g.ranking}">
+            <td th:text="${r.groupRank}">1</td><td th:text="${r.username}">选手</td><td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td>
+            <td th:text="${r.matchGe2Count}">0</td><td th:text="${r.matchMaxScore}">0</td><td th:text="${r.stealCount}">0</td><td th:text="${r.stealMax}">0</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="section-title">伪小组信息（若存在）</div>
+<div th:if="${pseudoGroups == null or #lists.isEmpty(pseudoGroups)}" class="muted">无</div>
+<div th:each="pg : ${pseudoGroups}" style="margin-bottom: 10px;">
+    <div style="font-weight:700; margin-bottom:4px;" th:text="${pg.groupName + '（来源：' + pg.fromGroup + '，同积分：' + pg.points + '）'}">A'组</div>
+    <table>
+        <thead><tr><th>排名</th><th>选手</th><th>积分</th><th>净胜分</th><th>总得分</th></tr></thead>
+        <tbody>
+        <tr th:each="r : ${pg.ranking}">
+            <td th:text="${r.groupRank}">1</td><td th:text="${r.username}">选手</td><td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td>
+        </tr>
+        </tbody>
+    </table>
+    <table>
+        <thead><tr><th>相关场次</th><th>对阵</th><th>验收时间</th></tr></thead>
+        <tbody>
+        <tr th:each="m : ${pg.matches}">
+            <td th:text="${m.category}">A组第1轮</td><td th:text="${m.player1Name + ' vs ' + m.player2Name}">A vs B</td><td th:text="${m.acceptedAt}">-</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="section-title">小组赛对阵（含验收时间）</div>
+<table>
+    <thead><tr><th>分组</th><th>场次</th><th>对阵</th><th>比分</th><th>验收时间</th></tr></thead>
+    <tbody>
+    <tr th:each="m : ${groupMatches}">
+        <td th:text="${m.groupName}">A组</td><td th:text="${m.category}">A组第1轮</td><td th:text="${m.player1Name + ' vs ' + m.player2Name}">A vs B</td><td th:text="${m.score}">0:0</td><td th:text="${m.acceptedAt}">-</td>
+    </tr>
+    <tr th:if="${groupMatches == null or #lists.isEmpty(groupMatches)}"><td colspan="5" class="muted">暂无</td></tr>
+    </tbody>
+</table>
+</body>
+</html>

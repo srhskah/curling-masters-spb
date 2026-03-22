@@ -193,11 +193,66 @@ public class RankingExportPdfController {
                         "title", title,
                         "logoDataUri", buildLogoDataUri(),
                         "exportedAt", nowExportedAt(),
-                        "rankings", data.get("rankings")
+                        "rankings", data.get("rankings"),
+                        "matchDetails", data.get("matchDetails")
                 )
         );
 
         return toPdfResponse(pdfBytes, title + ".pdf");
+    }
+
+    @GetMapping(value = "/tournament/{tournamentId}/group-ranking", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportTournamentGroupRankingPdf(@PathVariable Long tournamentId) {
+        java.util.Map<String, Object> data = rankingApiController.getTournamentGroupRanking(tournamentId);
+        byte[] pdfBytes = renderGroupRankingPdf(
+                "小组赛排名与对阵明细",
+                data.get("groups"),
+                data.get("pseudoGroups"),
+                data.get("groupMatches")
+        );
+        return toPdfResponse(pdfBytes, "小组赛排名与对阵明细.pdf");
+    }
+
+    @GetMapping(value = "/tournament/{tournamentId}/group-overall-ranking", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportTournamentGroupOverallRankingPdf(@PathVariable Long tournamentId) {
+        java.util.Map<String, Object> data = rankingApiController.getTournamentGroupOverallRanking(tournamentId);
+        byte[] pdfBytes = rankingExportPdfService.renderPdf(
+                "pdf/pdf-tournament-group-overall-ranking",
+                java.util.Map.of(
+                        "title", "小组赛总排名",
+                        "logoDataUri", buildLogoDataUri(),
+                        "exportedAt", nowExportedAt(),
+                        "rows", data.get("overallRanking")
+                )
+        );
+        return toPdfResponse(pdfBytes, "小组赛总排名.pdf");
+    }
+
+    @GetMapping(value = "/tournament/{tournamentId}/group/{groupId}/ranking", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportTournamentOneGroupRankingPdf(@PathVariable Long tournamentId, @PathVariable Long groupId) {
+        java.util.Map<String, Object> data = rankingApiController.getTournamentOneGroupRanking(tournamentId, groupId);
+        String groupName = data.get("groupName") != null ? data.get("groupName").toString() : "分组";
+        byte[] pdfBytes = renderGroupRankingPdf(
+                groupName + " 排名与对阵明细",
+                java.util.List.of(java.util.Map.of("groupName", groupName, "ranking", data.get("ranking"))),
+                data.get("pseudoGroups"),
+                data.get("matches")
+        );
+        return toPdfResponse(pdfBytes, groupName + "-排名与对阵明细.pdf");
+    }
+
+    private byte[] renderGroupRankingPdf(String title, Object groups, Object pseudoGroups, Object groupMatches) {
+        return rankingExportPdfService.renderPdf(
+                "pdf/pdf-tournament-group-ranking",
+                java.util.Map.of(
+                        "title", title,
+                        "logoDataUri", buildLogoDataUri(),
+                        "exportedAt", nowExportedAt(),
+                        "groups", groups,
+                        "pseudoGroups", pseudoGroups,
+                        "groupMatches", groupMatches
+                )
+        );
     }
 
     private static Integer parseLimit(String limit) {

@@ -9,6 +9,7 @@ import com.example.service.UserService;
 import com.example.service.ITournamentLevelService;
 import com.example.service.SeriesService;
 import com.example.service.TournamentService;
+import com.example.service.ITournamentRegistrationService;
 import com.example.service.RankingService;
 import com.example.entity.Series;
 import com.example.entity.Tournament;
@@ -53,6 +54,9 @@ public class SeasonController {
     
     @Autowired
     private TournamentService tournamentService;
+
+    @Autowired
+    private ITournamentRegistrationService tournamentRegistrationService;
 
     /**
      * 赛季与赛事等级管理页面（统一管理入口）
@@ -256,6 +260,10 @@ public class SeasonController {
                 // 获取主办用户名称
                 User hostUser = userService.getById(tournament.getHostUserId());
                 tournamentInfo.put("hostUserName", hostUser != null ? hostUser.getUsername() : "未知");
+                LocalDateTime nowReg = LocalDateTime.now();
+                tournamentInfo.put("registrationOpen", tournamentRegistrationService.isRegistrationOpen(tournament, nowReg));
+                tournamentInfo.put("registrationModuleActive", tournamentRegistrationService.registrationModuleActive(tournament, nowReg));
+                tournamentInfo.put("registrationEnabled", tournamentRegistrationService.isRegistrationEnabled(tournament));
                 
                 tournamentInfoList.add(tournamentInfo);
             }
