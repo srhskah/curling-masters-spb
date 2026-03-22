@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('赛事报名接龙')}">
+</head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: success-alert}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+
+<div class="container mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h4 class="mb-0">
+            <i class="bi bi-journal-text"></i> 报名接龙
+            <span class="text-muted small" th:if="${tournament.levelCode != null}" th:text="${' — ' + tournament.levelCode}"></span>
+        </h4>
+        <a class="btn btn-outline-secondary btn-sm" th:href="@{/tournament/detail/{id}(id=${tournament.id})}">
+            <i class="bi bi-arrow-left"></i> 返回赛事详情
+        </a>
+    </div>
+
+    <div class="alert alert-warning" th:if="${tournament.status != null and tournament.status != 0}">
+        仅「筹备中」赛事可使用报名接龙模块。
+    </div>
+
+    <div class="row g-4" th:if="${tournament.status != null and tournament.status == 0}">
+        <!-- 用户：报名 / 撤销 -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-person-check"></i> 我的报名
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-2">
+                        截止：
+                        <span th:if="${setting != null and setting.deadline != null}"
+                              th:text="${#temporals.format(setting.deadline, 'yyyy-MM-dd HH:mm')}">-</span>
+                        <span th:if="${setting == null or setting.deadline == null}">未设置</span>
+                    </p>
+                    <div th:if="${!registrationEnabled}" class="text-muted">
+                        报名尚未开启。请管理员或主办在本页下方「报名配置」中开启并设置截止时间。
+                    </div>
+                    <div th:if="${registrationEnabled}">
+                        <div th:if="${registrationOpen}">
+                            <p th:if="${registerBlockReason != null}" class="text-danger" th:text="${registerBlockReason}"></p>
+                            <form th:if="${registerBlockReason == null and !alreadyRegistered}"
+                                  th:action="@{/tournament/registration/{id}/register(id=${tournament.id})}" method="post">
+                                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg"></i> 报名</button>
+                            </form>
+                            <form th:if="${alreadyRegistered}" th:action="@{/tournament/registration/{id}/withdraw(id=${tournament.id})}" method="post">
+                                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <button type="submit" class="btn btn-outline-danger" onclick="return confirm('确定撤销报名？');">
+                                    <i class="bi bi-x-lg"></i> 撤销报名
+                                </button>
+                            </form>
+                            <p th:if="${alreadyRegistered}" class="small text-success mt-2 mb-0">您已在接龙列表中。</p>
+                        </div>
+                        <div th:if="${!registrationOpen}">
+                            <p class="text-muted">报名已截止。如需撤销须在截止前操作。</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 预览 -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-list-ol"></i> 入选预览
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted" th:text="${preview.modeDescription}">-</p>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <h6 class="text-secondary">正赛直通车</h6>
+                            <ol class="small mb-0 ps-3">
+                                <li th:each="n : ${preview.mainDirectUsernames}" th:text="${n}"></li>
+                                <li th:if="${#lists.isEmpty(preview.mainDirectUsernames)}" class="text-muted list-unstyled">（暂无）</li>
+                            </ol>
+                        </div>
+                        <div class="col-md-6" th:if="${setting != null and setting.mode != null and setting.mode == 1}">
+                            <h6 class="text-secondary">资格赛种子（参考）</h6>
+                            <ol class="small mb-0 ps-3">
+                                <li th:each="n : ${preview.qualifierSeedUsernames}" th:text="${n}"></li>
+                                <li th:if="${#lists.isEmpty(preview.qualifierSeedUsernames)}" class="text-muted list-unstyled">（暂无）</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 管理：配置 -->
+        <div class="col-12" th:if="${canManage}">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-gear"></i> 报名配置（管理员 / 主办）
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/tournament/registration/{id}/settings(id=${tournament.id})}" method="post" class="row g-3">
+                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <div class="col-12">
+                            <label class="form-label">是否开启</label><br/>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="enabled" id="en1" value="true"
+                                       th:checked="${setting != null and setting.enabled == true}">
+                                <label class="form-check-label" for="en1">开启</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="enabled" id="en0" value="false"
+                                       th:checked="${setting == null or setting.enabled != true}">
+                                <label class="form-check-label" for="en0">关闭</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">报名截止时间</label>
+                            <input type="datetime-local" class="form-control" name="deadline" required
+                                   th:value="${setting != null and setting.deadline != null} ? ${#temporals.format(setting.deadline, 'yyyy-MM-dd') + 'T' + #temporals.format(setting.deadline, 'HH:mm')} : ''">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">正赛名额 n</label>
+                            <input type="number" class="form-control" name="quotaN" min="1"
+                                   th:value="${setting != null and setting.quotaN != null} ? ${setting.quotaN} : 32">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">模式</label>
+                            <select class="form-select" name="mode">
+                                <option value="0" th:selected="${setting == null or setting.mode == null or setting.mode == 0}">默认（按时间取满 n 人直通车）</option>
+                                <option value="1" th:selected="${setting != null and setting.mode == 1}">正赛 + 资格赛</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">直通车人数 m（资格赛模式）</label>
+                            <input type="number" class="form-control" name="mainDirectM" min="0"
+                                   th:value="${setting != null ? setting.mainDirectM : ''}"
+                                   placeholder="0 ≤ m &lt; n">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">资格赛种子位数</label>
+                            <input type="number" class="form-control" name="qualifierSeedCount" min="0"
+                                   th:value="${setting != null ? setting.qualifierSeedCount : ''}"
+                                   placeholder="默认可填 n−m">
+                        </div>
+                        <div class="col-12"><hr/><h6 class="text-muted">500 / 250 赛禁报（可选）</h6></div>
+                        <div class="col-md-4">
+                            <label class="form-label">总排名前 K 禁报</label>
+                            <input type="number" class="form-control" name="banTotalRankTop" min="1"
+                                   th:value="${setting != null ? setting.banTotalRankTop : ''}" placeholder="空=不限制">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">参照本系列其他赛事</label>
+                            <select class="form-select" name="banOtherTournamentId">
+                                <option value="">不设置</option>
+                                <option th:each="ot : ${siblingTournaments}"
+                                        th:value="${ot.id}"
+                                        th:selected="${setting != null and setting.banOtherTournamentId != null and setting.banOtherTournamentId == ot.id}"
+                                        th:text="${(ot.levelCode != null ? ot.levelCode : '赛事') + (ot.startDate != null ? ('（' + #temporals.format(ot.startDate, 'yyyy-MM-dd') + '）') : ('（ID:' + ot.id + '）'))}">
+                                </option>
+                            </select>
+                            <div class="form-text" th:if="${siblingTournaments == null or #lists.isEmpty(siblingTournaments)}">
+                                当前系列暂无可参照的其他赛事
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">该赛事前 K 名禁报</label>
+                            <input type="number" class="form-control" name="banOtherTournamentTop" min="1"
+                                   th:value="${setting != null ? setting.banOtherTournamentTop : ''}" placeholder="与上项配合">
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> 保存配置</button>
+                            <span class="text-muted small ms-2">截止后若有效通过人数 &lt; n，可延长截止或调整名额；未满额前不可在已满时收紧。</span>
+                        </div>
+                    </form>
+                    <hr/>
+                    <form th:action="@{/tournament/registration/{id}/materialize(id=${tournament.id})}" method="post" class="d-inline"
+                          onsubmit="return confirm('将正赛直通车选手写入「正赛入选」列表（跳过已存在），确定？');">
+                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-box-arrow-in-right"></i> 写入正赛直通车入选</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 报名列表（宽屏表格 / 窄屏卡片，与 generic-list 移动端样式一致） -->
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="mb-0"><i class="bi bi-people"></i> 报名列表（按报名时间）</span>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-light btn-sm" id="registrationListCopyBtn"
+                                th:disabled="${registrationExportB64 == null or registrationExportB64.isEmpty()}">
+                            <i class="bi bi-clipboard"></i> 复制为文本
+                        </button>
+                        <a class="btn btn-outline-light btn-sm"
+                           th:href="@{/tournament/registration/{id}/export/pdf(id=${tournament.id})}">
+                            <i class="bi bi-file-pdf"></i> 导出为PDF
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="registration-export-payload" class="d-none"
+                         th:attr="data-export-b64=${registrationExportB64 != null ? registrationExportB64 : ''}"></div>
+
+                    <!-- 窄屏：卡片（复用 generic-list 的 generic-card-row / generic-card-label） -->
+                    <div class="d-md-none p-3" th:if="${rows != null and !#lists.isEmpty(rows)}">
+                        <div class="row g-3 generic-cards-grid">
+                            <div class="col-12" th:each="row, it : ${rows}">
+                                <div class="card border-0 shadow-sm h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <span class="badge bg-secondary" th:text="${'#' + (it.index + 1)}">#1</span>
+                                        </div>
+                                        <div class="generic-card-row">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="generic-card-label text-muted me-2">用户</span>
+                                                <span class="text-end fw-medium" th:text="${row.username}">-</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="generic-card-label text-muted me-2">报名时间</span>
+                                                <span class="text-end small" th:text="${row.registeredAt != null ? #temporals.format(row.registeredAt, 'MM-dd HH:mm') : '-'}">-</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <span class="generic-card-label text-muted me-2">状态</span>
+                                                <span class="text-end">
+                                                    <span th:if="${row.status == 1}" class="badge bg-success">已通过</span>
+                                                    <span th:if="${row.status == 0 and !row.effectiveApproved}" class="badge bg-warning text-dark">待审</span>
+                                                    <span th:if="${row.status == 0 and row.effectiveApproved}" class="badge bg-success">待审（视同同意）</span>
+                                                </span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-start mb-0">
+                                                <span class="generic-card-label text-muted me-2">系列内其他赛事</span>
+                                                <span class="text-end small text-muted flex-grow-1"
+                                                      th:text="${row.seriesCrossNote != null and !row.seriesCrossNote.isEmpty()} ? ${row.seriesCrossNote} : '—'">—</span>
+                                            </div>
+                                        </div>
+                                        <div th:if="${canManage}" class="mt-3 d-flex flex-wrap gap-2">
+                                            <form th:if="${row.status == 0}" class="d-inline"
+                                                  th:action="@{/tournament/registration/{id}/approve(id=${tournament.id})}" method="post">
+                                                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                                <input type="hidden" name="userId" th:value="${row.userId}"/>
+                                                <button type="submit" class="btn btn-sm btn-outline-success">通过</button>
+                                            </form>
+                                            <form class="d-inline"
+                                                  th:action="@{/tournament/registration/{id}/reject(id=${tournament.id})}" method="post"
+                                                  onsubmit="return confirm('移除该报名记录？');">
+                                                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                                <input type="hidden" name="userId" th:value="${row.userId}"/>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" th:text="${row.status == 0} ? '拒绝' : '移除'">移除</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-md-none p-4 text-center text-muted" th:if="${rows == null or #lists.isEmpty(rows)}">
+                        暂无报名
+                    </div>
+
+                    <!-- 宽屏：表格 -->
+                    <div class="d-none d-md-block">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>用户</th>
+                                    <th>报名时间</th>
+                                    <th>状态</th>
+                                    <th>系列内其他赛事</th>
+                                    <th th:if="${canManage}">操作</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="row, it : ${rows}">
+                                    <td th:text="${it.index + 1}">1</td>
+                                    <td th:text="${row.username}">-</td>
+                                    <td class="small" th:text="${row.registeredAt != null ? #temporals.format(row.registeredAt, 'MM-dd HH:mm') : '-'}">-</td>
+                                    <td>
+                                        <span th:if="${row.status == 1}" class="badge bg-success">已通过</span>
+                                        <span th:if="${row.status == 0 and !row.effectiveApproved}" class="badge bg-warning text-dark">待审</span>
+                                        <span th:if="${row.status == 0 and row.effectiveApproved}" class="badge bg-success">待审（已截止视同同意）</span>
+                                    </td>
+                                    <td class="small text-muted" th:text="${row.seriesCrossNote != null and !row.seriesCrossNote.isEmpty()} ? ${row.seriesCrossNote} : '—'">—</td>
+                                    <td th:if="${canManage}">
+                                        <form th:if="${row.status == 0}" class="d-inline"
+                                              th:action="@{/tournament/registration/{id}/approve(id=${tournament.id})}" method="post">
+                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <input type="hidden" name="userId" th:value="${row.userId}"/>
+                                            <button type="submit" class="btn btn-sm btn-outline-success">通过</button>
+                                        </form>
+                                        <form class="d-inline ms-1"
+                                              th:action="@{/tournament/registration/{id}/reject(id=${tournament.id})}" method="post"
+                                              onsubmit="return confirm('移除该报名记录？');">
+                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <input type="hidden" name="userId" th:value="${row.userId}"/>
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" th:text="${row.status == 0} ? '拒绝' : '移除'">移除</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <tr th:if="${#lists.isEmpty(rows)}">
+                                    <td th:colspan="${canManage ? 6 : 5}" class="text-center text-muted py-4">暂无报名</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments :: footer}"></div>
+<div th:replace="~{fragments :: scripts}"></div>
+<script>
+(function () {
+    function buildRegistrationExportText(d) {
+        const lines = [];
+        lines.push('=== ' + (d.documentTitle || '赛事报名接龙') + ' ===');
+        lines.push('赛事ID: ' + (d.tournamentId != null ? d.tournamentId : '-'));
+        lines.push('等级代码: ' + (d.levelCode || '-'));
+        lines.push('截止时间: ' + (d.deadlineText || '-'));
+        lines.push('模式说明: ' + (d.previewModeDescription || '(无)'));
+        lines.push('');
+        lines.push('--- 入选预览：正赛直通车 ---');
+        const main = d.mainDirectUsernames || [];
+        if (main.length === 0) lines.push('（暂无）');
+        else main.forEach(function (u, i) { lines.push((i + 1) + '. ' + u); });
+        const qual = d.qualifierSeedUsernames || [];
+        if (qual.length > 0) {
+            lines.push('');
+            lines.push('--- 入选预览：资格赛种子（参考） ---');
+            qual.forEach(function (u, i) { lines.push((i + 1) + '. ' + u); });
+        }
+        lines.push('');
+        lines.push('--- 报名列表（按报名时间） ---');
+        lines.push('序号\t用户\t报名时间\t状态\t系列内其他赛事');
+        const rows = d.rows || [];
+        if (rows.length === 0) lines.push('（暂无报名）');
+        else rows.forEach(function (r) {
+            lines.push([r.seq, r.username, r.registeredAt, r.statusText, r.seriesCrossNote].join('\t'));
+        });
+        return lines.join('\n');
+    }
+    const holder = document.getElementById('registration-export-payload');
+    const btn = document.getElementById('registrationListCopyBtn');
+    if (!btn || !holder) return;
+    const b64 = holder.getAttribute('data-export-b64');
+    if (!b64) return;
+    let data;
+    try {
+        data = JSON.parse(atob(b64));
+    } catch (e) {
+        console.error('registration export payload', e);
+        return;
+    }
+    btn.addEventListener('click', async function () {
+        const text = buildRegistrationExportText(data);
+        const oldHtml = btn.innerHTML;
+        try {
+            if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            }
+            btn.innerHTML = '<i class="bi bi-check2"></i> 已复制';
+            setTimeout(function () { btn.innerHTML = oldHtml; }, 2000);
+        } catch (err) {
+            alert('复制失败，请手动选择文本复制。');
+        }
+    });
+})();
+</script>
+</body>
+</html>

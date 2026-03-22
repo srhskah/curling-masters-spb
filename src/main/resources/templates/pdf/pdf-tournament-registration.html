@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">报名接龙</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        h2 { margin: 0; font-size: 16px; }
+        .muted { color: #666; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        .section { margin: 14px 0 8px; font-weight: bold; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+        .rule { margin: 6px 0 10px; color: #555; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; table-layout: auto; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; vertical-align: top; text-align: left; }
+        th { background: #f3f3f3; text-align: center; }
+        td.num { text-align: center; width: 36px; }
+        ol { margin: 4px 0 0 18px; padding: 0; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">赛事报名接龙</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<div class="rule">
+    截止：<span th:text="${deadlineText}">-</span>
+    <span th:if="${registrationEnabled != null and registrationEnabled}">｜报名已开启</span>
+    <span th:if="${registrationEnabled == null or !registrationEnabled}">｜报名未开启</span>
+    <span th:if="${registrationOpen != null and registrationOpen}">｜在报名时间内</span>
+    <span th:if="${registrationOpen == null or !registrationOpen}">｜当前不在报名时间</span>
+</div>
+
+<p class="muted" th:text="${previewModeDescription}">模式说明</p>
+
+<div class="section">入选预览 — 正赛直通车</div>
+<ol th:if="${mainDirectUsernames != null and !mainDirectUsernames.isEmpty()}">
+    <li th:each="n : ${mainDirectUsernames}" th:text="${n}"></li>
+</ol>
+<p class="muted" th:if="${mainDirectUsernames == null or mainDirectUsernames.isEmpty()}">（暂无）</p>
+
+<div class="section" th:if="${qualifierSeedUsernames != null and !qualifierSeedUsernames.isEmpty()}">入选预览 — 资格赛种子（参考）</div>
+<ol th:if="${qualifierSeedUsernames != null and !qualifierSeedUsernames.isEmpty()}">
+    <li th:each="n : ${qualifierSeedUsernames}" th:text="${n}"></li>
+</ol>
+
+<div class="section">报名列表（按报名时间）</div>
+<table>
+    <thead>
+    <tr>
+        <th>#</th>
+        <th>用户</th>
+        <th>报名时间</th>
+        <th>状态</th>
+        <th>系列内其他赛事</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="r : ${rows}">
+        <td class="num" th:text="${r.seq}">1</td>
+        <td th:text="${r.username}">-</td>
+        <td th:text="${r.registeredAt}">-</td>
+        <td th:text="${r.statusText}">-</td>
+        <td th:text="${r.seriesCrossNote}">—</td>
+    </tr>
+    <tr th:if="${rows == null or #lists.isEmpty(rows)}">
+        <td colspan="5" class="muted" style="text-align:center;">暂无报名</td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

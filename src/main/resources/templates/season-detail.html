@@ -247,6 +247,15 @@
                                                            class="btn btn-sm btn-outline-info">
                                                             <i class="bi bi-eye"></i> 详情
                                                         </a>
+                                                <a th:if="${tournamentInfo['registrationModuleActive']}"
+                                                   th:href="@{/tournament/registration/{id}(id=${t.id})}"
+                                                   class="btn btn-sm btn-outline-success">
+                                                    <i class="bi bi-journal-text"></i>
+                                                    <span th:if="${tournamentInfo['registrationOpen']}">报名中</span>
+                                                    <span th:unless="${tournamentInfo['registrationOpen']}">报名接龙</span>
+                                                </a>
+                                                <span th:if="${tournamentInfo['registrationModuleActive'] and !tournamentInfo['registrationEnabled']}"
+                                                      class="badge bg-warning text-dark align-self-center">待开启</span>
                                                 <button type="button"
                                                         class="btn btn-sm btn-outline-primary tournament-copy-btn"
                                                         th:attr="data-tournament-id=${t.id}">
@@ -496,6 +505,15 @@
                                                        class="btn btn-sm btn-outline-info">
                                                         <i class="bi bi-eye"></i> 详情
                                                     </a>
+                                                    <a th:if="${tournamentInfo['registrationModuleActive']}"
+                                                       th:href="@{/tournament/registration/{id}(id=${t.id})}"
+                                                       class="btn btn-sm btn-outline-success">
+                                                        <i class="bi bi-journal-text"></i>
+                                                        <span th:if="${tournamentInfo['registrationOpen']}">报名中</span>
+                                                        <span th:unless="${tournamentInfo['registrationOpen']}">报名接龙</span>
+                                                    </a>
+                                                    <span th:if="${tournamentInfo['registrationModuleActive'] and !tournamentInfo['registrationEnabled']}"
+                                                          class="badge bg-warning text-dark align-self-center">待开启</span>
                                                 <button type="button"
                                                         class="btn btn-sm btn-outline-primary tournament-copy-btn"
                                                         th:attr="data-tournament-id=${t.id}">

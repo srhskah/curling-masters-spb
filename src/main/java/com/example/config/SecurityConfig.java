@@ -112,6 +112,10 @@ public class SecurityConfig {
                 // 用 Cookie 承载 CSRF token，前端 fetch 可以从 cookie 里读取并带到请求头
                 // （同时表单会使用 thymeleaf 的 _csrf hidden input）
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+            )
+            // 允许同源页面在 iframe 中打开（赛事详情页弹窗内嵌 match 详情/录分）
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.sameOrigin())
             );
 
         return http.build();
