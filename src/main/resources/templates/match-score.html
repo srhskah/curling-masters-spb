@@ -1,175 +1,136 @@
 <!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
-
-<head th:replace="~{fragments :: head('比赛计分')}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
-    <link rel="icon" type="image/svg+xml"
-          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
-    <link rel="shortcut icon"
-          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
-</head>
-
+<head th:replace="~{fragments :: head('比赛计分')}"></head>
 <body th:classappend="${ipBgClass}">
-    <!-- 导航栏 -->
-    <div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: success-alert}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
 
-    <!-- 消息提示 -->
-    <div th:replace="~{fragments :: success-alert}"></div>
-    <div th:replace="~{fragments :: error-alert}"></div>
-
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-lg-10 mx-auto">
-                <!-- 比赛信息卡片 -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0">
-                            <i class="bi bi-controller"></i> 比赛信息
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p><strong>比赛编号：</strong> <span th:text="${match.matchNumber ?: '未设置'}"></span></p>
-                                <p><strong>选手A：</strong> <span th:text="${match.playerAName ?: '未知'}"></span></p>
-                                <p><strong>选手B：</strong> <span th:text="${match.playerBName ?: '未知'}"></span></p>
-                            </div>
-                            <div class="col-md-6">
-                                <p><strong>预定时间：</strong> 
-                                    <span th:if="${match.scheduledDate != null}" 
-                                          th:text="${#temporals.format(match.scheduledDate, 'yyyy-MM-dd HH:mm')}"></span>
-                                    <span th:if="${match.scheduledDate == null}">未设置</span>
-                                </p>
-                                <p><strong>场地：</strong> <span th:text="${match.venue ?: '未设置'}"></span></p>
-                                <p><strong>状态：</strong> 
-                                    <span th:if="${match.status == 0}" class="badge bg-secondary">未开始</span>
-                                    <span th:if="${match.status == 1}" class="badge bg-primary">进行中</span>
-                                    <span th:if="${match.status == 2}" class="badge bg-success">已结束</span>
-                                </p>
-                            </div>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-controller"></i> 比赛信息</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>比赛ID：</strong><span th:text="${match.id}"></span></p>
+                            <p><strong>选手1：</strong><span th:text="${player1 != null ? player1.username : '待定'}"></span></p>
+                            <p><strong>选手2：</strong><span th:text="${player2 != null ? player2.username : '待定'}"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>预定时间：</strong>
+                                <span th:text="${match.scheduledTime != null ? #temporals.format(match.scheduledTime, 'yyyy-MM-dd HH:mm') : '未设置'}"></span>
+                            </p>
+                            <p><strong>状态：</strong>
+                                <span th:if="${match.status == 0}" class="badge bg-secondary">未开始</span>
+                                <span th:if="${match.status == 1}" class="badge bg-primary">进行中</span>
+                                <span th:if="${match.status == 2}" class="badge bg-success">已结束</span>
+                                <span th:if="${match.status == 3}" class="badge bg-danger">退赛</span>
+                            </p>
+                            <p><strong>总分：</strong><span th:text="${totalPlayer1 + ' : ' + totalPlayer2}"></span></p>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- 计分卡片 -->
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">
-                            <i class="bi bi-pencil-square"></i> 比赛计分
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert">
-                            <span th:text="${error}"></span>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-pencil-square"></i> 录入比分</h5>
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/match/score/save/{matchId}(matchId=${match.id})}" method="post">
+                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <input type="hidden" name="seriesId" th:value="${seriesId}"/>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">先后手</label>
+                                <select class="form-select" name="firstEndHammer">
+                                    <option value="">不设置</option>
+                                    <option value="1" th:selected="${match.firstEndHammer == 1}" th:text="${player1 != null ? player1.username : '选手1'}">player1</option>
+                                    <option value="2" th:selected="${match.firstEndHammer == 2}" th:text="${player2 != null ? player2.username : '选手2'}">player2</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">局数</label>
+                                <input type="number" class="form-control" id="setCountInput" min="1" max="20"
+                                       th:value="${#lists.isEmpty(setScores) ? defaultSetCount : #lists.size(setScores)}"/>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-primary w-100" onclick="renderSetRows()">
+                                    生成局数
+                                </button>
+                            </div>
                         </div>
-                        
-                        <form th:action="@{/match/saveScore}" method="post">
-                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                            <input type="hidden" name="matchId" th:value="${match.id}"/>
-                            
-                            <!-- 局数设置 -->
-                            <div class="row mb-4">
-                                <div class="col-md-4">
-                                    <label for="totalSets" class="form-label">总局数</label>
-                                    <input type="number" class="form-control" id="totalSets" name="totalSets" 
-                                           th:value="${match.sets ?: 8}" min="1" max="20">
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="currentSet" class="form-label">当前局</label>
-                                    <input type="number" class="form-control" id="currentSet" name="currentSet" 
-                                           value="1" min="1" th:max="${match.sets ?: 8}">
-                                </div>
-                                <div class="col-md-4 d-flex align-items-end">
-                                    <button type="button" class="btn btn-outline-primary" onclick="generateSetInputs()">
-                                        <i class="bi bi-arrow-clockwise"></i> 生成计分表
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <!-- 计分表格 -->
-                            <div id="scoreTable" class="table-responsive">
-                                <table class="table table-bordered">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>局数</th>
-                                            <th>选手A得分</th>
-                                            <th>选手B得分</th>
-                                            <th>备注</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="scoreTableBody">
-                                        <!-- 动态生成计分行 -->
-                                    </tbody>
-                                </table>
-                            </div>
-                            
-                            <!-- 比赛结果 -->
-                            <div class="row mt-4">
-                                <div class="col-md-6">
-                                    <label for="winnerId" class="form-label">获胜者</label>
-                                    <select class="form-select" id="winnerId" name="winnerId">
-                                        <option value="">请选择获胜者</option>
-                                        <option th:value="${match.playerAId}" th:text="${match.playerAName}"></option>
-                                        <option th:value="${match.playerBId}" th:text="${match.playerBName}"></option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="matchStatus" class="form-label">比赛状态</label>
-                                    <select class="form-select" id="matchStatus" name="matchStatus">
-                                        <option value="0">未开始</option>
-                                        <option value="1">进行中</option>
-                                        <option value="2" selected>已结束</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="d-flex justify-content-between mt-4">
-                                <a th:href="${match.tournamentId != null ? '/tournament/detail/' + match.tournamentId : '/match/list'}" 
-                                   class="btn btn-secondary">
-                                    <i class="bi bi-arrow-left"></i> 返回
-                                </a>
-                                <div>
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-check-lg"></i> 保存比分
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>局</th>
+                                    <th th:text="${player1 != null ? player1.username : '选手1'}">player1</th>
+                                    <th th:text="${player2 != null ? player2.username : '选手2'}">player2</th>
+                                </tr>
+                                </thead>
+                                <tbody id="setRowsBody">
+                                <tr th:each="ss : ${setScores}">
+                                    <td>
+                                        <input type="number" class="form-control" name="setNumbers" min="1"
+                                               th:value="${ss.setNumber}">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control" name="player1Scores" min="0"
+                                               th:value="${ss.player1Score}">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control" name="player2Scores" min="0"
+                                               th:value="${ss.player2Score}">
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-3">
+                            <a th:href="@{/tournament/detail/{id}(id=${match.tournamentId})}" class="btn btn-secondary">
+                                <i class="bi bi-arrow-left"></i> 返回赛事
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> 保存比分
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- 页脚 -->
-    <div th:replace="~{fragments :: footer}"></div>
-
-    <!-- 脚本 -->
-    <th:block th:replace="~{fragments :: scripts}"></th:block>
-    
-    <script>
-        function generateSetInputs() {
-            const totalSets = document.getElementById('totalSets').value;
-            const tbody = document.getElementById('scoreTableBody');
-            tbody.innerHTML = '';
-            
-            for (let i = 1; i <= totalSets; i++) {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>第${i}局</td>
-                    <td><input type="number" class="form-control" name="setScores[${i-1}].playerAScore" min="0" max="20" value="0"></td>
-                    <td><input type="number" class="form-control" name="setScores[${i-1}].playerBScore" min="0" max="20" value="0"></td>
-                    <td><input type="text" class="form-control" name="setScores[${i-1}].remark" placeholder="可选"></td>
-                `;
-                tbody.appendChild(row);
-            }
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script>
+    function renderSetRows() {
+        const body = document.getElementById('setRowsBody');
+        const n = Number(document.getElementById('setCountInput').value || 0);
+        if (!body || !Number.isInteger(n) || n < 1) return;
+        body.innerHTML = '';
+        for (let i = 1; i <= n; i++) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="number" class="form-control" name="setNumbers" min="1" value="${i}"></td>
+                <td><input type="number" class="form-control" name="player1Scores" min="0" value="0"></td>
+                <td><input type="number" class="form-control" name="player2Scores" min="0" value="0"></td>
+            `;
+            body.appendChild(tr);
         }
-        
-        // 页面加载时自动生成计分表
-        document.addEventListener('DOMContentLoaded', function() {
-            generateSetInputs();
-        });
-    </script>
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const body = document.getElementById('setRowsBody');
+        if (body && body.children.length === 0) renderSetRows();
+    });
+</script>
 </body>
 </html>

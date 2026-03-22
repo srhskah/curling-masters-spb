@@ -2,6 +2,10 @@ package com.example.controller;
 
 import com.example.dto.*;
 import com.example.entity.*;
+import com.example.mapper.MatchAcceptanceMapper;
+import com.example.mapper.MatchScoreEditLogMapper;
+import com.example.mapper.TournamentGroupMapper;
+import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.service.*;
 import com.example.mapper.RankingMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +26,14 @@ public class RankingApiController {
     @Autowired private UserService userService;
     @Autowired private UserTournamentPointsService userTournamentPointsService;
     @Autowired private com.example.mapper.RankingMapper rankingMapper;
+    @Autowired private IMatchService matchService;
+    @Autowired private ISetScoreService setScoreService;
+    @Autowired private MatchAcceptanceMapper matchAcceptanceMapper;
+    @Autowired private MatchScoreEditLogMapper matchScoreEditLogMapper;
+    @Autowired private TournamentGroupMapper tournamentGroupMapper;
+    @Autowired private TournamentGroupMemberMapper tournamentGroupMemberMapper;
+    @Autowired private ITournamentCompetitionService tournamentCompetitionService;
+    @Autowired private GroupRankingCalculator groupRankingCalculator;
 
     @GetMapping("/total")
     public List<RankingListEntryDto> getTotalRanking(
@@ -420,6 +432,88 @@ public class RankingApiController {
             rankings.add(new TournamentRankingItemDto(i + 1, username, points, withdrawn));
         }
 
+        List<Match> matches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .orderByAsc(Match::getRound)
+                .orderByAsc(Match::getId)
+                .list();
+        List<Long> matchIds = matches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<SetScore>> scoresByMatch = matchIds.isEmpty() ? Map.of() : setScoreService.lambdaQuery()
+                .in(SetScore::getMatchId, matchIds)
+                .orderByAsc(SetScore::getSetNumber)
+                .list()
+                .stream().collect(Collectors.groupingBy(SetScore::getMatchId, LinkedHashMap::new, Collectors.toList()));
+        Map<Long, List<MatchAcceptance>> acceptsByMatch = matchIds.isEmpty() ? Map.of() : matchAcceptanceMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<MatchAcceptance>lambdaQuery()
+                        .in(MatchAcceptance::getMatchId, matchIds)
+                        .orderByAsc(MatchAcceptance::getAcceptedAt)
+        ).stream().collect(Collectors.groupingBy(MatchAcceptance::getMatchId, LinkedHashMap::new, Collectors.toList()));
+        Map<Long, List<MatchScoreEditLog>> logsByMatch = matchIds.isEmpty() ? Map.of() : matchScoreEditLogMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<MatchScoreEditLog>lambdaQuery()
+                        .in(MatchScoreEditLog::getMatchId, matchIds)
+                        .orderByAsc(MatchScoreEditLog::getEditedAt)
+                        .orderByAsc(MatchScoreEditLog::getId)
+        ).stream().collect(Collectors.groupingBy(MatchScoreEditLog::getMatchId, LinkedHashMap::new, Collectors.toList()));
+
+        List<Map<String, Object>> matchDetails = new ArrayList<>();
+        for (Match m : matches) {
+            User p1 = m.getPlayer1Id() == null ? null : userService.getById(m.getPlayer1Id());
+            User p2 = m.getPlayer2Id() == null ? null : userService.getById(m.getPlayer2Id());
+            String p1n = p1 != null ? p1.getUsername() : "待定";
+            String p2n = p2 != null ? p2.getUsername() : "待定";
+            List<SetScore> setScores = scoresByMatch.getOrDefault(m.getId(), List.of());
+            int total1 = setScores.stream().mapToInt(s -> s.getPlayer1Score() == null ? 0 : s.getPlayer1Score()).sum();
+            int total2 = setScores.stream().mapToInt(s -> s.getPlayer2Score() == null ? 0 : s.getPlayer2Score()).sum();
+            boolean hasX = setScores.stream().anyMatch(s -> Boolean.TRUE.equals(s.getPlayer1IsX()) || Boolean.TRUE.equals(s.getPlayer2IsX()));
+            String totalText = hasX ? "X" : (total1 + ":" + total2);
+            List<Map<String, Object>> sets = new ArrayList<>();
+            for (SetScore s : setScores) {
+                String hammerName = "未设置";
+                if (Objects.equals(s.getHammerPlayerId(), m.getPlayer1Id())) hammerName = p1n;
+                else if (Objects.equals(s.getHammerPlayerId(), m.getPlayer2Id())) hammerName = p2n;
+                Map<String, Object> setRow = new LinkedHashMap<>();
+                setRow.put("setNumber", s.getSetNumber());
+                setRow.put("hammer", hammerName);
+                setRow.put("player1ScoreText", Boolean.TRUE.equals(s.getPlayer1IsX()) ? "X" : String.valueOf(s.getPlayer1Score() == null ? 0 : s.getPlayer1Score()));
+                setRow.put("player2ScoreText", Boolean.TRUE.equals(s.getPlayer2IsX()) ? "X" : String.valueOf(s.getPlayer2Score() == null ? 0 : s.getPlayer2Score()));
+                sets.add(setRow);
+            }
+            List<Map<String, Object>> accepts = acceptsByMatch.getOrDefault(m.getId(), List.of()).stream().map(a -> {
+                User u = userService.getById(a.getUserId());
+                String un = u != null ? u.getUsername() : "未知";
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("username", un);
+                row.put("signature", a.getSignature());
+                row.put("acceptedAt", a.getAcceptedAt());
+                return row;
+            }).toList();
+            List<Map<String, Object>> editLogs = logsByMatch.getOrDefault(m.getId(), List.of()).stream().map(l -> {
+                User u = userService.getById(l.getEditorUserId());
+                String un = u != null ? u.getUsername() : "未知";
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("setNumber", l.getSetNumber());
+                row.put("editorUsername", un);
+                row.put("oldScore", (Boolean.TRUE.equals(l.getOldPlayer1IsX()) ? "X" : String.valueOf(l.getOldPlayer1Score() == null ? 0 : l.getOldPlayer1Score()))
+                        + ":" + (Boolean.TRUE.equals(l.getOldPlayer2IsX()) ? "X" : String.valueOf(l.getOldPlayer2Score() == null ? 0 : l.getOldPlayer2Score())));
+                row.put("newScore", (Boolean.TRUE.equals(l.getNewPlayer1IsX()) ? "X" : String.valueOf(l.getNewPlayer1Score() == null ? 0 : l.getNewPlayer1Score()))
+                        + ":" + (Boolean.TRUE.equals(l.getNewPlayer2IsX()) ? "X" : String.valueOf(l.getNewPlayer2Score() == null ? 0 : l.getNewPlayer2Score())));
+                row.put("editedAt", l.getEditedAt());
+                return row;
+            }).toList();
+            Map<String, Object> matchRow = new LinkedHashMap<>();
+            matchRow.put("matchId", m.getId());
+            matchRow.put("phaseCode", m.getPhaseCode());
+            matchRow.put("category", m.getCategory());
+            matchRow.put("round", m.getRound());
+            matchRow.put("player1Name", p1n);
+            matchRow.put("player2Name", p2n);
+            matchRow.put("totalText", totalText);
+            matchRow.put("sets", sets);
+            matchRow.put("acceptances", accepts);
+            matchRow.put("editLogs", editLogs);
+            matchDetails.add(matchRow);
+        }
+
         return Map.of(
                 "tournamentId", tournamentId,
                 "tournamentLabel", levelName != null ? levelName : "",
@@ -429,7 +523,188 @@ public class RankingApiController {
                 "levelName", levelName != null ? levelName : "",
                 "levelCode", t.getLevelCode() != null ? t.getLevelCode() : "",
                 "edition", edition,
-                "rankings", rankings
+                "rankings", rankings,
+                "matchDetails", matchDetails
+        );
+    }
+
+    @GetMapping("/tournament/{tournamentId}/group-ranking")
+    public Map<String, Object> getTournamentGroupRanking(@PathVariable Long tournamentId) {
+        Tournament t = tournamentService.getById(tournamentId);
+        if (t == null) {
+            return Map.of("tournamentId", tournamentId, "groups", List.of(), "pseudoGroups", List.of(), "groupMatches", List.of());
+        }
+        TournamentCompetitionConfig cfg = tournamentCompetitionService.getConfig(tournamentId);
+        boolean allowDraw = cfg == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        int regularSets = (cfg != null && cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tournamentId)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        List<TournamentGroupMember> members = tournamentGroupMemberMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroupMember>lambdaQuery()
+                        .eq(TournamentGroupMember::getTournamentId, tournamentId));
+        Map<Long, List<Long>> memberIdsByGroup = members.stream().collect(Collectors.groupingBy(
+                TournamentGroupMember::getGroupId, LinkedHashMap::new, Collectors.mapping(TournamentGroupMember::getUserId, Collectors.toList())
+        ));
+        List<Match> groupMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .orderByAsc(Match::getRound)
+                .orderByAsc(Match::getId)
+                .list();
+        List<Long> mids = groupMatches.stream().map(Match::getId).toList();
+        Map<Long, List<SetScore>> setByMatch = mids.isEmpty() ? Map.of() : setScoreService.lambdaQuery()
+                .in(SetScore::getMatchId, mids).orderByAsc(SetScore::getSetNumber).list()
+                .stream().collect(Collectors.groupingBy(SetScore::getMatchId, LinkedHashMap::new, Collectors.toList()));
+        Map<Long, List<MatchAcceptance>> acceptByMatch = mids.isEmpty() ? Map.of() : matchAcceptanceMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<MatchAcceptance>lambdaQuery()
+                        .in(MatchAcceptance::getMatchId, mids)
+                        .orderByAsc(MatchAcceptance::getAcceptedAt)
+        ).stream().collect(Collectors.groupingBy(MatchAcceptance::getMatchId, LinkedHashMap::new, Collectors.toList()));
+
+        Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        Map<Long, String> groupNameById = groups.stream().collect(Collectors.toMap(TournamentGroup::getId, TournamentGroup::getGroupName, (a, b) -> a));
+        List<Map<String, Object>> groupRows = new ArrayList<>();
+        List<Map<String, Object>> pseudoGroupRows = new ArrayList<>();
+        Map<Long, List<Map<String, Object>>> rankingByGroupId = groupRankingCalculator.buildGroupRankingsByMemberIds(
+                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets
+        );
+
+        for (TournamentGroup g : groups) {
+            List<Match> gm = groupMatches.stream().filter(m -> Objects.equals(m.getGroupId(), g.getId())).toList();
+            List<Map<String, Object>> ranking = rankingByGroupId.getOrDefault(g.getId(), List.of());
+            Map<String, Object> one = new LinkedHashMap<>();
+            one.put("groupId", g.getId());
+            one.put("groupName", g.getGroupName());
+            one.put("ranking", ranking);
+            groupRows.add(one);
+
+            Map<Integer, List<Map<String, Object>>> byPoints = ranking.stream().collect(Collectors.groupingBy(r -> (Integer) r.getOrDefault("points", 0)));
+            for (Map.Entry<Integer, List<Map<String, Object>>> e : byPoints.entrySet()) {
+                List<Map<String, Object>> tie = e.getValue();
+                if (tie.size() < 3) continue;
+                Set<Long> tieIds = tie.stream().map(r -> (Long) r.get("userId")).filter(Objects::nonNull).collect(Collectors.toSet());
+                List<Match> tieMatches = gm.stream().filter(m -> tieIds.contains(m.getPlayer1Id()) && tieIds.contains(m.getPlayer2Id())).toList();
+                Map<Long, List<Long>> pseudoMember = Map.of(-1L, new ArrayList<>(tieIds));
+                List<TournamentGroup> pseudoGroup = List.of(new TournamentGroup());
+                pseudoGroup.get(0).setId(-1L);
+                pseudoGroup.get(0).setGroupName(g.getGroupName() + "'组");
+                List<Map<String, Object>> pseudoRanking = groupRankingCalculator.buildGroupRankingsByMemberIds(
+                        pseudoGroup, pseudoMember, uname, tieMatches, setByMatch, allowDraw, regularSets
+                ).getOrDefault(-1L, List.of());
+                Map<String, Object> pg = new LinkedHashMap<>();
+                pg.put("groupName", g.getGroupName() + "'组");
+                pg.put("fromGroup", g.getGroupName());
+                pg.put("points", e.getKey());
+                pg.put("ranking", pseudoRanking);
+                pg.put("matches", tieMatches.stream().map(m -> {
+                    List<MatchAcceptance> ac = acceptByMatch.getOrDefault(m.getId(), List.of());
+                    String ts = ac.isEmpty() ? "-" : String.valueOf(ac.get(ac.size() - 1).getAcceptedAt());
+                    return Map.of(
+                            "category", m.getCategory() == null ? "-" : m.getCategory(),
+                            "player1Name", uname.getOrDefault(m.getPlayer1Id(), "待定"),
+                            "player2Name", uname.getOrDefault(m.getPlayer2Id(), "待定"),
+                            "acceptedAt", ts
+                    );
+                }).toList());
+                pseudoGroupRows.add(pg);
+            }
+        }
+
+        List<Map<String, Object>> groupMatchRows = groupMatches.stream().map(m -> {
+            List<SetScore> ss = setByMatch.getOrDefault(m.getId(), List.of());
+            int t1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
+            int t2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
+            boolean hasX = ss.stream().anyMatch(x -> Boolean.TRUE.equals(x.getPlayer1IsX()) || Boolean.TRUE.equals(x.getPlayer2IsX()));
+            List<MatchAcceptance> ac = acceptByMatch.getOrDefault(m.getId(), List.of());
+            String acceptedAt = ac.isEmpty() ? "-" : String.valueOf(ac.get(ac.size() - 1).getAcceptedAt());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("groupId", m.getGroupId());
+            row.put("groupName", groupNameById.getOrDefault(m.getGroupId(), "-"));
+            row.put("category", m.getCategory() == null ? "-" : m.getCategory());
+            row.put("player1Name", uname.getOrDefault(m.getPlayer1Id(), "待定"));
+            row.put("player2Name", uname.getOrDefault(m.getPlayer2Id(), "待定"));
+            row.put("score", hasX ? "X" : (t1 + ":" + t2));
+            row.put("acceptedAt", acceptedAt);
+            return row;
+        }).toList();
+
+        return Map.of(
+                "tournamentId", tournamentId,
+                "groups", groupRows,
+                "pseudoGroups", pseudoGroupRows,
+                "groupMatches", groupMatchRows
+        );
+    }
+
+    @GetMapping("/tournament/{tournamentId}/group-overall-ranking")
+    public Map<String, Object> getTournamentGroupOverallRanking(@PathVariable Long tournamentId) {
+        Map<String, Object> data = getTournamentGroupRanking(tournamentId);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> groups = (List<Map<String, Object>>) data.getOrDefault("groups", List.of());
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> g : groups) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rs = (List<Map<String, Object>>) g.getOrDefault("ranking", List.of());
+            String gname = String.valueOf(g.getOrDefault("groupName", "-"));
+            for (Map<String, Object> r : rs) {
+                Map<String, Object> one = new LinkedHashMap<>(r);
+                one.put("groupName", gname);
+                rows.add(one);
+            }
+        }
+        rows.sort((a, b) -> {
+            int ar = (int) a.getOrDefault("groupRank", 999), br = (int) b.getOrDefault("groupRank", 999);
+            if (ar != br) return Integer.compare(ar, br);
+            int ap = (int) a.getOrDefault("points", 0), bp = (int) b.getOrDefault("points", 0);
+            if (ap != bp) return Integer.compare(bp, ap);
+            int an = (int) a.getOrDefault("net", 0), bn = (int) b.getOrDefault("net", 0);
+            if (an != bn) return Integer.compare(bn, an);
+            int at = (int) a.getOrDefault("totalScore", 0), bt = (int) b.getOrDefault("totalScore", 0);
+            if (at != bt) return Integer.compare(bt, at);
+            int a2 = (int) a.getOrDefault("matchGe2Count", 0), b2 = (int) b.getOrDefault("matchGe2Count", 0);
+            if (a2 != b2) return Integer.compare(b2, a2);
+            int am = (int) a.getOrDefault("matchMaxScore", 0), bm = (int) b.getOrDefault("matchMaxScore", 0);
+            if (am != bm) return Integer.compare(bm, am);
+            int as = (int) a.getOrDefault("stealCount", 0), bs = (int) b.getOrDefault("stealCount", 0);
+            if (as != bs) return Integer.compare(bs, as);
+            int ax = (int) a.getOrDefault("stealMax", 0), bx = (int) b.getOrDefault("stealMax", 0);
+            if (ax != bx) return Integer.compare(bx, ax);
+            return String.valueOf(a.getOrDefault("username", "")).compareTo(String.valueOf(b.getOrDefault("username", "")));
+        });
+        for (int i = 0; i < rows.size(); i++) rows.get(i).put("overallRank", i + 1);
+        return Map.of("tournamentId", tournamentId, "overallRanking", rows);
+    }
+
+    @GetMapping("/tournament/{tournamentId}/group/{groupId}/ranking")
+    public Map<String, Object> getTournamentOneGroupRanking(@PathVariable Long tournamentId, @PathVariable Long groupId) {
+        Map<String, Object> data = getTournamentGroupRanking(tournamentId);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> groups = (List<Map<String, Object>>) data.getOrDefault("groups", List.of());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> pseudoGroups = (List<Map<String, Object>>) data.getOrDefault("pseudoGroups", List.of());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> groupMatches = (List<Map<String, Object>>) data.getOrDefault("groupMatches", List.of());
+        Map<String, Object> group = groups.stream().filter(g -> Objects.equals(g.get("groupId"), groupId)).findFirst().orElse(null);
+        if (group == null) {
+            return Map.of("tournamentId", tournamentId, "groupId", groupId, "groupName", "-", "ranking", List.of(), "pseudoGroups", List.of(), "matches", List.of());
+        }
+        String groupName = String.valueOf(group.getOrDefault("groupName", "-"));
+        List<Map<String, Object>> thisPseudo = pseudoGroups.stream()
+                .filter(pg -> Objects.equals(String.valueOf(pg.getOrDefault("fromGroup", "")), groupName))
+                .toList();
+        List<Map<String, Object>> thisMatches = groupMatches.stream()
+                .filter(m -> Objects.equals(m.get("groupId"), groupId))
+                .toList();
+        return Map.of(
+                "tournamentId", tournamentId,
+                "groupId", groupId,
+                "groupName", groupName,
+                "ranking", group.getOrDefault("ranking", List.of()),
+                "pseudoGroups", thisPseudo,
+                "matches", thisMatches
         );
     }
 
@@ -726,5 +1001,6 @@ public class RankingApiController {
         if (v instanceof Number n) return n.intValue();
         try { return Integer.parseInt(v.toString()); } catch (Exception ignored) { return null; }
     }
+
 }
 

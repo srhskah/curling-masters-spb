@@ -17,6 +17,9 @@
         .podium-gold { background: #d4af37; color: #000; font-weight: 700; }
         .podium-silver { background: #c0c0c0; color: #000; font-weight: 700; }
         .podium-bronze { background: #cd7f32; color: #fff; font-weight: 700; }
+        .section-title { margin: 14px 0 8px; font-size: 14px; font-weight: 700; }
+        .nowrap { white-space: nowrap; }
+        .small { font-size: 11px; }
     </style>
 </head>
 <body>
@@ -52,6 +55,68 @@
     </tr>
     </tbody>
 </table>
+
+<div class="section-title">比赛明细</div>
+<div th:if="${matchDetails == null or #lists.isEmpty(matchDetails)}" class="muted">暂无比赛明细</div>
+<div th:each="m : ${matchDetails}" style="margin-bottom: 14px; border:1px solid #ddd; padding:8px;">
+    <div style="font-weight:700; margin-bottom:4px;"
+         th:text="${(m.category != null ? m.category : '-') + '（' + (m.phaseCode != null ? m.phaseCode : '-') + '） ' + m.player1Name + ' vs ' + m.player2Name + '  总比分：' + (m.totalText != null ? m.totalText : '-')}">
+        比赛标题
+    </div>
+    <table class="small">
+        <thead>
+        <tr>
+            <th style="width:12%">局次</th>
+            <th style="width:34%">后手</th>
+            <th style="width:27%">选手1</th>
+            <th style="width:27%">选手2</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="s : ${m.sets}">
+            <td th:text="${s.setNumber}">1</td>
+            <td th:text="${s.hammer}">后手</td>
+            <td th:text="${s.player1ScoreText}">0</td>
+            <td th:text="${s.player2ScoreText}">0</td>
+        </tr>
+        <tr th:if="${m.sets == null or #lists.isEmpty(m.sets)}">
+            <td colspan="4" class="muted">暂无逐局信息</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <div style="margin-top:6px; font-weight:700;">修改记录</div>
+    <table class="small">
+        <thead>
+        <tr>
+            <th style="width:12%">局次</th>
+            <th style="width:18%">修改人</th>
+            <th style="width:20%">修改前</th>
+            <th style="width:20%">修改后</th>
+            <th style="width:30%">时间</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="l : ${m.editLogs}">
+            <td th:text="${l.setNumber}">1</td>
+            <td th:text="${l.editorUsername}">用户</td>
+            <td th:text="${l.oldScore}">0:0</td>
+            <td th:text="${l.newScore}">1:0</td>
+            <td th:text="${l.editedAt != null ? #temporals.format(l.editedAt, 'yyyy-MM-dd HH:mm:ss') : '-'}">时间</td>
+        </tr>
+        <tr th:if="${m.editLogs == null or #lists.isEmpty(m.editLogs)}">
+            <td colspan="5" class="muted">无修改记录</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <div style="margin-top:6px; font-weight:700;">验收信息（含签名）</div>
+    <div class="small nowrap" th:if="${m.acceptances != null and !#lists.isEmpty(m.acceptances)}">
+        <span th:each="a,st : ${m.acceptances}"
+              th:text="${a.username + '（' + ((a.signature != null and !#strings.isEmpty(a.signature)) ? a.signature : '无签名') + '）@' + (a.acceptedAt != null ? #temporals.format(a.acceptedAt, 'yyyy-MM-dd HH:mm:ss') : '-') + (st.last ? '' : '； ')}">验收人</span>
+    </div>
+    <div class="small muted" th:if="${m.acceptances == null or #lists.isEmpty(m.acceptances)}">暂无验收</div>
+</div>
 </body>
 </html>
 

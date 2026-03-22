@@ -5,6 +5,11 @@ import com.example.util.TimezoneUtil;
 import com.example.entity.Season;
 import com.example.service.RankingService;
 import com.example.service.SeasonService;
+import com.example.service.ITournamentRegistrationService;
+import com.example.service.SeriesService;
+import com.example.service.TournamentService;
+import com.example.entity.Tournament;
+import com.example.entity.Series;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +21,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Map;
+import java.util.List;
+import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.Objects;
 
 @Controller
 public class HomeController {
@@ -24,6 +33,9 @@ public class HomeController {
 
     @Autowired private RankingService rankingService;
     @Autowired private SeasonService seasonService;
+    @Autowired private ITournamentRegistrationService tournamentRegistrationService;
+    @Autowired private SeriesService seriesService;
+    @Autowired private TournamentService tournamentService;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model, HttpServletRequest request) {
@@ -78,6 +90,54 @@ public class HomeController {
         model.addAttribute("currentSeason", currentSeason);
         model.addAttribute("currentSeasonRankingTop24",
                 currentSeason == null ? java.util.List.of() : rankingService.getSeasonRanking(currentSeason.getId(), 24));
+
+        List<Tournament> openReg = tournamentRegistrationService.listOpenRegistrationTournaments(12, LocalDateTime.now());
+        model.addAttribute("openRegistrationTournaments", openReg);
+
+        // 首页入口：当前赛季 / 当前系列
+        model.addAttribute("currentSeasonEntryUrl", currentSeason != null ? ("/season/detail/" + currentSeason.getId()) : null);
+        model.addAttribute("currentSeasonEntryName", currentSeason != null
+                ? (currentSeason.getYear() + "年" + (currentSeason.getHalf() == 1 ? "上半年" : "下半年"))
+                : null);
+
+        Series currentSeries = null;
+        if (currentSeason != null && currentSeason.getId() != null) {
+            currentSeries = seriesService.lambdaQuery()
+                    .eq(Series::getSeasonId, currentSeason.getId())
+                    .orderByDesc(Series::getSequence)
+                    .last("LIMIT 1")
+                    .one();
+        }
+        model.addAttribute("currentSeries", currentSeries);
+        String currentSeriesName = null;
+        if (currentSeries != null) {
+            if (currentSeries.getName() != null && !currentSeries.getName().trim().isEmpty()) {
+                currentSeriesName = currentSeries.getName().trim();
+            } else if (currentSeries.getSequence() != null) {
+                currentSeriesName = "第" + currentSeries.getSequence() + "系列";
+            } else {
+                currentSeriesName = "当前系列";
+            }
+        }
+        model.addAttribute("currentSeriesName", currentSeriesName);
+        model.addAttribute("currentSeriesEntryUrl", currentSeries != null ? ("/season/detail/by-series/" + currentSeries.getId()) : null);
+
+        List<Tournament> currentSeriesOngoing = List.of();
+        List<Tournament> currentSeriesRegistration = List.of();
+        if (currentSeries != null && currentSeries.getId() != null) {
+            currentSeriesOngoing = tournamentService.lambdaQuery()
+                    .eq(Tournament::getSeriesId, currentSeries.getId())
+                    .eq(Tournament::getStatus, 1)
+                    .orderByAsc(Tournament::getStartDate)
+                    .list();
+            final Long csId = currentSeries.getId();
+            currentSeriesRegistration = openReg.stream()
+                    .filter(t -> Objects.equals(t.getSeriesId(), csId))
+                    .sorted(Comparator.comparing(Tournament::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .toList();
+        }
+        model.addAttribute("currentSeriesOngoingTournaments", currentSeriesOngoing);
+        model.addAttribute("currentSeriesRegistrationTournaments", currentSeriesRegistration);
         
         // 验证时区设置
         TimezoneUtil.logTimezoneInfo();

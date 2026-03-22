@@ -35,7 +35,11 @@ public class SetScore implements Serializable {
 
     private Integer player1Score;
 
+    private Boolean player1IsX;
+
     private Integer player2Score;
+
+    private Boolean player2IsX;
 
     private LocalDateTime createdAt;
 

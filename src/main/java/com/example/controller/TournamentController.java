@@ -1,6 +1,7 @@
 package com.example.controller;
 
 import com.example.entity.*;
+import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.service.*;
 import com.example.util.IpAddressUtil;
 import com.example.util.HtmlEscaper;
@@ -34,6 +35,11 @@ public class TournamentController {
     @Autowired private ISetScoreService setScoreService;
     @Autowired private UserService userService;
     @Autowired private UserTournamentPointsService userTournamentPointsService;
+    @Autowired private ITournamentRegistrationService tournamentRegistrationService;
+    @Autowired private ITournamentCompetitionService tournamentCompetitionService;
+    @Autowired private GroupRankingCalculator groupRankingCalculator;
+    @Autowired private com.example.mapper.TournamentGroupMapper tournamentGroupMapper;
+    @Autowired private com.example.mapper.TournamentGroupMemberMapper tournamentGroupMemberMapper;
 
     private boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -41,6 +47,16 @@ public class TournamentController {
             String username = auth.getName();
             User user = userService.findByUsername(username);
             return user != null && user.getRole() <= 1;
+        }
+        return false;
+    }
+
+    private boolean isSuperAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
+            String username = auth.getName();
+            User user = userService.findByUsername(username);
+            return user != null && user.getRole() != null && user.getRole() == 0;
         }
         return false;
     }
@@ -243,6 +259,9 @@ public class TournamentController {
             ));
             item.put("filters", Map.of("status", tournament.getStatus()));
             item.put("id", tournament.getId());
+            java.time.LocalDateTime nowReg = java.time.LocalDateTime.now();
+            item.put("registrationOpen", tournamentRegistrationService.isRegistrationOpen(tournament, nowReg));
+            item.put("registrationNavVisible", tournament.getStatus() != null && tournament.getStatus() == 0);
             
             dataList.add(item);
         }
@@ -261,6 +280,14 @@ public class TournamentController {
         // 构建操作按钮
         List<Map<String, Object>> actions = new ArrayList<>();
         actions.add(Map.of("urlPrefix", "/tournament/detail/", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情", "public", true));
+        actions.add(new HashMap<>(Map.of(
+                "urlPrefix", "/tournament/registration/",
+                "btnClass", "btn btn-sm btn-outline-success",
+                "icon", "bi bi-journal-plus",
+                "text", "报名接龙",
+                "public", true,
+                "requireRegistrationNavVisible", true
+        )));
         actions.add(Map.of("urlPrefix", "/tournament/edit/", "btnClass", "btn btn-sm btn-outline-warning", "icon", "bi bi-pencil", "text", "编辑"));
         actions.add(Map.of("urlPrefix", "/tournament/delete/", "method", "post", "btnClass", "btn btn-sm btn-outline-danger", "icon", "bi bi-trash", "text", "删除", "confirm", "确定要删除这个赛事吗？"));
         
@@ -479,9 +506,13 @@ public class TournamentController {
         if (tournament == null) {
             return "redirect:/tournament/list";
         }
+        if (tournamentCompetitionService instanceof com.example.service.impl.TournamentCompetitionServiceImpl impl) {
+            impl.autoAcceptOverdueGroupMatches(id);
+        }
         
         // User currentUser = getCurrentUser();
         boolean admin = isAdmin();
+        boolean superAdmin = isSuperAdmin();
         boolean isHost = isHostUser(id);
         
         if (!admin && !isHost) {
@@ -1077,14 +1108,116 @@ public class TournamentController {
         
         User currentUser = getCurrentUser();
         boolean admin = isAdmin();
+        boolean superAdmin = isSuperAdmin();
         boolean isHost = isHostUser(id);
         
         model.addAttribute("tournamentInfo", tournamentInfo);
         model.addAttribute("matchInfoList", matchInfoList);
         model.addAttribute("rankingInfoList", rankingInfoList);
         model.addAttribute("isAdmin", admin);
+        model.addAttribute("isSuperAdmin", superAdmin);
         model.addAttribute("isHost", isHost);
         model.addAttribute("currentUser", currentUser);
+        java.time.LocalDateTime nowReg = java.time.LocalDateTime.now();
+        model.addAttribute("registrationOpen", tournamentRegistrationService.isRegistrationOpen(tournament, nowReg));
+        model.addAttribute("registrationModuleActive", tournamentRegistrationService.registrationModuleActive(tournament, nowReg));
+        model.addAttribute("registrationEnabled", tournamentRegistrationService.isRegistrationEnabled(tournament));
+
+        // 进行中赛事：手动参赛配置 + 分组赛程
+        TournamentCompetitionConfig competitionConfig = tournamentCompetitionService.getConfig(id);
+        model.addAttribute("competitionConfig", competitionConfig);
+        model.addAttribute("competitionGroupSizeOptions",
+                tournamentCompetitionService.calcGroupSizeOptions(
+                        competitionConfig != null ? competitionConfig.getParticipantCount() : null));
+        if (competitionConfig != null && Objects.equals(competitionConfig.getMatchMode(), 3)) {
+            List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                    com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroup>lambdaQuery()
+                            .eq(TournamentGroup::getTournamentId, id)
+                            .orderByAsc(TournamentGroup::getGroupOrder));
+            model.addAttribute("competitionGroups", groups);
+
+            Map<Long, String> usernameById = userService.list().stream()
+                    .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+            Map<Long, List<Map<String, Object>>> groupMembersByGroupId = new HashMap<>();
+            for (TournamentGroup g : groups) {
+                List<Map<String, Object>> members = tournamentGroupMemberMapper.selectList(
+                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroupMember>lambdaQuery()
+                                .eq(TournamentGroupMember::getTournamentId, id)
+                                .eq(TournamentGroupMember::getGroupId, g.getId())
+                                .orderByAsc(TournamentGroupMember::getSeedNo)
+                                .orderByAsc(TournamentGroupMember::getId))
+                        .stream().map(m -> {
+                            Map<String, Object> mm = new HashMap<>();
+                            mm.put("userId", m.getUserId());
+                            mm.put("username", usernameById.getOrDefault(m.getUserId(), "未知"));
+                            return mm;
+                        }).toList();
+                groupMembersByGroupId.put(g.getId(), members);
+            }
+            model.addAttribute("groupMembersByGroupId", groupMembersByGroupId);
+
+            Map<Long, String> scoreDisplayByMatchId = new HashMap<>();
+            List<Long> matchIds = matches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+            List<SetScore> allGroupScores = matchIds.isEmpty() ? List.of() : setScoreService.lambdaQuery()
+                    .in(SetScore::getMatchId, matchIds)
+                    .list();
+            Map<Long, List<SetScore>> scoreByMatch = allGroupScores.stream().collect(Collectors.groupingBy(SetScore::getMatchId));
+            for (Match m : matches) {
+                List<SetScore> ss = scoreByMatch.getOrDefault(m.getId(), List.of());
+                int p1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
+                int p2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
+                boolean hasX = ss.stream().anyMatch(x -> Boolean.TRUE.equals(x.getPlayer1IsX()) || Boolean.TRUE.equals(x.getPlayer2IsX()));
+                scoreDisplayByMatchId.put(m.getId(), ss.isEmpty() ? "-" : (hasX ? "X" : (p1 + " : " + p2)));
+            }
+            model.addAttribute("scoreDisplayByMatchId", scoreDisplayByMatchId);
+
+            Map<Long, List<Map<String, Object>>> groupMatchCards = new HashMap<>();
+            for (TournamentGroup g : groups) {
+                List<Map<String, Object>> cards = matches.stream()
+                        .filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()))
+                        .filter(m -> Objects.equals(m.getGroupId(), g.getId()))
+                        .sorted(Comparator.comparing(Match::getRound, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .map(m -> {
+                            Map<String, Object> card = new HashMap<>();
+                            card.put("match", m);
+                            card.put("player1Name", usernameById.getOrDefault(m.getPlayer1Id(), "待定"));
+                            card.put("player2Name", usernameById.getOrDefault(m.getPlayer2Id(), "待定"));
+                            card.put("score", scoreDisplayByMatchId.getOrDefault(m.getId(), "-"));
+                            return card;
+                        }).toList();
+                groupMatchCards.put(g.getId(), cards);
+            }
+            model.addAttribute("groupMatchCards", groupMatchCards);
+            Map<Long, List<Long>> memberIdsByGroup = new HashMap<>();
+            for (Map.Entry<Long, List<Map<String, Object>>> e : groupMembersByGroupId.entrySet()) {
+                List<Long> uids = e.getValue().stream()
+                        .map(x -> (Long) x.get("userId"))
+                        .filter(Objects::nonNull)
+                        .distinct()
+                        .toList();
+                memberIdsByGroup.put(e.getKey(), uids);
+            }
+            Map<Long, List<Map<String, Object>>> groupRankingByGroupId = groupRankingCalculator.buildGroupRankingsByMemberIds(
+                    groups, memberIdsByGroup, usernameById, matches, scoreByMatch, competitionConfig);
+            model.addAttribute("groupRankingByGroupId", groupRankingByGroupId);
+            List<Map<String, Object>> groupOverallRanking = groupRankingCalculator.buildOverallRanking(groupRankingByGroupId);
+            Map<Long, Integer> overallRankByUserId = groupOverallRanking.stream()
+                    .filter(r -> r.get("userId") != null)
+                    .collect(Collectors.toMap(r -> (Long) r.get("userId"), r -> (Integer) r.get("overallRank"), (a, b) -> a));
+            for (List<Map<String, Object>> oneGroup : groupRankingByGroupId.values()) {
+                for (Map<String, Object> r : oneGroup) {
+                    Long uid = (Long) r.get("userId");
+                    r.put("overallRank", uid == null ? null : overallRankByUserId.get(uid));
+                }
+            }
+            model.addAttribute("groupOverallRanking", groupOverallRanking);
+        } else {
+            model.addAttribute("competitionGroups", List.of());
+            model.addAttribute("groupMembersByGroupId", Map.of());
+            model.addAttribute("groupMatchCards", Map.of());
+            model.addAttribute("groupRankingByGroupId", Map.of());
+            model.addAttribute("groupOverallRanking", List.of());
+        }
         
         return "tournament-detail";
     }
@@ -1104,7 +1237,7 @@ public class TournamentController {
         if (displayIdx < 1) displayIdx = 1;
         return "第" + displayIdx + "系列";
     }
-    
+
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
     @PostMapping("/ranking/save/{tournamentId}")
     public String saveRanking(@PathVariable Long tournamentId,
@@ -1481,6 +1614,16 @@ public class TournamentController {
 
         model.addAttribute("tournament", tournament);
         model.addAttribute("matchInfoList", matchInfoList);
+        Map<Integer, List<Map<String, Object>>> matchesByRound = matchInfoList.stream()
+                .collect(Collectors.groupingBy(
+                        mi -> {
+                            Match mm = (Match) mi.get("match");
+                            return mm != null && mm.getRound() != null ? mm.getRound() : 0;
+                        },
+                        java.util.TreeMap::new,
+                        Collectors.toList()
+                ));
+        model.addAttribute("matchesByRound", matchesByRound);
         model.addAttribute("isAdmin", admin);
         model.addAttribute("isHost", isHost);
 

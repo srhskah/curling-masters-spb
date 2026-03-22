@@ -1,8 +1,14 @@
 package com.example.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+
 import java.time.LocalDateTime;
 
+@TableName("tournament_entry")
 public class TournamentEntry {
+    @TableId(type = IdType.AUTO)
     private Long id;
     private Long tournamentId;
     private Long userId;

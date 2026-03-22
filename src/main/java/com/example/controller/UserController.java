@@ -352,6 +352,20 @@ public class UserController {
     // }
 
     // 修复 userProfile 方法
+    @GetMapping("/profile")
+    public String myProfile() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getName() == null
+                || "anonymousUser".equals(auth.getName())) {
+            return "redirect:/user/login";
+        }
+        User currentUser = userService.findByUsername(auth.getName());
+        if (currentUser == null || currentUser.getId() == null) {
+            return "redirect:/user/login";
+        }
+        return "redirect:/user/profile/" + currentUser.getId();
+    }
+
     @GetMapping("/profile/{id}")
     public String userProfile(@PathVariable Long id, Model model) {
         try {
@@ -362,7 +376,7 @@ public class UserController {
             
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || !auth.isAuthenticated() || auth.getName() == null) {
-                return "redirect:/login";
+                return "redirect:/user/login";
             }
             
             String currentUsername = auth.getName();
@@ -370,7 +384,7 @@ public class UserController {
             
             // 检查当前用户是否存在
             if (currentUser == null) {
-                return "redirect:/login";
+                return "redirect:/user/login";
             }
             
             model.addAttribute("user", user);
@@ -455,7 +469,7 @@ public class UserController {
             currentUser.setUpdatedAt(LocalDateTime.now());
             userService.updateById(currentUser);
             
-            redirectAttributes.addFlashAttribute("success", "个人信息更新成功");
+            redirectAttributes.addFlashAttribute("message", "个人信息更新成功");
             return "redirect:/user/profile/" + currentUser.getId();
             
         } catch (Exception e) {
