@@ -48,12 +48,13 @@
     <li th:each="n : ${qualifierSeedUsernames}" th:text="${n}"></li>
 </ol>
 
-<div class="section">报名列表（按报名时间）</div>
+<div class="section">报名列表（总排名优先，无名者按报名时间）</div>
 <table>
     <thead>
     <tr>
         <th>#</th>
         <th>用户</th>
+        <th>总排名</th>
         <th>报名时间</th>
         <th>状态</th>
         <th>系列内其他赛事</th>
@@ -63,12 +64,13 @@
     <tr th:each="r : ${rows}">
         <td class="num" th:text="${r.seq}">1</td>
         <td th:text="${r.username}">-</td>
+        <td th:text="${r.totalRankText}">-</td>
         <td th:text="${r.registeredAt}">-</td>
         <td th:text="${r.statusText}">-</td>
         <td th:text="${r.seriesCrossNote}">—</td>
     </tr>
     <tr th:if="${rows == null or #lists.isEmpty(rows)}">
-        <td colspan="5" class="muted" style="text-align:center;">暂无报名</td>
+        <td colspan="6" class="muted" style="text-align:center;">暂无报名</td>
     </tr>
     </tbody>
 </table>

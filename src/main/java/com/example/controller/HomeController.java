@@ -3,11 +3,14 @@ package com.example.controller;
 import com.example.util.CookieUtil;
 import com.example.util.TimezoneUtil;
 import com.example.entity.Season;
+import com.example.entity.User;
 import com.example.service.RankingService;
 import com.example.service.SeasonService;
 import com.example.service.ITournamentRegistrationService;
+import com.example.service.INotificationService;
 import com.example.service.SeriesService;
 import com.example.service.TournamentService;
+import com.example.service.UserService;
 import com.example.entity.Tournament;
 import com.example.entity.Series;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,6 +39,8 @@ public class HomeController {
     @Autowired private ITournamentRegistrationService tournamentRegistrationService;
     @Autowired private SeriesService seriesService;
     @Autowired private TournamentService tournamentService;
+    @Autowired private UserService userService;
+    @Autowired private INotificationService notificationService;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model, HttpServletRequest request) {
@@ -52,9 +57,13 @@ public class HomeController {
             logger.info("Setting username to model: {}", username);
             model.addAttribute("username", username);
             model.addAttribute("authorities", authentication.getAuthorities());
+            User me = userService.findByUsername(username);
+            model.addAttribute("notificationUnreadCount", me == null ? 0L : notificationService.unreadCount(me.getId()));
         } else {
             logger.info("No authentication or not authenticated");
+            model.addAttribute("notificationUnreadCount", 0L);
         }
+        model.addAttribute("homeNotifications", notificationService.listPublishedForHome(6));
         
         // 从Cookie读取用户偏好设置
         String theme = CookieUtil.getCookie(request, "user_theme");

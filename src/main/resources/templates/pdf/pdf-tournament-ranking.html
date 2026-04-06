@@ -113,7 +113,10 @@
     <div style="margin-top:6px; font-weight:700;">验收信息（含签名）</div>
     <div class="small nowrap" th:if="${m.acceptances != null and !#lists.isEmpty(m.acceptances)}">
         <span th:each="a,st : ${m.acceptances}"
-              th:text="${a.username + '（' + ((a.signature != null and !#strings.isEmpty(a.signature)) ? a.signature : '无签名') + '）@' + (a.acceptedAt != null ? #temporals.format(a.acceptedAt, 'yyyy-MM-dd HH:mm:ss') : '-') + (st.last ? '' : '； ')}">验收人</span>
+              th:text="${a.username + '（' + (
+                  (a.signature == null or #strings.isEmpty(a.signature)) ? '无签名'
+                  : (#strings.startsWith(a.signature, 'data:image/') ? '[手写签名]' : a.signature)
+              ) + '）@' + (a.acceptedAt != null ? #temporals.format(a.acceptedAt, 'yyyy-MM-dd HH:mm:ss') : '-') + (st.last ? '' : '； ')}">验收人</span>
     </div>
     <div class="small muted" th:if="${m.acceptances == null or #lists.isEmpty(m.acceptances)}">暂无验收</div>
 </div>

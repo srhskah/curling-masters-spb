@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${isEdit} ? '编辑通知' : '新建通知')}"></head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div class="container mt-4">
+    <h3 class="mb-3" th:text="${isEdit} ? '编辑通知' : '新建通知'">新建通知</h3>
+    <form method="post" action="/notification/save">
+        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="id" th:value="${message.id}"/>
+        <div class="mb-3">
+            <label class="form-label">标题</label>
+            <input name="title" class="form-control" required th:value="${message.title}"/>
+        </div>
+        <div class="mb-3 text-muted small" th:if="${isEdit and message.authorUsername != null}">
+            发起者：<span th:text="${message.authorUsername}">—</span>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">正文（Markdown）</label>
+            <div class="notification-md-editor-wrap">
+                <textarea id="contentMarkdown" name="contentMarkdown" class="form-control" rows="12" th:text="${message.contentMarkdown}"></textarea>
+            </div>
+        </div>
+        <div class="form-check mb-2">
+            <input class="form-check-input" id="publishToHome" type="checkbox" name="publishToHome" value="true" th:checked="${message.publishToHome}">
+            <label class="form-check-label" for="publishToHome">发布到首页模块</label>
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" id="publishNow" type="checkbox" name="publishNow" value="true" th:checked="${message.published}">
+            <label class="form-check-label" for="publishNow">立即发布</label>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" type="submit">保存</button>
+            <a class="btn btn-outline-secondary" href="/notification/list">取消</a>
+        </div>
+    </form>
+</div>
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css"/>
+<script>
+    (() => {
+        const ta = document.getElementById('contentMarkdown');
+        if (!ta || typeof toastui === 'undefined') return;
+        const form = ta.closest('form');
+        const editorEl = document.createElement('div');
+        ta.parentNode.insertBefore(editorEl, ta);
+        ta.classList.add('d-none');
+        const editor = new toastui.Editor({
+            el: editorEl,
+            height: '420px',
+            initialEditType: 'markdown',
+            previewStyle: 'vertical',
+            initialValue: ta.value || ''
+        });
+        const syncMarkdownToTextarea = () => {
+            const md = editor.getMarkdown();
+            ta.value = md != null ? md : '';
+        };
+        // 捕获阶段优先执行，确保序列化表单前 textarea 已得到带换行的 Markdown
+        form.addEventListener('submit', syncMarkdownToTextarea, true);
+        form.addEventListener('submit', syncMarkdownToTextarea, false);
+    })();
+</script>
+</body>
+</html>

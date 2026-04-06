@@ -489,24 +489,6 @@
             return null;
         };
 
-        const copyToClipboard = async (text) => {
-            if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
-                await navigator.clipboard.writeText(text);
-                return;
-            }
-
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            textarea.style.position = 'fixed';
-            textarea.style.top = '-1000px';
-            textarea.style.left = '-1000px';
-            document.body.appendChild(textarea);
-            textarea.focus();
-            textarea.select();
-            document.execCommand('copy');
-            textarea.remove();
-        };
-
         // Escape dynamic text before inserting into HTML strings (avoid XSS).
         const escapeHtml = (s) => {
             const str = s == null ? '' : String(s);
@@ -656,7 +638,7 @@
             if (scope === 'total') {
                 const header = limit === '24' ? '总排名（前24）' : '总排名（全量）';
                 const data = await fetchJson(`/ranking/api/total?limit=${encodeURIComponent(limit)}`);
-                await copyToClipboard(formatRanking(data, format, header));
+                await copyPlainTextToClipboard(formatRanking(data, format, header));
                 if (typeof showAlert === 'function') showAlert('复制成功', 'success');
                 else alert('复制成功');
                 return;
@@ -668,7 +650,7 @@
             }
             const header = limit === '24' ? `赛季排名（前24，赛季ID=${seasonId}）` : `赛季排名（全量，赛季ID=${seasonId}）`;
             const data = await fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
-            await copyToClipboard(formatRanking(data, format, header));
+            await copyPlainTextToClipboard(formatRanking(data, format, header));
             if (typeof showAlert === 'function') showAlert('复制成功', 'success');
             else alert('复制成功');
         };
@@ -676,7 +658,7 @@
         const handleExportScopePdf = (scope) => {
             const limit = getLimitFor(scope);
             if (scope === 'total') {
-                window.location.href = `/ranking/export/pdf/total?limit=${encodeURIComponent(limit)}`;
+                downloadPdfFromUrl(`/ranking/export/pdf/total?limit=${encodeURIComponent(limit)}`);
                 return;
             }
             const seasonId = getActiveSeasonId();
@@ -684,7 +666,7 @@
                 alert('请先在页面中选择一个赛季');
                 return;
             }
-            window.location.href = `/ranking/export/pdf/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`;
+            downloadPdfFromUrl(`/ranking/export/pdf/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
         };
 
         // <576px：弹窗复制（不依赖标题栏下拉框是否可见）
@@ -703,14 +685,14 @@
             if (scope === 'total') {
                 const header = limit === '24' ? '总排名（前24）' : '总排名（全量）';
                 const data = await fetchJson(`/ranking/api/total?limit=${encodeURIComponent(limit)}`);
-                await copyToClipboard(formatRanking(data, format, header));
+                await copyPlainTextToClipboard(formatRanking(data, format, header));
                 return;
             }
             const seasonId = getActiveSeasonId();
             if (!seasonId) throw new Error('请先在页面中选择一个赛季');
             const header = limit === '24' ? `赛季排名（前24，赛季ID=${seasonId}）` : `赛季排名（全量，赛季ID=${seasonId}）`;
             const data = await fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
-            await copyToClipboard(formatRanking(data, format, header));
+            await copyPlainTextToClipboard(formatRanking(data, format, header));
         };
 
         const formatUserPerformancePlain = (data) => {
@@ -786,7 +768,7 @@
                     data = await fetchJson(`/ranking/api/user/${encodeURIComponent(userIdRaw)}/total/performance`);
                 }
             }
-            await copyToClipboard(formatUserPerformancePlain(data));
+            await copyPlainTextToClipboard(formatUserPerformancePlain(data));
             if (typeof showAlert === 'function') showAlert('复制成功', 'success');
             else alert('复制成功');
         };

@@ -1,7 +1,14 @@
 package com.example.service.impl;
 
+import com.example.dto.GroupImportResult;
+import com.example.util.GroupMemberImportParser;
+
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.entity.User;
 import com.example.mapper.UserMapper;
@@ -166,5 +173,32 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("username", username);
         return getOne(queryWrapper);
+    }
+
+    @Override
+    public GroupImportResult resolveGroupImport(String raw) {
+        List<User> all = list();
+        Map<String, Long> byName = new HashMap<>();
+        List<String> sortedNames = new ArrayList<>();
+        for (User u : all) {
+            if (u.getUsername() != null && !u.getUsername().isEmpty()) {
+                byName.put(u.getUsername(), u.getId());
+                sortedNames.add(u.getUsername());
+            }
+        }
+        sortedNames.sort(Comparator.comparingInt(String::length).reversed());
+        List<String> tokens = GroupMemberImportParser.parseUserTokens(raw, sortedNames);
+        List<Long> ids = new ArrayList<>();
+        List<String> unknown = new ArrayList<>();
+        LinkedHashSet<Long> seen = new LinkedHashSet<>();
+        for (String token : tokens) {
+            Long id = byName.get(token);
+            if (id == null) {
+                unknown.add(token);
+            } else if (seen.add(id)) {
+                ids.add(id);
+            }
+        }
+        return new GroupImportResult(ids, unknown);
     }
 }

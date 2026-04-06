@@ -12,6 +12,7 @@
         th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; vertical-align: middle; }
         th { background: #f3f3f3; }
         .muted { color: #666; }
+        .cell-matches-full { background-color: rgba(25, 135, 84, 0.16); font-weight: 600; }
     </style>
 </head>
 <body>
@@ -28,18 +29,21 @@
 <div th:each="g : ${groups}" style="margin-bottom: 10px;">
     <div style="font-weight:700; margin-bottom:4px;" th:text="${g.groupName}">A组</div>
     <table>
-        <thead><tr><th>排名</th><th>选手</th><th>积分</th><th>净胜分</th><th>总得分</th><th>≥2局数总和</th><th>单局最高</th><th>偷分次数</th><th>偷分单次最高</th></tr></thead>
+        <thead><tr><th>排名</th><th>选手</th><th>已赛/应赛</th><th>积分</th><th>净胜分</th><th>总得分</th><th>≥2局数总和</th><th>单局最高</th><th>偷分次数</th><th>偷分单次最高</th></tr></thead>
         <tbody>
         <tr th:each="r : ${g.ranking}">
-            <td th:text="${r.groupRank}">1</td><td th:text="${r.username}">选手</td><td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td>
+            <td th:text="${r.groupRank}">1</td><td th:text="${r.username}">选手</td>
+            <td th:classappend="${r.expectedGroupMatches != null and r.expectedGroupMatches > 0 and r.played != null and r.played == r.expectedGroupMatches} ? ' cell-matches-full'"
+                th:text="|${r.played != null ? r.played : 0}/${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}|">0/0</td>
+            <td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td>
             <td th:text="${r.matchGe2Count}">0</td><td th:text="${r.matchMaxScore}">0</td><td th:text="${r.stealCount}">0</td><td th:text="${r.stealMax}">0</td>
         </tr>
         </tbody>
     </table>
 </div>
 
-<div class="section-title">伪小组信息（若存在）</div>
-<div th:if="${pseudoGroups == null or #lists.isEmpty(pseudoGroups)}" class="muted">无</div>
+<th:block th:if="${pseudoGroups != null and !#lists.isEmpty(pseudoGroups)}">
+<div class="section-title">伪小组信息</div>
 <div th:each="pg : ${pseudoGroups}" style="margin-bottom: 10px;">
     <div style="font-weight:700; margin-bottom:4px;" th:text="${pg.groupName + '（来源：' + pg.fromGroup + '，同积分：' + pg.points + '）'}">A'组</div>
     <table>
@@ -59,8 +63,9 @@
         </tbody>
     </table>
 </div>
+</th:block>
 
-<div class="section-title">小组赛对阵（含验收时间）</div>
+<div class="section-title">小组赛对阵</div>
 <table>
     <thead><tr><th>分组</th><th>场次</th><th>对阵</th><th>比分</th><th>验收时间</th></tr></thead>
     <tbody>

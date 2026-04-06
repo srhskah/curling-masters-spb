@@ -1,10 +1,193 @@
 /* Main CSS file for Curling Masters */
+
+/* 录分弹窗验收表：手写签名为 Base64 图片时的展示尺寸 */
+.match-acceptance-signature-img {
+    max-width: min(240px, 100%);
+    max-height: 88px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 0.25rem;
+    background: #fff;
+}
+
+/* 消息通知等：GFM / Toast UI Markdown 渲染正文 */
+.markdown-body {
+    line-height: 1.6;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+.markdown-body p {
+    margin-bottom: 0.75rem;
+}
+.markdown-body ul, .markdown-body ol {
+    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.markdown-body li {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+.markdown-body li > p {
+    margin-top: 0.25em;
+    margin-bottom: 0.35em;
+}
+.markdown-body li > p:first-child {
+    margin-top: 0;
+}
+.markdown-body li > p:last-child {
+    margin-bottom: 0;
+}
+.markdown-body ul.contains-task-list {
+    list-style-type: none;
+    padding-left: 1.75rem;
+}
+.markdown-body li.task-list-item {
+    list-style-type: none;
+    margin-left: -1.25em;
+}
+.markdown-body li.task-list-item input[type="checkbox"] {
+    margin-right: 0.4em;
+    vertical-align: middle;
+}
+.markdown-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+}
+.markdown-body th, .markdown-body td {
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    padding: 0.4rem 0.55rem;
+}
+.markdown-body th {
+    background: rgba(0, 0, 0, 0.04);
+}
+.markdown-body pre {
+    overflow-x: auto;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: 0.375rem;
+    margin: 0.75rem 0;
+    font-size: 0.9em;
+}
+.markdown-body code {
+    padding: 0.12em 0.35em;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+}
+.markdown-body pre code {
+    padding: 0;
+    background: transparent;
+    font-size: inherit;
+}
+.markdown-body blockquote {
+    border-left: 4px solid var(--bs-secondary, #6c757d);
+    padding-left: 1rem;
+    margin: 0.75rem 0;
+    color: var(--bs-secondary, #6c757d);
+}
+.markdown-body hr {
+    margin: 1rem 0;
+    opacity: 0.35;
+}
+/* Markdown 强行拆多段 ul 时插入的分隔线（见 MarkdownUtils#MARKDOWN_LIST_DOCUMENT_SEPARATOR_LINE） */
+.markdown-body hr.md-list-sep {
+    border: 0;
+    margin: 0;
+    height: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+}
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
+}
+.markdown-body del {
+    text-decoration: line-through;
+    opacity: 0.85;
+}
+
+/* Toast UI Editor（通知编辑等）：窄屏工具栏换行、标题下拉不全被裁切 */
+.notification-md-editor-wrap {
+    max-width: 100%;
+    position: relative;
+    z-index: 6;
+}
+.notification-md-editor-wrap .toastui-editor-defaultUI {
+    border-radius: 0.375rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    position: relative;
+    overflow: visible;
+}
+.notification-md-editor-wrap .toastui-editor-main,
+.notification-md-editor-wrap .toastui-editor-defaultUI-main {
+    overflow: visible;
+}
+.notification-md-editor-wrap .toastui-editor-defaultUI-toolbar,
+.notification-md-editor-wrap .toastui-editor-dropdown-toolbar {
+    flex-wrap: wrap !important;
+    align-items: flex-start;
+    justify-content: flex-start;
+    row-gap: 6px;
+    column-gap: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+.notification-md-editor-wrap .toastui-editor-toolbar-group,
+.notification-md-editor-wrap .toastui-editor-toolbar-divider {
+    flex-shrink: 0;
+}
+.notification-md-editor-wrap .toastui-editor-popup,
+.notification-md-editor-wrap .toastui-editor-context-menu {
+    z-index: 2500 !important;
+}
+.notification-md-editor-wrap .toastui-editor-popup {
+    max-width: min(100%, calc(100vw - 1.5rem)) !important;
+    box-sizing: border-box;
+}
+.notification-md-editor-wrap .toastui-editor-popup-body {
+    max-height: min(20rem, 72vh);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
 /* Global styles */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
     color: #333;
+}
+
+/* 全局整体下移 2em：除顶部导航栏外（避免影响 fixed 定位弹窗/侧栏等） */
+/* body > *:not(.navbar):not(nav.navbar)
+    :not(.modal):not(.modal-dialog):not(.offcanvas):not(.dropdown-menu):not(.cookie-banner):not(#backToTopBtn) {
+    position: relative;
+    top: 2em;
+} */
+
+/* .container{
+    position: relative;
+    top: 6em;
+} */
+
+.container.mt-3, .container.mt-4, .footer{
+    position: relative;
+    top:4.5em;
 }
 
 /* 内网/本地访问 - 绿色渐变 */
@@ -14,16 +197,54 @@ body.bg-internal {
 
 /* 外网访问 - 保持默认紫色渐变 */
 body.bg-external {
-    background: radial-gradient(circle farthest-corner at center,  #9333, #3393, #3933) !important;
+    background: radial-gradient(circle farthest-corner at center, #fff, #9333, #fff, #3393, #fff, #3933) !important;
 }
 
 /* 公用控件标题栏渐变背景 */
 .bg-primary {
-    background: linear-gradient(90deg, #393a 15%, #339c, #933e 90%) !important;
+    background: radial-gradient(circle farthest-corner at center, #fff3, #9333, #fff3, #3393, #fff3 50%, #3933 83.333333333%) !important;
 }
 
 .badge.bg-primary {
-    background: radial-gradient(circle farthest-corner at center, #339, #933e 66.666666%) !important;
+    background: radial-gradient(circle farthest-corner at center, #eee5, #9335, #eee6, #3396, #eee7, #3937 83.33333333333%) !important;
+    color: #456 !important;
+}
+
+.badge.bg-warning {
+    background: radial-gradient(circle farthest-corner at center, transparent 66.6666666%, rgb(255,193,7) 83.33333333333%) !important;
+    color: #456 !important;
+}
+
+.bg-primary .mb-0{
+    color: #262 !important;
+}
+
+.card-header.bg-warning{
+    background: linear-gradient(90deg, #ddd6 30%, #ffc10788 90%) !important;
+}
+
+.card-header.bg-info{
+    background: linear-gradient(90deg, #ddd6 30%, rgba(13,202,240,0.6666) 90%) !important;
+}
+
+.card-header.bg-dark{
+    background: linear-gradient(90deg, #ddd6 30%, rgba(33,37,41,0.6666) 90%) !important;
+}
+
+.card-header.bg-success{
+    background: linear-gradient(90deg, #ddd6 30%, rgba(25,135,84,0.6666) 90%) !important;
+}
+
+.card-header.bg-secondary{
+    background: linear-gradient(90deg, #ddd6 30%, rgba(108,117,125,0.6666) 90%) !important;
+}
+
+.card-header.text-white{
+    color: #262 !important;
+}
+
+.card-header .mb-0{
+    color: #262 !important;
 }
 
 input[type=number]::-webkit-inner-spin-button,
@@ -34,6 +255,18 @@ input[type=number]::-webkit-outer-spin-button {
   text-align: center;
 }
 
+.card {
+    background: #fff6 !important;
+}
+
+.table-sm{
+    text-align: center !important;
+}
+
+.table-light {
+    --bs-table-bg: #fff0 !important;
+}
+
 /* 移除 Firefox 中的箭头 */
 input[type=number] {
   -moz-appearance: textfield;
@@ -42,7 +275,7 @@ input[type=number] {
 
 /* Welcome card styles */
 .welcome-card {
-    background: rgba(255, 255, 255, 0.95);
+    /* background: rgba(255, 255, 255, 0.95); */
     border-radius: 15px;
     padding: 2rem;
     margin: 2rem 0;
@@ -59,9 +292,14 @@ input[type=number] {
 }
 
 .navbar{
-    background: #eee !important;
+    background: #fffc !important;
     padding-top: 0.8rem;
     padding-bottom: 0.8rem;
+    /* 确保navbar在其他元素之上 */
+    z-index: 114514;
+    width: 100%;
+    position: fixed;
+    top:0;
 }
 
 .navbar-dark .navbar-nav .nav-link {
@@ -76,17 +314,22 @@ input[type=number] {
 /* Badge styles*/
 .badge{
     font-size: 0.9em;
+    /* color: #000 !important; */
     border-radius: .6rem;
 }
 
+#groupMatchScoreModal .badge{
+    color: #000 !important;
+}
+
 /* Button styles */
-.btn-primary, .btn-secondary, .btn-light, .btn-outline-primary, .btn-outline-secondary, .btn-outline-info, .btn-outline-light, .btn-outline-warning, .btn-outline-danger, .btn-warning, .btn-danger, .btn-success {
+.btn-sm {
     /* background: linear-gradient(45deg, #667eea, #764ba2); */
     /* border: none; */
-    border-radius: 25px;
-    padding: 0.5rem 1.5rem;
-    font-weight: 500;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 25px !important;
+    padding: 0.5rem 1.5rem !important;
+    font-weight: 500 !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
 }
 
 .btn-outline-light{
@@ -162,6 +405,11 @@ input[type=number] {
     padding-inline: 0.9rem;
 }
 
+/**/
+.list-group-item{
+    background: transparent !important;
+}
+
 /* 通用列表桌面表格：略紧凑但不拥挤 */
 table.table-hover.align-middle tbody tr > td {
     padding-top: 0.55rem;
@@ -193,6 +441,14 @@ table.table-hover.align-middle tbody tr > td {
 
 .card-header .btn {
     padding: 0.3rem 0.6rem;
+    border: none !important;
+    background: #f8f9ff88 !important;
+    color: #456 !important;
+}
+
+.card-header .btn:focus{
+    background: #f8f9ff !important;
+    box-shadow: 0 0 0 0.125rem #f8f9ffaa !important;
 }
 
 /* Form styles */
@@ -216,7 +472,7 @@ table.table-hover.align-middle tbody tr > td {
 
 /* Footer styles */
 .footer {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(136, 136, 136, 0.618);
     color: white;
     padding: 2rem 0;
     margin-top: 3rem;
@@ -310,8 +566,8 @@ table.table-hover.align-middle tbody tr > td {
     .navbar-dark .navbar-brand {
         position: absolute;
         left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
+        /* top: 0.55rem; */
+        transform: translateX(-50%);
         margin: 0;
         padding: 0;
         display: flex;
@@ -339,6 +595,39 @@ table.table-hover.align-middle tbody tr > td {
     }
 }
 
+/* 窄屏侧栏：独立于顶栏 banner，下拉在侧栏内展开（不浮到视窗外） */
+.site-nav-offcanvas {
+    --bs-offcanvas-width: min(92vw, 20rem);
+    width: 15rem !important;
+    z-index: 1055;
+    background: linear-gradient(180deg, #eeee, #eeec);
+    top:4em;
+    height: fit-content;
+}
+.site-nav-offcanvas .navbar-nav {
+    flex-direction: column;
+    align-items: stretch;
+}
+.site-nav-offcanvas .dropdown-menu {
+    position: static !important;
+    transform: none !important;
+    float: none;
+    border: 0;
+    box-shadow: none;
+    padding-left: 0.75rem;
+    margin-top: 0;
+    background: transparent;
+}
+
+.site-nav-offcanvas .dropdown-item:focus, 
+.site-nav-offcanvas .dropdown-item:hover{
+    background: #f9fcff;
+}
+
+.site-nav-offcanvas .nav-link {
+    padding-left: 0.25rem;
+}
+
 @media (max-width: 992px) {
     .d-lg-inline{
         display: none;
@@ -354,6 +643,15 @@ table.table-hover.align-middle tbody tr > td {
     }
     .d-lg-none{
         display: none;
+    }
+    .navbar-expand-lg .navbar-nav .dropdown-menu{
+        top: 4em;
+        border: 0;
+        background: #fffc !important;
+    }
+    .navbar-expand-lg .navbar-nav .dropdown-item:focus, 
+    .navbar-expand-lg .navbar-nav .dropdown-item:hover{
+        background: #cde;
     }
 }
 
@@ -423,7 +721,7 @@ table.table-hover.align-middle tbody tr > td {
 
 /* 登录表单增强 */
 .login-container, .register-container {
-    background: rgba(255, 255, 255, 0.95);
+    /* background: rgba(255, 255, 255, 0.95); */
     border-radius: 15px;
     padding: 2rem;
     margin: 2rem auto;
@@ -446,9 +744,10 @@ table.table-hover.align-middle tbody tr > td {
 /* Cookie 同意横幅 */
 .cookie-banner {
     position: fixed;
-    bottom: 0;
+    top: 0;
     left: 0;
     right: 0;
+    bottom: auto;
     background: rgba(33, 37, 41, 0.95);
     color: white;
     padding: 1rem;
@@ -476,6 +775,11 @@ table.table-hover.align-middle tbody tr > td {
 
 /* 响应式Cookie横幅 */
 @media (max-width: 768px) {
+    /* 窄屏：banner 始终顶置（避免底部与弹窗/侧栏手势冲突） */
+    .cookie-banner {
+        top: 0;
+        bottom: auto;
+    }
     .cookie-banner .container {
         flex-direction: column;
         text-align: center;
@@ -485,4 +789,336 @@ table.table-hover.align-middle tbody tr > td {
         width: 100%;
         justify-content: center;
     }
+}
+
+/* 录分转置表：窄屏 4 局一行 + 下拉箭头可见 */
+.score-entry-wrap {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    background: var(--bs-body-bg);
+}
+.score-entry-table { margin-bottom: 0; }
+.score-entry-table > thead th { font-weight: 600; font-size: 0.88rem; white-space: nowrap; }
+.score-player-name {
+    white-space: nowrap;
+    font-size: 0.93rem;
+    vertical-align: top;
+    background: rgba(13, 110, 253, 0.05);
+}
+.score-ends-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.36rem;
+}
+.score-end-item { display: flex; flex-direction: column; gap: 0.2rem; }
+.score-end-label { font-size: 0.68rem; color: var(--bs-secondary-color); line-height: 1.1; text-align: center; }
+.score-input.form-select {
+    min-height: 1.92rem;
+    padding: 0.12rem 1.28rem 0.12rem 0.32rem;
+    font-size: 0.80rem;
+    text-align: center;
+    background-position: right 0.26rem center;
+    background-size: 11px 9px;
+}
+
+/* 小组名单：录入模式下拉（互斥展示） */
+.group-entry-mode-toolbar {
+    max-width: 38rem;
+}
+.group-entry-mode-toolbar .form-select {
+    max-width: 100%;
+}
+
+/* 小组名单：下拉搜索选人槽位 */
+.group-member-card {
+    background: rgba(255, 255, 255, 0);
+}
+
+.group-member-picker {
+    border: 1px dashed var(--bs-border-color);
+    border-radius: 0.65rem;
+    padding: 0.55rem;
+    background: rgba(13, 110, 253, 0.03);
+}
+
+.group-one-save-form .border{
+    border: 0 !important;
+}
+
+.group-member-slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.45rem;
+}
+
+.group-member-slot .form-control {
+    min-height: 2rem;
+    font-size: 0.84rem;
+}
+
+.group-member-slot .form-select {
+    min-height: 2rem;
+    font-size: 0.84rem;
+}
+
+.group-member-slot-qualifier {
+    border: 1px solid rgba(220, 53, 69, 0.35);
+    border-radius: 0.5rem;
+    padding: 0.35rem;
+    background: rgba(220, 53, 69, 0.08);
+}
+
+.group-member-slot-main {
+    border: 1px solid rgba(25, 135, 84, 0.2);
+    border-radius: 0.5rem;
+    padding: 0.35rem;
+    background: rgba(25, 135, 84, 0.05);
+}
+
+@media (max-width: 480px) {
+    .toastui-editor-popup.toastui-editor-popup-add-heading{
+        left: 9.3em !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .group-member-slot-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.38rem;
+    }
+}
+@media (max-width: 576px) {
+    .score-entry-table > thead th { font-size: 0.78rem; }
+    .score-player-name { font-size: 0.82rem; min-width: 84px; }
+    .score-ends-grid { gap: 0.3rem; }
+    .score-input.form-select {
+        min-height: 1.82rem;
+        font-size: 0.78rem;
+        padding-right: 1.1rem;
+        background-position: right 0.2rem center;
+        background-size: 10px 8px;
+    }
+}
+
+/* 录分转置表：紧凑、窄屏友好 */
+.score-entry-wrap {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.75rem;
+    background: var(--bs-body-bg);
+}
+
+.score-entry-table {
+    margin-bottom: 0;
+}
+
+.score-entry-table > thead th {
+    font-weight: 600;
+    font-size: 0.88rem;
+    white-space: nowrap;
+}
+
+.score-player-name {
+    white-space: nowrap;
+    font-size: 0.93rem;
+    vertical-align: top;
+    background: rgba(13, 110, 253, 0.05);
+}
+
+.score-ends-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.38rem;
+}
+
+.score-end-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.score-end-label {
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+    line-height: 1.1;
+    text-align: center;
+}
+
+.score-input.form-select {
+    min-height: 1.95rem;
+    padding: 0.12rem 1.3rem 0.12rem 0.32rem;
+    font-size: 0.82rem;
+    text-align: center;
+    background-position: right 0.3rem center; /* 箭头保持可见 */
+    background-size: 12px 10px;
+}
+
+@media (max-width: 576px) {
+    .score-entry-table > thead th {
+        font-size: 0.78rem;
+    }
+    .score-player-name {
+        font-size: 0.82rem;
+        min-width: 84px;
+    }
+    .score-ends-grid {
+        gap: 0.3rem;
+    }
+    .score-input.form-select {
+        min-height: 1.85rem;
+        font-size: 0.78rem;
+        padding-right: 1.15rem;
+        background-position: right 0.22rem center;
+        background-size: 11px 9px;
+    }
+
+    /* 窄屏美化：把“局比分录入”从表格行改为卡片块 */
+    .score-entry-table {
+        border: 0;
+    }
+    .score-entry-table > thead {
+        display: none;
+    }
+    .score-entry-table > tbody > tr {
+        display: block;
+        width: 100%;
+        margin-bottom: 0.6rem;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 0.85rem;
+        background: rgba(255, 255, 255, 0.78);
+        padding: 0.6rem 0.7rem;
+    }
+    .score-entry-table > tbody > tr > th,
+    .score-entry-table > tbody > tr > td {
+        display: block;
+        width: 100%;
+        border: 0 !important;
+        padding: 0 !important;
+        background: transparent;
+    }
+    .score-entry-table > tbody > tr > td:first-of-type {
+        margin-top: 0.4rem;
+    }
+    .score-entry-table > tbody > tr > td:last-of-type {
+        margin-top: 0.35rem;
+        display: flex;
+        justify-content: flex-end;
+    }
+}
+
+/* 左下角返回顶部按钮：短按回顶，长按拖动 */
+#backToTopBtn{
+    position: fixed;
+    left: 0.9rem;
+    bottom: 1.1rem;
+    z-index: 1040;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(33, 37, 41, 0.92);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    transition: opacity .2s ease, transform .15s ease;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#backToTopBtn.show{
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#backToTopBtn.dragging{
+    transform: scale(1.02);
+}
+
+/* 赛事详情：小组赛排名「已赛/应赛」已满高亮 */
+.group-ranking-matches-complete {
+    background-color: rgba(25, 135, 84, 0.14) !important;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(25, 135, 84, 0.28);
+}
+
+/* 单场比赛卡片（小组赛/淘汰赛等）：验收居中、双方分栏与胜负/平局底色（半透明） */
+.match-card-accept-row {
+    text-align: center;
+}
+
+.match-card-pair-row {
+    min-height: 3.25rem;
+}
+
+.match-card-pair-score {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.match-card-pair-side--winner {
+    background: rgba(13, 110, 253, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.32);
+}
+
+.match-card-pair-side--draw {
+    background: rgba(25, 135, 84, 0.11);
+    box-shadow: inset 0 0 0 1px rgba(25, 135, 84, 0.26);
+}
+
+/* 通用单场比赛卡片容器（小组赛 / 淘汰赛等） */
+.unified-match-score-card .match-card-pair-sep,
+.group-match-score-card .match-card-pair-sep {
+    opacity: 0.78;
+    font-weight: 600;
+}
+
+/* 内嵌于表格时的紧凑单场比赛卡片 */
+.match-score-card--compact .match-card-accept-row {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+}
+.match-score-card--compact .match-card-pair-row {
+    min-height: 2.45rem;
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    gap: 0.25rem !important;
+}
+.match-score-card--compact .match-card-pair-side {
+    padding: 0.35rem 0.5rem !important;
+}
+.match-score-card--compact .match-card-pair-score {
+    font-size: 1.05rem;
+}
+.match-score-card--compact .match-card-accept-row .badge {
+    font-size: 0.7rem;
+}
+
+/* 抽签页：可选小组卡片 */
+.draw-group-card {
+    cursor: default;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    border: 1px solid var(--bs-border-color, #dee2e6) !important;
+}
+.draw-group-card--eligible {
+    cursor: pointer;
+}
+.draw-group-card--eligible:hover {
+    box-shadow: 0 0.25rem 0.75rem rgba(13, 110, 253, 0.15);
+    border-color: rgba(13, 110, 253, 0.45) !important;
+}
+.draw-group-card--eligible.selected {
+    border-color: rgba(25, 135, 84, 0.65) !important;
+    box-shadow: 0 0 0 0.2rem rgba(25, 135, 84, 0.2);
+    background: rgba(25, 135, 84, 0.06);
+}
+.draw-group-card--inactive {
+    opacity: 0.55;
 }

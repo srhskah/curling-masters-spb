@@ -25,6 +25,47 @@
                 <h1 class="display-4 fw-bold text-dark">欢迎光临</h1>
                 <p th:if="${isLoggedIn}" class="lead text-muted">您已成功登录系统，开始管理您的冰壶赛事</p>
                 <p th:if="${!isLoggedIn}" class="lead text-muted">欢迎使用 Curling Masters。您可以先浏览赛事信息，或登录后进行管理。</p>
+                <div class="alert alert-light border d-inline-flex flex-column align-items-center gap-2 py-2 px-3 mt-2 mb-0">
+                    <div class="small text-muted">
+                        <i class="bi bi-code-slash"></i> 开发者实时排名 API（公开只读）
+                    </div>
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <a class="btn btn-sm btn-outline-primary" href="/ranking/api/public/total?topN=24" target="_blank" rel="noopener">
+                            总排名 API
+                        </a>
+                        <a class="btn btn-sm btn-outline-success" href="/ranking/api/public/current-season?topN=24" target="_blank" rel="noopener">
+                            当前赛季 API
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4" th:if="${homeNotifications != null and !#lists.isEmpty(homeNotifications)}">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-bell"></i> 消息通知</h5>
+                            <a class="btn btn-sm btn-outline-dark" href="/notification/list">查看全部</a>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group list-group-flush">
+                                <a class="list-group-item list-group-item-action px-0"
+                                   th:each="n : ${homeNotifications}"
+                                   th:href="@{/notification/detail/{id}(id=${n.id})}">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <strong th:text="${n.title}">通知标题</strong>
+                                            <small class="text-muted d-block mt-1" th:if="${n.authorUsername != null}"
+                                                   th:text="${'发起者：' + n.authorUsername}">-</small>
+                                        </div>
+                                        <small class="text-muted text-nowrap"
+                                               th:text="${n.publishedAt != null ? #temporals.format(n.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">-</small>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- 当前赛季 + 当前系列 + 系列赛事概览（合并） -->
@@ -38,7 +79,7 @@
                             </h5>
                             <a class="btn btn-sm btn-outline-light"
                                th:if="${currentSeriesEntryUrl != null}"
-                               th:href="${currentSeriesEntryUrl}">查看系列详情</a>
+                               th:href="${currentSeriesEntryUrl}">系列详情</a>
                         </div>
                         <div class="card-body">
                             <div class="border rounded p-3 mb-3"
@@ -168,7 +209,7 @@
                     </div>
                 </div>
             </div>
-
+            
             <!-- 用户功能区域 -->
             <div th:if="${!isAdmin}" class="row mb-4">
                 <div class="col-md-8">
@@ -313,8 +354,8 @@
                                 <div class="col-md-3 mb-3">
                                     <div class="p-3">
                                         <i class="bi bi-clock fs-3 text-info"></i>
-                                        <h6 class="mt-2">当前时间</h6>
-                                        <p class="mb-0 small text-muted" th:text="${#temporals.format(currentTime, 'yyyy-MM-dd HH:mm:ss')}">当前时间</p>
+                                        <h6 class="mt-2">登录时间</h6>
+                                        <p class="mb-0 small text-muted" th:text="${#temporals.format(currentTime, 'yyyy-MM-dd HH:mm:ss')}">登录时间</p>
                                     </div>
                                 </div>
                             </div>

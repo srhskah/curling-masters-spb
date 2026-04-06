@@ -7,10 +7,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @ComponentScan(basePackages = "com.example") // 扫描 com.example 及其子包
 @MapperScan("com.example.mapper")            // 扫描 Mapper 接口
+@EnableScheduling                             // 启用定时任务
 public class DemoApplication extends SpringBootServletInitializer {
 
 	public static void main(String[] args) {

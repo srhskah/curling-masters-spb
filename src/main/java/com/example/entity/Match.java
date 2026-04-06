@@ -65,6 +65,14 @@ public class Match implements Serializable {
     @TableField("accepted_at")
     private LocalDateTime acceptedAt;
 
+    /** 场次创建者（手动排签可追踪到操作者） */
+    @TableField("created_by_user_id")
+    private Long createdByUserId;
+
+    /** 场次来源：AUTO_FROM_GROUP / MANUAL_KO_EDITOR / AUTO_BRACKET_ADVANCE */
+    @TableField("create_source")
+    private String createSource;
+
     @TableField("scheduled_time")
     private LocalDateTime scheduledTime;
 
@@ -73,6 +81,22 @@ public class Match implements Serializable {
 
     @TableField("updated_at")
     private LocalDateTime updatedAt;
+
+    /** 资格赛轮次（NULL=非资格赛） */
+    @TableField("qualifier_round")
+    private Integer qualifierRound;
+
+    @TableField("knockout_bracket_slot")
+    private Integer knockoutBracketSlot;
+
+    @TableField("feeder_match1_id")
+    private Long feederMatch1Id;
+
+    @TableField("feeder_match2_id")
+    private Long feederMatch2Id;
+
+    @TableField("knockout_half")
+    private Integer knockoutHalf;
 
     /** 1-player1, 2-player2 */
     @TableField("first_end_hammer")

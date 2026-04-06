@@ -6,9 +6,6 @@
 .gradle/
 build/
 !build/libs/
-gradlew
-gradlew.bat
-gradle/
 
 # IDE
 .idea/
@@ -33,7 +30,6 @@ logs/
 *~
 
 # Docker
-Dockerfile
 .dockerignore
 
 # Documentation
@@ -52,5 +48,5 @@ application-local.properties
 *.sh
 
 # Static resources that will be packaged in WAR
-src/main/resources/static/
-src/main/resources/templates/
+# src/main/resources/static/
+# src/main/resources/templates/

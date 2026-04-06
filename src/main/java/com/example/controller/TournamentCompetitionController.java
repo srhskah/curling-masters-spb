@@ -20,6 +20,9 @@ public class TournamentCompetitionController {
     @Autowired private UserService userService;
     @Autowired private IMatchService matchService;
     @Autowired private ISetScoreService setScoreService;
+    @Autowired private com.example.service.impl.QualifierScheduleService qualifierScheduleService;
+    @Autowired private com.example.service.impl.KnockoutBracketService knockoutBracketService;
+    @Autowired private TournamentService tournamentService;
 
     private User currentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -36,7 +39,7 @@ public class TournamentCompetitionController {
                              @RequestParam Integer entryMode,
                              @RequestParam Integer matchMode,
                              @RequestParam(required = false) Integer knockoutStartRound,
-                             @RequestParam(required = false) Boolean qualifierEnabled,
+                             @RequestParam(defaultValue = "false") boolean qualifierEnabled,
                              @RequestParam(required = false) Integer groupMode,
                              @RequestParam(required = false) Integer groupSize,
                              @RequestParam(required = false) Boolean groupAllowDraw,
@@ -44,6 +47,10 @@ public class TournamentCompetitionController {
                              @RequestParam(required = false) Integer groupStageSets,
                              @RequestParam(required = false) Integer knockoutStageSets,
                              @RequestParam(required = false) Integer finalStageSets,
+                             @RequestParam(required = false) Integer knockoutQualifyCount,
+                             @RequestParam(required = false) Integer qualifierSets,
+                             @RequestParam(required = false, defaultValue = "0") Integer knockoutBracketMode,
+                             @RequestParam(required = false, defaultValue = "true") String knockoutAutoFromGroup,
                              RedirectAttributes ra) {
         try {
             TournamentCompetitionConfig c = new TournamentCompetitionConfig();
@@ -52,7 +59,14 @@ public class TournamentCompetitionController {
             c.setEntryMode(entryMode);
             c.setMatchMode(matchMode);
             c.setKnockoutStartRound(knockoutStartRound);
-            c.setQualifierRound(Boolean.TRUE.equals(qualifierEnabled) ? knockoutStartRound : null);
+            c.setQualifierRound(qualifierEnabled ? knockoutStartRound : null);
+            c.setKnockoutQualifyCount(knockoutQualifyCount);
+            c.setQualifierSets(qualifierSets);
+            if (knockoutBracketMode != null && (knockoutBracketMode < 0 || knockoutBracketMode > 2)) {
+                throw new IllegalArgumentException("淘汰赛对阵模式须为 0～2");
+            }
+            c.setKnockoutBracketMode(knockoutBracketMode != null ? knockoutBracketMode : 0);
+            c.setKnockoutAutoFromGroup(!"false".equalsIgnoreCase(knockoutAutoFromGroup));
             c.setGroupMode(groupMode);
             c.setGroupSize(groupSize);
             c.setGroupAllowDraw(groupAllowDraw);
@@ -60,8 +74,107 @@ public class TournamentCompetitionController {
             c.setGroupStageSets(groupStageSets);
             c.setKnockoutStageSets(knockoutStageSets);
             c.setFinalStageSets(finalStageSets);
-            competitionService.saveConfig(currentUser(), c);
-            ra.addFlashAttribute("message", "赛事运行配置已保存");
+            TournamentCompetitionConfig saved = competitionService.saveConfig(currentUser(), c);
+            ra.addFlashAttribute("message",
+                    String.format("赛事运行配置已保存（模式=%s，淘汰赛首轮=%s，资格赛挂载=%s）",
+                            saved.getMatchMode(),
+                            saved.getKnockoutStartRound() == null ? "未设置" : saved.getKnockoutStartRound(),
+                            saved.getQualifierRound() == null ? "关闭" : ("开启@"+saved.getQualifierRound())));
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
+    @PostMapping("/knockout/generate/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String generateKnockout(@PathVariable Long tournamentId, RedirectAttributes ra) {
+        try {
+            int n = knockoutBracketService.generateFirstKnockoutRound(currentUser(), tournamentId);
+            ra.addFlashAttribute("message", "已生成淘汰赛首轮，共 " + n + " 场");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
+    @PostMapping("/knockout/clear/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String clearKnockout(@PathVariable Long tournamentId, RedirectAttributes ra) {
+        try {
+            knockoutBracketService.deleteAllKnockoutMatches(currentUser(), tournamentId);
+            ra.addFlashAttribute("message", "已清空本赛事淘汰赛（MAIN/FINAL）场次");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
+    @GetMapping("/knockout/manual/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String knockoutManualPage(@PathVariable Long tournamentId, org.springframework.ui.Model model, RedirectAttributes ra) {
+        try {
+            User cu = currentUser();
+            List<Long> eligible = knockoutBracketService.loadEligibleFirstRoundPlayers(cu, tournamentId);
+            List<com.example.service.impl.KnockoutBracketService.ManualPairDraft> draft =
+                    knockoutBracketService.buildManualFirstRoundDraft(cu, tournamentId);
+            Map<Long, User> usersById = userService.listByIds(eligible).stream()
+                    .collect(java.util.stream.Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+            List<Map<String, Object>> options = new ArrayList<>();
+            int rank = 1;
+            for (Long uid : eligible) {
+                User u = usersById.get(uid);
+                if (u == null) {
+                    continue;
+                }
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("rank", rank);
+                row.put("userId", uid);
+                row.put("username", u.getUsername());
+                options.add(row);
+                rank++;
+            }
+            model.addAttribute("tournamentId", tournamentId);
+            model.addAttribute("tournamentName", "赛事#" + tournamentId);
+            model.addAttribute("koManualOptions", options);
+            model.addAttribute("koManualDraft", draft);
+            return "tournament/knockout-manual-first-round";
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+            return "redirect:/tournament/detail/" + tournamentId;
+        }
+    }
+
+    @PostMapping("/knockout/manual/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String generateKnockoutManual(@PathVariable Long tournamentId,
+                                         @RequestParam Map<String, String> rawForm,
+                                         RedirectAttributes ra) {
+        try {
+            int pairCount = Integer.parseInt(rawForm.getOrDefault("pairCount", "0"));
+            List<com.example.service.impl.KnockoutBracketService.ManualPairInput> pairs = new ArrayList<>();
+            for (int i = 0; i < pairCount; i++) {
+                String p1s = rawForm.get("p1_" + i);
+                String p2s = rawForm.get("p2_" + i);
+                Long p1 = (p1s == null || p1s.isBlank()) ? null : Long.parseLong(p1s);
+                Long p2 = (p2s == null || p2s.isBlank()) ? null : Long.parseLong(p2s);
+                pairs.add(new com.example.service.impl.KnockoutBracketService.ManualPairInput(p1, p2));
+            }
+            int n = knockoutBracketService.generateFirstKnockoutRoundManual(currentUser(), tournamentId, pairs);
+            ra.addFlashAttribute("message", "已按手动排签生成淘汰赛首轮，共 " + n + " 场");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+            return "redirect:/tournament/competition/knockout/manual/" + tournamentId;
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
+    @PostMapping("/qualifier/generate-first-round/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String generateQualifierFirstRound(@PathVariable Long tournamentId, RedirectAttributes ra) {
+        try {
+            int n = qualifierScheduleService.generateQualifierFirstRound(currentUser(), tournamentId);
+            ra.addFlashAttribute("message", n > 0 ? ("已生成资格赛首轮 " + n + " 场") : "当前资格赛人数不超过名额，无需生成对阵");
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
@@ -92,25 +205,69 @@ public class TournamentCompetitionController {
                 if (!key.startsWith("group_")) continue;
                 Long groupId = Long.parseLong(key.substring("group_".length()));
                 String val = e.getValue();
-                List<Long> users = new ArrayList<>();
-                List<String> unknown = new ArrayList<>();
-                List<String> names = Arrays.stream((val == null ? "" : val).split("[,，\\n\\s;；]+"))
-                        .map(String::trim).filter(s -> !s.isEmpty()).distinct().toList();
-                for (String name : names) {
-                    User u = userService.findByUsername(name);
-                    if (u == null || u.getId() == null) {
-                        unknown.add(name);
-                    } else {
-                        users.add(u.getId());
-                    }
+                com.example.dto.GroupImportResult parsed = userService.resolveGroupImport(val);
+                if (!parsed.getUnknownUsernames().isEmpty()) {
+                    throw new IllegalArgumentException("以下用户名不存在：" + String.join("、", parsed.getUnknownUsernames()));
                 }
-                if (!unknown.isEmpty()) {
-                    throw new IllegalArgumentException("以下用户名不存在：" + String.join("、", unknown));
-                }
-                map.put(groupId, users);
+                map.put(groupId, parsed.getUserIds());
             }
             competitionService.saveGroupMembers(currentUser(), tournamentId, map);
             ra.addFlashAttribute("message", "分组名单已保存");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
+    @PostMapping("/groups/save-group/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String saveGroupMembersOne(@PathVariable Long tournamentId,
+                                      @RequestParam Long groupId,
+                                      @RequestParam(value = "groupMembers", required = false) String groupMembers,
+                                      RedirectAttributes ra) {
+        try {
+            String raw = groupMembers == null ? "" : groupMembers;
+            com.example.dto.GroupImportResult parsed = userService.resolveGroupImport(raw);
+            if (!parsed.getUnknownUsernames().isEmpty()) {
+                throw new IllegalArgumentException("以下用户名不存在：" + String.join("、", parsed.getUnknownUsernames()));
+            }
+            competitionService.saveGroupMembersForGroup(currentUser(), tournamentId, groupId, parsed.getUserIds());
+            ra.addFlashAttribute("message", "已保存该小组名单");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
+    @PostMapping("/groups/sync-matches/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String syncGroupMatchesOne(@PathVariable Long tournamentId,
+                                      @RequestParam Long groupId,
+                                      RedirectAttributes ra) {
+        try {
+            competitionService.syncGroupMatchesForGroup(currentUser(), tournamentId, groupId);
+            ra.addFlashAttribute("message", "已按当前名单同步该组小组赛对阵（仅增删本组需调整的场次）");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
+    @PostMapping("/groups/save-all-and-generate/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String saveAllGroupsAndGenerate(@PathVariable Long tournamentId,
+                                           @RequestParam Map<String, String> rawForm,
+                                           RedirectAttributes ra) {
+        try {
+            Map<Long, String> raw = new HashMap<>();
+            for (Map.Entry<String, String> e : rawForm.entrySet()) {
+                String key = e.getKey();
+                if (!key.startsWith("group_")) continue;
+                Long groupId = Long.parseLong(key.substring("group_".length()));
+                raw.put(groupId, e.getValue() != null ? e.getValue() : "");
+            }
+            competitionService.saveAllGroupsRosterAndGenerateMatches(currentUser(), tournamentId, raw);
+            ra.addFlashAttribute("message", "已保存当前各组名单并全量重新生成小组赛对阵");
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
@@ -162,6 +319,11 @@ public class TournamentCompetitionController {
                 m.setAcceptedAt(java.time.LocalDateTime.now());
                 m.setUpdatedAt(java.time.LocalDateTime.now());
                 matchService.updateById(m);
+                Match fresh = matchService.getById(matchId);
+                if (fresh != null) {
+                    knockoutBracketService.tryAutoGenerateFromGroupStage(cu, fresh.getTournamentId());
+                    knockoutBracketService.onKnockoutMatchLocked(cu, fresh);
+                }
             }
             return Map.of("ok", true);
         } catch (Exception e) {
@@ -184,6 +346,7 @@ public class TournamentCompetitionController {
     @GetMapping("/match/detail/{matchId}")
     @ResponseBody
     public Map<String, Object> matchDetail(@PathVariable Long matchId) {
+        User viewer = currentUser();
         Match m = matchService.getById(matchId);
         if (m == null) return Map.of("ok", false, "message", "比赛不存在");
         List<SetScore> ss = setScoreService.lambdaQuery().eq(SetScore::getMatchId, matchId).orderByAsc(SetScore::getSetNumber).list();
@@ -227,6 +390,34 @@ public class TournamentCompetitionController {
             row.put("editedAt", l.getEditedAt());
             return row;
         }).toList();
-        return Map.of("ok", true, "match", m, "setScores", ss, "acceptances", acceptView, "editLogs", logView, "defaultSetCount", defaultSetCount);
+        boolean canEdit = viewer != null && competitionService.canEditMatchScore(viewer, m);
+        boolean canAccept = viewer != null && competitionService.canAcceptMatchScore(viewer, m);
+        boolean viewerIsSuperAdmin = viewer != null && viewer.getRole() != null && viewer.getRole() == 0;
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("ok", true);
+        body.put("match", m);
+        // 显式构造局分 JSON，保证 player1IsX 等为布尔、避免仅实体序列化时字段缺失导致前端刷新后无法还原 X/先后手
+        body.put("setScores", ss.stream().map(TournamentCompetitionController::toSetScoreView).toList());
+        body.put("matchFirstEndHammer", m.getFirstEndHammer() == null ? null : m.getFirstEndHammer().intValue());
+        body.put("acceptances", acceptView);
+        body.put("editLogs", logView);
+        body.put("defaultSetCount", defaultSetCount);
+        body.put("canEditScore", canEdit);
+        body.put("canAcceptScore", canAccept);
+        body.put("viewerIsSuperAdmin", viewerIsSuperAdmin);
+        return body;
+    }
+
+    private static Map<String, Object> toSetScoreView(SetScore s) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", s.getId());
+        row.put("setNumber", s.getSetNumber());
+        row.put("player1Score", s.getPlayer1Score());
+        row.put("player2Score", s.getPlayer2Score());
+        row.put("player1IsX", Boolean.TRUE.equals(s.getPlayer1IsX()));
+        row.put("player2IsX", Boolean.TRUE.equals(s.getPlayer2IsX()));
+        row.put("hammerPlayerId", s.getHammerPlayerId());
+        row.put("isBlankEnd", s.getIsBlankEnd());
+        return row;
     }
 }

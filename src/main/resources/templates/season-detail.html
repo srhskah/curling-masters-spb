@@ -586,23 +586,6 @@
         (() => {
             const seasonId = /*[[${season.id}]]*/ '';
 
-            const copyToClipboard = async (text) => {
-                if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
-                    await navigator.clipboard.writeText(text);
-                    return;
-                }
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                textarea.style.position = 'fixed';
-                textarea.style.top = '-1000px';
-                textarea.style.left = '-1000px';
-                document.body.appendChild(textarea);
-                textarea.focus();
-                textarea.select();
-                document.execCommand('copy');
-                textarea.remove();
-            };
-
             const fetchJson = async (url) => {
                 const res = await fetch(url);
                 if (!res.ok) throw new Error('请求失败：' + res.status);
@@ -725,7 +708,7 @@
                         const format = document.getElementById('seasonDetailTextFormat')?.value || 'plain';
                         const header = limit === '24' ? '赛季排名（前24）' : '赛季排名（全量）';
                         const data = await fetchJson(`/ranking/api/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
-                        await copyToClipboard(formatRanking(data, format, header));
+                        await copyPlainTextToClipboard(formatRanking(data, format, header));
                         if (typeof showAlert === 'function') showAlert('复制成功', 'success');
                         else alert('复制成功');
 
@@ -746,7 +729,7 @@
 
                 document.getElementById('seasonDetailPdfBtnXxl')?.addEventListener('click', () => {
                     const limit = getLimit();
-                    window.location.href = `/ranking/export/pdf/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`;
+                    downloadPdfFromUrl(`/ranking/export/pdf/season/${encodeURIComponent(seasonId)}?limit=${encodeURIComponent(limit)}`);
                 });
             };
 
@@ -756,6 +739,19 @@
     
     <script>
         (() => {
+            const autoOpenSeriesTabOnMobile = () => {
+                if (window.innerWidth >= 1400) return;
+                const url = new URL(window.location.href);
+                const sid = (url.searchParams.get('seriesId') || '').trim();
+                if (!sid) return;
+                const tabBtn = document.getElementById('tab-season-series');
+                if (!tabBtn || typeof bootstrap === 'undefined') return;
+                const tab = bootstrap.Tab.getOrCreateInstance(tabBtn);
+                tab.show();
+            };
+
+            autoOpenSeriesTabOnMobile();
+
             const bindSeriesSelector = (selectorId, panelClass) => {
                 const selector = document.getElementById(selectorId);
                 if (!selector) return;
@@ -875,24 +871,6 @@
             bindPrevNext('seriesSelectorXxl', '.season-xxl-col .series-prev-next-bar');
             bindPrevNext('seriesSelector', '.d-xxl-none .series-prev-next-bar');
 
-            const copyToClipboard = async (text) => {
-                if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
-                    await navigator.clipboard.writeText(text);
-                    return;
-                }
-
-                const textarea = document.createElement('textarea');
-                textarea.value = text;
-                textarea.style.position = 'fixed';
-                textarea.style.top = '-1000px';
-                textarea.style.left = '-1000px';
-                document.body.appendChild(textarea);
-                textarea.focus();
-                textarea.select();
-                document.execCommand('copy');
-                textarea.remove();
-            };
-
             const fetchJson = async (url) => {
                 const res = await fetch(url);
                 if (!res.ok) throw new Error('请求失败：' + res.status);
@@ -978,7 +956,7 @@
                 }
                 const format = getVisibleSeriesCopyFormat() || 'plain';
                 const data = await fetchJson(`/ranking/api/series/${encodeURIComponent(seriesId)}/summary`);
-                await copyToClipboard(formatSeriesSummary(data, format));
+                await copyPlainTextToClipboard(formatSeriesSummary(data, format));
                 if (typeof showAlert === 'function') showAlert('复制成功', 'success');
                 else alert('复制成功');
             };
@@ -989,7 +967,7 @@
                     alert('请先选择一个系列');
                     return;
                 }
-                window.location.href = `/ranking/export/pdf/series/${encodeURIComponent(seriesId)}`;
+                downloadPdfFromUrl(`/ranking/export/pdf/series/${encodeURIComponent(seriesId)}`);
             };
 
             const getTournamentCopyFormat = () => getVisibleSeriesCopyFormat() || 'plain';
@@ -1026,7 +1004,7 @@
             const handleCopyTournamentRanking = async (tournamentId) => {
                 const format = getTournamentCopyFormat();
                 const data = await fetchJson(`/ranking/api/tournament/${encodeURIComponent(tournamentId)}/ranking`);
-                await copyToClipboard(formatTournamentRanking(data, format));
+                await copyPlainTextToClipboard(formatTournamentRanking(data, format));
                 if (typeof showAlert === 'function') showAlert('复制成功', 'success');
                 else alert('复制成功');
             };

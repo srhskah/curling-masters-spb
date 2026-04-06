@@ -6,6 +6,7 @@ import com.example.entity.User;
 import com.example.service.UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -75,6 +76,7 @@ public class SecurityConfig {
                         "/user/login", "/user/register", "/user/change-password",
                         "/css/**", "/js/**", "/images/**"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/tournament/competition/match/detail/**").permitAll()
                 .requestMatchers("/user/manage/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
                 .anyRequest().authenticated()
             )
