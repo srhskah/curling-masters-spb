@@ -19,6 +19,8 @@ public class TournamentGroupMember {
     private Long groupId;
     private Long userId;
     private Integer seedNo;
+    /** 组内位次 1..每组人数，与抽签 group_slot_index 对齐 */
+    private Integer slotIndex;
     @TableField("created_at")
     private LocalDateTime createdAt;
 }

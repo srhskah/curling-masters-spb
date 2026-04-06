@@ -1,0 +1,53 @@
+# 单元测试 + 集成测试（MySQL 8 服务容器 + DRAW_IT_JDBC_URL）
+# 与 build.gradle 中 integrationTest 任务约定一致：见 DrawFullFlowIntegrationTest 类注释
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0.36
+        env:
+          MYSQL_ROOT_PASSWORD: ci_integration_root
+          MYSQL_DATABASE: draw_it_integration
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+          cache: "gradle"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run unit tests
+        run: ./gradlew test --no-daemon
+
+      - name: Run integration tests
+        env:
+          DRAW_IT_JDBC_URL: "jdbc:mysql://127.0.0.1:3306/draw_it_integration?serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+          DRAW_IT_DB_USER: root
+          DRAW_IT_DB_PASSWORD: ci_integration_root
+        run: ./gradlew integrationTest --no-daemon

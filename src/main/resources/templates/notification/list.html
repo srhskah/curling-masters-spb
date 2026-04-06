@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('消息通知')}"></head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+<div th:replace="~{fragments :: success-alert}"></div>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">消息通知</h3>
+        <a th:if="${isManager}" class="btn btn-primary btn-sm" href="/notification/edit">新建通知</a>
+    </div>
+    <div class="list-group" th:if="${items != null and !#lists.isEmpty(items)}">
+        <a class="list-group-item list-group-item-action"
+           th:each="m : ${items}"
+           th:href="@{/notification/detail/{id}(id=${m.id})}">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <strong th:text="${m.title}">标题</strong>
+                    <small class="text-muted d-block mt-1" th:if="${m.authorUsername != null}"
+                           th:text="${'发起者：' + m.authorUsername}">发起者</small>
+                </div>
+                <small class="text-muted text-nowrap ms-2" th:text="${m.publishedAt != null ? #temporals.format(m.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">时间</small>
+            </div>
+        </a>
+    </div>
+    <div class="text-muted" th:if="${items == null or #lists.isEmpty(items)}">暂无消息。</div>
+</div>
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

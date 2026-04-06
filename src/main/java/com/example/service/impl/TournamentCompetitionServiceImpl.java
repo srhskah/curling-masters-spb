@@ -1,6 +1,7 @@
 package com.example.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.example.dto.GroupImportResult;
 import com.example.dto.TournamentRegistrationRowDto;
 import com.example.entity.*;
 import com.example.mapper.TournamentCompetitionConfigMapper;
@@ -29,6 +30,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
     @Autowired private MatchAcceptanceMapper matchAcceptanceMapper;
     @Autowired private MatchScoreEditLogMapper matchScoreEditLogMapper;
     @Autowired private UserService userService;
+    @Autowired private KnockoutBracketService knockoutBracketService;
 
     private boolean canManage(User u, Long tournamentId) {
         if (u == null) return false;
@@ -50,7 +52,9 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         Long tid = form.getTournamentId();
         Tournament t = tournamentService.getById(tid);
         if (t == null) throw new IllegalStateException("赛事不存在");
-        if (t.getStatus() == null || t.getStatus() != 1) throw new IllegalStateException("仅进行中赛事可使用此配置");
+        if (t.getStatus() == null || (t.getStatus() != 0 && t.getStatus() != 1)) {
+            throw new IllegalStateException("仅筹备中或进行中赛事可使用此配置");
+        }
         if (!canManage(operator, tid)) throw new SecurityException("无权操作");
 
         TournamentCompetitionConfig db = configMapper.selectById(tid);
@@ -62,9 +66,20 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
         if (form.getParticipantCount() != null) db.setParticipantCount(form.getParticipantCount());
         if (form.getEntryMode() != null) db.setEntryMode(form.getEntryMode());
+        if (form.getEntryMode() != null) {
+            if (Objects.equals(form.getEntryMode(), 1)) {
+                db.setKnockoutQualifyCount(form.getKnockoutQualifyCount());
+            } else {
+                db.setKnockoutQualifyCount(null);
+            }
+        }
         if (form.getMatchMode() != null) db.setMatchMode(form.getMatchMode());
-        if (form.getKnockoutStartRound() != null) db.setKnockoutStartRound(form.getKnockoutStartRound());
-        if (form.getQualifierRound() != null) db.setQualifierRound(form.getQualifierRound());
+        // 保留淘汰赛首轮/资格赛挂载的最近一次选择（即使当前切到小组赛模式）。
+        // 真正执行淘汰赛业务时再按 matchMode 判断是否使用这两个字段。
+        if (form.getMatchMode() != null) {
+            db.setKnockoutStartRound(form.getKnockoutStartRound());
+            db.setQualifierRound(form.getQualifierRound());
+        }
         if (form.getGroupMode() != null) db.setGroupMode(form.getGroupMode());
         if (form.getGroupSize() != null) db.setGroupSize(form.getGroupSize());
         if (form.getGroupAllowDraw() != null) db.setGroupAllowDraw(form.getGroupAllowDraw());
@@ -73,6 +88,22 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (form.getKnockoutStageSets() != null) db.setKnockoutStageSets(form.getKnockoutStageSets());
         if (form.getFinalStageSets() != null) db.setFinalStageSets(form.getFinalStageSets());
         if (form.getManualLocked() != null) db.setManualLocked(form.getManualLocked());
+        if (form.getQualifierSets() != null) {
+            if (form.getQualifierSets() < 1 || form.getQualifierSets() > 20) {
+                throw new IllegalArgumentException("资格赛局数须在 1～20 之间");
+            }
+            db.setQualifierSets(form.getQualifierSets());
+        }
+        if (form.getKnockoutBracketMode() != null) {
+            int km = form.getKnockoutBracketMode();
+            if (km < 0 || km > 2) {
+                throw new IllegalArgumentException("淘汰赛对阵模式须为 0～2");
+            }
+            db.setKnockoutBracketMode(km);
+        }
+        if (form.getKnockoutAutoFromGroup() != null) {
+            db.setKnockoutAutoFromGroup(form.getKnockoutAutoFromGroup());
+        }
         validateConfig(db);
         if (Objects.equals(db.getMatchMode(), 3) && db.getParticipantCount() != null && db.getGroupSize() != null && db.getGroupSize() > 0) {
             int groupCount = db.getParticipantCount() / db.getGroupSize();
@@ -88,6 +119,14 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
 
     private void validateConfig(TournamentCompetitionConfig c) {
         if (c.getParticipantCount() == null || c.getParticipantCount() < 2) throw new IllegalArgumentException("参赛人数至少2");
+        if (Objects.equals(c.getEntryMode(), 1)) {
+            Integer q = c.getKnockoutQualifyCount();
+            if (q == null || q < 1) throw new IllegalArgumentException("正赛+资格赛模式须填写资格赛名额数（1～参赛人数）");
+            if (q > c.getParticipantCount()) throw new IllegalArgumentException("资格赛名额数不能大于参赛人数");
+            if (c.getQualifierSets() == null) {
+                c.setQualifierSets(8);
+            }
+        }
         if (c.getMatchMode() == null || c.getMatchMode() < 1 || c.getMatchMode() > 3) throw new IllegalArgumentException("赛事模式不合法");
         Set<Integer> allowedRounds = Set.of(16, 8, 4, 2);
         if (!Objects.equals(c.getMatchMode(), 3)) {
@@ -103,10 +142,6 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                     throw new IllegalArgumentException("仅首轮淘汰赛可添加资格赛，请将资格赛轮次设置为首轮");
                 }
             }
-        } else {
-            // 小组赛模式下不保留淘汰轮次/资格赛轮次
-            c.setKnockoutStartRound(null);
-            c.setQualifierRound(null);
         }
         if (Objects.equals(c.getMatchMode(), 3)) {
             if (c.getGroupMode() == null || c.getGroupMode() < 1 || c.getGroupMode() > 3) throw new IllegalArgumentException("请选择小组赛模式");
@@ -195,7 +230,251 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 total++;
             }
         }
-        if (cfg.getParticipantCount() != null && total != cfg.getParticipantCount()) throw new IllegalArgumentException("名单人数与参赛人数不一致");
+        boolean qualifierEntryMode = cfg.getEntryMode() != null && cfg.getEntryMode() == 1;
+        boolean hasRegistrationResult = registrationService.listRows(tournamentId, LocalDateTime.now()).stream()
+                .anyMatch(TournamentRegistrationRowDto::isEffectiveApproved);
+        if (qualifierEntryMode && hasRegistrationResult) {
+            if (total > (cfg.getParticipantCount() == null ? Integer.MAX_VALUE : cfg.getParticipantCount())) {
+                throw new IllegalArgumentException("名单人数不能超过参赛人数");
+            }
+            if (total < 1) {
+                throw new IllegalArgumentException("至少需要录入1名选手");
+            }
+        } else {
+            if (cfg.getParticipantCount() != null && total > cfg.getParticipantCount()) {
+                throw new IllegalArgumentException("名单人数不能超过参赛人数（当前 " + total + " 人，上限 " + cfg.getParticipantCount() + " 人）");
+            }
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveGroupMembersForGroup(User operator, Long tournamentId, Long groupId, List<Long> memberUserIds) {
+        if (!canManage(operator, tournamentId)) throw new SecurityException("无权操作");
+        TournamentCompetitionConfig cfg = requireConfig(tournamentId);
+        if (!Objects.equals(cfg.getMatchMode(), 3)) throw new IllegalStateException("仅小组赛可录入分组名单");
+        TournamentGroup g = groupMapper.selectById(groupId);
+        if (g == null || !Objects.equals(g.getTournamentId(), tournamentId)) {
+            throw new IllegalArgumentException("分组不存在");
+        }
+        LinkedHashSet<Long> dedup = new LinkedHashSet<>();
+        if (memberUserIds != null) {
+            for (Long uid : memberUserIds) {
+                if (uid != null) dedup.add(uid);
+            }
+        }
+        int groupSizeCap = cfg.getGroupSize() != null && cfg.getGroupSize() > 0 ? cfg.getGroupSize() : Integer.MAX_VALUE;
+        if (dedup.size() > groupSizeCap) {
+            throw new IllegalArgumentException("本组人数不能超过每组人数（" + groupSizeCap + "）");
+        }
+        List<TournamentGroupMember> others = groupMemberMapper.selectList(Wrappers.<TournamentGroupMember>lambdaQuery()
+                .eq(TournamentGroupMember::getTournamentId, tournamentId)
+                .ne(TournamentGroupMember::getGroupId, groupId));
+        Set<Long> otherUserIds = others.stream().map(TournamentGroupMember::getUserId).filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet());
+        for (Long uid : dedup) {
+            if (otherUserIds.contains(uid)) {
+                User u = userService.getById(uid);
+                throw new IllegalArgumentException("选手已在其他小组：" + (u != null ? u.getUsername() : uid));
+            }
+        }
+        Set<Long> allAfter = new HashSet<>(dedup);
+        allAfter.addAll(otherUserIds);
+        boolean qualifierEntryMode = cfg.getEntryMode() != null && cfg.getEntryMode() == 1;
+        boolean hasRegistrationResult = registrationService.listRows(tournamentId, LocalDateTime.now()).stream()
+                .anyMatch(TournamentRegistrationRowDto::isEffectiveApproved);
+        if (qualifierEntryMode && hasRegistrationResult) {
+            if (allAfter.size() > (cfg.getParticipantCount() == null ? Integer.MAX_VALUE : cfg.getParticipantCount())) {
+                throw new IllegalArgumentException("名单总人数不能超过参赛人数");
+            }
+        } else {
+            if (cfg.getParticipantCount() != null && allAfter.size() > cfg.getParticipantCount()) {
+                throw new IllegalArgumentException("名单总人数不能超过参赛人数");
+            }
+        }
+        groupMemberMapper.delete(Wrappers.<TournamentGroupMember>lambdaQuery()
+                .eq(TournamentGroupMember::getTournamentId, tournamentId)
+                .eq(TournamentGroupMember::getGroupId, groupId));
+        int seed = 1;
+        for (Long uid : dedup) {
+            TournamentGroupMember gm = new TournamentGroupMember();
+            gm.setTournamentId(tournamentId);
+            gm.setGroupId(groupId);
+            gm.setUserId(uid);
+            gm.setSeedNo(seed++);
+            gm.setCreatedAt(LocalDateTime.now());
+            groupMemberMapper.insert(gm);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveAllGroupsRosterAndGenerateMatches(User operator, Long tournamentId, Map<Long, String> groupIdToRawText) {
+        if (!canManage(operator, tournamentId)) throw new SecurityException("无权操作");
+        TournamentCompetitionConfig cfg = requireConfig(tournamentId);
+        if (!Objects.equals(cfg.getMatchMode(), 3)) throw new IllegalStateException("仅小组赛可录入分组名单");
+        List<TournamentGroup> groups = groupMapper.selectList(Wrappers.<TournamentGroup>lambdaQuery()
+                .eq(TournamentGroup::getTournamentId, tournamentId)
+                .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, String> raw = groupIdToRawText != null ? groupIdToRawText : Map.of();
+        Map<Long, List<Long>> map = new LinkedHashMap<>();
+        LinkedHashSet<String> unknown = new LinkedHashSet<>();
+        int groupSizeCap = cfg.getGroupSize() != null && cfg.getGroupSize() > 0 ? cfg.getGroupSize() : Integer.MAX_VALUE;
+        for (TournamentGroup g : groups) {
+            String text = raw.getOrDefault(g.getId(), "");
+            GroupImportResult parsed = userService.resolveGroupImport(text);
+            unknown.addAll(parsed.getUnknownUsernames());
+            List<Long> ids = parsed.getUserIds();
+            if (ids.size() > groupSizeCap) {
+                throw new IllegalArgumentException(g.getGroupName() + " 人数超过每组人数上限（" + groupSizeCap + "）");
+            }
+            map.put(g.getId(), ids);
+        }
+        if (!unknown.isEmpty()) {
+            throw new IllegalArgumentException("以下用户名不存在：" + String.join("、", unknown));
+        }
+        saveGroupMembers(operator, tournamentId, map);
+        generateGroupMatches(operator, tournamentId);
+    }
+
+    private static String orderedPairKey(long p1, long p2) {
+        return p1 + ":" + p2;
+    }
+
+    private static long[] parseOrderedPairKey(String k) {
+        String[] p = k.split(":", 2);
+        return new long[]{Long.parseLong(p[0]), Long.parseLong(p[1])};
+    }
+
+    private boolean matchHasNoEnteredScores(Long matchId) {
+        List<SetScore> ss = setScoreService.lambdaQuery().eq(SetScore::getMatchId, matchId).list();
+        if (ss.isEmpty()) return true;
+        for (SetScore s : ss) {
+            if (Boolean.TRUE.equals(s.getPlayer1IsX()) || Boolean.TRUE.equals(s.getPlayer2IsX())) return false;
+            int p1 = s.getPlayer1Score() == null ? 0 : s.getPlayer1Score();
+            int p2 = s.getPlayer2Score() == null ? 0 : s.getPlayer2Score();
+            if (p1 != 0 || p2 != 0) return false;
+        }
+        return true;
+    }
+
+    private Match pickMatchToRemove(List<Match> candidates) {
+        if (candidates.size() == 1) return candidates.getFirst();
+        Optional<Match> best = candidates.stream()
+                .filter(m -> !Boolean.TRUE.equals(m.getResultLocked()) && matchHasNoEnteredScores(m.getId()))
+                .findFirst();
+        if (best.isPresent()) return best.get();
+        best = candidates.stream().filter(m -> matchHasNoEnteredScores(m.getId())).findFirst();
+        if (best.isPresent()) return best.get();
+        return candidates.get(candidates.size() - 1);
+    }
+
+    private void deleteMatchFully(Long matchId) {
+        if (matchId == null) return;
+        matchAcceptanceMapper.delete(Wrappers.<MatchAcceptance>lambdaQuery().eq(MatchAcceptance::getMatchId, matchId));
+        matchScoreEditLogMapper.delete(Wrappers.<MatchScoreEditLog>lambdaQuery().eq(MatchScoreEditLog::getMatchId, matchId));
+        setScoreService.lambdaUpdate().eq(SetScore::getMatchId, matchId).remove();
+        matchService.removeById(matchId);
+    }
+
+    private int nextGlobalGroupRound(Long tournamentId) {
+        List<Match> all = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .list();
+        return all.stream().mapToInt(m -> m.getRound() == null ? 0 : m.getRound()).max().orElse(0) + 1;
+    }
+
+    private int nthOccurrenceDisplayRound(List<long[]> pairs, long p1, long p2, int zeroBasedFilledCount) {
+        int seen = 0;
+        for (int i = 0; i < pairs.size(); i++) {
+            if (pairs.get(i)[0] == p1 && pairs.get(i)[1] == p2) {
+                if (seen == zeroBasedFilledCount) return i + 1;
+                seen++;
+            }
+        }
+        return pairs.size();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncGroupMatchesForGroup(User operator, Long tournamentId, Long groupId) {
+        if (!canManage(operator, tournamentId)) throw new SecurityException("无权操作");
+        TournamentCompetitionConfig cfg = requireConfig(tournamentId);
+        if (!Objects.equals(cfg.getMatchMode(), 3)) throw new IllegalStateException("仅小组赛可同步对阵");
+        TournamentGroup g = groupMapper.selectById(groupId);
+        if (g == null || !Objects.equals(g.getTournamentId(), tournamentId)) {
+            throw new IllegalArgumentException("分组不存在");
+        }
+        List<Long> users = groupMemberMapper.selectList(Wrappers.<TournamentGroupMember>lambdaQuery()
+                        .eq(TournamentGroupMember::getTournamentId, tournamentId)
+                        .eq(TournamentGroupMember::getGroupId, groupId)
+                        .orderByAsc(TournamentGroupMember::getSeedNo)
+                        .orderByAsc(TournamentGroupMember::getId))
+                .stream().map(TournamentGroupMember::getUserId).filter(Objects::nonNull).toList();
+        List<Match> existingAll = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getGroupId, groupId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .list();
+        if (users.size() < 2) {
+            for (Match m : existingAll) deleteMatchFully(m.getId());
+            return;
+        }
+        List<long[]> pairs = buildPairs(users, cfg.getGroupMode());
+        Map<String, Integer> needCount = new HashMap<>();
+        for (long[] p : pairs) {
+            String k = orderedPairKey(p[0], p[1]);
+            needCount.merge(k, 1, Integer::sum);
+        }
+        Map<String, List<Match>> existingByKey = new HashMap<>();
+        for (Match m : existingAll) {
+            if (m.getPlayer1Id() == null || m.getPlayer2Id() == null) continue;
+            String k = orderedPairKey(m.getPlayer1Id(), m.getPlayer2Id());
+            existingByKey.computeIfAbsent(k, x -> new ArrayList<>()).add(m);
+        }
+        Set<String> allKeys = new HashSet<>(needCount.keySet());
+        allKeys.addAll(existingByKey.keySet());
+        for (String k : allKeys) {
+            int need = needCount.getOrDefault(k, 0);
+            List<Match> have = new ArrayList<>(existingByKey.getOrDefault(k, List.of()));
+            while (have.size() > need) {
+                Match victim = pickMatchToRemove(have);
+                deleteMatchFully(victim.getId());
+                have.remove(victim);
+            }
+            long[] ab = parseOrderedPairKey(k);
+            long p1 = ab[0], p2 = ab[1];
+            while (have.size() < need) {
+                int displayIdx = nthOccurrenceDisplayRound(pairs, p1, p2, have.size());
+                int nextRound = nextGlobalGroupRound(tournamentId);
+                Match m = new Match();
+                m.setTournamentId(tournamentId);
+                m.setCategory(g.getGroupName() + " 第" + Math.max(1, displayIdx) + "场");
+                m.setPhaseCode("GROUP");
+                m.setGroupId(groupId);
+                m.setRound(nextRound);
+                m.setPlayer1Id(p1);
+                m.setPlayer2Id(p2);
+                m.setHomeUserId(p1);
+                m.setAwayUserId(p2);
+                m.setStatus((byte) 0);
+                m.setResultLocked(false);
+                m.setCreatedAt(LocalDateTime.now());
+                m.setUpdatedAt(LocalDateTime.now());
+                matchService.save(m);
+                int groupSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
+                for (int setNo = 1; setNo <= groupSets; setNo++) {
+                    SetScore ss = new SetScore();
+                    ss.setMatchId(m.getId());
+                    ss.setSetNumber(setNo);
+                    ss.setPlayer1Score(0);
+                    ss.setPlayer2Score(0);
+                    ss.setCreatedAt(LocalDateTime.now());
+                    setScoreService.save(ss);
+                }
+                have.add(m);
+            }
+        }
     }
 
     @Override
@@ -215,7 +494,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             for (long[] p : pairs) {
                 Match m = new Match();
                 m.setTournamentId(tournamentId);
-                m.setCategory(g.getGroupName() + " 第" + localRound + "轮");
+                m.setCategory(g.getGroupName() + " 第" + localRound + "场");
                 m.setPhaseCode("GROUP");
                 m.setGroupId(g.getId());
                 m.setRound(globalRound++);
@@ -257,7 +536,10 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
     @Override
     public boolean canEditMatchScore(User operator, Match match) {
         if (operator == null || match == null) return false;
-        if (Boolean.TRUE.equals(match.getResultLocked())) return false;
+        // 验收锁定后：仅超级管理员允许继续修改（其余角色保持只读）
+        if (Boolean.TRUE.equals(match.getResultLocked())) {
+            return operator.getRole() != null && operator.getRole() == 0;
+        }
         boolean selfAccepted = matchAcceptanceMapper.selectCount(Wrappers.<MatchAcceptance>lambdaQuery()
                 .eq(MatchAcceptance::getMatchId, match.getId())
                 .eq(MatchAcceptance::getUserId, operator.getId())) > 0;
@@ -275,6 +557,11 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         Match match = matchService.getById(matchId);
         if (match == null) throw new IllegalStateException("比赛不存在");
         if (!canEditMatchScore(operator, match)) throw new SecurityException("无权修改比分");
+        boolean wasLocked = Boolean.TRUE.equals(match.getResultLocked());
+        boolean wasLockedBySuperAdmin = wasLocked
+                && operator != null
+                && operator.getRole() != null
+                && operator.getRole() == 0;
         List<String> p1 = player1Scores == null ? List.of() : player1Scores;
         List<String> p2 = player2Scores == null ? List.of() : player2Scores;
         int n = Math.max(p1.size(), p2.size());
@@ -308,14 +595,30 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         setScoreService.lambdaUpdate().eq(SetScore::getMatchId, matchId).remove();
         int t1 = 0, t2 = 0;
         Integer currentHammerSide = normalizeHammerSide(firstEndHammer);
+
+        // 超级管理员：即使已验收锁定，也允许修改并“撤回”上次验收
+        if (wasLockedBySuperAdmin) {
+            match.setResultLocked(false);
+            match.setAcceptedByUserId(null);
+            match.setAcceptedAt(null);
+            // 撤回该超级管理员在该场比赛的验收记录
+            matchAcceptanceMapper.delete(Wrappers.<MatchAcceptance>lambdaQuery()
+                    .eq(MatchAcceptance::getMatchId, matchId)
+                    .eq(MatchAcceptance::getUserId, operator.getId()));
+        }
+
         for (int i = 0; i < n; i++) {
             ScoreToken tkn1 = parseScoreToken(i < p1.size() ? p1.get(i) : null);
             ScoreToken tkn2 = parseScoreToken(i < p2.size() ? p2.get(i) : null);
-            boolean forceX = hasX && i >= xCutoff;
-            int s1 = forceX ? 0 : tkn1.score();
-            int s2 = forceX ? 0 : tkn2.score();
-            boolean x1 = forceX || tkn1.isX();
-            boolean x2 = forceX || tkn2.isX();
+            boolean isXEnd = hasX && i == xCutoff;
+            boolean forceZeroAfterX = hasX && i > xCutoff;
+            // 规则：一旦录入X，X端及之后局都视为“未得分=0”，且不再继续推进先后手计算
+            boolean forceZero = hasX && i >= xCutoff;
+            int s1 = forceZero ? 0 : tkn1.score();
+            int s2 = forceZero ? 0 : tkn2.score();
+            // 仅在“首个X”那一局标记X；其余后续局显示为0
+            boolean x1 = isXEnd;
+            boolean x2 = isXEnd;
             SetScore ss = new SetScore();
             ss.setMatchId(matchId);
             ss.setSetNumber(i + 1);
@@ -330,10 +633,14 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             writeEditLog(operator, matchId, i + 1, oldBySetNo.get(i + 1), ss);
             t1 += s1;
             t2 += s2;
-            currentHammerSide = calcNextHammerSide(currentHammerSide, s1, s2);
+            if (!forceZeroAfterX) {
+                // X端之后不再继续推进（避免“录X后先后手/局分丢失”的展示错乱）
+                currentHammerSide = calcNextHammerSide(currentHammerSide, s1, s2);
+            }
         }
         // 小组赛禁平局：常规局数打平时自动追加1局（加局），且先后手顺延交换（含0-0也交换）。
-        if (Objects.equals(match.getPhaseCode(), "GROUP") && !groupDrawAllowed && n >= configuredGroupSets && t1 == t2) {
+        if (!hasX && Objects.equals(match.getPhaseCode(), "GROUP") && !groupDrawAllowed
+                && n >= configuredGroupSets && t1 == t2) {
             SetScore extra = new SetScore();
             extra.setMatchId(matchId);
             extra.setSetNumber(n + 1);
@@ -354,10 +661,13 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         match.setStatus((byte) 2);
         match.setUpdatedAt(LocalDateTime.now());
         matchService.updateById(match);
-        if (hasX || groupDeadlinePassed) {
+        if (hasX && Boolean.TRUE.equals(autoAccept)) {
+            acceptMatchScore(operator, matchId, signature);
+        } else if (!wasLockedBySuperAdmin && groupDeadlinePassed) {
             acceptMatchScore(operator, matchId, signature);
         }
-        if (groupDeadlinePassed && !Boolean.TRUE.equals(match.getResultLocked())) {
+
+        if (!wasLockedBySuperAdmin && groupDeadlinePassed && !Boolean.TRUE.equals(match.getResultLocked())) {
             User superAdmin = findSuperAdmin();
             if (superAdmin != null) {
                 acceptMatchScore(superAdmin, matchId, "SYSTEM_AUTO_ACCEPT");
@@ -406,7 +716,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (requiresSignature(match) && (signature == null || signature.trim().isEmpty())) {
             throw new IllegalArgumentException("该阶段验收必须提供电子签名");
         }
-        if (!canAcceptThisMatch(operator, match)) throw new SecurityException("无权验收此比赛");
+        if (!canAcceptMatchScore(operator, match)) throw new SecurityException("无权验收此比赛");
         MatchAcceptance acceptance = matchAcceptanceMapper.selectOne(Wrappers.<MatchAcceptance>lambdaQuery()
                 .eq(MatchAcceptance::getMatchId, matchId)
                 .eq(MatchAcceptance::getUserId, operator.getId())
@@ -429,6 +739,8 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         match.setAcceptedAt(LocalDateTime.now());
         match.setUpdatedAt(LocalDateTime.now());
         matchService.updateById(match);
+        knockoutBracketService.tryAutoGenerateFromGroupStage(operator, match.getTournamentId());
+        knockoutBracketService.onKnockoutMatchLocked(operator, match);
     }
 
     public List<MatchAcceptance> listAcceptances(Long matchId) {
@@ -460,14 +772,11 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
     }
 
-    private boolean canAcceptThisMatch(User u, Match match) {
+    @Override
+    public boolean canAcceptMatchScore(User u, Match match) {
         if (u == null || match == null) return false;
-        if (Objects.equals(match.getPhaseCode(), "GROUP")) {
-            return Objects.equals(u.getId(), match.getPlayer1Id()) || Objects.equals(u.getId(), match.getPlayer2Id());
-        }
-        return Objects.equals(u.getId(), match.getPlayer1Id())
-                || Objects.equals(u.getId(), match.getPlayer2Id())
-                || isStaff(u, match.getTournamentId());
+        if (isStaff(u, match.getTournamentId())) return true;
+        return Objects.equals(u.getId(), match.getPlayer1Id()) || Objects.equals(u.getId(), match.getPlayer2Id());
     }
 
     private boolean isAcceptanceCompleted(Match match) {

@@ -196,7 +196,11 @@ public class SeasonController {
         List<Map<String, Object>> seriesInfoList = new ArrayList<>();
 
         // 计算本赛季“届次”：同赛季 + 同赛事等级内，第 N 届（按 createdAt 升序）
-        List<Long> seriesIdsInSeason = seriesList.stream().map(Series::getId).filter(Objects::nonNull).toList();
+        List<Long> seriesIdsInSeason = seriesList.stream()
+                .filter(s -> !isTestSeries(s))
+                .map(Series::getId)
+                .filter(Objects::nonNull)
+                .toList();
         Map<Long, Integer> editionByTournamentId = new HashMap<>();
         if (!seriesIdsInSeason.isEmpty()) {
             List<Tournament> allTournamentsInSeason = tournamentService.lambdaQuery()
@@ -297,6 +301,12 @@ public class SeasonController {
         model.addAttribute("seasonRanking", seasonRanking);
         
         return "season-detail";
+    }
+
+    private static boolean isTestSeries(Series series) {
+        if (series == null) return false;
+        String name = series.getName();
+        return name != null && name.contains("测试");
     }
 
     /**

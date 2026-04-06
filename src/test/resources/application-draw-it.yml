@@ -1,0 +1,10 @@
+# 抽签全流程集成测试：Testcontainers MySQL + Flyway（先 test-bootstrap 再正式 migration）
+spring:
+  flyway:
+    enabled: true
+    # 空库从零执行：先 test-bootstrap(V0_1) 再 db/migration
+    baseline-on-migrate: false
+    locations: classpath:db/test-bootstrap,classpath:db/migration
+  jpa:
+    hibernate:
+      ddl-auto: none

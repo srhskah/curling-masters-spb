@@ -138,7 +138,7 @@
                                                     <a th:if="${(action['method'] == null or action['method'] == 'get') and (isAdmin or action['public'] == true) and (action['requireRegistrationOpen'] == null or action['requireRegistrationOpen'] == false or item['registrationOpen'] == true) and (action['requireRegistrationNavVisible'] == null or action['requireRegistrationNavVisible'] == false or item['registrationNavVisible'] == true)}"
                                                        th:href="${action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : '')}"
                                                        th:class="${action['btnClass']}"
-                                                       th:attr="data-confirm=${action['confirm']}"
+                                                       th:attr="data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
                                                        onclick="return !this.dataset.confirm || confirm(this.dataset.confirm)">
                                                         <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
                                                     </a>
@@ -206,7 +206,7 @@
                                                     <a th:if="${(action['method'] == null or action['method'] == 'get') and (isAdmin or action['public'] == true) and (action['requireRegistrationOpen'] == null or action['requireRegistrationOpen'] == false or item['registrationOpen'] == true) and (action['requireRegistrationNavVisible'] == null or action['requireRegistrationNavVisible'] == false or item['registrationNavVisible'] == true)}"
                                                        th:href="${action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : '')}"
                                                        th:class="${action['btnClass']}"
-                                                       th:attr="data-confirm=${action['confirm']}"
+                                                       th:attr="data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
                                                        onclick="return !this.dataset.confirm || confirm(this.dataset.confirm)">
                                                         <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
                                                     </a>

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>手动排签淘汰赛首轮</title>
+    <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/css/bootstrap-icons.css}">
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+</head>
+<body>
+<div th:replace="~{fragments::navbar}"></div>
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-trophy"></i> 手动排签：淘汰赛首轮</h4>
+        <a class="btn btn-outline-secondary btn-sm" th:href="@{/tournament/detail/{id}(id=${tournamentId})}">
+            <i class="bi bi-arrow-left"></i> 返回赛事详情
+        </a>
+    </div>
+    <div class="alert alert-info small">
+        默认已按模式 0（小组赛总排名经典种子）填充。仅可选择小组赛晋级选手，且同一选手不可重复选择。
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <form th:action="@{/tournament/competition/knockout/manual/{id}(id=${tournamentId})}" method="post">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="pairCount" th:value="${#lists.size(koManualDraft)}"/>
+                <div class="row g-3" th:if="${koManualDraft != null and !#lists.isEmpty(koManualDraft)}">
+                    <div class="col-12" th:each="p : ${koManualDraft}">
+                        <div class="border rounded p-3">
+                            <div class="fw-bold mb-2" th:text="${p.label}">1/8决赛 第1场</div>
+                            <div class="row g-2 align-items-center">
+                                <div class="col-md-5">
+                                    <select class="form-select ko-manual-player-select"
+                                            th:name="${'p1_' + p.slot}">
+                                        <option value="">-- 请选择选手 --</option>
+                                        <option th:each="u : ${koManualOptions}"
+                                                th:value="${u.userId}"
+                                                th:selected="${u.userId == p.defaultPlayer1Id}"
+                                                th:text="${'#' + u.rank + ' ' + u.username}">#1 选手</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2 text-center text-muted">VS</div>
+                                <div class="col-md-5">
+                                    <select class="form-select ko-manual-player-select"
+                                            th:name="${'p2_' + p.slot}">
+                                        <option value="">-- 请选择选手 --</option>
+                                        <option th:each="u : ${koManualOptions}"
+                                                th:value="${u.userId}"
+                                                th:selected="${u.userId == p.defaultPlayer2Id}"
+                                                th:text="${'#' + u.rank + ' ' + u.username}">#8 选手</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-check2-circle"></i> 生成手动排签首轮
+                    </button>
+                    <a class="btn btn-outline-secondary" th:href="@{/tournament/detail/{id}(id=${tournamentId})}">取消</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        const selects = Array.from(document.querySelectorAll('.ko-manual-player-select'));
+        if (!selects.length) return;
+
+        function refreshDisabledOptions() {
+            const used = new Set();
+            selects.forEach((sel) => {
+                if (sel.value) used.add(sel.value);
+            });
+            selects.forEach((sel) => {
+                const myVal = sel.value;
+                Array.from(sel.options).forEach((opt) => {
+                    if (!opt.value) {
+                        opt.disabled = false;
+                        return;
+                    }
+                    opt.disabled = used.has(opt.value) && opt.value !== myVal;
+                });
+            });
+        }
+
+        selects.forEach((sel) => sel.addEventListener('change', refreshDisabledOptions));
+        refreshDisabledOptions();
+    })();
+</script>
+</body>
+</html>

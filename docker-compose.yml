@@ -37,6 +37,8 @@ services:
       - MYSQL_DB_URL=${MYSQL_DB_URL}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      # 固定为 true，避免项目 .env 里误设 false 导致无法清除失败迁移（勿用 ${FLYWAY_REPAIR_ON_MIGRATE:-true}，会被宿主机 .env 插值成 false）
+      - FLYWAY_REPAIR_ON_MIGRATE=true
       # JVM参数
       - JAVA_OPTS=-Xmx1g -Xms512m -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
     command: java -Duser.timezone=Asia/Shanghai -jar /app/app.jar

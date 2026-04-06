@@ -9,7 +9,102 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeFormValidation();
     initializeNavigation();
     initializeTooltips();
+    initializeBackToTopButton();
+    initializeGlobalCopyTextButtons();
 });
+
+/**
+ * 全站统一：复制纯文本（支持 HTTPS / localhost 的 Clipboard API，否则 textarea + execCommand 降级）
+ * @param {string|null|undefined} text
+ */
+async function copyPlainTextToClipboard(text) {
+    const s = text == null ? '' : String(text);
+    if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
+        // 优先用 text/plain Blob（UTF-8）写入，确保 Unicode / emoji 原样复制。
+        if (window.ClipboardItem && navigator.clipboard.write) {
+            const blob = new Blob([s], { type: 'text/plain;charset=utf-8' });
+            await navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })]);
+            return;
+        }
+        await navigator.clipboard.writeText(s);
+        return;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = s;
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.left = '-1000px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+}
+
+/**
+ * 复制后在按钮上显示反馈（可选）。若提供 button 且复制失败会还原 innerHTML 后抛出异常。
+ * @param {string|null|undefined} text
+ * @param {{ button?: HTMLElement, okHtml?: string, resetMs?: number }} [opts]
+ */
+async function copyPlainTextToClipboardWithButton(text, opts) {
+    const o = opts || {};
+    const btn = o.button;
+    const oldHtml = btn ? btn.innerHTML : null;
+    try {
+        await copyPlainTextToClipboard(text);
+        if (btn) {
+            btn.innerHTML = o.okHtml != null ? o.okHtml : '已复制';
+            const ms = o.resetMs != null ? o.resetMs : 1500;
+            setTimeout(() => {
+                if (btn && oldHtml != null) btn.innerHTML = oldHtml;
+            }, ms);
+        }
+    } catch (e) {
+        if (btn && oldHtml != null) btn.innerHTML = oldHtml;
+        throw e;
+    }
+}
+
+/**
+ * 声明式：按钮上设置 data-copy-target="#选择器"，指向含文本的 textarea 或元素。
+ * 可选：data-copy-ok-html、data-copy-reset-ms
+ */
+function initializeGlobalCopyTextButtons() {
+    document.querySelectorAll('[data-copy-target]').forEach((btn) => {
+        if (btn.dataset.copyBound === '1') return;
+        btn.dataset.copyBound = '1';
+        btn.addEventListener('click', async () => {
+            const sel = btn.getAttribute('data-copy-target');
+            const el = sel ? document.querySelector(sel) : null;
+            let t = '';
+            if (el) {
+                if ('value' in el) t = el.value;
+                else t = el.textContent || '';
+            }
+            const resetMs = parseInt(btn.getAttribute('data-copy-reset-ms') || '1500', 10) || 1500;
+            const okHtml = btn.getAttribute('data-copy-ok-html');
+            try {
+                await copyPlainTextToClipboardWithButton(t, {
+                    button: btn,
+                    okHtml: okHtml != null && okHtml !== '' ? okHtml : undefined,
+                    resetMs,
+                });
+            } catch (err) {
+                if (typeof showAlert === 'function') {
+                    showAlert('复制失败，请手动选择文本复制。', 'danger');
+                } else {
+                    alert('复制失败，请手动选择文本复制。');
+                }
+            }
+        });
+    });
+}
+
+/** 全站统一：通过当前窗口导航触发 PDF 下载（与 location.href 等价，便于集中维护/扩展） */
+function downloadPdfFromUrl(url) {
+    if (!url) return;
+    window.location.href = url;
+}
 
 // Animation functions
 function initializeAnimations() {
@@ -48,16 +143,9 @@ function initializeNavigation() {
             link.classList.add('active');
         }
     });
-    
-    // Mobile menu toggle
-    const navbarToggler = document.querySelector('.navbar-toggler');
-    const navbarCollapse = document.querySelector('.navbar-collapse');
-    
-    if (navbarToggler && navbarCollapse) {
-        navbarToggler.addEventListener('click', function() {
-            navbarCollapse.classList.toggle('show');
-        });
-    }
+    // 窄屏菜单：由 Bootstrap data-bs-toggle（collapse / offcanvas）单独控制。
+    // 切勿在此处再对 .navbar-collapse 做 classList.toggle('show')，否则会与 Bootstrap 双轨切换，
+    // 导致「关闭后又自动打开」等问题。
 }
 
 // Bootstrap tooltips initialization
@@ -624,3 +712,81 @@ class FormValidator {
 
 // 将FormValidator添加到全局对象
 window.FormValidator = FormValidator;
+
+// 左下角返回顶部按钮：短按回顶，长按拖动
+function initializeBackToTopButton() {
+    const btn = document.getElementById('backToTopBtn');
+    if (!btn) return;
+
+    const updateVisibility = () => {
+        const show = window.scrollY > 10;
+        btn.classList.toggle('show', show);
+    };
+    updateVisibility();
+    window.addEventListener('scroll', updateVisibility, { passive: true });
+
+    let longPressTimer = null;
+    let isDown = false;
+    let longPressTriggered = false;
+    let startY = 0;
+    let startScrollY = 0;
+    let moved = false;
+    let lastY = 0;
+
+    const cancelTimer = () => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    };
+
+    const onPointerDown = (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        e.preventDefault();
+        isDown = true;
+        moved = false;
+        longPressTriggered = false;
+
+        startY = e.clientY;
+        lastY = e.clientY;
+        startScrollY = window.scrollY;
+
+        cancelTimer();
+        longPressTimer = setTimeout(() => {
+            longPressTriggered = true;
+            btn.classList.add('dragging');
+        }, 420);
+
+        try { btn.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    };
+
+    const onPointerMove = (e) => {
+        if (!isDown) return;
+        const y = e.clientY;
+        if (Math.abs(y - lastY) > 2) moved = true;
+        lastY = y;
+
+        if (!longPressTriggered) return;
+        // 长按后拖动：跟随手指滚动回顶
+        const delta = y - startY;
+        window.scrollTo({ top: Math.max(0, startScrollY - delta), behavior: 'auto' });
+    };
+
+    const onPointerEnd = (e) => {
+        isDown = false;
+        cancelTimer();
+        btn.classList.remove('dragging');
+        try { btn.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+
+        if (!longPressTriggered && !moved) {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        longPressTriggered = false;
+    };
+
+    btn.addEventListener('pointerdown', onPointerDown);
+    btn.addEventListener('pointermove', onPointerMove, { passive: true });
+    btn.addEventListener('pointerup', onPointerEnd);
+    btn.addEventListener('pointercancel', onPointerEnd);
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+}

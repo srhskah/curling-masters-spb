@@ -35,6 +35,16 @@ public class GroupRankingCalculator {
             Map<Long, Map<String, Object>> stat = initGroupStats(uids, usernameById, g.getGroupName());
             List<Match> gm = groupMatches.stream().filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()) && Objects.equals(m.getGroupId(), g.getId())).toList();
             fillGroupStats(stat, gm, scoreByMatch, allowDraw, regularSets);
+            for (Long uid : uids) {
+                Map<String, Object> row = stat.get(uid);
+                if (row == null) {
+                    continue;
+                }
+                int expected = (int) gm.stream()
+                        .filter(m -> Objects.equals(m.getPlayer1Id(), uid) || Objects.equals(m.getPlayer2Id(), uid))
+                        .count();
+                row.put("expectedGroupMatches", expected);
+            }
             out.put(g.getId(), rankRows(new ArrayList<>(stat.values()), gm));
         }
         return out;
@@ -98,6 +108,11 @@ public class GroupRankingCalculator {
                 if (a > 0 && Objects.equals(s.getHammerPlayerId(), m.getPlayer2Id())) { p1StealCnt++; p1StealMax = Math.max(p1StealMax, a); }
                 if (b > 0 && Objects.equals(s.getHammerPlayerId(), m.getPlayer1Id())) { p2StealCnt++; p2StealMax = Math.max(p2StealMax, b); }
             }
+            int p1Reg = ss.stream().filter(s -> s.getSetNumber() != null && s.getSetNumber() <= regularSets).mapToInt(s -> s.getPlayer1Score() == null ? 0 : s.getPlayer1Score()).sum();
+            int p2Reg = ss.stream().filter(s -> s.getSetNumber() != null && s.getSetNumber() <= regularSets).mapToInt(s -> s.getPlayer2Score() == null ? 0 : s.getPlayer2Score()).sum();
+            if (p1Total == 0 && p2Total == 0) {
+                continue;
+            }
             Map<String, Object> r1 = stat.get(p1), r2 = stat.get(p2);
             addInt(r1, "played", 1); addInt(r2, "played", 1);
             addInt(r1, "totalScore", p1Total); addInt(r1, "totalConceded", p2Total);
@@ -111,11 +126,7 @@ public class GroupRankingCalculator {
             addInt(r2, "stealCount", p2StealCnt);
             maxInt(r1, "stealMax", p1StealMax);
             maxInt(r2, "stealMax", p2StealMax);
-            int p1Reg = ss.stream().filter(s -> s.getSetNumber() != null && s.getSetNumber() <= regularSets).mapToInt(s -> s.getPlayer1Score() == null ? 0 : s.getPlayer1Score()).sum();
-            int p2Reg = ss.stream().filter(s -> s.getSetNumber() != null && s.getSetNumber() <= regularSets).mapToInt(s -> s.getPlayer2Score() == null ? 0 : s.getPlayer2Score()).sum();
-            if (p1Total == 0 && p2Total == 0) {
-                continue;
-            } else if (p1Total == p2Total) {
+            if (p1Total == p2Total) {
                 addInt(r1, "draws", 1); addInt(r2, "draws", 1); addInt(r1, "points", 1); addInt(r2, "points", 1);
             } else if (p1Total > p2Total) {
                 addInt(r1, "wins", 1); addInt(r2, "losses", 1);

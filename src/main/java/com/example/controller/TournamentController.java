@@ -36,10 +36,14 @@ public class TournamentController {
     @Autowired private UserService userService;
     @Autowired private UserTournamentPointsService userTournamentPointsService;
     @Autowired private ITournamentRegistrationService tournamentRegistrationService;
+    @Autowired private INotificationService notificationService;
     @Autowired private ITournamentCompetitionService tournamentCompetitionService;
     @Autowired private GroupRankingCalculator groupRankingCalculator;
     @Autowired private com.example.mapper.TournamentGroupMapper tournamentGroupMapper;
     @Autowired private com.example.mapper.TournamentGroupMemberMapper tournamentGroupMemberMapper;
+    @Autowired private com.example.service.impl.DrawManagementService drawManagementService;
+    @Autowired private com.example.service.TournamentDrawAuthHelper tournamentDrawAuthHelper;
+    @Autowired private com.example.service.impl.TournamentRankingRosterService tournamentRankingRosterService;
 
     private boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -136,6 +140,10 @@ public class TournamentController {
             Map<GroupKey, List<Tournament>> groups = new HashMap<>();
             for (Tournament t : tournaments) {
                 Series s = t.getSeriesId() != null ? seriesById.get(t.getSeriesId()) : null;
+                if (s != null && isTestSeries(s)) {
+                    // “测试”系列不计入本赛季届次
+                    continue;
+                }
                 Long sid = s != null ? s.getSeasonId() : null;
                 if (sid == null || t.getLevelCode() == null) continue;
                 groups.computeIfAbsent(new GroupKey(sid, t.getLevelCode()), k -> new ArrayList<>()).add(t);
@@ -702,6 +710,11 @@ public class TournamentController {
                                   @RequestParam(required = false) Long returnSeasonId,
                                   RedirectAttributes redirectAttributes) {
         try {
+            Integer beforeStatus = null;
+            if (tournament.getId() != null) {
+                Tournament old = tournamentService.getById(tournament.getId());
+                beforeStatus = old != null ? old.getStatus() : null;
+            }
             if (tournament.getSeriesId() == null || tournament.getLevelCode() == null || 
                 tournament.getHostUserId() == null) {
                 redirectAttributes.addFlashAttribute("error", "请填写所有必填字段");
@@ -727,6 +740,13 @@ public class TournamentController {
             } else {
                 tournamentService.updateById(tournament);
                 redirectAttributes.addFlashAttribute("success", "赛事更新成功");
+            }
+            Integer afterStatus = tournament.getStatus();
+            if (!Objects.equals(beforeStatus, 1) && Objects.equals(afterStatus, 1) && tournament.getId() != null) {
+                String title = "赛事状态更新：进行中";
+                String markdown = "赛事 **" + (tournament.getLevelCode() == null ? "赛事" : tournament.getLevelCode())
+                        + " #" + tournament.getId() + "** 已进入进行中状态。";
+                notificationService.sendSystemNotification(title, markdown, "TOURNAMENT_ONGOING", tournament.getId());
             }
             
             return returnSeasonId != null ? "redirect:/season/detail/" + returnSeasonId : "redirect:/tournament/list";
@@ -792,6 +812,7 @@ public class TournamentController {
                     .eq(Series::getSeasonId, series.getSeasonId())
                     .list();
             List<Long> seasonSeriesIds = seasonSeries.stream()
+                    .filter(s -> !isTestSeries(s))
                     .map(Series::getId)
                     .filter(Objects::nonNull)
                     .toList();
@@ -944,6 +965,7 @@ public class TournamentController {
                     .eq(Series::getSeasonId, seasonId)
                     .list();
             List<Long> seasonSeriesIds = seasonSeries.stream()
+                    .filter(s -> !isTestSeries(s))
                     .map(Series::getId)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
@@ -1083,11 +1105,18 @@ public class TournamentController {
             
             matchInfoList.add(matchInfo);
         }
+
+        List<Long> allScoreMatchIds = matches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<SetScore>> scoresByMatchId = allScoreMatchIds.isEmpty() ? new HashMap<>()
+                : setScoreService.lambdaQuery().in(SetScore::getMatchId, allScoreMatchIds).list().stream()
+                .collect(Collectors.groupingBy(SetScore::getMatchId, LinkedHashMap::new, Collectors.toList()));
+        attachScoreCardsToMatchInfoList(matchInfoList, scoresByMatchId);
         
-        List<UserTournamentPoints> rankings = userTournamentPointsService.lambdaQuery()
-            .eq(UserTournamentPoints::getTournamentId, id)
-            .orderByDesc(UserTournamentPoints::getPoints)
-            .list();
+        List<UserTournamentPoints> rankings = tournamentRankingRosterService.filterUtpsForDisplay(id,
+                userTournamentPointsService.lambdaQuery()
+                        .eq(UserTournamentPoints::getTournamentId, id)
+                        .orderByDesc(UserTournamentPoints::getPoints)
+                        .list());
         List<Map<String, Object>> rankingInfoList = new ArrayList<>();
         for (UserTournamentPoints utp : rankings) {
             Map<String, Object> rankingInfo = new HashMap<>();
@@ -1113,6 +1142,15 @@ public class TournamentController {
         
         model.addAttribute("tournamentInfo", tournamentInfo);
         model.addAttribute("matchInfoList", matchInfoList);
+        Map<Integer, List<Map<String, Object>>> matchesByRound = matchInfoList.stream()
+                .collect(Collectors.groupingBy(
+                        mi -> {
+                            Match m = (Match) mi.get("match");
+                            return m.getRound() != null ? m.getRound() : 0;
+                        },
+                        TreeMap::new,
+                        Collectors.toList()));
+        model.addAttribute("matchesByRound", matchesByRound);
         model.addAttribute("rankingInfoList", rankingInfoList);
         model.addAttribute("isAdmin", admin);
         model.addAttribute("isSuperAdmin", superAdmin);
@@ -1123,7 +1161,20 @@ public class TournamentController {
         model.addAttribute("registrationModuleActive", tournamentRegistrationService.registrationModuleActive(tournament, nowReg));
         model.addAttribute("registrationEnabled", tournamentRegistrationService.isRegistrationEnabled(tournament));
 
-        // 进行中赛事：手动参赛配置 + 分组赛程
+        // 用于：控制“比赛列表”默认显示/隐藏逻辑
+        List<com.example.dto.TournamentRegistrationRowDto> regRows = tournamentRegistrationService.listRows(id, nowReg);
+        boolean hasEffectiveRegistration = regRows != null
+                && regRows.stream().anyMatch(com.example.dto.TournamentRegistrationRowDto::isEffectiveApproved);
+        model.addAttribute("hasEffectiveRegistration", hasEffectiveRegistration);
+
+        // 用于：赛事详情筛选（无论小组/淘汰赛 tab 均可用）
+        List<User> allUsersForMatchFilter = userService.list().stream()
+                .filter(u -> u.getUsername() != null && !u.getUsername().trim().isEmpty())
+                .sorted(Comparator.comparing(User::getUsername, Comparator.nullsLast(String::compareToIgnoreCase)))
+                .toList();
+        model.addAttribute("allUsersForMatchFilter", allUsersForMatchFilter);
+
+        // 筹备中/进行中：手动参赛配置 + 分组赛程（详情页展示与保存由 TournamentCompetitionService 校验状态）
         TournamentCompetitionConfig competitionConfig = tournamentCompetitionService.getConfig(id);
         model.addAttribute("competitionConfig", competitionConfig);
         model.addAttribute("competitionGroupSizeOptions",
@@ -1138,6 +1189,74 @@ public class TournamentController {
 
             Map<Long, String> usernameById = userService.list().stream()
                     .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+            List<User> allUsersForGroupPick = userService.list().stream()
+                    .filter(u -> u.getUsername() != null && !u.getUsername().trim().isEmpty())
+                    .sorted(Comparator.comparing(User::getUsername, Comparator.nullsLast(String::compareToIgnoreCase)))
+                    .toList();
+            model.addAttribute("allUsersForGroupPick", allUsersForGroupPick);
+            int groupSize = competitionConfig.getGroupSize() != null && competitionConfig.getGroupSize() > 0
+                    ? competitionConfig.getGroupSize() : 0;
+            int groupCount = (competitionConfig.getParticipantCount() != null && groupSize > 0)
+                    ? (competitionConfig.getParticipantCount() / groupSize) : 0;
+            List<Integer> groupMemberSlotIndexes = new ArrayList<>();
+            for (int i = 0; i < groupSize; i++) {
+                groupMemberSlotIndexes.add(i);
+            }
+            model.addAttribute("groupMemberSlotIndexes", groupMemberSlotIndexes);
+
+            // “正赛+资格赛”下，小组下拉槽位分配规则（用于前端高亮与可选范围限制）
+            TournamentRegistrationSetting regSetting = tournamentRegistrationService.getSetting(id);
+            List<String> groupDirectUsernames = List.of();
+            List<String> groupQualifierUsernames = List.of();
+            List<String> groupEligibleUsernames = List.of();
+            boolean groupPickerUseQualifierRules = false;
+            boolean groupQualifierSlotDivisible = true;
+            int groupQualifierSlotsPerGroup = 0;
+            if (regSetting != null
+                    && competitionConfig.getEntryMode() != null
+                    && competitionConfig.getEntryMode() == 1
+                    && groupCount > 0) {
+                List<com.example.dto.TournamentRegistrationRowDto> rows = tournamentRegistrationService.listRows(id, nowReg);
+                List<com.example.dto.TournamentRegistrationRowDto> eligibleRows = rows.stream()
+                        .filter(com.example.dto.TournamentRegistrationRowDto::isEffectiveApproved)
+                        .toList();
+                if (!eligibleRows.isEmpty()) {
+                    int m = regSetting.getMainDirectM() != null ? regSetting.getMainDirectM() : 0;
+                    int qualifierSeedCount = regSetting.getQualifierSeedCount() != null
+                            ? regSetting.getQualifierSeedCount()
+                            : Math.max((regSetting.getQuotaN() != null ? regSetting.getQuotaN() : 0) - m, 0);
+                    groupEligibleUsernames = eligibleRows.stream()
+                            .map(com.example.dto.TournamentRegistrationRowDto::getUsername)
+                            .filter(Objects::nonNull)
+                            .toList();
+                    int mainTake = Math.min(m, eligibleRows.size());
+                    groupDirectUsernames = eligibleRows.stream()
+                            .limit(mainTake)
+                            .map(com.example.dto.TournamentRegistrationRowDto::getUsername)
+                            .filter(Objects::nonNull)
+                            .toList();
+                    // 资格赛范围：已报名且未直通正赛的全部选手（不只默认种子）
+                    groupQualifierUsernames = eligibleRows.stream()
+                            .skip(mainTake)
+                            .map(com.example.dto.TournamentRegistrationRowDto::getUsername)
+                            .filter(Objects::nonNull)
+                            .toList();
+                    if (qualifierSeedCount > 0) {
+                        groupQualifierSlotsPerGroup = (qualifierSeedCount + groupCount - 1) / groupCount; // ceil
+                        groupQualifierSlotDivisible = qualifierSeedCount % groupCount == 0;
+                        groupPickerUseQualifierRules = true;
+                    }
+                }
+            }
+            model.addAttribute("groupPickerUseQualifierRules", groupPickerUseQualifierRules);
+            model.addAttribute("groupQualifierSlotDivisible", groupQualifierSlotDivisible);
+            model.addAttribute("groupQualifierSlotsPerGroup", groupQualifierSlotsPerGroup);
+            model.addAttribute("groupQualifierFlexibleSlotPerGroup",
+                    groupPickerUseQualifierRules && !groupQualifierSlotDivisible && groupQualifierSlotsPerGroup > 0);
+            model.addAttribute("groupDirectUsernames", groupDirectUsernames);
+            model.addAttribute("groupQualifierUsernames", groupQualifierUsernames);
+            model.addAttribute("groupEligibleUsernames", groupEligibleUsernames);
+
             Map<Long, List<Map<String, Object>>> groupMembersByGroupId = new HashMap<>();
             for (TournamentGroup g : groups) {
                 List<Map<String, Object>> members = tournamentGroupMemberMapper.selectList(
@@ -1155,19 +1274,27 @@ public class TournamentController {
                 groupMembersByGroupId.put(g.getId(), members);
             }
             model.addAttribute("groupMembersByGroupId", groupMembersByGroupId);
+            Map<Long, String> groupMemberImportTextByGroupId = new HashMap<>();
+            for (TournamentGroup g : groups) {
+                List<Map<String, Object>> mems = groupMembersByGroupId.get(g.getId());
+                if (mems == null || mems.isEmpty()) {
+                    groupMemberImportTextByGroupId.put(g.getId(), "");
+                } else {
+                    groupMemberImportTextByGroupId.put(g.getId(), mems.stream()
+                            .map(m -> (String) m.get("username"))
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.joining("\n")));
+                }
+            }
+            model.addAttribute("groupMemberImportTextByGroupId", groupMemberImportTextByGroupId);
 
             Map<Long, String> scoreDisplayByMatchId = new HashMap<>();
-            List<Long> matchIds = matches.stream().map(Match::getId).filter(Objects::nonNull).toList();
-            List<SetScore> allGroupScores = matchIds.isEmpty() ? List.of() : setScoreService.lambdaQuery()
-                    .in(SetScore::getMatchId, matchIds)
-                    .list();
-            Map<Long, List<SetScore>> scoreByMatch = allGroupScores.stream().collect(Collectors.groupingBy(SetScore::getMatchId));
             for (Match m : matches) {
-                List<SetScore> ss = scoreByMatch.getOrDefault(m.getId(), List.of());
+                List<SetScore> ss = scoresByMatchId.getOrDefault(m.getId(), List.of());
                 int p1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
                 int p2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
-                boolean hasX = ss.stream().anyMatch(x -> Boolean.TRUE.equals(x.getPlayer1IsX()) || Boolean.TRUE.equals(x.getPlayer2IsX()));
-                scoreDisplayByMatchId.put(m.getId(), ss.isEmpty() ? "-" : (hasX ? "X" : (p1 + " : " + p2)));
+                // 局分含 X 时仍显示双方累计总得分（与 PDF/复制文本一致）
+                scoreDisplayByMatchId.put(m.getId(), ss.isEmpty() ? "-" : (p1 + " : " + p2));
             }
             model.addAttribute("scoreDisplayByMatchId", scoreDisplayByMatchId);
 
@@ -1177,14 +1304,8 @@ public class TournamentController {
                         .filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()))
                         .filter(m -> Objects.equals(m.getGroupId(), g.getId()))
                         .sorted(Comparator.comparing(Match::getRound, Comparator.nullsLast(Comparator.naturalOrder())))
-                        .map(m -> {
-                            Map<String, Object> card = new HashMap<>();
-                            card.put("match", m);
-                            card.put("player1Name", usernameById.getOrDefault(m.getPlayer1Id(), "待定"));
-                            card.put("player2Name", usernameById.getOrDefault(m.getPlayer2Id(), "待定"));
-                            card.put("score", scoreDisplayByMatchId.getOrDefault(m.getId(), "-"));
-                            return card;
-                        }).toList();
+                        .map(m -> buildMatchCardForDetail(m, usernameById, scoresByMatchId, scoreDisplayByMatchId))
+                        .toList();
                 groupMatchCards.put(g.getId(), cards);
             }
             model.addAttribute("groupMatchCards", groupMatchCards);
@@ -1198,7 +1319,7 @@ public class TournamentController {
                 memberIdsByGroup.put(e.getKey(), uids);
             }
             Map<Long, List<Map<String, Object>>> groupRankingByGroupId = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                    groups, memberIdsByGroup, usernameById, matches, scoreByMatch, competitionConfig);
+                    groups, memberIdsByGroup, usernameById, matches, scoresByMatchId, competitionConfig);
             model.addAttribute("groupRankingByGroupId", groupRankingByGroupId);
             List<Map<String, Object>> groupOverallRanking = groupRankingCalculator.buildOverallRanking(groupRankingByGroupId);
             Map<Long, Integer> overallRankByUserId = groupOverallRanking.stream()
@@ -1211,15 +1332,225 @@ public class TournamentController {
                 }
             }
             model.addAttribute("groupOverallRanking", groupOverallRanking);
+            model.addAttribute("tournamentDrawMemberCount", drawManagementService.countGroupMembers(id));
+            User drawViewer = getCurrentUser();
+            model.addAttribute("canManageTournamentDraw",
+                    drawViewer != null && tournamentDrawAuthHelper.canManageDraw(drawViewer, id));
         } else {
             model.addAttribute("competitionGroups", List.of());
             model.addAttribute("groupMembersByGroupId", Map.of());
+            model.addAttribute("groupMemberImportTextByGroupId", Map.of());
+            model.addAttribute("allUsersForGroupPick", List.of());
+            model.addAttribute("groupMemberSlotIndexes", List.of());
             model.addAttribute("groupMatchCards", Map.of());
             model.addAttribute("groupRankingByGroupId", Map.of());
             model.addAttribute("groupOverallRanking", List.of());
+            model.addAttribute("tournamentDrawMemberCount", null);
+            model.addAttribute("canManageTournamentDraw", false);
         }
-        
+
+        if (!model.containsAttribute("scoreDisplayByMatchId")) {
+            model.addAttribute("scoreDisplayByMatchId", buildScoreDisplayByMatchId(matches));
+        }
+        @SuppressWarnings("unchecked")
+        Map<Long, String> scoreDisplayMap = (Map<Long, String>) model.asMap().get("scoreDisplayByMatchId");
+        Map<Long, String> unameById = userService.list().stream()
+                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        TreeMap<Integer, List<Map<String, Object>>> knockoutCardsByRound = new TreeMap<>();
+        TreeMap<Integer, List<Map<String, Object>>> qualifierCardsByRound = new TreeMap<>();
+        for (Match m : matches) {
+            String pc = m.getPhaseCode();
+            if (pc != null && "GROUP".equalsIgnoreCase(pc)) {
+                continue;
+            }
+            if (pc != null && "QUALIFIER".equalsIgnoreCase(pc)) {
+                int qr = m.getQualifierRound() != null ? m.getQualifierRound() : (m.getRound() != null ? m.getRound() : 0);
+                Map<String, Object> card = buildMatchCardForDetail(m, unameById, scoresByMatchId, scoreDisplayMap);
+                qualifierCardsByRound.computeIfAbsent(qr, k -> new ArrayList<>()).add(card);
+                continue;
+            }
+            int r = m.getRound() == null ? 0 : m.getRound();
+            Map<String, Object> card = buildMatchCardForDetail(m, unameById, scoresByMatchId, scoreDisplayMap);
+            knockoutCardsByRound.computeIfAbsent(r, k -> new ArrayList<>()).add(card);
+        }
+        List<Map<String, Object>> knockoutMatchCards = knockoutCardsByRound.values().stream()
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList());
+        model.addAttribute("knockoutMatchCards", knockoutMatchCards);
+        model.addAttribute("qualifierCardsByRound", qualifierCardsByRound);
+        Integer kq = competitionConfig != null ? competitionConfig.getKnockoutQualifyCount() : null;
+        boolean showQualifierMatchTab = competitionConfig != null
+                && Objects.equals(competitionConfig.getEntryMode(), 1)
+                && kq != null && kq > 0;
+        model.addAttribute("showQualifierMatchTab", showQualifierMatchTab);
+
+        @SuppressWarnings("unchecked")
+        List<TournamentGroup> groupsForMatchTabs = (List<TournamentGroup>) model.asMap().get("competitionGroups");
+        if (groupsForMatchTabs == null) {
+            groupsForMatchTabs = List.of();
+        }
+        List<Map<String, Object>> competitionMatchTabs = new ArrayList<>();
+        boolean matchTabFirst = true;
+        @SuppressWarnings("unchecked")
+        Map<Long, List<Map<String, Object>>> groupCardsForTabs =
+                (Map<Long, List<Map<String, Object>>>) model.asMap().get("groupMatchCards");
+        if (groupCardsForTabs == null) {
+            groupCardsForTabs = Map.of();
+        }
+        for (TournamentGroup g : groupsForMatchTabs) {
+            Map<String, Object> t = new LinkedHashMap<>();
+            t.put("kind", "GROUP");
+            t.put("tabId", "match-tab-group-" + g.getId());
+            t.put("label", g.getGroupName());
+            t.put("group", g);
+            int completedNz = (int) groupCardsForTabs.getOrDefault(g.getId(), List.of()).stream()
+                    .filter(c -> Boolean.TRUE.equals(c.get("completedNonZero")))
+                    .count();
+            t.put("nonZeroMatchCount", completedNz);
+            t.put("active", matchTabFirst);
+            matchTabFirst = false;
+            competitionMatchTabs.add(t);
+        }
+        if (showQualifierMatchTab) {
+            List<Integer> qRounds = new ArrayList<>(qualifierCardsByRound.keySet());
+            Collections.sort(qRounds);
+            if (qRounds.isEmpty()) {
+                qRounds.add(1);
+            }
+            int latestQ = qualifierCardsByRound.isEmpty() ? 1 : qRounds.get(qRounds.size() - 1);
+            for (Integer qr : qRounds) {
+                List<Map<String, Object>> qCards = qualifierCardsByRound.getOrDefault(qr, List.of());
+                Map<String, Object> t = new LinkedHashMap<>();
+                t.put("kind", "QUALIFIER");
+                t.put("tabId", "match-tab-qualifier-" + qr);
+                t.put("label", qualifierCardsByRound.isEmpty() && qr == 1
+                        ? "资格赛"
+                        : ("资格赛 第" + qr + "轮"));
+                t.put("qualifierRound", qr);
+                t.put("qualifierCards", qCards);
+                t.put("qualifierLatestRound", latestQ);
+                t.put("qualifierInProgress", qCards.stream().anyMatch(c -> {
+                    Match mm = (Match) c.get("match");
+                    return mm != null && mm.getStatus() != null && mm.getStatus() == 1;
+                }));
+                t.put("active", matchTabFirst);
+                matchTabFirst = false;
+                competitionMatchTabs.add(t);
+            }
+        }
+        Integer configuredKoStartRound = competitionConfig != null ? competitionConfig.getKnockoutStartRound() : null;
+        List<Integer> orderedKoRounds = new ArrayList<>(knockoutCardsByRound.keySet());
+        orderedKoRounds.sort(Comparator.reverseOrder());
+        if (configuredKoStartRound != null && orderedKoRounds.contains(configuredKoStartRound)) {
+            orderedKoRounds.remove(configuredKoStartRound);
+            orderedKoRounds.add(0, configuredKoStartRound);
+        }
+        for (Integer koRound : orderedKoRounds) {
+            List<Map<String, Object>> koCards = knockoutCardsByRound.getOrDefault(koRound, List.of());
+            Map<String, Object> t = new LinkedHashMap<>();
+            t.put("kind", "KO");
+            t.put("tabId", "match-tab-ko-" + koRound);
+            t.put("label", "淘汰赛 " + knockoutRoundLabel(koRound));
+            t.put("round", koRound);
+            t.put("koCards", koCards);
+            t.put("active", matchTabFirst);
+            matchTabFirst = false;
+            competitionMatchTabs.add(t);
+        }
+        model.addAttribute("competitionMatchTabs", competitionMatchTabs);
+
         return "tournament-detail";
+    }
+
+    /**
+     * 为赛事详情/批量局数等页面的 matchInfo 附加 scoreCard（与「比赛」板块小组赛/淘汰赛卡片同一套数据）。
+     */
+    private void attachScoreCardsToMatchInfoList(List<Map<String, Object>> matchInfoList,
+            Map<Long, List<SetScore>> scoresByMatchId) {
+        if (matchInfoList == null || matchInfoList.isEmpty()) {
+            return;
+        }
+        Map<Long, String> usernameById = userService.list().stream()
+                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        Map<Long, String> scoreDisplayAll = new HashMap<>();
+        for (Map<String, Object> mi : matchInfoList) {
+            Match m = (Match) mi.get("match");
+            if (m == null || m.getId() == null) {
+                continue;
+            }
+            List<SetScore> ss = scoresByMatchId.getOrDefault(m.getId(), List.of());
+            int p1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
+            int p2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
+            scoreDisplayAll.put(m.getId(), ss.isEmpty() ? "-" : (p1 + " : " + p2));
+        }
+        for (Map<String, Object> mi : matchInfoList) {
+            Match m = (Match) mi.get("match");
+            if (m == null) {
+                continue;
+            }
+            mi.put("scoreCard", buildMatchCardForDetail(m, usernameById, scoresByMatchId, scoreDisplayAll));
+        }
+    }
+
+    /**
+     * 赛事详情「比赛」卡片：总比分、是否已录入（非 0:0）、胜负/平局样式用 outcome。
+     */
+    private Map<String, Object> buildMatchCardForDetail(Match m, Map<Long, String> usernameById,
+            Map<Long, List<SetScore>> scoreByMatch, Map<Long, String> scoreDisplayMap) {
+        List<SetScore> ss = scoreByMatch != null ? scoreByMatch.getOrDefault(m.getId(), List.of()) : List.of();
+        int p1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
+        int p2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
+        boolean completedNonZero = !ss.isEmpty() && !(p1 == 0 && p2 == 0);
+        String outcome;
+        if (!completedNonZero) {
+            outcome = "pending";
+        } else if (p1 > p2) {
+            outcome = "p1win";
+        } else if (p2 > p1) {
+            outcome = "p2win";
+        } else {
+            outcome = "draw";
+        }
+        Map<String, Object> card = new HashMap<>();
+        card.put("match", m);
+        card.put("player1Name", usernameById.getOrDefault(m.getPlayer1Id(), "待定"));
+        card.put("player2Name", usernameById.getOrDefault(m.getPlayer2Id(), "待定"));
+        String disp = scoreDisplayMap != null ? scoreDisplayMap.getOrDefault(m.getId(), "-") : (ss.isEmpty() ? "-" : (p1 + " : " + p2));
+        card.put("score", disp);
+        card.put("player1Total", p1);
+        card.put("player2Total", p2);
+        card.put("completedNonZero", completedNonZero);
+        card.put("outcome", outcome);
+        return card;
+    }
+
+    private Map<Long, String> buildScoreDisplayByMatchId(List<Match> matches) {
+        List<Long> matchIds = matches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+        if (matchIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        List<SetScore> allScores = setScoreService.lambdaQuery()
+                .in(SetScore::getMatchId, matchIds)
+                .list();
+        Map<Long, List<SetScore>> scoreByMatch = allScores.stream().collect(Collectors.groupingBy(SetScore::getMatchId));
+        Map<Long, String> out = new HashMap<>();
+        for (Match m : matches) {
+            List<SetScore> ss = scoreByMatch.getOrDefault(m.getId(), List.of());
+            int p1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
+            int p2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
+            out.put(m.getId(), ss.isEmpty() ? "-" : (p1 + " : " + p2));
+        }
+        return out;
+    }
+
+    private String knockoutRoundLabel(Integer v) {
+        if (v == null) return "第 ? 轮";
+        if (v == 16) return "1/16决赛";
+        if (v == 8) return "1/8决赛";
+        if (v == 4) return "1/4决赛";
+        if (v == 2) return "半决赛";
+        if (v == 1) return "奖牌赛（金/铜）";
+        return "第 " + v + " 轮";
     }
 
     private String buildSeriesDisplayName(Series series) {
@@ -1236,6 +1567,12 @@ public class TournamentController {
         int displayIdx = (int) (series.getSequence() - namedCount);
         if (displayIdx < 1) displayIdx = 1;
         return "第" + displayIdx + "系列";
+    }
+
+    private static boolean isTestSeries(Series series) {
+        if (series == null) return false;
+        String name = series.getName();
+        return name != null && name.contains("测试");
     }
 
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
@@ -1284,6 +1621,8 @@ public class TournamentController {
             int participantCount = parsedNames.size();
             int rank = 1;
             Set<Long> savedUserIds = new HashSet<>();
+            int rankingRowsSaved = 0;
+            int skippedNotOnRoster = 0;
             for (String username : parsedNames) {
                 String name = username == null ? "" : username.trim();
                 int points = calculatePoints(rank, participantCount, basePoints, ratio);
@@ -1295,6 +1634,7 @@ public class TournamentController {
                     utp.setTournamentId(tournamentId);
                     utp.setPoints(points);
                     userTournamentPointsService.save(utp);
+                    rankingRowsSaved++;
                     rank++;
                     continue;
                 }
@@ -1303,17 +1643,27 @@ public class TournamentController {
                 if (user != null) {
                     // 同一用户重复录入时，跳过重复以避免唯一索引冲突（保留第一次出现的更高名次）
                     if (savedUserIds.add(user.getId())) {
+                        if (tournamentRankingRosterService.shouldOmitUserFromManualRankingSave(tournamentId, user.getId())) {
+                            skippedNotOnRoster++;
+                            rank++;
+                            continue;
+                        }
                         UserTournamentPoints utp = new UserTournamentPoints();
                         utp.setUserId(user.getId());
                         utp.setTournamentId(tournamentId);
                         utp.setPoints(points);
                         userTournamentPointsService.save(utp);
+                        rankingRowsSaved++;
                     }
                 }
                 rank++;
             }
-            
-            redirectAttributes.addFlashAttribute("success", "排名录入成功，共录入 " + parsedNames.size() + " 名选手");
+
+            String okMsg = "排名录入成功，共写入 " + rankingRowsSaved + " 条积分记录（解析 " + parsedNames.size() + " 行）";
+            if (skippedNotOnRoster > 0) {
+                okMsg += "；已跳过 " + skippedNotOnRoster + " 名不在正赛/资格赛晋级名单中的选手";
+            }
+            redirectAttributes.addFlashAttribute("success", okMsg);
         } catch (IllegalArgumentException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
         } catch (Exception e) {
@@ -1593,6 +1943,11 @@ public class TournamentController {
                 .orderByAsc(Match::getRound)
                 .list();
 
+        List<Long> batchMids = matches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<SetScore>> scoresByMatchId = batchMids.isEmpty() ? new HashMap<>()
+                : setScoreService.lambdaQuery().in(SetScore::getMatchId, batchMids).list().stream()
+                .collect(Collectors.groupingBy(SetScore::getMatchId, LinkedHashMap::new, Collectors.toList()));
+
         List<Map<String, Object>> matchInfoList = new ArrayList<>();
         for (Match m : matches) {
             Map<String, Object> matchInfo = new HashMap<>();
@@ -1611,6 +1966,7 @@ public class TournamentController {
 
             matchInfoList.add(matchInfo);
         }
+        attachScoreCardsToMatchInfoList(matchInfoList, scoresByMatchId);
 
         model.addAttribute("tournament", tournament);
         model.addAttribute("matchInfoList", matchInfoList);
