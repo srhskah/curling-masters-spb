@@ -11,6 +11,7 @@
         th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: center; }
         th { background: #f3f3f3; }
         .muted { color: #666; }
+        .cell-matches-full { background-color: rgba(25, 135, 84, 0.16); font-weight: 600; }
     </style>
 </head>
 <body>
@@ -23,15 +24,17 @@
 </div>
 <table>
     <thead>
-    <tr><th>总排</th><th>组内</th><th>分组</th><th>选手</th><th>积分</th><th>净胜分</th><th>总得分</th><th>胜</th><th>平</th><th>负</th><th>≥2局数总和</th><th>单局最高</th><th>偷分次数</th><th>偷分单次最高</th></tr>
+    <tr><th>总排</th><th>组内</th><th>分组</th><th>选手</th><th>已赛/应赛</th><th>积分</th><th>净胜分</th><th>总得分</th><th>胜</th><th>平</th><th>负</th><th>≥2局数总和</th><th>单局最高</th><th>偷分次数</th><th>偷分单次最高</th></tr>
     </thead>
     <tbody>
     <tr th:each="r : ${rows}">
         <td th:text="${r.overallRank}">1</td><td th:text="${r.groupRank}">1</td><td th:text="${r.groupName}">A组</td><td th:text="${r.username}">选手</td>
+        <td th:classappend="${r.expectedGroupMatches != null and r.expectedGroupMatches > 0 and r.played != null and r.played == r.expectedGroupMatches} ? ' cell-matches-full'"
+            th:text="|${r.played != null ? r.played : 0}/${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}|">0/0</td>
         <td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td><td th:text="${r.wins}">0</td><td th:text="${r.draws}">0</td><td th:text="${r.losses}">0</td>
         <td th:text="${r.matchGe2Count}">0</td><td th:text="${r.matchMaxScore}">0</td><td th:text="${r.stealCount}">0</td><td th:text="${r.stealMax}">0</td>
     </tr>
-    <tr th:if="${rows == null or #lists.isEmpty(rows)}"><td colspan="14" class="muted">暂无数据</td></tr>
+    <tr th:if="${rows == null or #lists.isEmpty(rows)}"><td colspan="15" class="muted">暂无数据</td></tr>
     </tbody>
 </table>
 </body>

@@ -2,10 +2,8 @@ package com.example.controller;
 
 import com.example.service.TournamentRegistrationExportAssembler;
 import com.example.service.impl.RankingExportPdfService;
+import com.example.util.PdfExportSupport;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,12 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -33,6 +26,8 @@ public class TournamentRegistrationPdfController {
     private RankingExportPdfService rankingExportPdfService;
     @Autowired
     private TournamentRegistrationExportAssembler tournamentRegistrationExportAssembler;
+    @Autowired
+    private RankingApiController rankingApiController;
 
     @GetMapping(value = "/{id}/export/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportPdf(@PathVariable Long id) {
@@ -41,39 +36,23 @@ public class TournamentRegistrationPdfController {
             return ResponseEntity.notFound().build();
         }
         Map<String, Object> model = new LinkedHashMap<>();
-        Object level = data.get("levelCode");
-        Object tid = data.get("tournamentId");
-        model.put("title", data.get("documentTitle") + " · " + level + " · ID " + tid);
-        model.put("logoDataUri", buildLogoDataUri());
-        model.put("exportedAt", nowExportedAt());
+        String tournamentEditionTitle = buildTournamentEditionTitle(id);
+        model.put("title", tournamentEditionTitle + "-报名接龙");
         model.putAll(data);
+        PdfExportSupport.addStandardPdfHeaderFields(model);
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-registration", model);
-        String levelSafe = level != null ? level.toString().replaceAll("[^a-zA-Z0-9\\-_]", "_") : "tournament";
-        return toPdfResponse(pdfBytes, "报名接龙-" + levelSafe + "-" + id + ".pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, tournamentEditionTitle + "-报名接龙.pdf");
     }
 
-    private static String nowExportedAt() {
-        ZonedDateTime zdt = ZonedDateTime.now(ZoneId.of("Asia/Shanghai"));
-        return zdt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-    }
-
-    private static String buildLogoDataUri() {
+    private String buildTournamentEditionTitle(Long tournamentId) {
+        Map<String, Object> data = rankingApiController.getTournamentRanking(tournamentId);
+        String seasonLabel = data.get("seasonLabel") != null ? data.get("seasonLabel").toString() : "赛季";
+        String levelName = data.get("levelName") != null ? data.get("levelName").toString() : "赛事等级";
+        Integer edition = null;
         try {
-            ClassPathResource r = new ClassPathResource("static/images/Logo Trsp Stripe.png");
-            byte[] bytes = r.getInputStream().readAllBytes();
-            String b64 = Base64.getEncoder().encodeToString(bytes);
-            return "data:image/png;base64," + b64;
-        } catch (Exception e) {
-            return null;
+            edition = data.get("edition") instanceof Number ? ((Number) data.get("edition")).intValue() : null;
+        } catch (Exception ignored) {
         }
-    }
-
-    private static ResponseEntity<byte[]> toPdfResponse(byte[] pdfBytes, String filename) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDisposition(ContentDisposition.attachment()
-                .filename(filename, StandardCharsets.UTF_8)
-                .build());
-        return ResponseEntity.ok().headers(headers).body(pdfBytes);
+        return seasonLabel + "-" + levelName + "-" + (edition == null ? "?" : edition);
     }
 }

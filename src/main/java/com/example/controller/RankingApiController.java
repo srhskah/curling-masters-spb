@@ -33,6 +33,7 @@ public class RankingApiController {
     @Autowired private TournamentGroupMapper tournamentGroupMapper;
     @Autowired private TournamentGroupMemberMapper tournamentGroupMemberMapper;
     @Autowired private ITournamentCompetitionService tournamentCompetitionService;
+    @Autowired private com.example.service.impl.TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired private GroupRankingCalculator groupRankingCalculator;
 
     @GetMapping("/total")
@@ -52,6 +53,62 @@ public class RankingApiController {
         Integer parsedLimit = parseLimit(limit);
         List<RankingEntry> entries = rankingService.getSeasonRanking(seasonId, parsedLimit);
         return toRankedList(entries);
+    }
+
+    /**
+     * 开发者公开接口：实时总排名（支持 topN）。
+     * - 仅接受整数 topN，范围 1~200（默认 24）
+     * - 通过 MyBatis 参数绑定查询，避免 SQL 注入
+     */
+    @GetMapping("/public/total")
+    public Map<String, Object> getPublicTotalRanking(
+            @RequestParam(required = false) Integer topN
+    ) {
+        int top = sanitizeTopN(topN);
+        List<RankingEntry> entries = rankingService.getTotalRanking(top);
+        return Map.of(
+                "scope", "total",
+                "topN", top,
+                "generatedAt", String.valueOf(java.time.OffsetDateTime.now()),
+                "rankings", toRankedList(entries)
+        );
+    }
+
+    /**
+     * 开发者公开接口：实时当前赛季排名（支持 topN）。
+     * - 当前赛季定义：year/half 倒序第一条
+     * - 仅接受整数 topN，范围 1~200（默认 24）
+     */
+    @GetMapping("/public/current-season")
+    public Map<String, Object> getPublicCurrentSeasonRanking(
+            @RequestParam(required = false) Integer topN
+    ) {
+        int top = sanitizeTopN(topN);
+        Season currentSeason = seasonService.lambdaQuery()
+                .orderByDesc(Season::getYear)
+                .orderByDesc(Season::getHalf)
+                .last("LIMIT 1")
+                .one();
+        if (currentSeason == null || currentSeason.getId() == null) {
+            return Map.of(
+                    "scope", "current-season",
+                    "topN", top,
+                    "seasonId", null,
+                    "seasonLabel", "",
+                    "generatedAt", String.valueOf(java.time.OffsetDateTime.now()),
+                    "rankings", List.of()
+            );
+        }
+        String seasonLabel = currentSeason.getYear() + "年" + (Objects.equals(currentSeason.getHalf(), 1) ? "上半年" : "下半年");
+        List<RankingEntry> entries = rankingService.getSeasonRanking(currentSeason.getId(), top);
+        return Map.of(
+                "scope", "current-season",
+                "topN", top,
+                "seasonId", currentSeason.getId(),
+                "seasonLabel", seasonLabel,
+                "generatedAt", String.valueOf(java.time.OffsetDateTime.now()),
+                "rankings", toRankedList(entries)
+        );
     }
 
     /**
@@ -92,10 +149,11 @@ public class RankingApiController {
                 tournamentLabel = tournamentLabel + " 第" + edition + "届";
             }
 
-            List<UserTournamentPoints> utps = userTournamentPointsService.lambdaQuery()
-                    .eq(UserTournamentPoints::getTournamentId, t.getId())
-                    .orderByDesc(UserTournamentPoints::getPoints)
-                    .list();
+            List<UserTournamentPoints> utps = tournamentRankingRosterService.filterUtpsForDisplay(t.getId(),
+                    userTournamentPointsService.lambdaQuery()
+                            .eq(UserTournamentPoints::getTournamentId, t.getId())
+                            .orderByDesc(UserTournamentPoints::getPoints)
+                            .list());
 
             List<TournamentRankingItemDto> rankings = new ArrayList<>();
             for (int i = 0; i < utps.size(); i++) {
@@ -250,10 +308,11 @@ public class RankingApiController {
         for (Tournament t : tournaments) {
             if (t.getId() == null) continue;
 
-            List<UserTournamentPoints> utps = userTournamentPointsService.lambdaQuery()
-                    .eq(UserTournamentPoints::getTournamentId, t.getId())
-                    .orderByDesc(UserTournamentPoints::getPoints)
-                    .list();
+            List<UserTournamentPoints> utps = tournamentRankingRosterService.filterUtpsForDisplay(t.getId(),
+                    userTournamentPointsService.lambdaQuery()
+                            .eq(UserTournamentPoints::getTournamentId, t.getId())
+                            .orderByDesc(UserTournamentPoints::getPoints)
+                            .list());
 
             for (int i = 0; i < utps.size(); i++) {
                 UserTournamentPoints utp = utps.get(i);
@@ -390,6 +449,7 @@ public class RankingApiController {
                     .eq(Series::getSeasonId, season.getId())
                     .list()
                     .stream()
+                    .filter(s -> !isTestSeries(s))
                     .map(Series::getId)
                     .filter(Objects::nonNull)
                     .toList();
@@ -410,10 +470,11 @@ public class RankingApiController {
             }
         }
 
-        List<UserTournamentPoints> utps = userTournamentPointsService.lambdaQuery()
-                .eq(UserTournamentPoints::getTournamentId, tournamentId)
-                .orderByDesc(UserTournamentPoints::getPoints)
-                .list();
+        List<UserTournamentPoints> utps = tournamentRankingRosterService.filterUtpsForDisplay(tournamentId,
+                userTournamentPointsService.lambdaQuery()
+                        .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                        .orderByDesc(UserTournamentPoints::getPoints)
+                        .list());
 
         List<TournamentRankingItemDto> rankings = new ArrayList<>();
         for (int i = 0; i < utps.size(); i++) {
@@ -464,8 +525,7 @@ public class RankingApiController {
             List<SetScore> setScores = scoresByMatch.getOrDefault(m.getId(), List.of());
             int total1 = setScores.stream().mapToInt(s -> s.getPlayer1Score() == null ? 0 : s.getPlayer1Score()).sum();
             int total2 = setScores.stream().mapToInt(s -> s.getPlayer2Score() == null ? 0 : s.getPlayer2Score()).sum();
-            boolean hasX = setScores.stream().anyMatch(s -> Boolean.TRUE.equals(s.getPlayer1IsX()) || Boolean.TRUE.equals(s.getPlayer2IsX()));
-            String totalText = hasX ? "X" : (total1 + ":" + total2);
+            String totalText = total1 + ":" + total2;
             List<Map<String, Object>> sets = new ArrayList<>();
             for (SetScore s : setScores) {
                 String hammerName = "未设置";
@@ -587,15 +647,66 @@ public class RankingApiController {
                 if (tie.size() < 3) continue;
                 Set<Long> tieIds = tie.stream().map(r -> (Long) r.get("userId")).filter(Objects::nonNull).collect(Collectors.toSet());
                 List<Match> tieMatches = gm.stream().filter(m -> tieIds.contains(m.getPlayer1Id()) && tieIds.contains(m.getPlayer2Id())).toList();
-                Map<Long, List<Long>> pseudoMember = Map.of(-1L, new ArrayList<>(tieIds));
+                // 同分选手之间若尚未产生任何小组赛对阵（例如同分人数不足一组且都未交手），不算伪小组
+                if (tieMatches.isEmpty()) {
+                    continue;
+                }
+                String rawGroupName = g.getGroupName() == null ? "-" : g.getGroupName();
+                String baseGroupName = rawGroupName.endsWith("组") ? rawGroupName.substring(0, rawGroupName.length() - 1) : rawGroupName;
+                String pseudoGroupName = baseGroupName + "'组";
+
+                // 关键修复：伪小组必须沿用“真实 groupId”，否则 GroupRankingCalculator 内部会按 groupId 过滤匹配集合，导致伪小组统计为 0。
+                Map<Long, List<Long>> pseudoMember = Map.of(g.getId(), new ArrayList<>(tieIds));
                 List<TournamentGroup> pseudoGroup = List.of(new TournamentGroup());
-                pseudoGroup.get(0).setId(-1L);
-                pseudoGroup.get(0).setGroupName(g.getGroupName() + "'组");
+                pseudoGroup.get(0).setId(g.getId());
+                pseudoGroup.get(0).setGroupName(pseudoGroupName);
+
                 List<Map<String, Object>> pseudoRanking = groupRankingCalculator.buildGroupRankingsByMemberIds(
                         pseudoGroup, pseudoMember, uname, tieMatches, setByMatch, allowDraw, regularSets
-                ).getOrDefault(-1L, List.of());
+                ).getOrDefault(g.getId(), List.of());
+
+                // 连环套：同分选手在“相互对阵集合”内的胜平负都一致时，忽略胜负/直接对战打破并列，
+                // 而按业务优先级（净胜分→总得分→≥2局数总和→单局最高→偷分次数→偷分最高）重排。
+                boolean chainTie = pseudoRanking.size() >= 3;
+                if (chainTie) {
+                    int w0 = (int) pseudoRanking.get(0).getOrDefault("wins", 0);
+                    int d0 = (int) pseudoRanking.get(0).getOrDefault("draws", 0);
+                    int l0 = (int) pseudoRanking.get(0).getOrDefault("losses", 0);
+                    for (Map<String, Object> row : pseudoRanking) {
+                        int w = (int) row.getOrDefault("wins", 0);
+                        int d = (int) row.getOrDefault("draws", 0);
+                        int l = (int) row.getOrDefault("losses", 0);
+                        if (w != w0 || d != d0 || l != l0) {
+                            chainTie = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (chainTie) {
+                    List<Map<String, Object>> reordered = new ArrayList<>(pseudoRanking);
+                    reordered.sort((aa, bb) -> {
+                        int an = (int) aa.getOrDefault("net", 0), bn = (int) bb.getOrDefault("net", 0);
+                        if (an != bn) return Integer.compare(bn, an);
+                        int at = (int) aa.getOrDefault("totalScore", 0), bt = (int) bb.getOrDefault("totalScore", 0);
+                        if (at != bt) return Integer.compare(bt, at);
+                        int a2 = (int) aa.getOrDefault("matchGe2Count", 0), b2 = (int) bb.getOrDefault("matchGe2Count", 0);
+                        if (a2 != b2) return Integer.compare(b2, a2);
+                        int am = (int) aa.getOrDefault("matchMaxScore", 0), bm = (int) bb.getOrDefault("matchMaxScore", 0);
+                        if (am != bm) return Integer.compare(bm, am);
+                        int as = (int) aa.getOrDefault("stealCount", 0), bs = (int) bb.getOrDefault("stealCount", 0);
+                        if (as != bs) return Integer.compare(bs, as);
+                        int ax = (int) aa.getOrDefault("stealMax", 0), bx = (int) bb.getOrDefault("stealMax", 0);
+                        if (ax != bx) return Integer.compare(bx, ax);
+                        return String.valueOf(aa.getOrDefault("username", "")).compareTo(String.valueOf(bb.getOrDefault("username", "")));
+                    });
+                    for (int i = 0; i < reordered.size(); i++) {
+                        reordered.get(i).put("groupRank", i + 1);
+                    }
+                    pseudoRanking = reordered;
+                }
                 Map<String, Object> pg = new LinkedHashMap<>();
-                pg.put("groupName", g.getGroupName() + "'组");
+                pg.put("groupName", pseudoGroupName);
                 pg.put("fromGroup", g.getGroupName());
                 pg.put("points", e.getKey());
                 pg.put("ranking", pseudoRanking);
@@ -617,7 +728,6 @@ public class RankingApiController {
             List<SetScore> ss = setByMatch.getOrDefault(m.getId(), List.of());
             int t1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
             int t2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
-            boolean hasX = ss.stream().anyMatch(x -> Boolean.TRUE.equals(x.getPlayer1IsX()) || Boolean.TRUE.equals(x.getPlayer2IsX()));
             List<MatchAcceptance> ac = acceptByMatch.getOrDefault(m.getId(), List.of());
             String acceptedAt = ac.isEmpty() ? "-" : String.valueOf(ac.get(ac.size() - 1).getAcceptedAt());
             Map<String, Object> row = new LinkedHashMap<>();
@@ -626,7 +736,7 @@ public class RankingApiController {
             row.put("category", m.getCategory() == null ? "-" : m.getCategory());
             row.put("player1Name", uname.getOrDefault(m.getPlayer1Id(), "待定"));
             row.put("player2Name", uname.getOrDefault(m.getPlayer2Id(), "待定"));
-            row.put("score", hasX ? "X" : (t1 + ":" + t2));
+            row.put("score", t1 + ":" + t2);
             row.put("acceptedAt", acceptedAt);
             return row;
         }).toList();
@@ -911,6 +1021,12 @@ public class RankingApiController {
         }
     }
 
+    private static int sanitizeTopN(Integer topN) {
+        int v = (topN == null) ? 24 : topN;
+        if (v < 1) return 1;
+        return Math.min(v, 200);
+    }
+
     private List<RankingListEntryDto> toRankedList(List<RankingEntry> entries) {
         if (entries == null || entries.isEmpty()) return List.of();
 
@@ -961,6 +1077,7 @@ public class RankingApiController {
                 .eq(Series::getSeasonId, seasonId)
                 .list()
                 .stream()
+                .filter(s -> !isTestSeries(s))
                 .map(Series::getId)
                 .filter(Objects::nonNull)
                 .toList();
@@ -984,6 +1101,12 @@ public class RankingApiController {
         }
 
         return editionByTournamentId;
+    }
+
+    private static boolean isTestSeries(Series series) {
+        if (series == null) return false;
+        String name = series.getName();
+        return name != null && name.contains("测试");
     }
 
     private static Long toLong(Object v) {

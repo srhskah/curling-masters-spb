@@ -129,20 +129,20 @@
                         <div class="table-responsive generic-table-desktop">
                             <table class="table table-hover align-middle">
                                 <thead class="table-light">
-                                <tr>
-                                    <th>ID</th>
-                                    <th>年份</th>
-                                    <th>半年度</th>
-                                    <th>创建时间</th>
+                            <tr>
+                                <th>ID</th>
+                                <th>年份</th>
+                                <th>半年度</th>
+                                <th>创建时间</th>
                                     <th>操作</th>
-                                </tr>
-                                </thead>
-                                <tbody>
+                            </tr>
+                        </thead>
+                        <tbody>
                                 <tr th:each="season : ${seasons}"
                                     th:attr="data-filters=|${season.id} ${season.year} ${season.half == 1 ? '上半年' : '下半年'} ${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy-MM-dd HH:mm') : '-'}|">
-                                    <td th:text="${season.id}"></td>
-                                    <td th:text="${season.year}"></td>
-                                    <td th:text="${season.half == 1 ? '上半年' : '下半年'}"></td>
+                                <td th:text="${season.id}"></td>
+                                <td th:text="${season.year}"></td>
+                                <td th:text="${season.half == 1 ? '上半年' : '下半年'}"></td>
                                     <td th:text="${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy-MM-dd HH:mm') : '-'}"></td>
                                     <td>
                                         <a th:href="@{/season/detail/{id}(id=${season.id})}"
@@ -154,23 +154,26 @@
                                             <i class="bi bi-pencil"></i> 编辑
                                         </a>
                                         <form th:if="${isAdmin}" th:action="@{/season/delete/{id}(id=${season.id})}"
-                                              method="post" style="display: inline;"
-                                              onsubmit="return confirm('确定要删除这个赛季吗？')">
+                                          method="post" style="display: inline;" 
+                                          onsubmit="return confirm('确定要删除这个赛季吗？')">
                                             <button type="submit" class="btn btn-sm btn-outline-danger"
                                                     style="border: 1px #dc3545 solid;">
                                                 <i class="bi bi-trash"></i> 删除
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
                 </div>
             </div>
         </div>
     </div>
+    
+    <!-- 页脚 -->
+    <div th:replace="~{fragments :: footer}"></div>
     
     <th:block th:replace="~{fragments :: scripts}"></th:block>
 

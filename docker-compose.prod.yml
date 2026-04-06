@@ -12,6 +12,7 @@ services:
       - MYSQL_DB_URL=${MYSQL_DB_URL}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - FLYWAY_REPAIR_ON_MIGRATE=true
       # 生产环境JVM参数
       - JAVA_OPTS=-Xmx2g -Xms1g -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/heapdump.hprof
       # 生产环境配置

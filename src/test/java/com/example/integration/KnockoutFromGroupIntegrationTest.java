@@ -1,0 +1,404 @@
+package com.example.integration;
+
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.example.demo.DemoApplication;
+import com.example.entity.*;
+import com.example.mapper.TournamentGroupMapper;
+import com.example.service.*;
+import com.example.service.impl.KnockoutBracketService;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
+import org.testcontainers.containers.MySQLContainer;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@SpringBootTest(classes = DemoApplication.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@ActiveProfiles("draw-it")
+@Transactional
+@Tag("integration")
+class KnockoutFromGroupIntegrationTest {
+
+    private static final AtomicLong NAME_SEQ = new AtomicLong();
+    private static volatile MySQLContainer<?> testcontainersMysql;
+
+    @DynamicPropertySource
+    static void registerDs(DynamicPropertyRegistry registry) {
+        String envUrl = System.getenv("DRAW_IT_JDBC_URL");
+        if (envUrl != null && !envUrl.isBlank()) {
+            String u = firstNonBlank(System.getenv("DRAW_IT_DB_USER"), "root");
+            String p = firstNonBlank(System.getenv("DRAW_IT_DB_PASSWORD"), "");
+            registry.add("spring.datasource.url", () -> envUrl.trim());
+            registry.add("spring.datasource.username", () -> u);
+            registry.add("spring.datasource.password", () -> p);
+            registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
+            return;
+        }
+        MySQLContainer<?> c = testcontainersMysql;
+        if (c == null) {
+            synchronized (KnockoutFromGroupIntegrationTest.class) {
+                c = testcontainersMysql;
+                if (c == null) {
+                    c = new MySQLContainer<>("mysql:8.0.36")
+                            .withDatabaseName("draw_it")
+                            .withUsername("test")
+                            .withPassword("test");
+                    try {
+                        c.start();
+                    } catch (RuntimeException ex) {
+                        throw new IllegalStateException(
+                                "未配置 DRAW_IT_JDBC_URL，且 Testcontainers 无法启动 MySQL。原因: " + ex.getMessage(), ex);
+                    }
+                    testcontainersMysql = c;
+                }
+            }
+        }
+        MySQLContainer<?> container = c;
+        registry.add("spring.datasource.url", container::getJdbcUrl);
+        registry.add("spring.datasource.username", container::getUsername);
+        registry.add("spring.datasource.password", container::getPassword);
+        registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        return (a != null && !a.isBlank()) ? a : (b != null ? b : "");
+    }
+
+    @MockBean
+    private INotificationService notificationService;
+
+    @Autowired private UserService userService;
+    @Autowired private SeasonService seasonService;
+    @Autowired private SeriesService seriesService;
+    @Autowired private ITournamentLevelService tournamentLevelService;
+    @Autowired private TournamentService tournamentService;
+    @Autowired private ITournamentRegistrationService registrationService;
+    @Autowired private ITournamentCompetitionService competitionService;
+    @Autowired private IMatchService matchService;
+    @Autowired private TournamentGroupMapper tournamentGroupMapper;
+    @Autowired private KnockoutBracketService knockoutBracketService;
+
+    private static final List<String> WIN_SCORES = List.of("1", "1", "1", "1", "1", "1", "1", "1");
+    private static final List<String> LOSE_SCORES = List.of("0", "0", "0", "0", "0", "0", "0", "0");
+
+    private String uniq(String prefix) {
+        return prefix + NAME_SEQ.incrementAndGet();
+    }
+
+    private User createHost() {
+        return userService.register(uniq("koh_"), "pw123456", uniq("koh") + "@t.com");
+    }
+
+    private List<User> createPlayers(int n, String pfx) {
+        List<User> list = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            list.add(userService.register(uniq(pfx + "_"), "pw123456", uniq("kp") + i + "@t.com"));
+        }
+        return list;
+    }
+
+    @Test
+    @DisplayName("8人2组：小组赛全验收后生成1/8淘汰赛首轮4场")
+    void generateKnockoutAfterGroupStage() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "ko");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        assertEquals(2, groups.size());
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+
+        List<Match> groupMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "GROUP")
+                .list();
+        assertEquals(12, groupMatches.size());
+
+        for (Match m : groupMatches) {
+            boolean p1Wins = m.getPlayer1Id() != null && m.getPlayer1Id() < m.getPlayer2Id();
+            List<String> s1 = p1Wins ? WIN_SCORES : LOSE_SCORES;
+            List<String> s2 = p1Wins ? LOSE_SCORES : WIN_SCORES;
+            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null);
+            User u1 = userService.getById(m.getPlayer1Id());
+            User u2 = userService.getById(m.getPlayer2Id());
+            competitionService.acceptMatchScore(u1, m.getId(), "it");
+            competitionService.acceptMatchScore(u2, m.getId(), "it");
+        }
+
+        assertTrue(knockoutBracketService.isGroupStageFullyLocked(tid));
+        int n = knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        assertEquals(4, n);
+
+        long ko = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .eq(Match::getRound, 8)
+                .count();
+        assertEquals(4, ko);
+    }
+
+    @Test
+    @DisplayName("8人2组：淘汰赛 1/8→1/4→奖牌赛 自动晋级链")
+    void knockoutProgressesToGoldAndBronze() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "k2");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+
+        for (Match m : matchService.lambdaQuery().eq(Match::getTournamentId, tid).eq(Match::getPhaseCode, "GROUP").list()) {
+            boolean p1Wins = m.getPlayer1Id() != null && m.getPlayer1Id() < m.getPlayer2Id();
+            List<String> s1 = p1Wins ? WIN_SCORES : LOSE_SCORES;
+            List<String> s2 = p1Wins ? LOSE_SCORES : WIN_SCORES;
+            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null);
+            competitionService.acceptMatchScore(userService.getById(m.getPlayer1Id()), m.getId(), "it");
+            competitionService.acceptMatchScore(userService.getById(m.getPlayer2Id()), m.getId(), "it");
+        }
+
+        knockoutBracketService.generateFirstKnockoutRound(host, tid);
+
+        List<Match> r8 = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 8)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(4, r8.size());
+        for (Match m : r8) {
+            acceptKoWithWinner(host, m, true);
+        }
+
+        long r4 = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 4)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .count();
+        assertEquals(2, r4);
+
+        List<Match> semis = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 4)
+                .eq(Match::getPhaseCode, "MAIN")
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        for (Match m : semis) {
+            acceptKoWithWinner(host, m, true);
+        }
+
+        long r1 = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .count();
+        assertEquals(2, r1);
+        assertEquals(1L, matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .eq(Match::getPhaseCode, "FINAL")
+                .count());
+        assertEquals(1L, matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .eq(Match::getPhaseCode, "MAIN")
+                .like(Match::getCategory, "铜")
+                .count());
+    }
+
+    @Test
+    @DisplayName("8人2组：手动排签首轮默认模式0，且记录操作者与来源")
+    void manualFirstRoundDraftAndGenerate() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "k3");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        List<KnockoutBracketService.ManualPairDraft> draft = knockoutBracketService.buildManualFirstRoundDraft(host, tid);
+        assertEquals(4, draft.size());
+        List<KnockoutBracketService.ManualPairInput> picked = draft.stream()
+                .map(x -> new KnockoutBracketService.ManualPairInput(x.defaultPlayer1Id, x.defaultPlayer2Id))
+                .toList();
+
+        int n = knockoutBracketService.generateFirstKnockoutRoundManual(host, tid, picked);
+        assertEquals(4, n);
+
+        List<Match> r8 = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 8)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(4, r8.size());
+        for (Match m : r8) {
+            assertTrue(m.getCategory() != null && m.getCategory().startsWith("[手动排签]"));
+            assertEquals(host.getId(), m.getCreatedByUserId());
+            assertEquals(KnockoutBracketService.SOURCE_MANUAL_KO_EDITOR, m.getCreateSource());
+        }
+    }
+
+    @Test
+    @DisplayName("8人2组：手动排签不允许重复选手")
+    void manualFirstRoundRejectDuplicate() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "k4");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        List<KnockoutBracketService.ManualPairDraft> draft = knockoutBracketService.buildManualFirstRoundDraft(host, tid);
+        List<KnockoutBracketService.ManualPairInput> bad = new ArrayList<>();
+        for (KnockoutBracketService.ManualPairDraft d : draft) {
+            bad.add(new KnockoutBracketService.ManualPairInput(d.defaultPlayer1Id, d.defaultPlayer2Id));
+        }
+        bad.set(1, new KnockoutBracketService.ManualPairInput(draft.get(0).defaultPlayer1Id, draft.get(1).defaultPlayer2Id));
+
+        assertThrows(IllegalStateException.class,
+                () -> knockoutBracketService.generateFirstKnockoutRoundManual(host, tid, bad));
+    }
+
+    /** 正赛/决赛须双方选手 + 办赛方（staff）验收后方可锁定并触发晋级链 */
+    private void acceptKoWithWinner(User host, Match m, boolean player1Wins) {
+        List<String> s1 = player1Wins ? WIN_SCORES : LOSE_SCORES;
+        List<String> s2 = player1Wins ? LOSE_SCORES : WIN_SCORES;
+        competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null);
+        competitionService.acceptMatchScore(userService.getById(m.getPlayer1Id()), m.getId(), "ko-it");
+        competitionService.acceptMatchScore(userService.getById(m.getPlayer2Id()), m.getId(), "ko-it");
+        competitionService.acceptMatchScore(host, m.getId(), "ko-host");
+    }
+
+    private long setupGroupTournament(User host, int participantCount, int groupSize) {
+        TournamentLevel lvl = new TournamentLevel();
+        lvl.setCode(uniq("KLVL"));
+        lvl.setName("KO-IT");
+        lvl.setDefaultChampionRatio(new BigDecimal("10.00"));
+        lvl.setDefaultBottomPoints(1);
+        tournamentLevelService.save(lvl);
+
+        Season season = new Season();
+        season.setYear(2097);
+        season.setHalf(2);
+        seasonService.save(season);
+
+        Series series = new Series();
+        series.setSeasonId(season.getId());
+        series.setSequence(1);
+        series.setName("淘汰赛集成系列");
+        seriesService.save(series);
+
+        Tournament t = new Tournament();
+        t.setSeriesId(series.getId());
+        t.setLevelCode(lvl.getCode());
+        t.setHostUserId(host.getId());
+        t.setChampionPointsRatio(new BigDecimal("10.00"));
+        t.setStatus(0);
+        tournamentService.save(t);
+        long tid = t.getId();
+
+        TournamentRegistrationSetting reg = new TournamentRegistrationSetting();
+        reg.setTournamentId(tid);
+        reg.setEnabled(true);
+        reg.setDeadline(LocalDateTime.now().plusDays(1));
+        reg.setQuotaN(32);
+        reg.setMode(0);
+        registrationService.saveSetting(host, reg);
+
+        TournamentCompetitionConfig cfg = new TournamentCompetitionConfig();
+        cfg.setTournamentId(tid);
+        cfg.setParticipantCount(participantCount);
+        cfg.setEntryMode(0);
+        cfg.setMatchMode(3);
+        cfg.setGroupMode(1);
+        cfg.setGroupSize(groupSize);
+        cfg.setGroupAllowDraw(true);
+        cfg.setGroupStageSets(8);
+        cfg.setKnockoutStageSets(8);
+        cfg.setFinalStageSets(10);
+        cfg.setKnockoutStartRound(8);
+        cfg.setKnockoutBracketMode(0);
+        cfg.setKnockoutAutoFromGroup(false);
+        cfg.setQualifierRound(null);
+        cfg.setGroupStageDeadline(LocalDateTime.now().minusHours(1));
+        competitionService.saveConfig(host, cfg);
+        return tid;
+    }
+
+    private void registerAll(long tournamentId, List<User> players) {
+        LocalDateTime base = LocalDateTime.now();
+        for (int i = 0; i < players.size(); i++) {
+            registrationService.register(tournamentId, players.get(i).getId(), base.plusNanos(i + 1L));
+        }
+    }
+
+    private void closeRegistration(User host, long tournamentId) {
+        TournamentRegistrationSetting patch = new TournamentRegistrationSetting();
+        patch.setTournamentId(tournamentId);
+        patch.setDeadline(LocalDateTime.now().minusDays(1));
+        registrationService.saveSetting(host, patch);
+    }
+
+    private void lockAllGroupMatches(User host, long tournamentId) {
+        for (Match m : matchService.lambdaQuery().eq(Match::getTournamentId, tournamentId).eq(Match::getPhaseCode, "GROUP").list()) {
+            boolean p1Wins = m.getPlayer1Id() != null && m.getPlayer1Id() < m.getPlayer2Id();
+            List<String> s1 = p1Wins ? WIN_SCORES : LOSE_SCORES;
+            List<String> s2 = p1Wins ? LOSE_SCORES : WIN_SCORES;
+            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null);
+            competitionService.acceptMatchScore(userService.getById(m.getPlayer1Id()), m.getId(), "it");
+            competitionService.acceptMatchScore(userService.getById(m.getPlayer2Id()), m.getId(), "it");
+        }
+    }
+}

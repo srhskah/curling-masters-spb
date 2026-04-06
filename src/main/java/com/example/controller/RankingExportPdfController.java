@@ -5,22 +5,15 @@ import com.example.entity.Season;
 import com.example.service.RankingService;
 import com.example.service.SeasonService;
 import com.example.service.impl.RankingExportPdfService;
-import com.example.controller.RankingApiController;
+import com.example.util.PdfExportSupport;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Base64;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/ranking/export/pdf")
@@ -31,6 +24,12 @@ public class RankingExportPdfController {
     @Autowired private RankingExportPdfService rankingExportPdfService;
     @Autowired private RankingApiController rankingApiController;
 
+    private static LinkedHashMap<String, Object> basePdfModel() {
+        LinkedHashMap<String, Object> m = new LinkedHashMap<>();
+        PdfExportSupport.addStandardPdfHeaderFields(m);
+        return m;
+    }
+
     @GetMapping(value = "/total", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportTotalPdf(
             @RequestParam(required = false) String limit
@@ -39,17 +38,12 @@ public class RankingExportPdfController {
         List<RankingEntry> entries = rankingService.getTotalRanking(parsedLimit);
         List<RankingListEntryDto> totalRanking = toRankedList(entries);
 
-        byte[] pdfBytes = rankingExportPdfService.renderPdf(
-                "pdf/pdf-total-ranking",
-                java.util.Map.of(
-                        "title", "总排名",
-                        "logoDataUri", buildLogoDataUri(),
-                        "exportedAt", nowExportedAt(),
-                        "totalRanking", totalRanking
-                )
-        );
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", "总排名");
+        model.put("totalRanking", totalRanking);
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-total-ranking", model);
 
-        return toPdfResponse(pdfBytes, "总排名.pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, "总排名.pdf");
     }
 
     @GetMapping(value = "/season/{seasonId}", produces = MediaType.APPLICATION_PDF_VALUE)
@@ -67,17 +61,12 @@ public class RankingExportPdfController {
                 ? ("赛季 " + seasonId)
                 : (season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年"));
 
-        byte[] pdfBytes = rankingExportPdfService.renderPdf(
-                "pdf/pdf-season-ranking",
-                java.util.Map.of(
-                        "title", seasonLabel + " 赛季排名",
-                        "logoDataUri", buildLogoDataUri(),
-                        "exportedAt", nowExportedAt(),
-                        "seasonRanking", seasonRanking
-                )
-        );
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", seasonLabel + " 赛季排名");
+        model.put("seasonRanking", seasonRanking);
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-season-ranking", model);
 
-        return toPdfResponse(pdfBytes, seasonLabel + "-赛季排名.pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, seasonLabel + "-赛季排名.pdf");
     }
 
     @GetMapping(value = "/multi", produces = MediaType.APPLICATION_PDF_VALUE)
@@ -98,19 +87,14 @@ public class RankingExportPdfController {
 
         SeriesTournamentRankingDto seriesTournamentRanking = rankingApiController.getSeriesTournamentRankings(seriesId);
 
-        byte[] pdfBytes = rankingExportPdfService.renderPdf(
-                "pdf/pdf-multi-ranking",
-                java.util.Map.of(
-                        "title", "排名导出",
-                        "logoDataUri", buildLogoDataUri(),
-                        "exportedAt", nowExportedAt(),
-                        "totalRanking", totalRanking,
-                        "seasonRanking", seasonRanking,
-                        "seriesTournamentRanking", seriesTournamentRanking
-                )
-        );
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", "排名导出");
+        model.put("totalRanking", totalRanking);
+        model.put("seasonRanking", seasonRanking);
+        model.put("seriesTournamentRanking", seriesTournamentRanking);
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-multi-ranking", model);
 
-        return toPdfResponse(pdfBytes, "排名-多合一.pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, "排名-多合一.pdf");
     }
 
     /**
@@ -124,38 +108,17 @@ public class RankingExportPdfController {
         String seriesName = summary.get("seriesName") != null ? summary.get("seriesName").toString() : "";
         String seriesLabel = summary.get("seriesLabel") != null ? summary.get("seriesLabel").toString() : "";
 
-        byte[] pdfBytes = rankingExportPdfService.renderPdf(
-                "pdf/pdf-series-summary",
-                java.util.Map.of(
-                        "title", "系列积分汇总 - " + seriesLabel,
-                        "logoDataUri", buildLogoDataUri(),
-                        "exportedAt", nowExportedAt(),
-                        "showFinalRank", summary.get("showFinalRank"),
-                        "columns", summary.get("columns"),
-                        "rows", summary.get("rows")
-                )
-        );
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", "系列积分汇总 - " + seriesLabel);
+        model.put("showFinalRank", summary.get("showFinalRank"));
+        model.put("columns", summary.get("columns"));
+        model.put("rows", summary.get("rows"));
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-series-summary", model);
 
         String filename = (seasonLabel.isEmpty() ? "赛季" : seasonLabel) + "-" +
                 (seriesName.isEmpty() ? "系列" : seriesName) +
                 "-积分汇总.pdf";
-        return toPdfResponse(pdfBytes, filename);
-    }
-
-    private static String nowExportedAt() {
-        ZonedDateTime zdt = ZonedDateTime.now(ZoneId.of("Asia/Shanghai"));
-        return zdt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-    }
-
-    private static String buildLogoDataUri() {
-        try {
-            ClassPathResource r = new ClassPathResource("static/images/Logo Trsp Stripe.png");
-            byte[] bytes = r.getInputStream().readAllBytes();
-            String b64 = Base64.getEncoder().encodeToString(bytes);
-            return "data:image/png;base64," + b64;
-        } catch (Exception e) {
-            return null;
-        }
+        return PdfExportSupport.attachmentPdf(pdfBytes, filename);
     }
 
     /**
@@ -166,7 +129,6 @@ public class RankingExportPdfController {
         java.util.Map<String, Object> data = rankingApiController.getTournamentRanking(tournamentId);
         String seasonLabel = data.get("seasonLabel") != null ? data.get("seasonLabel").toString() : "";
         String levelName = data.get("levelName") != null ? data.get("levelName").toString() : "";
-        String levelCode = data.get("levelCode") != null ? data.get("levelCode").toString() : "";
         Integer edition = null;
         try { edition = data.get("edition") instanceof Number ? ((Number) data.get("edition")).intValue() : null; } catch (Exception ignored) {}
         Integer seasonYear = null;
@@ -187,72 +149,72 @@ public class RankingExportPdfController {
                     "-排名";
         }
 
-        byte[] pdfBytes = rankingExportPdfService.renderPdf(
-                "pdf/pdf-tournament-ranking",
-                java.util.Map.of(
-                        "title", title,
-                        "logoDataUri", buildLogoDataUri(),
-                        "exportedAt", nowExportedAt(),
-                        "rankings", data.get("rankings"),
-                        "matchDetails", data.get("matchDetails")
-                )
-        );
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", title);
+        model.put("rankings", data.get("rankings"));
+        model.put("matchDetails", data.get("matchDetails"));
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-ranking", model);
 
-        return toPdfResponse(pdfBytes, title + ".pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, title + ".pdf");
     }
 
     @GetMapping(value = "/tournament/{tournamentId}/group-ranking", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportTournamentGroupRankingPdf(@PathVariable Long tournamentId) {
+        String editionTitle = buildTournamentEditionTitle(tournamentId);
         java.util.Map<String, Object> data = rankingApiController.getTournamentGroupRanking(tournamentId);
         byte[] pdfBytes = renderGroupRankingPdf(
-                "小组赛排名与对阵明细",
+                editionTitle + "-小组赛排名与对阵明细",
                 data.get("groups"),
                 data.get("pseudoGroups"),
                 data.get("groupMatches")
         );
-        return toPdfResponse(pdfBytes, "小组赛排名与对阵明细.pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-小组赛排名与对阵明细.pdf");
     }
 
     @GetMapping(value = "/tournament/{tournamentId}/group-overall-ranking", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportTournamentGroupOverallRankingPdf(@PathVariable Long tournamentId) {
+        String editionTitle = buildTournamentEditionTitle(tournamentId);
         java.util.Map<String, Object> data = rankingApiController.getTournamentGroupOverallRanking(tournamentId);
-        byte[] pdfBytes = rankingExportPdfService.renderPdf(
-                "pdf/pdf-tournament-group-overall-ranking",
-                java.util.Map.of(
-                        "title", "小组赛总排名",
-                        "logoDataUri", buildLogoDataUri(),
-                        "exportedAt", nowExportedAt(),
-                        "rows", data.get("overallRanking")
-                )
-        );
-        return toPdfResponse(pdfBytes, "小组赛总排名.pdf");
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", editionTitle + "-小组赛总排名");
+        model.put("rows", data.get("overallRanking"));
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-group-overall-ranking", model);
+        return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-小组赛总排名.pdf");
     }
 
     @GetMapping(value = "/tournament/{tournamentId}/group/{groupId}/ranking", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportTournamentOneGroupRankingPdf(@PathVariable Long tournamentId, @PathVariable Long groupId) {
+        String editionTitle = buildTournamentEditionTitle(tournamentId);
         java.util.Map<String, Object> data = rankingApiController.getTournamentOneGroupRanking(tournamentId, groupId);
         String groupName = data.get("groupName") != null ? data.get("groupName").toString() : "分组";
         byte[] pdfBytes = renderGroupRankingPdf(
-                groupName + " 排名与对阵明细",
+                editionTitle + "-" + groupName + "排名与对阵明细",
                 java.util.List.of(java.util.Map.of("groupName", groupName, "ranking", data.get("ranking"))),
                 data.get("pseudoGroups"),
                 data.get("matches")
         );
-        return toPdfResponse(pdfBytes, groupName + "-排名与对阵明细.pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-" + groupName + "-排名与对阵明细.pdf");
     }
 
     private byte[] renderGroupRankingPdf(String title, Object groups, Object pseudoGroups, Object groupMatches) {
-        return rankingExportPdfService.renderPdf(
-                "pdf/pdf-tournament-group-ranking",
-                java.util.Map.of(
-                        "title", title,
-                        "logoDataUri", buildLogoDataUri(),
-                        "exportedAt", nowExportedAt(),
-                        "groups", groups,
-                        "pseudoGroups", pseudoGroups,
-                        "groupMatches", groupMatches
-                )
-        );
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", title);
+        model.put("groups", groups);
+        model.put("pseudoGroups", pseudoGroups);
+        model.put("groupMatches", groupMatches);
+        return rankingExportPdfService.renderPdf("pdf/pdf-tournament-group-ranking", model);
+    }
+
+    private String buildTournamentEditionTitle(Long tournamentId) {
+        java.util.Map<String, Object> data = rankingApiController.getTournamentRanking(tournamentId);
+        String seasonLabel = data.get("seasonLabel") != null ? data.get("seasonLabel").toString() : "赛季";
+        String levelName = data.get("levelName") != null ? data.get("levelName").toString() : "赛事等级";
+        Integer edition = null;
+        try {
+            edition = data.get("edition") instanceof Number ? ((Number) data.get("edition")).intValue() : null;
+        } catch (Exception ignored) {
+        }
+        return seasonLabel + "-" + levelName + "-" + (edition == null ? "?" : edition);
     }
 
     private static Integer parseLimit(String limit) {
@@ -278,14 +240,4 @@ public class RankingExportPdfController {
         }
         return result;
     }
-
-    private static ResponseEntity<byte[]> toPdfResponse(byte[] pdfBytes, String filename) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.setContentDisposition(ContentDisposition.attachment()
-                .filename(filename, StandardCharsets.UTF_8)
-                .build());
-        return ResponseEntity.ok().headers(headers).body(pdfBytes);
-    }
 }
-

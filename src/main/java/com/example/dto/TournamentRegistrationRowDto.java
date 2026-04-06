@@ -15,6 +15,8 @@ public class TournamentRegistrationRowDto {
     private Long registrationId;
     private Long userId;
     private String username;
+    /** 网站总排名名次（1 起）；榜上无名则为 null，列表顺序按报名时间 */
+    private Integer totalRankPosition;
     /** 0 待审 1 通过 2 拒绝 */
     private Integer status;
     private LocalDateTime registeredAt;

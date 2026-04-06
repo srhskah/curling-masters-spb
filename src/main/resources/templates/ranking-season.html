@@ -65,23 +65,6 @@
 
 <script>
     (() => {
-        const copyToClipboard = async (text) => {
-            if (navigator.clipboard && (window.isSecureContext || location.hostname === 'localhost')) {
-                await navigator.clipboard.writeText(text);
-                return;
-            }
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            textarea.style.position = 'fixed';
-            textarea.style.top = '-1000px';
-            textarea.style.left = '-1000px';
-            document.body.appendChild(textarea);
-            textarea.focus();
-            textarea.select();
-            document.execCommand('copy');
-            textarea.remove();
-        };
-
         const fetchJson = async (url) => {
             const res = await fetch(url);
             if (!res.ok) throw new Error('请求失败：' + res.status);
@@ -136,7 +119,7 @@
                     btn.disabled = true;
                     btn.style.opacity = '0.85';
                     const data = await fetchJson(`/ranking/api/user/${encodeURIComponent(userId)}/season/${encodeURIComponent(seasonId)}/performance`);
-                    await copyToClipboard(formatUserPerformancePlain(data));
+                    await copyPlainTextToClipboard(formatUserPerformancePlain(data));
                     if (typeof showAlert === 'function') showAlert('复制成功', 'success');
                     else alert('复制成功');
                 } catch (e) {

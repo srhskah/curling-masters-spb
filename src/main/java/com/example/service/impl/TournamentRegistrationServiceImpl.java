@@ -5,6 +5,7 @@ import com.example.dto.TournamentRegistrationPreviewDto;
 import com.example.dto.TournamentRegistrationRowDto;
 import com.example.dto.RankingEntry;
 import com.example.entity.*;
+import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.mapper.TournamentRegistrationMapper;
 import com.example.mapper.TournamentRegistrationSettingMapper;
 import com.example.service.*;
@@ -37,6 +38,12 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     private TournamentEntryService tournamentEntryService;
     @Autowired
     private ITournamentLevelService tournamentLevelService;
+    @Autowired
+    private INotificationService notificationService;
+    @Autowired
+    private TournamentCompetitionConfigMapper competitionConfigMapper;
+    @Autowired
+    private TournamentRankingRosterService tournamentRankingRosterService;
 
     @Override
     public TournamentRegistrationSetting getSetting(Long tournamentId) {
@@ -98,6 +105,7 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         validateSetting(db, t);
         // 截止后：仅当「有效通过人数 < n」时允许延长截止或调整名额（与业务说明一致）
         TournamentRegistrationSetting previous = settingMapper.selectById(tid);
+        boolean wasEnabled = previous != null && Boolean.TRUE.equals(previous.getEnabled());
         if (previous != null && previous.getDeadline() != null && !now.isBefore(previous.getDeadline())) {
             boolean deadlineExtended = db.getDeadline() != null && previous.getDeadline() != null
                     && db.getDeadline().isAfter(previous.getDeadline());
@@ -116,6 +124,19 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         } else {
             settingMapper.updateById(db);
         }
+        boolean enabledNow = Boolean.TRUE.equals(db.getEnabled());
+        if (!wasEnabled && enabledNow) {
+            String title = "赛事报名已开启";
+            String markdown = "赛事 **" + safeTournamentName(t) + "** 已开启报名。\n\n"
+                    + "请前往赛事页面查看并完成报名。";
+            notificationService.sendSystemNotification(title, markdown, "REGISTRATION_OPEN", tid);
+        }
+    }
+
+    private static String safeTournamentName(Tournament tournament) {
+        if (tournament == null) return "未命名赛事";
+        String lv = tournament.getLevelCode() == null ? "赛事" : tournament.getLevelCode();
+        return lv + (tournament.getId() != null ? (" #" + tournament.getId()) : "");
     }
 
     private void validateSetting(TournamentRegistrationSetting s, Tournament t) {
@@ -168,6 +189,69 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         r.setStatus(0);
         r.setRegisteredAt(now);
         registrationMapper.insert(r);
+        maybeSnapQualifierRegistrationWhenFull(tournamentId, now);
+    }
+
+    private Integer qualifierQuotaFromCompetition(Long tournamentId) {
+        TournamentCompetitionConfig c = competitionConfigMapper.selectById(tournamentId);
+        if (c == null || c.getEntryMode() == null || c.getEntryMode() != 1) {
+            return null;
+        }
+        return c.getKnockoutQualifyCount();
+    }
+
+    private int qualifierSideRegistrantCount(Long tournamentId, TournamentRegistrationSetting s, LocalDateTime now) {
+        List<TournamentRegistration> ordered = loadOrderedEligible(tournamentId, s, now);
+        int m = s.getMainDirectM() != null ? s.getMainDirectM() : 0;
+        return Math.max(0, ordered.size() - m);
+    }
+
+    private boolean qualifierRegistrationStillOpenDueToShortfall(Long tournamentId, TournamentRegistrationSetting s, LocalDateTime now) {
+        if (s.getMode() == null || s.getMode() != 1) {
+            return false;
+        }
+        Integer k = qualifierQuotaFromCompetition(tournamentId);
+        if (k == null || k < 1) {
+            return false;
+        }
+        return qualifierSideRegistrantCount(tournamentId, s, now) < k;
+    }
+
+    private void maybeSnapQualifierRegistrationWhenFull(Long tournamentId, LocalDateTime now) {
+        TournamentRegistrationSetting s = getSetting(tournamentId);
+        if (s == null || s.getMode() == null || s.getMode() != 1) {
+            return;
+        }
+        Integer k = qualifierQuotaFromCompetition(tournamentId);
+        if (k == null || k < 1) {
+            return;
+        }
+        int q = qualifierSideRegistrantCount(tournamentId, s, now);
+        if (q < k) {
+            return;
+        }
+        s.setDeadline(now);
+        settingMapper.updateById(s);
+        List<TournamentRegistration> ordered = loadOrderedEligible(tournamentId, s, now);
+        int m = s.getMainDirectM() != null ? s.getMainDirectM() : 0;
+        for (int i = m; i < ordered.size(); i++) {
+            Long uid = ordered.get(i).getUserId();
+            if (uid == null) {
+                continue;
+            }
+            if (tournamentEntryService.lambdaQuery()
+                    .eq(TournamentEntry::getTournamentId, tournamentId)
+                    .eq(TournamentEntry::getUserId, uid)
+                    .count() > 0) {
+                continue;
+            }
+            TournamentEntry e = new TournamentEntry();
+            e.setTournamentId(tournamentId);
+            e.setUserId(uid);
+            e.setEntryType(2);
+            e.setCreatedAt(now);
+            tournamentEntryService.save(e);
+        }
     }
 
     @Override
@@ -229,8 +313,9 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     public List<TournamentRegistrationRowDto> listRows(Long tournamentId, LocalDateTime now) {
         TournamentRegistrationSetting s = getSetting(tournamentId);
         List<TournamentRegistration> list = registrationMapper.selectList(Wrappers.<TournamentRegistration>lambdaQuery()
-                .eq(TournamentRegistration::getTournamentId, tournamentId)
-                .orderByAsc(TournamentRegistration::getRegisteredAt));
+                .eq(TournamentRegistration::getTournamentId, tournamentId));
+        Map<Long, Integer> totalRankByUser = buildUserIdToTotalRankMap();
+        sortRegistrationsByTotalRankThenTime(list, totalRankByUser);
         List<Long> uids = list.stream().map(TournamentRegistration::getUserId).filter(Objects::nonNull).distinct().toList();
         Map<Long, User> users = uids.isEmpty() ? Map.of() : userService.listByIds(uids).stream()
                 .collect(Collectors.toMap(User::getId, u -> u, (a, b) -> a));
@@ -241,6 +326,7 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
                     .registrationId(r.getId())
                     .userId(r.getUserId())
                     .username(u != null ? u.getUsername() : "?")
+                    .totalRankPosition(totalRankByUser.get(r.getUserId()))
                     .status(r.getStatus())
                     .registeredAt(r.getRegisteredAt())
                     .effectiveApproved(isEffectiveApproved(r, s, now))
@@ -269,7 +355,7 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
             return TournamentRegistrationPreviewDto.builder()
                     .mainDirectUsernames(List.of())
                     .qualifierSeedUsernames(List.of())
-                    .modeDescription("报名尚未截止，截止后按报名顺序并结合审批结果产生名单")
+                    .modeDescription("报名尚未截止，截止后按总排名优先、无名者按报名时间先后，并结合审批结果产生名单")
                     .build();
         }
 
@@ -281,7 +367,7 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
             for (int i = 0; i < take; i++) {
                 main.add(names.getOrDefault(ordered.get(i).getUserId(), "?"));
             }
-            desc = "默认模式：正赛直通车最多 " + n + " 人，按报名时间先后（含截止时待审视同同意）";
+            desc = "默认模式：正赛直通车最多 " + n + " 人，顺序为总排名优先、无名者按报名时间先后（含截止时待审视同同意）";
         } else {
             int m = s.getMainDirectM() != null ? s.getMainDirectM() : 0;
             int seedCount = s.getQualifierSeedCount() != null ? s.getQualifierSeedCount() : (n - m);
@@ -292,7 +378,7 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
             for (int i = takeMain; i < Math.min(takeMain + seedCount, ordered.size()); i++) {
                 seeds.add(names.getOrDefault(ordered.get(i).getUserId(), "?"));
             }
-            desc = "正赛-资格赛：直通车 " + m + " 人，资格赛种子约 " + seedCount + " 人，正赛总名额 " + n;
+            desc = "正赛-资格赛：直通车 " + m + " 人，资格赛种子约 " + seedCount + " 人，正赛总名额 " + n + "；顺序为总排名优先、无名者按报名时间先后";
         }
         return TournamentRegistrationPreviewDto.builder()
                 .mainDirectUsernames(main)
@@ -308,7 +394,10 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         if (t.getStatus() == null || t.getStatus() != 0) return "仅筹备中赛事开放报名";
         TournamentRegistrationSetting s = getSetting(tournamentId);
         if (s == null || !Boolean.TRUE.equals(s.getEnabled())) return "报名未开启";
-        if (s.getDeadline() != null && !now.isBefore(s.getDeadline())) return "报名已截止";
+        if (s.getDeadline() != null && !now.isBefore(s.getDeadline())
+                && !qualifierRegistrationStillOpenDueToShortfall(tournamentId, s, now)) {
+            return "报名已截止";
+        }
         long existing = registrationMapper.selectCount(Wrappers.<TournamentRegistration>lambdaQuery()
                 .eq(TournamentRegistration::getTournamentId, tournamentId)
                 .eq(TournamentRegistration::getUserId, userId));
@@ -350,7 +439,10 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         if (s == null || !Boolean.TRUE.equals(s.getEnabled()) || s.getDeadline() == null) {
             return false;
         }
-        return now.isBefore(s.getDeadline());
+        if (now.isBefore(s.getDeadline())) {
+            return true;
+        }
+        return qualifierRegistrationStillOpenDueToShortfall(tournament.getId(), s, now);
     }
 
     @Override
@@ -451,11 +543,77 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     private List<TournamentRegistration> loadOrderedEligible(Long tournamentId, TournamentRegistrationSetting s, LocalDateTime now) {
         List<TournamentRegistration> list = registrationMapper.selectList(Wrappers.<TournamentRegistration>lambdaQuery()
                 .eq(TournamentRegistration::getTournamentId, tournamentId)
-                .in(TournamentRegistration::getStatus, 0, 1)
-                .orderByAsc(TournamentRegistration::getRegisteredAt));
-        return list.stream()
+                .in(TournamentRegistration::getStatus, 0, 1));
+        Map<Long, Integer> totalRankByUser = buildUserIdToTotalRankMap();
+        list = list.stream()
                 .filter(r -> isEffectiveApproved(r, s, now))
                 .collect(Collectors.toList());
+        sortRegistrationsByTotalRankThenTime(list, totalRankByUser);
+        return list;
+    }
+
+    /** 与 {@link #getUserTotalRankPosition(Long)} 一致：全站总排名名次（1 起） */
+    private Map<Long, Integer> buildUserIdToTotalRankMap() {
+        List<RankingEntry> all = rankingService.getTotalRanking(null);
+        Map<Long, Integer> map = new HashMap<>();
+        for (int i = 0; i < all.size(); i++) {
+            Long uid = all.get(i).getUserId();
+            if (uid != null) {
+                map.put(uid, i + 1);
+            }
+        }
+        return map;
+    }
+
+    /**
+     * 有总排名名次的优先且按名次升序；榜上无名者排在后面，彼此间按报名时间先后。
+     */
+    private static void sortRegistrationsByTotalRankThenTime(List<TournamentRegistration> list, Map<Long, Integer> totalRankByUser) {
+        Comparator<TournamentRegistration> cmp = (a, b) -> {
+            Integer pa = totalRankByUser.get(a.getUserId());
+            Integer pb = totalRankByUser.get(b.getUserId());
+            boolean ha = pa != null;
+            boolean hb = pb != null;
+            if (ha && hb) {
+                int byRank = Integer.compare(pa, pb);
+                if (byRank != 0) {
+                    return byRank;
+                }
+                Long ua = a.getUserId();
+                Long ub = b.getUserId();
+                if (ua == null && ub == null) {
+                    return 0;
+                }
+                if (ua == null) {
+                    return 1;
+                }
+                if (ub == null) {
+                    return -1;
+                }
+                return Long.compare(ua, ub);
+            }
+            if (ha != hb) {
+                return ha ? -1 : 1;
+            }
+            int byTime = Comparator.nullsLast(Comparator.<LocalDateTime>naturalOrder())
+                    .compare(a.getRegisteredAt(), b.getRegisteredAt());
+            if (byTime != 0) {
+                return byTime;
+            }
+            Long ua = a.getUserId();
+            Long ub = b.getUserId();
+            if (ua == null && ub == null) {
+                return 0;
+            }
+            if (ua == null) {
+                return 1;
+            }
+            if (ub == null) {
+                return -1;
+            }
+            return Long.compare(ua, ub);
+        };
+        list.sort(cmp);
     }
 
     private static boolean isEffectiveApproved(TournamentRegistration r, TournamentRegistrationSetting s, LocalDateTime now) {
@@ -475,10 +633,11 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
                 .list();
         List<String> parts = new ArrayList<>();
         for (Tournament ot : siblings) {
-            boolean hasPoints = userTournamentPointsService.lambdaQuery()
-                    .eq(UserTournamentPoints::getTournamentId, ot.getId())
-                    .eq(UserTournamentPoints::getUserId, userId)
-                    .count() > 0;
+            List<UserTournamentPoints> vis = tournamentRankingRosterService.filterUtpsForDisplay(ot.getId(),
+                    userTournamentPointsService.lambdaQuery()
+                            .eq(UserTournamentPoints::getTournamentId, ot.getId())
+                            .list());
+            boolean hasPoints = vis.stream().anyMatch(u -> userId.equals(u.getUserId()));
             boolean registered = registrationMapper.selectCount(Wrappers.<TournamentRegistration>lambdaQuery()
                     .eq(TournamentRegistration::getTournamentId, ot.getId())
                     .eq(TournamentRegistration::getUserId, userId)) > 0;
@@ -523,10 +682,11 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     }
 
     private Integer getUserRankInTournament(Long userId, Long tournamentId) {
-        List<UserTournamentPoints> list = userTournamentPointsService.lambdaQuery()
-                .eq(UserTournamentPoints::getTournamentId, tournamentId)
-                .orderByDesc(UserTournamentPoints::getPoints)
-                .list();
+        List<UserTournamentPoints> list = tournamentRankingRosterService.filterUtpsForDisplay(tournamentId,
+                userTournamentPointsService.lambdaQuery()
+                        .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                        .orderByDesc(UserTournamentPoints::getPoints)
+                        .list());
         for (int i = 0; i < list.size(); i++) {
             if (userId.equals(list.get(i).getUserId())) {
                 return i + 1;

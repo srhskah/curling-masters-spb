@@ -2,6 +2,7 @@ package com.example.service;
 
 import com.example.entity.User;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.example.dto.GroupImportResult;
 
 import java.util.List;
 
@@ -67,4 +68,9 @@ public interface UserService extends IService<User> {
      * @return 用户信息
      */
     User findByUsername(String username);
+
+    /**
+     * 解析小组名单导入文本为用户 ID（支持一行内空格分隔多名、用户名内含空格/下划线/emoji 等）。
+     */
+    GroupImportResult resolveGroupImport(String raw);
 }

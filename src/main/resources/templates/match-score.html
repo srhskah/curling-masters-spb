@@ -48,7 +48,7 @@
                         <div class="row mb-3">
                             <div class="col-md-4">
                                 <label class="form-label">先后手</label>
-                                <select class="form-select" name="firstEndHammer">
+                                <select class="form-select" name="firstEndHammer" th:disabled="${resultLocked}">
                                     <option value="">不设置</option>
                                     <option value="1" th:selected="${match.firstEndHammer == 1}" th:text="${player1 != null ? player1.username : '选手1'}">player1</option>
                                     <option value="2" th:selected="${match.firstEndHammer == 2}" th:text="${player2 != null ? player2.username : '选手2'}">player2</option>
@@ -57,10 +57,11 @@
                             <div class="col-md-4">
                                 <label class="form-label">局数</label>
                                 <input type="number" class="form-control" id="setCountInput" min="1" max="20"
-                                       th:value="${#lists.isEmpty(setScores) ? defaultSetCount : #lists.size(setScores)}"/>
+                                       th:value="${#lists.isEmpty(setScores) ? defaultSetCount : #lists.size(setScores)}"
+                                       th:disabled="${resultLocked}"/>
                             </div>
                             <div class="col-md-4 d-flex align-items-end">
-                                <button type="button" class="btn btn-outline-primary w-100" onclick="renderSetRows()">
+                                <button type="button" class="btn btn-outline-primary w-100" onclick="renderSetRows()" th:disabled="${resultLocked}">
                                     生成局数
                                 </button>
                             </div>
@@ -79,15 +80,15 @@
                                 <tr th:each="ss : ${setScores}">
                                     <td>
                                         <input type="number" class="form-control" name="setNumbers" min="1"
-                                               th:value="${ss.setNumber}">
+                                               th:value="${ss.setNumber}" th:disabled="${resultLocked}">
                                     </td>
                                     <td>
                                         <input type="number" class="form-control" name="player1Scores" min="0"
-                                               th:value="${ss.player1Score}">
+                                               th:value="${ss.player1Score}" th:disabled="${resultLocked}">
                                     </td>
                                     <td>
                                         <input type="number" class="form-control" name="player2Scores" min="0"
-                                               th:value="${ss.player2Score}">
+                                               th:value="${ss.player2Score}" th:disabled="${resultLocked}">
                                     </td>
                                 </tr>
                                 </tbody>
@@ -98,8 +99,11 @@
                             <a th:href="@{/tournament/detail/{id}(id=${match.tournamentId})}" class="btn btn-secondary">
                                 <i class="bi bi-arrow-left"></i> 返回赛事
                             </a>
-                            <button type="submit" class="btn btn-primary">
+                            <button th:if="${canSubmitScore}" type="submit" class="btn btn-primary">
                                 <i class="bi bi-check-circle"></i> 保存比分
+                            </button>
+                            <button th:unless="${canSubmitScore}" type="button" class="btn btn-primary" disabled>
+                                <i class="bi bi-check-circle"></i> 已验收（只读）
                             </button>
                         </div>
                     </form>
