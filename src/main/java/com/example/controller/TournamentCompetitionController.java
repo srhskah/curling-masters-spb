@@ -98,6 +98,18 @@ public class TournamentCompetitionController {
         return "redirect:/tournament/detail/" + tournamentId;
     }
 
+    @PostMapping("/knockout/generate-next/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String generateNextKnockout(@PathVariable Long tournamentId, RedirectAttributes ra) {
+        try {
+            int n = knockoutBracketService.generateNextKnockoutRound(currentUser(), tournamentId);
+            ra.addFlashAttribute("message", "已按当前赛果手动生成下一轮，共新增 " + n + " 场");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
     @PostMapping("/knockout/clear/{tournamentId}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
     public String clearKnockout(@PathVariable Long tournamentId, RedirectAttributes ra) {

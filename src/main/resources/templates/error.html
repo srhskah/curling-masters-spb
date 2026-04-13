@@ -34,7 +34,11 @@
                 <div class="row"><div class="k">错误类型</div><div class="v" th:text="${error}">Internal Server Error</div></div>
                 <div class="row"><div class="k">错误信息</div><div class="v" th:text="${message}">-</div></div>
                 <div class="row"><div class="k">请求路径</div><div class="v" th:text="${path}">/</div></div>
+                <div class="row" th:if="${exception != null and !#strings.isEmpty(exception)}"><div class="k">异常类</div><div class="v" th:text="${exception}">-</div></div>
+                <div class="row" th:if="${requestId != null and !#strings.isEmpty(requestId)}"><div class="k">请求ID</div><div class="v" th:text="${requestId}">-</div></div>
                 <div class="row"><div class="k">时间</div><div class="v" th:text="${timestamp}">-</div></div>
+                <div class="row"><div class="k">浏览器URL</div><div class="v" id="browserUrl">-</div></div>
+                <div class="row"><div class="k">浏览器信息</div><div class="v" id="browserUa">-</div></div>
             </div>
             <div class="ops">
                 <button class="btn primary" type="button" onclick="copyErrorInfo()">一键复制报错信息</button>
@@ -46,6 +50,13 @@
     </div>
 </div>
 <script>
+    (function fillClientErrorContext() {
+        const urlEl = document.getElementById('browserUrl');
+        const uaEl = document.getElementById('browserUa');
+        if (urlEl) urlEl.innerText = window.location.href;
+        if (uaEl) uaEl.innerText = navigator.userAgent;
+    })();
+
     async function copyErrorInfo() {
         const lines = [];
         document.querySelectorAll('#errorInfoText .row').forEach((row) => {
