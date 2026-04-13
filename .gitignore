@@ -26,6 +26,7 @@ bin/
 *.war
 *.ear
 
+
 ### IntelliJ IDEA ###
 .idea
 *.iws
@@ -107,6 +108,7 @@ logs/
 *.zip
 *.tar.gz
 *.rar
+!gradle/wrapper/gradle-wrapper.jar
 
 # 
 *.env

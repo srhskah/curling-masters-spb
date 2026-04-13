@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>页面错误</title>
+    <style>
+        body { margin: 0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #f5f7fb; color: #1f2937; }
+        .wrap { max-width: 860px; margin: 40px auto; padding: 0 16px; }
+        .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.06); overflow: hidden; }
+        .head { background: linear-gradient(135deg,#2563eb,#7c3aed); color: #fff; padding: 16px 18px; }
+        .title { margin: 0; font-size: 20px; }
+        .sub { margin-top: 6px; opacity: .9; font-size: 13px; }
+        .body { padding: 16px 18px; }
+        .row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; padding: 6px 0; border-bottom: 1px dashed #e5e7eb; }
+        .k { color: #6b7280; }
+        .v { word-break: break-word; }
+        .ops { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .btn { border: 1px solid #d1d5db; background: #fff; color: #111827; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+        .btn.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
+        .trace { margin-top: 14px; background: #0b1020; color: #d1d5db; border-radius: 8px; padding: 10px; max-height: 320px; overflow: auto; font-size: 12px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <div class="card">
+        <div class="head">
+            <h1 class="title">请求处理失败</h1>
+            <div class="sub">已捕获异常，你可以复制信息反馈给开发者。</div>
+        </div>
+        <div class="body">
+            <div id="errorInfoText">
+                <div class="row"><div class="k">状态码</div><div class="v" th:text="${status}">500</div></div>
+                <div class="row"><div class="k">错误类型</div><div class="v" th:text="${error}">Internal Server Error</div></div>
+                <div class="row"><div class="k">错误信息</div><div class="v" th:text="${message}">-</div></div>
+                <div class="row"><div class="k">请求路径</div><div class="v" th:text="${path}">/</div></div>
+                <div class="row"><div class="k">时间</div><div class="v" th:text="${timestamp}">-</div></div>
+            </div>
+            <div class="ops">
+                <button class="btn primary" type="button" onclick="copyErrorInfo()">一键复制报错信息</button>
+                <button class="btn" type="button" onclick="history.back()">返回上一页</button>
+                <a class="btn" href="/">回到首页</a>
+            </div>
+            <div class="trace" th:if="${trace != null and !#strings.isEmpty(trace)}" th:text="${trace}">stacktrace</div>
+        </div>
+    </div>
+</div>
+<script>
+    async function copyErrorInfo() {
+        const lines = [];
+        document.querySelectorAll('#errorInfoText .row').forEach((row) => {
+            const k = row.children[0]?.innerText?.trim() || '';
+            const v = row.children[1]?.innerText?.trim() || '';
+            if (k) lines.push(k + ': ' + v);
+        });
+        const traceEl = document.querySelector('.trace');
+        if (traceEl && traceEl.innerText.trim()) {
+            lines.push('', 'Trace:', traceEl.innerText.trim());
+        }
+        const text = lines.join('\n');
+        try {
+            await navigator.clipboard.writeText(text);
+            alert('已复制错误信息');
+        } catch (e) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+            alert('已复制错误信息');
+        }
+    }
+</script>
+</body>
+</html>

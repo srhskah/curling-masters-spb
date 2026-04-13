@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -31,6 +33,10 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
     @Autowired private MatchScoreEditLogMapper matchScoreEditLogMapper;
     @Autowired private UserService userService;
     @Autowired private KnockoutBracketService knockoutBracketService;
+    @Autowired private ITournamentLevelService tournamentLevelService;
+    @Autowired private UserTournamentPointsService userTournamentPointsService;
+    @Autowired private TournamentRankingRosterService tournamentRankingRosterService;
+    @Autowired private GroupRankingCalculator groupRankingCalculator;
 
     private boolean canManage(User u, Long tournamentId) {
         if (u == null) return false;
@@ -755,6 +761,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 .orderByDesc(MatchScoreEditLog::getEditedAt));
     }
 
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void autoAcceptOverdueGroupMatches(Long tournamentId) {
         TournamentCompetitionConfig cfg = getConfig(tournamentId);
@@ -765,11 +772,131 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 .eq(Match::getTournamentId, tournamentId)
                 .eq(Match::getPhaseCode, "GROUP")
                 .eq(Match::getResultLocked, false)
-                .eq(Match::getStatus, (byte) 2)
                 .list();
         for (Match m : matches) {
             acceptMatchScore(superAdmin, m.getId(), "SYSTEM_AUTO_ACCEPT");
         }
+        autoAwardPointsForNonKnockoutPlayers(tournamentId, cfg);
+    }
+
+    private void autoAwardPointsForNonKnockoutPlayers(Long tournamentId, TournamentCompetitionConfig cfg) {
+        if (tournamentId == null || cfg == null || cfg.getKnockoutStartRound() == null) return;
+        Tournament tournament = tournamentService.getById(tournamentId);
+        if (tournament == null) return;
+
+        int bracketPlayers = KnockoutBracketService.playersInFirstKnockoutRound(cfg.getKnockoutStartRound());
+        // 晋级淘汰赛总人数（含资格赛挂载名额）= 首轮总参赛人数
+        int qualifiedTotal = Math.max(0, bracketPlayers);
+
+        List<Long> rankedIds = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
+        if (rankedIds.isEmpty()) return;
+
+        // 小组赛结束后、首轮淘汰赛（含挂载资格赛）未结束前：
+        // 已晋级首轮（含资格赛名额）的选手积分先留空（置 null）。
+        for (int i = 0; i < Math.min(qualifiedTotal, rankedIds.size()); i++) {
+            Long uid = rankedIds.get(i);
+            if (uid == null) continue;
+            UserTournamentPoints existingRow = userTournamentPointsService.lambdaQuery()
+                    .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                    .eq(UserTournamentPoints::getUserId, uid)
+                    .one();
+            if (existingRow == null) {
+                UserTournamentPoints utp = new UserTournamentPoints();
+                utp.setUserId(uid);
+                utp.setTournamentId(tournamentId);
+                utp.setPoints(null);
+                utp.setCreatedAt(LocalDateTime.now());
+                userTournamentPointsService.save(utp);
+            } else if (existingRow.getPoints() != null) {
+                existingRow.setPoints(null);
+                userTournamentPointsService.updateById(existingRow);
+            }
+        }
+
+        Set<Long> roster = tournamentRankingRosterService.rosterUserIdsForEventRanking(tournamentId);
+        int participantCount = roster.isEmpty() ? Math.max(rankedIds.size(), bracketPlayers) : Math.max(roster.size(), bracketPlayers);
+
+        TournamentLevel level = tournamentLevelService.lambdaQuery()
+                .eq(TournamentLevel::getCode, tournament.getLevelCode())
+                .one();
+        int bottomPoints = level != null && level.getDefaultBottomPoints() != null ? level.getDefaultBottomPoints() : 100;
+        BigDecimal ratio = tournament.getChampionPointsRatio();
+        if (ratio == null && level != null) ratio = level.getDefaultChampionRatio();
+
+        for (int i = qualifiedTotal; i < rankedIds.size(); i++) {
+            Long uid = rankedIds.get(i);
+            if (uid == null) continue;
+            // 未晋级选手名次从（所有晋级淘汰赛人数 + 1）开始递增
+            int rank = qualifiedTotal + (i - qualifiedTotal) + 1;
+            int pts = calculatePoints(rank, participantCount, bottomPoints, ratio);
+            UserTournamentPoints existingRow = userTournamentPointsService.lambdaQuery()
+                    .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                    .eq(UserTournamentPoints::getUserId, uid)
+                    .one();
+            if (existingRow == null) {
+                UserTournamentPoints utp = new UserTournamentPoints();
+                utp.setUserId(uid);
+                utp.setTournamentId(tournamentId);
+                utp.setPoints(pts);
+                utp.setCreatedAt(LocalDateTime.now());
+                userTournamentPointsService.save(utp);
+            } else {
+                existingRow.setPoints(pts);
+                userTournamentPointsService.updateById(existingRow);
+            }
+        }
+    }
+
+    private List<Long> loadOverallRankedUserIdsFromGroups(Long tournamentId, TournamentCompetitionConfig cfg) {
+        List<TournamentGroup> groups = groupMapper.selectList(Wrappers.<TournamentGroup>lambdaQuery()
+                .eq(TournamentGroup::getTournamentId, tournamentId)
+                .orderByAsc(TournamentGroup::getGroupOrder));
+        if (groups.isEmpty()) return List.of();
+        Map<Long, List<Long>> memberIdsByGroup = new LinkedHashMap<>();
+        for (TournamentGroup g : groups) {
+            List<Long> uids = groupMemberMapper.selectList(Wrappers.<TournamentGroupMember>lambdaQuery()
+                            .eq(TournamentGroupMember::getTournamentId, tournamentId)
+                            .eq(TournamentGroupMember::getGroupId, g.getId()))
+                    .stream().map(TournamentGroupMember::getUserId).filter(Objects::nonNull).toList();
+            memberIdsByGroup.put(g.getId(), uids);
+        }
+        Map<Long, String> uname = userService.list().stream()
+                .collect(java.util.stream.Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        List<Match> matches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .list();
+        List<Long> mids = matches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<SetScore>> scoreByMatch = mids.isEmpty() ? Map.of() : setScoreService.lambdaQuery()
+                .in(SetScore::getMatchId, mids)
+                .list()
+                .stream()
+                .collect(java.util.stream.Collectors.groupingBy(SetScore::getMatchId));
+        Map<Long, List<Map<String, Object>>> byG = groupRankingCalculator.buildGroupRankingsByMemberIds(
+                groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg);
+        boolean allowDraw = cfg.getGroupAllowDraw() == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        int regularSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
+        groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
+                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDraw, regularSets);
+        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byG);
+        List<Long> out = new ArrayList<>();
+        for (Map<String, Object> row : overall) {
+            Long uid = (Long) row.get("userId");
+            if (uid != null) out.add(uid);
+        }
+        return out;
+    }
+
+    private int calculatePoints(int rank, int participantCount, int bottomPoints, BigDecimal ratio) {
+        if (ratio == null) ratio = BigDecimal.ZERO;
+        int n = Math.max(0, participantCount);
+        int championPoints = ratio.multiply(BigDecimal.valueOf(n)).setScale(0, RoundingMode.HALF_UP).intValue();
+        if (n <= 1) return Math.max(bottomPoints, championPoints);
+        if (championPoints <= bottomPoints) return bottomPoints;
+        double r = Math.pow((bottomPoints * 1.0) / championPoints, 1.0 / (n - 1));
+        double points = championPoints * Math.pow(r, Math.max(0, rank - 1));
+        int rounded = (int) Math.round(points);
+        return Math.max(bottomPoints, rounded);
     }
 
     @Override
@@ -784,8 +911,18 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         Set<Long> acceptedUserIds = accepts.stream().map(MatchAcceptance::getUserId).filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet());
         boolean p1Accepted = acceptedUserIds.contains(match.getPlayer1Id());
         boolean p2Accepted = acceptedUserIds.contains(match.getPlayer2Id());
+        if (Objects.equals(match.getPhaseCode(), "GROUP")) {
+            // 小组赛验收规则：
+            // 1) 任一办赛人员（超管/管理员/主办）验收即可通过；
+            // 2) 否则需双方选手都验收。
+            boolean staffAccepted = acceptedUserIds.stream()
+                    .map(userService::getById)
+                    .filter(Objects::nonNull)
+                    .anyMatch(u -> isStaff(u, match.getTournamentId()));
+            if (staffAccepted) return true;
+            return p1Accepted && p2Accepted;
+        }
         if (!p1Accepted || !p2Accepted) return false;
-        if (Objects.equals(match.getPhaseCode(), "GROUP")) return true;
         Tournament t = tournamentService.getById(match.getTournamentId());
         if (t == null) return false;
         Set<Long> participantIds = Set.of(match.getPlayer1Id(), match.getPlayer2Id());

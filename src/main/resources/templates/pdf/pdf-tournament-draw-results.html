@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">抽签结果</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        h2 { margin: 0 0 8px; font-size: 16px; }
+        .muted { color: #666; font-size: 11px; }
+        .meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin: 0 0 12px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        .section { margin: 14px 0 6px; font-weight: bold; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        th, td { border: 1px solid #ddd; padding: 5px 7px; text-align: left; vertical-align: top; }
+        th { background: #f3f3f3; text-align: center; font-size: 11px; }
+        td.num { text-align: center; width: 44px; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1;">
+        <h2 th:text="${title}">标题</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+        <div class="muted" th:if="${drawTypeLabel != null and !#strings.isEmpty(drawTypeLabel)}"
+             th:text="${'抽签类型：' + drawTypeLabel}">抽签类型</div>
+    </div>
+</div>
+
+<p class="muted" th:if="${noDrawRecords}">暂无抽签记录。</p>
+
+<div th:each="sec : ${groupSections}">
+    <div class="section" th:text="${sec.groupName}">A组</div>
+    <table>
+        <thead>
+        <tr>
+            <th>录入顺序</th>
+            <th>选手</th>
+            <th>档位</th>
+            <th>种子</th>
+            <th>组内位次</th>
+            <th>备注</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="r : ${sec.rows}">
+            <td class="num" th:text="${r.drawOrder != null ? r.drawOrder : '-'}">1</td>
+            <td th:text="${r.username}">-</td>
+            <td th:text="${r.tierLabel != null ? r.tierLabel : '—'}">—</td>
+            <td class="num">
+                <span th:if="${r.isSeed == true}">种子</span>
+                <span th:if="${r.isSeed == false}">非种子</span>
+                <span th:if="${r.isSeed == null}">—</span>
+            </td>
+            <td class="num" th:text="${r.groupSlotIndex != null ? r.groupSlotIndex : '-'}">1</td>
+            <td th:text="${r.isAutoAssigned == true ? '自动' : '—'}">—</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

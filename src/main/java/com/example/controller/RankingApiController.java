@@ -565,9 +565,13 @@ public class RankingApiController {
             matchRow.put("phaseCode", m.getPhaseCode());
             matchRow.put("category", m.getCategory());
             matchRow.put("round", m.getRound());
+            matchRow.put("player1Id", m.getPlayer1Id());
+            matchRow.put("player2Id", m.getPlayer2Id());
             matchRow.put("player1Name", p1n);
             matchRow.put("player2Name", p2n);
             matchRow.put("totalText", totalText);
+            matchRow.put("player1Total", total1);
+            matchRow.put("player2Total", total2);
             matchRow.put("sets", sets);
             matchRow.put("acceptances", accepts);
             matchRow.put("editLogs", editLogs);
@@ -585,6 +589,104 @@ public class RankingApiController {
                 "edition", edition,
                 "rankings", rankings,
                 "matchDetails", matchDetails
+        );
+    }
+
+    @GetMapping("/tournament/{tournamentId}/user/{userId}/performance")
+    public Map<String, Object> getTournamentUserPerformance(@PathVariable Long tournamentId, @PathVariable Long userId) {
+        Map<String, Object> data = getTournamentRanking(tournamentId);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> matchDetails = (List<Map<String, Object>>) data.getOrDefault("matchDetails", List.of());
+        List<Map<String, Object>> userMatches = matchDetails.stream()
+                .filter(m -> Objects.equals(m.get("player1Id"), userId) || Objects.equals(m.get("player2Id"), userId))
+                .toList();
+        User user = userService.getById(userId);
+        String userName = user != null ? user.getUsername() : ("用户" + userId);
+        String tournamentLabel = data.get("tournamentLabel") != null ? String.valueOf(data.get("tournamentLabel")) : ("赛事" + tournamentId);
+        return Map.of(
+                "tournamentId", tournamentId,
+                "userId", userId,
+                "username", userName,
+                "tournamentLabel", tournamentLabel,
+                "title", "赛事单人战绩（" + tournamentLabel + "）",
+                "matchDetails", userMatches
+        );
+    }
+
+    @GetMapping("/match/{matchId}/performance")
+    public Map<String, Object> getMatchPerformance(@PathVariable Long matchId) {
+        Match m = matchService.getById(matchId);
+        if (m == null) {
+            return Map.of("matchId", matchId, "title", "单场比赛战绩", "matchDetails", List.of());
+        }
+        Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        List<SetScore> ss = setScoreService.lambdaQuery()
+                .eq(SetScore::getMatchId, matchId)
+                .orderByAsc(SetScore::getSetNumber)
+                .list();
+        int t1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
+        int t2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
+        String p1n = uname.getOrDefault(m.getPlayer1Id(), "待定");
+        String p2n = uname.getOrDefault(m.getPlayer2Id(), "待定");
+        List<Map<String, Object>> sets = ss.stream().map(s -> {
+            String p1 = Boolean.TRUE.equals(s.getPlayer1IsX()) ? "X" : String.valueOf(s.getPlayer1Score() == null ? 0 : s.getPlayer1Score());
+            String p2 = Boolean.TRUE.equals(s.getPlayer2IsX()) ? "X" : String.valueOf(s.getPlayer2Score() == null ? 0 : s.getPlayer2Score());
+            String hammer = Objects.equals(s.getHammerPlayerId(), m.getPlayer1Id()) ? p1n :
+                    (Objects.equals(s.getHammerPlayerId(), m.getPlayer2Id()) ? p2n : "-");
+            return Map.<String, Object>of(
+                    "setNumber", s.getSetNumber(),
+                    "player1ScoreText", p1,
+                    "player2ScoreText", p2,
+                    "hammer", hammer
+            );
+        }).toList();
+        List<Map<String, Object>> accepts = matchAcceptanceMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<MatchAcceptance>lambdaQuery()
+                        .eq(MatchAcceptance::getMatchId, matchId)
+                        .orderByAsc(MatchAcceptance::getAcceptedAt)
+        ).stream().map(a -> Map.<String, Object>of(
+                "username", uname.getOrDefault(a.getUserId(), "未知"),
+                "signature", a.getSignature(),
+                "acceptedAt", a.getAcceptedAt()
+        )).toList();
+        List<Map<String, Object>> editLogs = matchScoreEditLogMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<MatchScoreEditLog>lambdaQuery()
+                        .eq(MatchScoreEditLog::getMatchId, matchId)
+                        .orderByDesc(MatchScoreEditLog::getEditedAt)
+        ).stream().map(l -> {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("setNumber", l.getSetNumber());
+            row.put("editorUsername", uname.getOrDefault(l.getEditorUserId(), "未知"));
+            row.put("oldScore", (Boolean.TRUE.equals(l.getOldPlayer1IsX()) ? "X" : String.valueOf(l.getOldPlayer1Score() == null ? 0 : l.getOldPlayer1Score()))
+                    + ":" +
+                    (Boolean.TRUE.equals(l.getOldPlayer2IsX()) ? "X" : String.valueOf(l.getOldPlayer2Score() == null ? 0 : l.getOldPlayer2Score())));
+            row.put("newScore", (Boolean.TRUE.equals(l.getNewPlayer1IsX()) ? "X" : String.valueOf(l.getNewPlayer1Score() == null ? 0 : l.getNewPlayer1Score()))
+                    + ":" +
+                    (Boolean.TRUE.equals(l.getNewPlayer2IsX()) ? "X" : String.valueOf(l.getNewPlayer2Score() == null ? 0 : l.getNewPlayer2Score())));
+            row.put("editedAt", l.getEditedAt());
+            return row;
+        }).toList();
+        String title = "单场比赛战绩（" + (m.getCategory() == null ? "-" : m.getCategory()) + "）";
+        Map<String, Object> matchDetail = new LinkedHashMap<>();
+        matchDetail.put("matchId", m.getId());
+        matchDetail.put("phaseCode", m.getPhaseCode());
+        matchDetail.put("category", m.getCategory());
+        matchDetail.put("round", m.getRound());
+        matchDetail.put("player1Id", m.getPlayer1Id());
+        matchDetail.put("player2Id", m.getPlayer2Id());
+        matchDetail.put("player1Name", p1n);
+        matchDetail.put("player2Name", p2n);
+        matchDetail.put("totalText", t1 + ":" + t2);
+        matchDetail.put("player1Total", t1);
+        matchDetail.put("player2Total", t2);
+        matchDetail.put("sets", sets);
+        matchDetail.put("acceptances", accepts);
+        matchDetail.put("editLogs", editLogs);
+        return Map.of(
+                "matchId", matchId,
+                "tournamentId", m.getTournamentId(),
+                "title", title,
+                "matchDetails", List.of(matchDetail)
         );
     }
 
@@ -627,101 +729,20 @@ public class RankingApiController {
         Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
         Map<Long, String> groupNameById = groups.stream().collect(Collectors.toMap(TournamentGroup::getId, TournamentGroup::getGroupName, (a, b) -> a));
         List<Map<String, Object>> groupRows = new ArrayList<>();
-        List<Map<String, Object>> pseudoGroupRows = new ArrayList<>();
         Map<Long, List<Map<String, Object>>> rankingByGroupId = groupRankingCalculator.buildGroupRankingsByMemberIds(
                 groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets
         );
+        List<Map<String, Object>> pseudoGroupRows = groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
+                groups, rankingByGroupId, groupMatches, setByMatch, acceptByMatch, uname, allowDraw, regularSets
+        );
 
         for (TournamentGroup g : groups) {
-            List<Match> gm = groupMatches.stream().filter(m -> Objects.equals(m.getGroupId(), g.getId())).toList();
             List<Map<String, Object>> ranking = rankingByGroupId.getOrDefault(g.getId(), List.of());
             Map<String, Object> one = new LinkedHashMap<>();
             one.put("groupId", g.getId());
             one.put("groupName", g.getGroupName());
             one.put("ranking", ranking);
             groupRows.add(one);
-
-            Map<Integer, List<Map<String, Object>>> byPoints = ranking.stream().collect(Collectors.groupingBy(r -> (Integer) r.getOrDefault("points", 0)));
-            for (Map.Entry<Integer, List<Map<String, Object>>> e : byPoints.entrySet()) {
-                List<Map<String, Object>> tie = e.getValue();
-                if (tie.size() < 3) continue;
-                Set<Long> tieIds = tie.stream().map(r -> (Long) r.get("userId")).filter(Objects::nonNull).collect(Collectors.toSet());
-                List<Match> tieMatches = gm.stream().filter(m -> tieIds.contains(m.getPlayer1Id()) && tieIds.contains(m.getPlayer2Id())).toList();
-                // 同分选手之间若尚未产生任何小组赛对阵（例如同分人数不足一组且都未交手），不算伪小组
-                if (tieMatches.isEmpty()) {
-                    continue;
-                }
-                String rawGroupName = g.getGroupName() == null ? "-" : g.getGroupName();
-                String baseGroupName = rawGroupName.endsWith("组") ? rawGroupName.substring(0, rawGroupName.length() - 1) : rawGroupName;
-                String pseudoGroupName = baseGroupName + "'组";
-
-                // 关键修复：伪小组必须沿用“真实 groupId”，否则 GroupRankingCalculator 内部会按 groupId 过滤匹配集合，导致伪小组统计为 0。
-                Map<Long, List<Long>> pseudoMember = Map.of(g.getId(), new ArrayList<>(tieIds));
-                List<TournamentGroup> pseudoGroup = List.of(new TournamentGroup());
-                pseudoGroup.get(0).setId(g.getId());
-                pseudoGroup.get(0).setGroupName(pseudoGroupName);
-
-                List<Map<String, Object>> pseudoRanking = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                        pseudoGroup, pseudoMember, uname, tieMatches, setByMatch, allowDraw, regularSets
-                ).getOrDefault(g.getId(), List.of());
-
-                // 连环套：同分选手在“相互对阵集合”内的胜平负都一致时，忽略胜负/直接对战打破并列，
-                // 而按业务优先级（净胜分→总得分→≥2局数总和→单局最高→偷分次数→偷分最高）重排。
-                boolean chainTie = pseudoRanking.size() >= 3;
-                if (chainTie) {
-                    int w0 = (int) pseudoRanking.get(0).getOrDefault("wins", 0);
-                    int d0 = (int) pseudoRanking.get(0).getOrDefault("draws", 0);
-                    int l0 = (int) pseudoRanking.get(0).getOrDefault("losses", 0);
-                    for (Map<String, Object> row : pseudoRanking) {
-                        int w = (int) row.getOrDefault("wins", 0);
-                        int d = (int) row.getOrDefault("draws", 0);
-                        int l = (int) row.getOrDefault("losses", 0);
-                        if (w != w0 || d != d0 || l != l0) {
-                            chainTie = false;
-                            break;
-                        }
-                    }
-                }
-
-                if (chainTie) {
-                    List<Map<String, Object>> reordered = new ArrayList<>(pseudoRanking);
-                    reordered.sort((aa, bb) -> {
-                        int an = (int) aa.getOrDefault("net", 0), bn = (int) bb.getOrDefault("net", 0);
-                        if (an != bn) return Integer.compare(bn, an);
-                        int at = (int) aa.getOrDefault("totalScore", 0), bt = (int) bb.getOrDefault("totalScore", 0);
-                        if (at != bt) return Integer.compare(bt, at);
-                        int a2 = (int) aa.getOrDefault("matchGe2Count", 0), b2 = (int) bb.getOrDefault("matchGe2Count", 0);
-                        if (a2 != b2) return Integer.compare(b2, a2);
-                        int am = (int) aa.getOrDefault("matchMaxScore", 0), bm = (int) bb.getOrDefault("matchMaxScore", 0);
-                        if (am != bm) return Integer.compare(bm, am);
-                        int as = (int) aa.getOrDefault("stealCount", 0), bs = (int) bb.getOrDefault("stealCount", 0);
-                        if (as != bs) return Integer.compare(bs, as);
-                        int ax = (int) aa.getOrDefault("stealMax", 0), bx = (int) bb.getOrDefault("stealMax", 0);
-                        if (ax != bx) return Integer.compare(bx, ax);
-                        return String.valueOf(aa.getOrDefault("username", "")).compareTo(String.valueOf(bb.getOrDefault("username", "")));
-                    });
-                    for (int i = 0; i < reordered.size(); i++) {
-                        reordered.get(i).put("groupRank", i + 1);
-                    }
-                    pseudoRanking = reordered;
-                }
-                Map<String, Object> pg = new LinkedHashMap<>();
-                pg.put("groupName", pseudoGroupName);
-                pg.put("fromGroup", g.getGroupName());
-                pg.put("points", e.getKey());
-                pg.put("ranking", pseudoRanking);
-                pg.put("matches", tieMatches.stream().map(m -> {
-                    List<MatchAcceptance> ac = acceptByMatch.getOrDefault(m.getId(), List.of());
-                    String ts = ac.isEmpty() ? "-" : String.valueOf(ac.get(ac.size() - 1).getAcceptedAt());
-                    return Map.of(
-                            "category", m.getCategory() == null ? "-" : m.getCategory(),
-                            "player1Name", uname.getOrDefault(m.getPlayer1Id(), "待定"),
-                            "player2Name", uname.getOrDefault(m.getPlayer2Id(), "待定"),
-                            "acceptedAt", ts
-                    );
-                }).toList());
-                pseudoGroupRows.add(pg);
-            }
         }
 
         List<Map<String, Object>> groupMatchRows = groupMatches.stream().map(m -> {
@@ -730,6 +751,8 @@ public class RankingApiController {
             int t2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
             List<MatchAcceptance> ac = acceptByMatch.getOrDefault(m.getId(), List.of());
             String acceptedAt = ac.isEmpty() ? "-" : String.valueOf(ac.get(ac.size() - 1).getAcceptedAt());
+            List<Map<String, Object>> sets = buildSetRowsForExport(ss, m, uname);
+            String firstHammerName = sets.isEmpty() ? "-" : String.valueOf(sets.get(0).getOrDefault("hammer", "-"));
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("groupId", m.getGroupId());
             row.put("groupName", groupNameById.getOrDefault(m.getGroupId(), "-"));
@@ -737,6 +760,8 @@ public class RankingApiController {
             row.put("player1Name", uname.getOrDefault(m.getPlayer1Id(), "待定"));
             row.put("player2Name", uname.getOrDefault(m.getPlayer2Id(), "待定"));
             row.put("score", t1 + ":" + t2);
+            row.put("firstHammerName", firstHammerName);
+            row.put("sets", sets);
             row.put("acceptedAt", acceptedAt);
             return row;
         }).toList();
@@ -816,6 +841,25 @@ public class RankingApiController {
                 "pseudoGroups", thisPseudo,
                 "matches", thisMatches
         );
+    }
+
+    private static List<Map<String, Object>> buildSetRowsForExport(List<SetScore> scores, Match match, Map<Long, String> usernameById) {
+        if (scores == null || scores.isEmpty() || match == null) return List.of();
+        return scores.stream().map(s -> {
+            String p1 = Boolean.TRUE.equals(s.getPlayer1IsX()) ? "X" : String.valueOf(s.getPlayer1Score() == null ? 0 : s.getPlayer1Score());
+            String p2 = Boolean.TRUE.equals(s.getPlayer2IsX()) ? "X" : String.valueOf(s.getPlayer2Score() == null ? 0 : s.getPlayer2Score());
+            String hammer = Objects.equals(s.getHammerPlayerId(), match.getPlayer1Id())
+                    ? usernameById.getOrDefault(match.getPlayer1Id(), "待定")
+                    : (Objects.equals(s.getHammerPlayerId(), match.getPlayer2Id())
+                    ? usernameById.getOrDefault(match.getPlayer2Id(), "待定")
+                    : "-");
+            return Map.<String, Object>of(
+                    "setNumber", s.getSetNumber(),
+                    "player1ScoreText", p1,
+                    "player2ScoreText", p2,
+                    "hammer", hammer
+            );
+        }).toList();
     }
 
     /**

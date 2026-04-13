@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">选手战绩明细</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        .muted { color: #666; }
+        .match-block { border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 10px; }
+        .match-title { font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+        .score-matrix td:first-child, .score-matrix th:first-child { text-align: left; white-space: nowrap; min-width: 120px; }
+        .hammer-mark { font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: auto; }
+        th, td { border: 1px solid #ddd; padding: 5px 7px; text-align: center; vertical-align: middle; }
+        th { background: #f3f3f3; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">选手战绩明细</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<div th:if="${matchDetails == null or #lists.isEmpty(matchDetails)}" class="muted">暂无数据</div>
+<div th:each="m : ${matchDetails}" class="match-block"
+     th:with="p1=${m.player1Name != null ? m.player1Name : '-'},
+              p2=${m.player2Name != null ? m.player2Name : '-'},
+              firstHammer=${m.sets != null and !#lists.isEmpty(m.sets) ? m.sets[0].hammer : null}">
+    <div class="match-title"
+         th:text="${(m.category != null ? m.category : '-') + '（' + (m.phaseCode != null ? m.phaseCode : '-') + '） ' + (m.player1Name != null ? m.player1Name : '-') + ' vs ' + (m.player2Name != null ? m.player2Name : '-') + ' 总比分：' + (m.totalText != null ? m.totalText : '-')}">
+        场次信息
+    </div>
+    <table class="score-matrix">
+        <thead>
+        <tr>
+            <th>选手</th>
+            <th th:each="s : ${m.sets}" th:text="${s.setNumber}">1</th>
+            <th>总得分</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td>
+                <span th:text="${p1}">选手1</span>
+                <span class="hammer-mark" th:if="${firstHammer != null and firstHammer == p1}"> （开局后手）</span>
+            </td>
+            <td th:each="s : ${m.sets}" th:text="${s.player1ScoreText != null ? s.player1ScoreText : '0'}">0</td>
+            <td th:text="${m.player1Total != null ? m.player1Total : 0}">0</td>
+        </tr>
+        <tr>
+            <td>
+                <span th:text="${p2}">选手2</span>
+                <span class="hammer-mark" th:if="${firstHammer != null and firstHammer == p2}"> （开局后手）</span>
+            </td>
+            <td th:each="s : ${m.sets}" th:text="${s.player2ScoreText != null ? s.player2ScoreText : '0'}">0</td>
+            <td th:text="${m.player2Total != null ? m.player2Total : 0}">0</td>
+        </tr>
+        <tr th:if="${m.sets == null or #lists.isEmpty(m.sets)}"><td colspan="3" class="muted">暂无局分明细</td></tr>
+        </tbody>
+    </table>
+    <table>
+        <thead><tr><th>验收信息</th></tr></thead>
+        <tbody>
+        <tr th:if="${m.acceptances == null or #lists.isEmpty(m.acceptances)}"><td class="muted">无</td></tr>
+        <tr th:each="a : ${m.acceptances}">
+            <td th:text="${(a.username != null ? a.username : '未知') + ' @ ' + (a.acceptedAt != null ? a.acceptedAt : '-') }">验收记录</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</body>
+</html>

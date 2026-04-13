@@ -145,6 +145,44 @@ public class TournamentCompetitionController {
         }
     }
 
+    @GetMapping("/knockout/manual-data/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @ResponseBody
+    public Map<String, Object> knockoutManualData(@PathVariable Long tournamentId) {
+        try {
+            User cu = currentUser();
+            List<Long> eligible = knockoutBracketService.loadEligibleFirstRoundPlayers(cu, tournamentId);
+            List<com.example.service.impl.KnockoutBracketService.ManualPairDraft> draft =
+                    knockoutBracketService.buildManualFirstRoundDraft(cu, tournamentId);
+            Map<Long, User> usersById = userService.listByIds(eligible).stream()
+                    .collect(java.util.stream.Collectors.toMap(User::getId, u -> u, (a, b) -> a));
+            List<Map<String, Object>> options = new ArrayList<>();
+            int rank = 1;
+            for (Long uid : eligible) {
+                User u = usersById.get(uid);
+                if (u == null) continue;
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("rank", rank);
+                row.put("userId", uid);
+                row.put("username", u.getUsername());
+                options.add(row);
+                rank++;
+            }
+            List<Map<String, Object>> draftRows = new ArrayList<>();
+            for (com.example.service.impl.KnockoutBracketService.ManualPairDraft p : draft) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("slot", p.slot);
+                row.put("label", p.label);
+                row.put("defaultPlayer1Id", p.defaultPlayer1Id);
+                row.put("defaultPlayer2Id", p.defaultPlayer2Id);
+                draftRows.add(row);
+            }
+            return Map.of("ok", true, "options", options, "draft", draftRows);
+        } catch (Exception e) {
+            return Map.of("ok", false, "message", e.getMessage());
+        }
+    }
+
     @PostMapping("/knockout/manual/{tournamentId}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
     public String generateKnockoutManual(@PathVariable Long tournamentId,

@@ -9,19 +9,33 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0" th:text="${message.title}">通知标题</h3>
         <div class="d-flex gap-2">
-            <a class="btn btn-outline-secondary btn-sm" href="/notification/list">返回列表</a>
-            <a class="btn btn-outline-primary btn-sm" th:href="@{/notification/export/pdf/{id}(id=${message.id})}">导出PDF</a>
+            <a class="btn btn-outline-secondary btn-sm btn-mobile-compact" href="/notification/list">
+                <span class="btn-label">返回列表</span><span class="btn-emoji" aria-hidden="true">↩️</span>
+            </a>
+            <a class="btn btn-outline-primary btn-sm btn-mobile-compact" th:href="@{/notification/export/pdf/{id}(id=${message.id})}">
+                <span class="btn-label">导出PDF</span><span class="btn-emoji" aria-hidden="true">📄</span>
+            </a>
             <form method="post" th:action="@{/notification/mark-unread/{id}(id=${message.id})}">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                <button type="submit" class="btn btn-outline-warning btn-sm">标记未读</button>
+                <button type="submit" class="btn btn-outline-warning btn-sm btn-mobile-compact">
+                    <span class="btn-label">标记未读</span><span class="btn-emoji" aria-hidden="true">🔔</span>
+                </button>
             </form>
-            <button type="button" class="btn btn-primary btn-sm"
-                    data-copy-target="#copyText" data-copy-reset-ms="1200">复制为文本</button>
+            <button type="button" class="btn btn-primary btn-sm btn-mobile-compact"
+                    data-copy-target="#copyText" data-copy-reset-ms="1200">
+                <span class="btn-label">复制为文本</span><span class="btn-emoji" aria-hidden="true">📋</span>
+            </button>
         </div>
     </div>
     <div class="text-muted small mb-3">
         <span th:text="${message.publishedAt != null ? #temporals.format(message.publishedAt,'yyyy-MM-dd HH:mm:ss') : '-'}">时间</span>
         <span th:if="${message.authorUsername != null}"> · 发起者：<span th:text="${message.authorUsername}">用户</span></span>
+        <span th:if="${message.tournamentEditionLabel != null and !#strings.isEmpty(message.tournamentEditionLabel)}">
+            · 关联赛事：<span th:text="${message.tournamentEditionLabel}">赛季-等级-届次</span>
+        </span>
+        <span th:if="${message.tournamentDetailUrl != null and !#strings.isEmpty(message.tournamentDetailUrl)}">
+            · <a th:href="${message.tournamentDetailUrl}">前往赛事详情</a>
+        </span>
     </div>
     <article class="card border-0 shadow-sm">
         <div class="card-body markdown-body" th:utext="${message.contentHtml}"></div>

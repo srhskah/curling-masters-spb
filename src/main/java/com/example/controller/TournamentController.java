@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 // import java.time.LocalDate;
 import java.util.*;
 import java.util.function.Function;
@@ -933,11 +934,32 @@ public class TournamentController {
                 : seasonService.listByIds(seasonIdsToLoad).stream()
                 .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
 
+        // 赛事详情页“其他赛事”区域：过滤掉“测试”系列下的所有赛事
+        List<Tournament> visibleSeriesTournaments = seriesTournaments.stream()
+                .filter(Objects::nonNull)
+                .filter(t -> {
+                    Series ts = t.getSeriesId() == null ? null : seriesById.get(t.getSeriesId());
+                    return ts == null || !isTestSeries(ts);
+                })
+                .toList();
+        if (prevSameLevelTournament != null) {
+            Series ps = prevSameLevelTournament.getSeriesId() == null ? null : seriesById.get(prevSameLevelTournament.getSeriesId());
+            if (ps != null && isTestSeries(ps)) {
+                prevSameLevelTournament = null;
+            }
+        }
+        if (nextSameLevelTournament != null) {
+            Series ns = nextSameLevelTournament.getSeriesId() == null ? null : seriesById.get(nextSameLevelTournament.getSeriesId());
+            if (ns != null && isTestSeries(ns)) {
+                nextSameLevelTournament = null;
+            }
+        }
+
         // 预计算：{tournamentId -> edition}（用于 tabs 文案/箭头文案）
         Map<Long, Integer> editionByTournamentId = new HashMap<>();
         // keys: seasonId|levelCode
         Set<String> editionKeys = new HashSet<>();
-        for (Tournament t : seriesTournaments) {
+        for (Tournament t : visibleSeriesTournaments) {
             if (t == null || t.getLevelCode() == null) continue;
             Series ts = seriesById.get(t.getSeriesId());
             if (ts == null || ts.getSeasonId() == null) continue;
@@ -987,7 +1009,7 @@ public class TournamentController {
         // tabs 数据：以“赛事等级”为单位去重展示（同一等级可能有多届/多场，但 tab 只显示该等级有哪些）
         String currentLevelCode = tournament.getLevelCode();
         Map<String, Tournament> repByLevelCode = new LinkedHashMap<>();
-        for (Tournament t : seriesTournaments) {
+        for (Tournament t : visibleSeriesTournaments) {
             if (t == null || t.getLevelCode() == null) continue;
             String lc = t.getLevelCode();
             // 默认取该等级在 series 内出现的第一场；若当前赛事本身属于该等级，则用当前赛事作为代表
@@ -1089,6 +1111,8 @@ public class TournamentController {
         model.addAttribute("nextSameLevelTournamentNav", buildNavMap.apply(nextSameLevelTournament));
         
         List<Match> matches = matchService.lambdaQuery().eq(Match::getTournamentId, id).orderByAsc(Match::getRound).list();
+        boolean hasGroupStageMatches = matches.stream()
+                .anyMatch(m -> m != null && "GROUP".equalsIgnoreCase(m.getPhaseCode()));
         List<Map<String, Object>> matchInfoList = new ArrayList<>();
         for (Match m : matches) {
             Map<String, Object> matchInfo = new HashMap<>();
@@ -1142,6 +1166,7 @@ public class TournamentController {
         
         model.addAttribute("tournamentInfo", tournamentInfo);
         model.addAttribute("matchInfoList", matchInfoList);
+        model.addAttribute("hasGroupStageMatches", hasGroupStageMatches);
         Map<Integer, List<Map<String, Object>>> matchesByRound = matchInfoList.stream()
                 .collect(Collectors.groupingBy(
                         mi -> {
@@ -1320,6 +1345,14 @@ public class TournamentController {
             }
             Map<Long, List<Map<String, Object>>> groupRankingByGroupId = groupRankingCalculator.buildGroupRankingsByMemberIds(
                     groups, memberIdsByGroup, usernameById, matches, scoresByMatchId, competitionConfig);
+            List<Match> groupMatchesOnly = matches.stream()
+                    .filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()))
+                    .toList();
+            boolean allowDrawForPseudo = competitionConfig == null || !Boolean.FALSE.equals(competitionConfig.getGroupAllowDraw());
+            int regularSetsForPseudo = (competitionConfig != null && competitionConfig.getGroupStageSets() != null && competitionConfig.getGroupStageSets() > 0)
+                    ? competitionConfig.getGroupStageSets() : 8;
+            groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
+                    groups, groupRankingByGroupId, groupMatchesOnly, scoresByMatchId, Map.of(), usernameById, allowDrawForPseudo, regularSetsForPseudo);
             model.addAttribute("groupRankingByGroupId", groupRankingByGroupId);
             List<Map<String, Object>> groupOverallRanking = groupRankingCalculator.buildOverallRanking(groupRankingByGroupId);
             Map<Long, Integer> overallRankByUserId = groupOverallRanking.stream()
@@ -1425,7 +1458,7 @@ public class TournamentController {
                 t.put("tabId", "match-tab-qualifier-" + qr);
                 t.put("label", qualifierCardsByRound.isEmpty() && qr == 1
                         ? "资格赛"
-                        : ("资格赛 第" + qr + "轮"));
+                        : ("资格赛 第" + qr + "场"));
                 t.put("qualifierRound", qr);
                 t.put("qualifierCards", qCards);
                 t.put("qualifierLatestRound", latestQ);
@@ -1694,6 +1727,80 @@ public class TournamentController {
         return "redirect:/tournament/detail/" + tournamentId;
     }
 
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @PostMapping("/ranking/rebuild/{tournamentId}")
+    public String rebuildRanking(@PathVariable Long tournamentId, RedirectAttributes redirectAttributes) {
+        try {
+            boolean admin = isAdmin();
+            boolean isHost = isHostUser(tournamentId);
+            if (!admin && !isHost) {
+                redirectAttributes.addFlashAttribute("error", "您没有权限刷新排名");
+                return "redirect:/tournament/detail/" + tournamentId;
+            }
+            Tournament tournament = tournamentService.getById(tournamentId);
+            if (tournament == null) {
+                redirectAttributes.addFlashAttribute("error", "赛事不存在");
+                return "redirect:/tournament/list";
+            }
+            TournamentCompetitionConfig cfg = tournamentCompetitionService.getConfig(tournamentId);
+            if (cfg == null || cfg.getMatchMode() == null || cfg.getMatchMode() != 3) {
+                redirectAttributes.addFlashAttribute("error", "当前仅支持小组赛模式一键刷新排名");
+                return "redirect:/tournament/detail/" + tournamentId;
+            }
+            List<Long> rankedUserIds = loadCurrentOverallRankedUserIdsForGroupStage(tournamentId, cfg);
+            if (rankedUserIds.isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "未找到可用于重建的实时小组赛排名数据");
+                return "redirect:/tournament/detail/" + tournamentId;
+            }
+            TournamentLevel level = tournamentLevelService.lambdaQuery()
+                    .eq(TournamentLevel::getCode, tournament.getLevelCode())
+                    .one();
+            int basePoints = level != null && level.getDefaultBottomPoints() != null ? level.getDefaultBottomPoints() : 100;
+            BigDecimal ratio = tournament.getChampionPointsRatio();
+            if (ratio == null && level != null) {
+                ratio = level.getDefaultChampionRatio();
+            }
+
+            userTournamentPointsService.lambdaUpdate()
+                    .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                    .remove();
+
+            int participantCount = rankedUserIds.size();
+            int qualifiedTotal = Math.min(participantCount,
+                    Math.max(0, com.example.service.impl.KnockoutBracketService.playersInFirstKnockoutRound(cfg.getKnockoutStartRound())));
+            boolean firstRoundFinished = isFirstKnockoutRoundFinished(tournamentId, cfg);
+
+            for (int i = 0; i < rankedUserIds.size(); i++) {
+                Long uid = rankedUserIds.get(i);
+                if (uid == null) {
+                    continue;
+                }
+                UserTournamentPoints utp = new UserTournamentPoints();
+                utp.setUserId(uid);
+                utp.setTournamentId(tournamentId);
+                boolean keepBlankForQualified = !firstRoundFinished && i < qualifiedTotal;
+                if (keepBlankForQualified) {
+                    utp.setPoints(null);
+                } else {
+                    int rank = i + 1;
+                    int points = calculatePoints(rank, participantCount, basePoints, ratio);
+                    utp.setPoints(points);
+                }
+                utp.setCreatedAt(LocalDateTime.now());
+                userTournamentPointsService.save(utp);
+            }
+            if (!firstRoundFinished && qualifiedTotal > 0) {
+                redirectAttributes.addFlashAttribute("success",
+                        "已按当前赛事数据重建排名（" + participantCount + " 人），首轮淘汰赛未完结：前 " + qualifiedTotal + " 名积分留空");
+            } else {
+                redirectAttributes.addFlashAttribute("success", "已按当前赛事数据重建排名（" + participantCount + " 人）");
+            }
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "刷新排名失败：" + e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
     /**
      * 管理员手动修改单条积分（仅超管/普管）
      */
@@ -1913,6 +2020,63 @@ public class TournamentController {
         double points = championPoints * Math.pow(r, Math.max(0, rank - 1));
         int rounded = (int) Math.round(points);
         return Math.max(bottomPoints, rounded);
+    }
+
+    private boolean isFirstKnockoutRoundFinished(Long tournamentId, TournamentCompetitionConfig cfg) {
+        if (tournamentId == null || cfg == null || cfg.getKnockoutStartRound() == null) {
+            return false;
+        }
+        List<Match> firstRoundMainMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, cfg.getKnockoutStartRound())
+                .list();
+        if (firstRoundMainMatches == null || firstRoundMainMatches.isEmpty()) {
+            return false;
+        }
+        return firstRoundMainMatches.stream().allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()));
+    }
+
+    private List<Long> loadCurrentOverallRankedUserIdsForGroupStage(Long tournamentId, TournamentCompetitionConfig cfg) {
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tournamentId)
+                        .orderByAsc(TournamentGroup::getGroupOrder)
+        );
+        if (groups == null || groups.isEmpty()) return List.of();
+        List<TournamentGroupMember> members = tournamentGroupMemberMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroupMember>lambdaQuery()
+                        .eq(TournamentGroupMember::getTournamentId, tournamentId)
+        );
+        Map<Long, List<Long>> memberIdsByGroup = members.stream().collect(Collectors.groupingBy(
+                TournamentGroupMember::getGroupId, LinkedHashMap::new, Collectors.mapping(TournamentGroupMember::getUserId, Collectors.toList())
+        ));
+        List<Match> groupMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .list();
+        List<Long> mids = groupMatches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<SetScore>> setByMatch = mids.isEmpty() ? Map.of() : setScoreService.lambdaQuery()
+                .in(SetScore::getMatchId, mids)
+                .orderByAsc(SetScore::getSetNumber)
+                .list()
+                .stream().collect(Collectors.groupingBy(SetScore::getMatchId, LinkedHashMap::new, Collectors.toList()));
+        Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        boolean allowDraw = cfg.getGroupAllowDraw() == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        int regularSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
+        Map<Long, List<Map<String, Object>>> byGroup = groupRankingCalculator.buildGroupRankingsByMemberIds(
+                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets
+        );
+        groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
+                groups, byGroup, groupMatches, setByMatch, Map.of(), uname, allowDraw, regularSets
+        );
+        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byGroup);
+        List<Long> out = new ArrayList<>();
+        for (Map<String, Object> row : overall) {
+            Long uid = (Long) row.get("userId");
+            if (uid != null) out.add(uid);
+        }
+        return out;
     }
 
     /**

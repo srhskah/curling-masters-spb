@@ -74,7 +74,7 @@ public class QualifierScheduleService {
         for (int i = 0; i + 1 < qualifierUids.size(); i += 2) {
             Match mch = new Match();
             mch.setTournamentId(tournamentId);
-            mch.setCategory("资格赛 第" + roundLabel + "轮 场次" + matchIdx);
+            mch.setCategory("资格赛 第" + roundLabel + "场 场次" + matchIdx);
             mch.setPhaseCode("QUALIFIER");
             mch.setQualifierRound(roundLabel);
             mch.setRound(roundLabel);
@@ -90,7 +90,7 @@ public class QualifierScheduleService {
             Long bye = qualifierUids.get(qualifierUids.size() - 1);
             Match mch = new Match();
             mch.setTournamentId(tournamentId);
-            mch.setCategory("资格赛 第" + roundLabel + "轮 轮空晋级");
+            mch.setCategory("资格赛 第" + roundLabel + "场 轮空晋级");
             mch.setPhaseCode("QUALIFIER");
             mch.setQualifierRound(roundLabel);
             mch.setRound(roundLabel);

@@ -5,14 +5,21 @@ import com.example.entity.*;
 import com.example.mapper.*;
 import com.example.service.*;
 import com.example.service.impl.DrawManagementService;
+import com.example.service.impl.RankingExportPdfService;
+import com.example.util.PdfExportSupport;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.text.Collator;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -30,6 +37,8 @@ public class TournamentDrawController {
     @Autowired private SeriesService seriesService;
     @Autowired private ITournamentLevelService tournamentLevelService;
     @Autowired private TournamentDrawAuthHelper tournamentDrawAuthHelper;
+    @Autowired private RankingExportPdfService rankingExportPdfService;
+    @Autowired private RankingApiController rankingApiController;
 
     /**
      * 获取抽签配置（用于对话框）
@@ -175,6 +184,7 @@ public class TournamentDrawController {
      * 初始化抽签配置（管理员）
      */
     @PostMapping("/init")
+    @Transactional(rollbackFor = Exception.class)
     @ResponseBody
     public Map<String, Object> initDraw(@PathVariable Long tournamentId,
                                         @RequestParam String drawType,
@@ -189,31 +199,26 @@ public class TournamentDrawController {
             if (!tournamentDrawAuthHelper.canManageDraw(user, tournamentId)) {
                 return Map.of("success", false, "message", "仅超级管理员、管理员或本届主办可配置抽签");
             }
-            // 创建小组
-            List<TournamentGroup> existingGroups = groupMapper.selectList(
-                com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroup>lambdaQuery()
-                    .eq(TournamentGroup::getTournamentId, tournamentId)
-            );
-            
-            if (p == DrawPool.MAIN && existingGroups.size() != groupCount) {
-                // 删除旧小组
-                groupMapper.delete(
-                    com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroup>lambdaQuery()
-                        .eq(TournamentGroup::getTournamentId, tournamentId)
-                );
-                
-                // 创建新小组
-                String[] groupNames = {"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"};
-                for (int i = 0; i < groupCount; i++) {
-                    TournamentGroup group = new TournamentGroup();
-                    group.setTournamentId(tournamentId);
-                    group.setGroupName(groupNames[i] + "组");
-                    group.setGroupOrder(i + 1);
-                    groupMapper.insert(group);
+            if (tournamentId == null || tournamentId <= 0) {
+                return Map.of("success", false, "message", "赛事编号无效，请从赛事详情重新进入抽签页");
+            }
+            Tournament tournament = tournamentService.getById(tournamentId);
+            if (tournament == null || tournament.getId() == null) {
+                return Map.of("success", false, "message", "赛事不存在或编号无效，请从赛事详情重新进入抽签页");
+            }
+            Long tid = tournament.getId();
+            if (groupCount == null || groupCount < 1) {
+                return Map.of("success", false, "message", "小组数无效");
+            }
+            if (p == DrawPool.MAIN) {
+                List<TournamentGroup> existingGroups = groupMapper.selectList(
+                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroup>lambdaQuery()
+                                .eq(TournamentGroup::getTournamentId, tid));
+                if (existingGroups.size() != groupCount) {
+                    drawManagementService.syncMainDrawGroupSkeleton(tid, groupCount);
                 }
             }
-            
-            TournamentDraw draw = drawManagementService.initializeDraw(tournamentId, drawType, groupCount, tierCount, seedCount, p);
+            TournamentDraw draw = drawManagementService.initializeDraw(tid, drawType, groupCount, tierCount, seedCount, p);
             return Map.of("success", true, "draw", draw);
         } catch (Exception e) {
             return Map.of("success", false, "message", e.getMessage());
@@ -226,7 +231,7 @@ public class TournamentDrawController {
     @PostMapping("/perform")
     @ResponseBody
     public Map<String, Object> performDraw(@PathVariable Long tournamentId,
-                                           @RequestParam Long groupId,
+                                           @RequestParam(required = false) Long groupId,
                                            @RequestParam(required = false, defaultValue = "MAIN") String pool,
                                            Authentication auth) {
         try {
@@ -316,6 +321,85 @@ public class TournamentDrawController {
         result.put("edition", edition);
         
         return result;
+    }
+
+    /**
+     * 抽签结果 PDF（标题含赛季-级别-本届届次；仅办赛权限）
+     */
+    @GetMapping(value = "/export/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportDrawResultsPdf(@PathVariable Long tournamentId,
+                                                       @RequestParam(required = false, defaultValue = "MAIN") String pool,
+                                                       Authentication auth) {
+        User user = userService.getById(((CustomUserDetails) auth.getPrincipal()).getId());
+        if (!tournamentDrawAuthHelper.canManageDraw(user, tournamentId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        DrawPool p = DrawPool.fromParam(pool);
+        Map<String, Object> status = drawManagementService.getDrawStatus(tournamentId, p);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> resultRows = (List<Map<String, Object>>) status.getOrDefault("resultRows", List.of());
+
+        Collator collator = Collator.getInstance(Locale.CHINA);
+        Map<String, List<Map<String, Object>>> byName = new TreeMap<>(collator);
+        for (Map<String, Object> row : resultRows) {
+            Object gn = row.get("groupName");
+            String key = gn != null ? String.valueOf(gn) : "?";
+            byName.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
+        }
+        for (List<Map<String, Object>> list : byName.values()) {
+            list.sort(Comparator.comparing(
+                    r -> {
+                        Object o = r.get("drawOrder");
+                        return o instanceof Number ? ((Number) o).intValue() : null;
+                    },
+                    Comparator.nullsLast(Integer::compareTo)));
+        }
+        List<Map<String, Object>> groupSections = new ArrayList<>();
+        for (Map.Entry<String, List<Map<String, Object>>> e : byName.entrySet()) {
+            LinkedHashMap<String, Object> sec = new LinkedHashMap<>();
+            sec.put("groupName", e.getKey());
+            sec.put("rows", e.getValue());
+            groupSections.add(sec);
+        }
+
+        String editionTitle = buildDrawPdfEditionTitle(tournamentId);
+        String poolSuffix = p == DrawPool.QUALIFIER ? "资格赛" : "正赛";
+        String title = editionTitle + "-" + poolSuffix + "-抽签结果";
+
+        TournamentDraw draw = (TournamentDraw) status.get("draw");
+        LinkedHashMap<String, Object> model = new LinkedHashMap<>();
+        PdfExportSupport.addStandardPdfHeaderFields(model);
+        model.put("title", title);
+        model.put("drawTypeLabel", drawTypeLabelForPdf(draw));
+        model.put("groupSections", groupSections);
+        model.put("noDrawRecords", resultRows.isEmpty());
+
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-draw-results", model);
+        return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-" + poolSuffix + "-抽签结果.pdf");
+    }
+
+    private String buildDrawPdfEditionTitle(Long tournamentId) {
+        Map<String, Object> data = rankingApiController.getTournamentRanking(tournamentId);
+        String seasonLabel = data.get("seasonLabel") != null ? data.get("seasonLabel").toString() : "赛季";
+        String levelName = data.get("levelName") != null ? data.get("levelName").toString() : "赛事等级";
+        Integer edition = null;
+        try {
+            edition = data.get("edition") instanceof Number ? ((Number) data.get("edition")).intValue() : null;
+        } catch (Exception ignored) {
+        }
+        return seasonLabel + "-" + levelName + "-" + (edition == null ? "?" : edition);
+    }
+
+    private static String drawTypeLabelForPdf(TournamentDraw draw) {
+        if (draw == null || draw.getDrawType() == null) {
+            return "";
+        }
+        return switch (draw.getDrawType()) {
+            case "RANDOM" -> "默认抽签";
+            case "TIERED" -> "分档抽签";
+            case "SEED" -> "种子抽签";
+            default -> draw.getDrawType();
+        };
     }
 
     private static boolean isTestSeries(Series series) {

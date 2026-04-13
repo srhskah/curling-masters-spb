@@ -196,6 +196,31 @@ public class RankingExportPdfController {
         return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-" + groupName + "-排名与对阵明细.pdf");
     }
 
+    @GetMapping(value = "/tournament/{tournamentId}/user/{userId}/performance", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportTournamentUserPerformancePdf(@PathVariable Long tournamentId, @PathVariable Long userId) {
+        String editionTitle = buildTournamentEditionTitle(tournamentId);
+        java.util.Map<String, Object> data = rankingApiController.getTournamentUserPerformance(tournamentId, userId);
+        String username = data.get("username") != null ? data.get("username").toString() : ("用户" + userId);
+        String title = editionTitle + "-" + username + "-赛事战绩";
+        byte[] pdfBytes = renderPerformancePdf(title, data.get("matchDetails"));
+        return PdfExportSupport.attachmentPdf(pdfBytes, title + ".pdf");
+    }
+
+    @GetMapping(value = "/match/{matchId}/performance", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportSingleMatchPerformancePdf(@PathVariable Long matchId) {
+        java.util.Map<String, Object> data = rankingApiController.getMatchPerformance(matchId);
+        Long tournamentId = null;
+        try {
+            tournamentId = data.get("tournamentId") instanceof Number ? ((Number) data.get("tournamentId")).longValue() : null;
+        } catch (Exception ignored) {
+        }
+        String editionTitle = tournamentId != null ? buildTournamentEditionTitle(tournamentId) : null;
+        String rawTitle = data.get("title") != null ? data.get("title").toString() : ("单场比赛战绩-" + matchId);
+        String title = (editionTitle != null && !editionTitle.isBlank()) ? (editionTitle + "-" + rawTitle) : rawTitle;
+        byte[] pdfBytes = renderPerformancePdf(title, data.get("matchDetails"));
+        return PdfExportSupport.attachmentPdf(pdfBytes, title + ".pdf");
+    }
+
     private byte[] renderGroupRankingPdf(String title, Object groups, Object pseudoGroups, Object groupMatches) {
         LinkedHashMap<String, Object> model = basePdfModel();
         model.put("title", title);
@@ -203,6 +228,13 @@ public class RankingExportPdfController {
         model.put("pseudoGroups", pseudoGroups);
         model.put("groupMatches", groupMatches);
         return rankingExportPdfService.renderPdf("pdf/pdf-tournament-group-ranking", model);
+    }
+
+    private byte[] renderPerformancePdf(String title, Object matchDetails) {
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", title);
+        model.put("matchDetails", matchDetails);
+        return rankingExportPdfService.renderPdf("pdf/pdf-user-match-performance", model);
     }
 
     private String buildTournamentEditionTitle(Long tournamentId) {
