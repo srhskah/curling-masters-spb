@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 @Service
 public class KnockoutBracketService {
     public static final String SOURCE_AUTO_FROM_GROUP = "AUTO_FROM_GROUP";
+    public static final String SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER = "AUTO_FROM_GROUP_KO_QUALIFIER";
     public static final String SOURCE_MANUAL_KO_EDITOR = "MANUAL_KO_EDITOR";
     public static final String SOURCE_AUTO_BRACKET_ADVANCE = "AUTO_BRACKET_ADVANCE";
 
@@ -39,10 +40,12 @@ public class KnockoutBracketService {
         if (knockoutStartRound == null) {
             return 0;
         }
+        // 语义：knockoutStartRound=16/8/4/2 分别表示 1/16、1/8、1/4、半决赛
+        // 对应首轮参赛人数应为 32/16/8/4
         if (Objects.equals(knockoutStartRound, 2)) {
             return 4;
         }
-        return knockoutStartRound;
+        return knockoutStartRound * 2;
     }
 
     public static int nextKnockoutRoundField(int current) {
@@ -105,9 +108,6 @@ public class KnockoutBracketService {
         if (cfg.getKnockoutStartRound() == null) {
             throw new IllegalStateException("请先配置淘汰赛首轮");
         }
-        if (cfg.getQualifierRound() != null) {
-            throw new IllegalStateException("首轮挂载资格赛时请先完成资格赛（后续版本将自动衔接）");
-        }
         if (!isGroupStageFullyLocked(tournamentId)) {
             throw new IllegalStateException("小组赛须全部验收后才可生成淘汰赛");
         }
@@ -123,14 +123,27 @@ public class KnockoutBracketService {
             throw new IllegalStateException("未能生成首轮对阵");
         }
         deleteAllKnockoutMatches(operator, tournamentId);
+        // 重新生成首轮时，先清空本赛事全部 QUALIFIER，避免把历史“独立资格赛”与“首轮挂载资格赛”混用
+        deleteAllQualifierMatches(tournamentId);
         int koSets = (cfg.getKnockoutStageSets() != null && cfg.getKnockoutStageSets() > 0) ? cfg.getKnockoutStageSets() : 8;
         int startRoundField = cfg.getKnockoutStartRound();
+        if (cfg.getQualifierRound() != null && Objects.equals(cfg.getQualifierRound(), cfg.getKnockoutStartRound())) {
+            return generateFirstRoundWithMountedQualifiers(operator, tournamentId, cfg, ranked, planned, koSets, startRoundField, bracketPlayers);
+        }
         for (int i = 0; i < planned.size(); i++) {
             PlannedKo p = planned.get(i);
             insertKoMatch(tournamentId, startRoundField, i, p.half, p.p1, p.p2, p.category, null, null, koSets, "MAIN",
                     operator == null ? null : operator.getId(), SOURCE_AUTO_FROM_GROUP);
         }
         return planned.size();
+    }
+
+    public List<Long> loadOverallRankedUserIdsForKnockout(Long tournamentId) {
+        TournamentCompetitionConfig cfg = configMapper.selectById(tournamentId);
+        if (cfg == null) {
+            return List.of();
+        }
+        return loadOverallRankedUserIds(tournamentId, cfg);
     }
 
     public List<Long> loadEligibleFirstRoundPlayers(User operator, Long tournamentId) {
@@ -158,18 +171,17 @@ public class KnockoutBracketService {
     public List<ManualPairDraft> buildManualFirstRoundDraft(User operator, Long tournamentId) {
         TournamentCompetitionConfig cfg = configMapper.selectById(tournamentId);
         List<Long> eligible = loadEligibleFirstRoundPlayers(operator, tournamentId);
-        List<int[]> pairs = KnockoutPairingUtil.classicOverallRankPairs(eligible.size());
+        int mode = cfg.getKnockoutBracketMode() == null ? 0 : cfg.getKnockoutBracketMode();
+        List<PlannedKo> planned = planFirstRound(cfg, eligible, tournamentId, mode);
         List<ManualPairDraft> out = new ArrayList<>();
-        int startRoundField = cfg.getKnockoutStartRound();
-        int idx = 0;
-        for (int[] pr : pairs) {
+        for (int idx = 0; idx < planned.size(); idx++) {
+            PlannedKo p = planned.get(idx);
             out.add(new ManualPairDraft(
                     idx,
-                    eligible.get(pr[0] - 1),
-                    eligible.get(pr[1] - 1),
-                    koRoundLabel(startRoundField) + " 第" + (idx + 1) + "场"
+                    p.p1,
+                    p.p2,
+                    p.category == null || p.category.isBlank() ? ("第" + (idx + 1) + "场") : p.category
             ));
-            idx++;
         }
         return out;
     }
@@ -249,13 +261,260 @@ public class KnockoutBracketService {
             return;
         }
         String pc = match.getPhaseCode();
-        if (pc == null || (!"MAIN".equalsIgnoreCase(pc) && !"FINAL".equalsIgnoreCase(pc))) {
+        if (pc == null) {
+            return;
+        }
+        if ("QUALIFIER".equalsIgnoreCase(pc)) {
+            if (Boolean.TRUE.equals(match.getResultLocked())) {
+                tryFillMountedQualifierWinner(match);
+            }
+            return;
+        }
+        if (!"MAIN".equalsIgnoreCase(pc) && !"FINAL".equalsIgnoreCase(pc)) {
             return;
         }
         if (!Boolean.TRUE.equals(match.getResultLocked())) {
             return;
         }
         tryAdvance(match);
+    }
+
+    private int generateFirstRoundWithMountedQualifiers(User operator,
+                                                         Long tournamentId,
+                                                         TournamentCompetitionConfig cfg,
+                                                         List<Long> ranked,
+                                                         List<PlannedKo> planned,
+                                                         int koSets,
+                                                         int startRoundField,
+                                                         int bracketPlayers) {
+        int qualifyCount = cfg.getKnockoutQualifyCount() == null ? 0 : cfg.getKnockoutQualifyCount();
+        if (qualifyCount <= 0) {
+            throw new IllegalStateException("已挂载首轮资格赛时，资格赛名额数需大于 0");
+        }
+        if (qualifyCount >= bracketPlayers) {
+            throw new IllegalStateException("资格赛名额数需小于首轮淘汰赛总参赛人数");
+        }
+        int directCount = bracketPlayers - qualifyCount;
+        int requiredRanked = directCount + qualifyCount * 2;
+        if (ranked.size() < requiredRanked) {
+            throw new IllegalStateException("人数不足挂载资格赛（需至少 " + requiredRanked + " 人，当前 " + ranked.size() + "）");
+        }
+        List<TournamentGroup> groups = groupMapper.selectList(Wrappers.<TournamentGroup>lambdaQuery()
+                .eq(TournamentGroup::getTournamentId, tournamentId)
+                .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Map<String, Object>>> gr = groupRankRows(tournamentId, cfg, groups);
+        Map<Long, Long> userGroupId = new HashMap<>();
+        Map<Long, Integer> userGroupRank = new HashMap<>();
+        for (TournamentGroup g : groups) {
+            List<Map<String, Object>> rows = gr.getOrDefault(g.getId(), List.of());
+            for (Map<String, Object> row : rows) {
+                Long uid = (Long) row.get("userId");
+                if (uid != null) {
+                    userGroupId.put(uid, g.getId());
+                    userGroupRank.put(uid, (Integer) row.get("groupRank"));
+                }
+            }
+        }
+        int groupCount = groups.size();
+        int groupAdvance = groupCount > 0 ? (bracketPlayers / groupCount) : 0;
+        int mode = cfg.getKnockoutBracketMode() == null ? 0 : cfg.getKnockoutBracketMode();
+        int mountedWinnersPerGroup = groupCount > 0 ? (qualifyCount / groupCount) : 0;
+        boolean mode1Mounted = mode == 1 && groupCount > 0;
+        if (mode1Mounted) {
+            if (qualifyCount % groupCount != 0) {
+                throw new IllegalStateException("模式1挂载资格赛要求资格赛名额数可被小组数整除");
+            }
+            if (mountedWinnersPerGroup <= 0 || mountedWinnersPerGroup >= groupAdvance) {
+                throw new IllegalStateException("模式1挂载资格赛名额配置不合法");
+            }
+        }
+        int directRankPerGroup = mode1Mounted ? (groupAdvance - mountedWinnersPerGroup) : 0;
+        int qualifierOpponentStartRank = groupAdvance + 1;
+        Set<Long> directSet = new LinkedHashSet<>();
+        if (mode1Mounted) {
+            for (TournamentGroup g : groups) {
+                for (int r = 1; r <= directRankPerGroup; r++) {
+                    Long uid = userAtGroupRank(gr, g.getId(), r);
+                    if (uid != null) directSet.add(uid);
+                }
+            }
+        } else {
+            directSet.addAll(ranked.subList(0, directCount));
+        }
+        List<Long> qualifierOpponents = ranked.subList(bracketPlayers, bracketPlayers + qualifyCount);
+        // 首轮淘汰赛挂载资格赛：局数与淘汰赛首轮保持一致
+        int qSets = koSets;
+        int qIdx = 0;
+        Set<Long> usedQualifierOpponents = new LinkedHashSet<>();
+        for (int i = 0; i < planned.size(); i++) {
+            PlannedKo p = planned.get(i);
+            Long mP1 = p.p1;
+            Long mP2 = p.p2;
+            Long originalP1 = p.p1;
+            Long originalP2 = p.p2;
+            Long feeder1 = null;
+            Long feeder2 = null;
+            if (mP1 != null && !directSet.contains(mP1)) {
+                int mountedRank = userGroupRank.getOrDefault(mP1, qualifierOpponentStartRank);
+                int preferredRank = mode1Mounted
+                        ? (qualifierOpponentStartRank + (mountedRank - (directRankPerGroup + 1)))
+                        : qualifierOpponentStartRank;
+                Long challenger = pickMountedQualifierOpponent(cfg, qualifierOpponents, qIdx, usedQualifierOpponents,
+                        gr, userGroupId.get(originalP2), preferredRank);
+                if (challenger == null) {
+                    throw new IllegalStateException("资格赛占位数量与名额配置不一致（p1）");
+                }
+                qIdx++;
+                Long qid = insertQualifierMatch(tournamentId, i, startRoundField, mP1, challenger, qSets,
+                        operator == null ? null : operator.getId());
+                feeder1 = qid;
+                mP1 = null;
+            }
+            if (mP2 != null && !directSet.contains(mP2)) {
+                int mountedRank = userGroupRank.getOrDefault(mP2, qualifierOpponentStartRank);
+                int preferredRank = mode1Mounted
+                        ? (qualifierOpponentStartRank + (mountedRank - (directRankPerGroup + 1)))
+                        : qualifierOpponentStartRank;
+                Long challenger = pickMountedQualifierOpponent(cfg, qualifierOpponents, qIdx, usedQualifierOpponents,
+                        gr, userGroupId.get(originalP1), preferredRank);
+                if (challenger == null) {
+                    throw new IllegalStateException("资格赛占位数量与名额配置不一致（p2）");
+                }
+                qIdx++;
+                Long qid = insertQualifierMatch(tournamentId, i, startRoundField, mP2, challenger, qSets,
+                        operator == null ? null : operator.getId());
+                feeder2 = qid;
+                mP2 = null;
+            }
+            insertKoMatch(tournamentId, startRoundField, i, p.half, mP1, mP2, p.category, feeder1, feeder2, koSets, "MAIN",
+                    operator == null ? null : operator.getId(), SOURCE_AUTO_FROM_GROUP);
+        }
+        return planned.size();
+    }
+
+    private Long pickMountedQualifierOpponent(TournamentCompetitionConfig cfg,
+                                              List<Long> fallbackOpponents,
+                                              int fallbackIndex,
+                                              Set<Long> used,
+                                              Map<Long, List<Map<String, Object>>> groupRanks,
+                                              Long preferredGroupId,
+                                              int preferredGroupRank) {
+        // 模式1优先按“对侧小组名次线”取人，例如 A5-B4 / A4-B5
+        if (cfg != null && Objects.equals(cfg.getKnockoutBracketMode(), 1)
+                && preferredGroupId != null && preferredGroupRank > 0) {
+            Long candidate = userAtGroupRank(groupRanks, preferredGroupId, preferredGroupRank);
+            if (candidate != null && !used.contains(candidate)) {
+                used.add(candidate);
+                return candidate;
+            }
+            // 模式1下若无法命中对侧名次线，直接报错，避免串组取人导致错误对阵
+            return null;
+        }
+        for (int i = Math.max(0, fallbackIndex); i < fallbackOpponents.size(); i++) {
+            Long candidate = fallbackOpponents.get(i);
+            if (candidate != null && !used.contains(candidate)) {
+                used.add(candidate);
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private Long insertQualifierMatch(Long tid, int koSlot, int mountedKoRound, Long p1, Long p2, int sets, Long createdByUserId) {
+        LocalDateTime now = LocalDateTime.now();
+        Match m = new Match();
+        m.setTournamentId(tid);
+        m.setCategory("淘汰赛首轮资格赛（关联第" + (koSlot + 1) + "场）");
+        m.setPhaseCode("QUALIFIER");
+        // 与普通资格赛区分：记录其挂载的淘汰赛轮次（16/8/4/2）
+        m.setQualifierRound(mountedKoRound);
+        m.setRound(1);
+        m.setPlayer1Id(p1);
+        m.setPlayer2Id(p2);
+        m.setHomeUserId(p1);
+        m.setAwayUserId(p2);
+        m.setWinnerId(null);
+        m.setStatus((byte) 0);
+        m.setResultLocked(false);
+        m.setCreatedByUserId(createdByUserId);
+        m.setCreateSource(SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER);
+        m.setCreatedAt(now);
+        m.setUpdatedAt(now);
+        matchService.save(m);
+        for (int setNo = 1; setNo <= sets; setNo++) {
+            SetScore ss = new SetScore();
+            ss.setMatchId(m.getId());
+            ss.setSetNumber(setNo);
+            ss.setPlayer1Score(0);
+            ss.setPlayer2Score(0);
+            ss.setCreatedAt(now);
+            setScoreService.save(ss);
+        }
+        return m.getId();
+    }
+
+    private void tryFillMountedQualifierWinner(Match qualifierMatch) {
+        if (qualifierMatch.getId() == null || qualifierMatch.getWinnerId() == null) {
+            return;
+        }
+        TournamentCompetitionConfig cfg = configMapper.selectById(qualifierMatch.getTournamentId());
+        if (cfg == null || cfg.getKnockoutStartRound() == null) {
+            return;
+        }
+        List<Match> targets = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, qualifierMatch.getTournamentId())
+                // 仅回填首轮淘汰赛卡位，不影响后续自动晋级轮次
+                .eq(Match::getRound, cfg.getKnockoutStartRound())
+                .eq(Match::getPhaseCode, "MAIN")
+                .and(q -> q.eq(Match::getFeederMatch1Id, qualifierMatch.getId())
+                        .or()
+                        .eq(Match::getFeederMatch2Id, qualifierMatch.getId()))
+                .list();
+        if (targets == null || targets.isEmpty()) {
+            return;
+        }
+        for (Match ko : targets) {
+            boolean changed = false;
+            if (Objects.equals(ko.getFeederMatch1Id(), qualifierMatch.getId())
+                    && !Objects.equals(ko.getPlayer1Id(), qualifierMatch.getWinnerId())) {
+                ko.setPlayer1Id(qualifierMatch.getWinnerId());
+                ko.setHomeUserId(qualifierMatch.getWinnerId());
+                changed = true;
+            }
+            if (Objects.equals(ko.getFeederMatch2Id(), qualifierMatch.getId())
+                    && !Objects.equals(ko.getPlayer2Id(), qualifierMatch.getWinnerId())) {
+                ko.setPlayer2Id(qualifierMatch.getWinnerId());
+                ko.setAwayUserId(qualifierMatch.getWinnerId());
+                changed = true;
+            }
+            if (changed) {
+                ko.setUpdatedAt(LocalDateTime.now());
+                matchService.updateById(ko);
+            }
+        }
+    }
+
+    private void deleteAutoGeneratedKoQualifierMatches(Long tournamentId) {
+        List<Match> qs = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .eq(Match::getCreateSource, SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)
+                .list();
+        for (Match q : qs) {
+            setScoreService.lambdaUpdate().eq(SetScore::getMatchId, q.getId()).remove();
+            matchService.removeById(q.getId());
+        }
+    }
+
+    private void deleteAllQualifierMatches(Long tournamentId) {
+        List<Match> qs = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .list();
+        for (Match q : qs) {
+            setScoreService.lambdaUpdate().eq(SetScore::getMatchId, q.getId()).remove();
+            matchService.removeById(q.getId());
+        }
     }
 
     private void tryAdvance(Match m) {
@@ -464,6 +723,10 @@ public class KnockoutBracketService {
                 .collect(Collectors.groupingBy(SetScore::getMatchId));
         Map<Long, List<Map<String, Object>>> byG = groupRankingCalculator.buildGroupRankingsByMemberIds(
                 groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg);
+        boolean allowDrawKo = cfg == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        int regularSetsKo = (cfg != null && cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
+        groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
+                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDrawKo, regularSetsKo);
         List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byG);
         List<Long> out = new ArrayList<>();
         for (Map<String, Object> row : overall) {
@@ -501,7 +764,11 @@ public class KnockoutBracketService {
                 throw new IllegalStateException("上下半区组间交叉须至少 2 组且为偶数个小组（两半区各含若干组）");
             }
             int halfCount = groups.size() / 2;
-            int gsz = cfg.getGroupSize() != null ? cfg.getGroupSize() : (n / groups.size());
+            if (n % groups.size() != 0) {
+                throw new IllegalStateException("上下半区组间交叉：首轮参赛人数须为小组数的整数倍");
+            }
+            // 这里应使用“实际晋级人数/每组”而非 groupSize（每组总人数）
+            int gsz = n / groups.size();
             List<int[]> hx = KnockoutPairingUtil.halfCrossPairsBetweenTwoGroups(gsz);
             int matchNo = 1;
             for (int h = 0; h < 2; h++) {
@@ -523,10 +790,11 @@ public class KnockoutBracketService {
                 throw new IllegalStateException("世界杯式交错对阵须至少 2 个小组且为偶数个小组");
             }
             int pairCount = gCount / 2;
-            int q = cfg.getGroupSize() != null ? cfg.getGroupSize() : (n / gCount);
-            if (cfg.getGroupSize() == null && n % gCount != 0) {
+            if (n % gCount != 0) {
                 throw new IllegalStateException("未配置每组人数时，世界杯式首轮人数须为小组数的整数倍");
             }
+            // 同上：使用实际晋级人数/每组，避免误读为每组总人数
+            int q = n / gCount;
             if (n != q * gCount) {
                 throw new IllegalStateException("世界杯式首轮人数须等于 小组数×每组晋级人数（当前 " + n + "，期望 " + (q * gCount) + "）");
             }
@@ -575,7 +843,12 @@ public class KnockoutBracketService {
                 .list()
                 .stream()
                 .collect(Collectors.groupingBy(SetScore::getMatchId));
-        return groupRankingCalculator.buildGroupRankingsByMemberIds(groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg);
+        Map<Long, List<Map<String, Object>>> gr = groupRankingCalculator.buildGroupRankingsByMemberIds(groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg);
+        boolean allowDrawGr = cfg == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        int regularSetsGr = (cfg != null && cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
+        groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
+                groups, gr, matches, scoreByMatch, Map.of(), uname, allowDrawGr, regularSetsGr);
+        return gr;
     }
 
     private static Long userAtGroupRank(Map<Long, List<Map<String, Object>>> gr, long groupId, int groupRank1Based) {

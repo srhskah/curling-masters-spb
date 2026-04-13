@@ -3,10 +3,17 @@ package com.example.service.impl;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.entity.NotificationMessage;
 import com.example.entity.NotificationRecipient;
+import com.example.entity.Season;
+import com.example.entity.Series;
+import com.example.entity.Tournament;
+import com.example.entity.TournamentLevel;
 import com.example.entity.User;
 import com.example.mapper.NotificationMessageMapper;
 import com.example.mapper.NotificationRecipientMapper;
 import com.example.service.INotificationService;
+import com.example.service.ITournamentLevelService;
+import com.example.service.SeasonService;
+import com.example.service.SeriesService;
 import com.example.service.TournamentService;
 import com.example.service.UserService;
 import com.example.util.MarkdownUtils;
@@ -37,15 +44,24 @@ public class NotificationMessageServiceImpl implements INotificationService {
     private final NotificationRecipientMapper recipientMapper;
     private final UserService userService;
     private final TournamentService tournamentService;
+    private final SeriesService seriesService;
+    private final SeasonService seasonService;
+    private final ITournamentLevelService tournamentLevelService;
 
     public NotificationMessageServiceImpl(NotificationMessageMapper messageMapper,
                                           NotificationRecipientMapper recipientMapper,
                                           UserService userService,
-                                          TournamentService tournamentService) {
+                                          TournamentService tournamentService,
+                                          SeriesService seriesService,
+                                          SeasonService seasonService,
+                                          ITournamentLevelService tournamentLevelService) {
         this.messageMapper = messageMapper;
         this.recipientMapper = recipientMapper;
         this.userService = userService;
         this.tournamentService = tournamentService;
+        this.seriesService = seriesService;
+        this.seasonService = seasonService;
+        this.tournamentLevelService = tournamentLevelService;
     }
 
     @Override
@@ -112,6 +128,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
         List<NotificationMessage> msgs = messageMapper.selectBatchIds(ids);
         msgs.sort(Comparator.comparing(NotificationMessage::getPublishedAt, Comparator.nullsLast(Comparator.reverseOrder())));
         attachAuthorUsernames(msgs);
+        attachTournamentInfo(msgs);
         return msgs;
     }
 
@@ -124,6 +141,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
                 .orderByDesc(NotificationMessage::getPublishedAt)
                 .last("LIMIT " + l));
         attachAuthorUsernames(list);
+        attachTournamentInfo(list);
         return list;
     }
 
@@ -134,6 +152,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
                 .orderByDesc(NotificationMessage::getCreatedAt)
                 .last("LIMIT " + l));
         attachAuthorUsernames(list);
+        attachTournamentInfo(list);
         return list;
     }
 
@@ -146,6 +165,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
             markRead(messageId, viewerUserId);
         }
         attachAuthorUsername(m);
+        attachTournamentInfo(List.of(m));
         return Optional.of(m);
     }
 
@@ -155,6 +175,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
         NotificationMessage m = messageMapper.selectById(messageId);
         if (m == null || !canEditNotification(operator, m)) return Optional.empty();
         attachAuthorUsername(m);
+        attachTournamentInfo(List.of(m));
         return Optional.of(m);
     }
 
@@ -368,5 +389,92 @@ public class NotificationMessageServiceImpl implements INotificationService {
                 m.setAuthorUsername(name != null ? name : "（用户已删除）");
             }
         }
+    }
+
+    private void attachTournamentInfo(List<NotificationMessage> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return;
+        }
+        Set<Long> tidSet = messages.stream()
+                .map(NotificationMessage::getSourceRefId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (tidSet.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Tournament> tournamentById = tournamentService.listByIds(tidSet).stream()
+                .filter(Objects::nonNull)
+                .filter(t -> t.getId() != null)
+                .collect(Collectors.toMap(Tournament::getId, t -> t, (a, b) -> a));
+        Map<Long, Series> seriesById = seriesService.list().stream()
+                .filter(Objects::nonNull)
+                .filter(s -> s.getId() != null)
+                .collect(Collectors.toMap(Series::getId, s -> s, (a, b) -> a));
+        Map<Long, Season> seasonById = seasonService.list().stream()
+                .filter(Objects::nonNull)
+                .filter(s -> s.getId() != null)
+                .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+        Map<String, String> levelNameByCode = tournamentLevelService.list().stream()
+                .filter(Objects::nonNull)
+                .filter(l -> l.getCode() != null)
+                .collect(Collectors.toMap(TournamentLevel::getCode, TournamentLevel::getName, (a, b) -> a));
+
+        Map<String, Map<Long, Integer>> editionCache = new HashMap<>();
+        for (NotificationMessage m : messages) {
+            Long tid = m.getSourceRefId();
+            if (tid == null) {
+                continue;
+            }
+            Tournament t = tournamentById.get(tid);
+            if (t == null) {
+                continue;
+            }
+            Series ser = t.getSeriesId() == null ? null : seriesById.get(t.getSeriesId());
+            Season season = (ser == null || ser.getSeasonId() == null) ? null : seasonById.get(ser.getSeasonId());
+            String seasonLabel = season == null ? "赛季" : (season.getYear() + "年" + (Objects.equals(season.getHalf(), 1) ? "上半年" : "下半年"));
+            String level = levelNameByCode.getOrDefault(t.getLevelCode(), t.getLevelCode() == null ? "赛事等级" : t.getLevelCode());
+
+            Integer edition = null;
+            if (season != null && t.getLevelCode() != null) {
+                String k = season.getId() + "|" + t.getLevelCode();
+                Map<Long, Integer> byTid = editionCache.get(k);
+                if (byTid == null) {
+                    List<Long> seasonSeriesIds = seriesService.lambdaQuery()
+                            .eq(Series::getSeasonId, season.getId())
+                            .list()
+                            .stream()
+                            .filter(ss -> !isTestSeries(ss))
+                            .map(Series::getId)
+                            .filter(Objects::nonNull)
+                            .toList();
+                    byTid = new HashMap<>();
+                    if (!seasonSeriesIds.isEmpty()) {
+                        List<Tournament> sameLevel = tournamentService.lambdaQuery()
+                                .in(Tournament::getSeriesId, seasonSeriesIds)
+                                .eq(Tournament::getLevelCode, t.getLevelCode())
+                                .list();
+                        sameLevel.sort(Comparator.comparing(Tournament::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                                .thenComparing(Tournament::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+                        for (int i = 0; i < sameLevel.size(); i++) {
+                            Tournament x = sameLevel.get(i);
+                            if (x.getId() != null) {
+                                byTid.put(x.getId(), i + 1);
+                            }
+                        }
+                    }
+                    editionCache.put(k, byTid);
+                }
+                edition = byTid.get(t.getId());
+            }
+            m.setTournamentEditionLabel(seasonLabel + "-" + level + "-" + (edition == null ? "?" : edition));
+            m.setTournamentDetailUrl("/tournament/detail/" + t.getId());
+        }
+    }
+
+    private static boolean isTestSeries(Series series) {
+        if (series == null) return false;
+        String name = series.getName();
+        return name != null && name.contains("测试");
     }
 }

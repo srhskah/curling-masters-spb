@@ -2,12 +2,14 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments :: head(${pageTitle})}">
 </head>
-<body th:classappend="${ipBgClass}">
+<body th:classappend="${ipBgClass}" th:attr="data-tournament-id=${tournament.id}">
 <div th:replace="~{fragments :: navbar}"></div>
 <div th:replace="~{fragments :: success-alert}"></div>
 <div th:replace="~{fragments :: error-alert}"></div>
 
 <input type="hidden" th:if="${_csrf != null}" id="csrfMeta" th:attr="data-param=${_csrf.parameterName},data-token=${_csrf.token}"/>
+<!-- 必须由服务端渲染赛事 id，勿仅依赖 body data-* 或 Thymeleaf 内联注释，否则可能得到 0 导致 tournament_group 外键失败 -->
+<input type="hidden" id="drawPageTournamentId" th:value="${tournament.id}"/>
 
 <div class="container mt-4 mb-5">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -139,9 +141,19 @@
             <div th:if="${drawWindowOpen}" class="alert alert-light border small mb-3" th:switch="${draw.drawType}">
                 <span th:case="'TIERED'">请选择仍有空位的<strong>本档对应小组</strong>（各组每档人数上限相同）。</span>
                 <span th:case="'SEED'">种子与非种子可同时抽签；请选择仍有对应空位的小组。</span>
-                <span th:case="*">请选择仍有空位的小组。</span>
+                <span th:case="'RANDOM'">点击下方「随机抽签」，系统将在尚有空位的小组中<strong>随机</strong>分配您，无需选择小组。</span>
             </div>
-            <div class="row g-2" id="groupSelection">
+            <div th:if="${drawWindowOpen and draw.drawType == 'RANDOM'}" class="mb-3">
+                <div class="d-flex flex-wrap gap-2 justify-content-center mb-3">
+                    <span th:each="group : ${groups}" class="badge rounded-pill bg-light text-dark border px-3 py-2" th:text="${group.groupName}">A</span>
+                </div>
+                <div class="text-center">
+                    <button type="button" id="randomDrawBtn" class="btn btn-success btn-lg" onclick="performRandomDraw()">
+                        <i class="bi bi-shuffle"></i> 随机抽签
+                    </button>
+                </div>
+            </div>
+            <div th:if="${drawWindowOpen and draw.drawType != 'RANDOM'}" class="row g-2" id="groupSelection">
                 <div class="col-6 col-md-4 col-lg-3" th:each="group : ${groups}">
                     <div class="draw-group-card card h-100"
                          th:classappend="${drawWindowOpen and isRegistered and #sets.contains(eligibleGroupIdSet, group.id)} ? ' draw-group-card--eligible' : ' draw-group-card--inactive'"
@@ -154,7 +166,7 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center mt-3" th:if="${drawWindowOpen}">
+            <div class="text-center mt-3" th:if="${drawWindowOpen and draw.drawType != 'RANDOM'}">
                 <button type="button" id="confirmDrawBtn" class="btn btn-success" disabled onclick="confirmDraw()">
                     <i class="bi bi-check2-circle"></i> 确认抽入所选小组
                 </button>
@@ -174,6 +186,11 @@
                 <button type="button" class="btn btn-sm btn-light" onclick="loadDrawResults()">
                     <i class="bi bi-arrow-clockwise"></i> 刷新
                 </button>
+                <a th:if="${canManageDraw}" class="btn btn-sm btn-light"
+                   th:href="@{/tournament/{id}/draw/export/pdf(id=${tournament.id},pool=${drawPool})}"
+                   target="_blank" rel="noopener noreferrer">
+                    <i class="bi bi-file-pdf"></i> 导出PDF
+                </a>
                 <button type="button" class="btn btn-sm btn-light" onclick="copyDrawResults()" th:if="${canManageDraw}">
                     <i class="bi bi-clipboard"></i> 复制文本
                 </button>
@@ -195,7 +212,21 @@
 <div th:replace="~{fragments :: footer}"></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script th:inline="javascript">
-    const tournamentId = /*[[${tournament.id}]]*/ 0;
+    /** 服务端渲染的赛事 ID（字符串，避免大整数在 JS 中精度丢失） */
+    const DRAW_TOURNAMENT_ID = /*[[${tournament.id != null ? #strings.toString(tournament.id) : ''}]]*/ '';
+    function getDrawTournamentIdForFetch() {
+        if (DRAW_TOURNAMENT_ID && /^\d+$/.test(DRAW_TOURNAMENT_ID)) {
+            return DRAW_TOURNAMENT_ID;
+        }
+        const el = document.getElementById('drawPageTournamentId');
+        if (el && el.value != null && String(el.value).trim() !== '') {
+            const v = String(el.value).trim();
+            if (/^\d+$/.test(v)) return v;
+        }
+        const m = window.location.pathname.match(/\/tournament\/(\d+)\/draw(?:\/|$|\?)/);
+        return m && m[1] ? m[1] : '';
+    }
+    const tournamentId = getDrawTournamentIdForFetch();
     const drawPool = /*[[${drawPool}]]*/ 'MAIN';
     let selectedGroupId = null;
     let lastResultsJson = null;
@@ -244,6 +275,10 @@
 
     document.getElementById('drawConfigForm')?.addEventListener('submit', (e) => {
         e.preventDefault();
+        if (!tournamentId) {
+            alert('无法识别当前赛事编号，请刷新页面或从赛事详情重新进入抽签');
+            return;
+        }
         const form = e.target;
         const drawType = document.getElementById('drawType').value;
         const params = new URLSearchParams();
@@ -280,9 +315,35 @@
     }
 
     function confirmDraw() {
+        if (!tournamentId) {
+            alert('无法识别当前赛事编号，请刷新页面或从赛事详情重新进入抽签');
+            return;
+        }
         if (!selectedGroupId) return;
         if (!confirm('确认抽入所选小组？提交后不可撤销（除非管理员重置配置）。')) return;
         const params = new URLSearchParams({ groupId: selectedGroupId, pool: drawPool });
+        appendCsrf(params);
+        fetch(`/tournament/${tournamentId}/draw/perform`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        }).then(r => r.json()).then(result => {
+            if (result.success) {
+                alert('抽签成功');
+                location.reload();
+            } else {
+                alert(result.message || '抽签失败');
+            }
+        }).catch(err => alert('请求失败：' + err.message));
+    }
+
+    function performRandomDraw() {
+        if (!tournamentId) {
+            alert('无法识别当前赛事编号，请刷新页面或从赛事详情重新进入抽签');
+            return;
+        }
+        if (!confirm('确认随机抽签？提交后不可撤销（除非管理员重置配置）。')) return;
+        const params = new URLSearchParams({ pool: drawPool });
         appendCsrf(params);
         fetch(`/tournament/${tournamentId}/draw/perform`, {
             method: 'POST',
@@ -371,15 +432,45 @@
             alert('请先等待结果加载完成');
             return;
         }
-        const lines = [];
         const rows = lastResultsJson.resultRows || [];
-        lines.push('抽签结果');
+        if (rows.length === 0) {
+            alert('暂无抽签数据');
+            return;
+        }
+        const editionParts = [];
+        if (lastResultsJson.seasonLabel) editionParts.push(lastResultsJson.seasonLabel);
+        if (lastResultsJson.levelLabel) editionParts.push(lastResultsJson.levelLabel);
+        if (lastResultsJson.edition != null && lastResultsJson.edition !== '') editionParts.push(String(lastResultsJson.edition));
+        const header = editionParts.length ? ('抽签结果（' + editionParts.join('-') + '）') : '抽签结果';
+
+        const collator = new Intl.Collator('zh-CN');
+        const byGroup = new Map();
         for (const r of rows) {
-            let t = (r.username || '?') + ' → 组ID ' + r.groupId;
-            if (r.tierNumber != null) t += ' 第' + r.tierNumber + '档';
-            if (r.isSeed === true) t += ' 种子';
-            if (r.isAutoAssigned) t += ' 自动';
-            lines.push(t);
+            const gName = r.groupName || ('组#' + r.groupId);
+            if (!byGroup.has(gName)) byGroup.set(gName, []);
+            byGroup.get(gName).push(r);
+        }
+        const sortedNames = Array.from(byGroup.keys()).sort((a, b) => collator.compare(a, b));
+
+        const lines = [header];
+        for (const gName of sortedNames) {
+            lines.push('');
+            lines.push('【' + gName + '】');
+            const list = byGroup.get(gName).slice().sort((a, b) => {
+                const ao = a.drawOrder != null ? Number(a.drawOrder) : 999999;
+                const bo = b.drawOrder != null ? Number(b.drawOrder) : 999999;
+                return ao - bo;
+            });
+            for (const r of list) {
+                let t = '  ' + (r.username || '?');
+                if (r.tierNumber != null) t += ' 第' + r.tierNumber + '档';
+                if (r.isSeed === true) t += ' 种子';
+                if (r.isSeed === false) t += ' 非种子';
+                if (r.groupSlotIndex != null) t += ' 位' + r.groupSlotIndex;
+                if (r.isAutoAssigned) t += ' 自动';
+                if (r.drawOrder != null) t += ' (顺序#' + r.drawOrder + ')';
+                lines.push(t);
+            }
         }
         const text = lines.join('\n');
         if (typeof copyPlainTextToClipboard === 'function') {

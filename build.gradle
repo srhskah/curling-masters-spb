@@ -75,6 +75,28 @@ dependencies {
     testImplementation 'org.testcontainers:mysql'
 }
 
+sourceSets {
+    test {
+        java {
+            exclude 'com/example/integration/**'
+        }
+    }
+    integrationTest {
+        java {
+            srcDir 'src/test/java'
+            include 'com/example/integration/**'
+        }
+        resources.srcDir 'src/test/resources'
+        compileClasspath += sourceSets.main.output + configurations.testCompileClasspath
+        runtimeClasspath += output + compileClasspath + configurations.testRuntimeClasspath
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
 mybatisGenerator {
     configFile = 'src/main/resources/generatoConfig.xml'
 }
@@ -112,8 +134,8 @@ String readDotEnvValue(File envFile, String key) {
 tasks.register('integrationTest', Test) {
 	group = 'verification'
 	description = '集成测试。优先 DRAW_IT_JDBC_URL；否则若根目录 .env 含 MYSQL_ROOT_PASSWORD 则连 127.0.0.1:12306/draw_it_integration；再否则尝试 Testcontainers'
-	testClassesDirs = sourceSets.test.output.classesDirs
-	classpath = sourceSets.test.runtimeClasspath
+	testClassesDirs = sourceSets.integrationTest.output.classesDirs
+	classpath = sourceSets.integrationTest.runtimeClasspath
 	useJUnitPlatform {
 		includeTags 'integration'
 	}

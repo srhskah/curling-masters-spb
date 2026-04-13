@@ -30,4 +30,6 @@ public interface ITournamentCompetitionService {
     void saveMatchScore(User operator, Long matchId, Integer firstEndHammer, List<String> player1Scores, List<String> player2Scores,
                         Boolean autoAccept, String signature);
     void acceptMatchScore(User operator, Long matchId, String signature);
+    /** 小组赛截止后自动验收全部未锁定的小组赛场次。 */
+    void autoAcceptOverdueGroupMatches(Long tournamentId);
 }
