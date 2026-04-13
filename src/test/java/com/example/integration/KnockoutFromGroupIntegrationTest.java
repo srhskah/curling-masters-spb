@@ -311,6 +311,187 @@ class KnockoutFromGroupIntegrationTest {
                 () -> knockoutBracketService.generateFirstKnockoutRoundManual(host, tid, bad));
     }
 
+    @Test
+    @DisplayName("手动生成下一轮：可清理已错误生成的后续轮次并重建")
+    void manualGenerateNextRound_clearsDownstreamAndRegenerates() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "k5");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        List<Match> r8 = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 8)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        for (Match m : r8) {
+            acceptKoWithWinner(host, m, true);
+        }
+        List<Match> semis = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 4)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        for (Match m : semis) {
+            acceptKoWithWinner(host, m, true);
+        }
+
+        List<Match> oldFinalAndBronze = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .list();
+        assertEquals(2, oldFinalAndBronze.size());
+        Set<Long> oldIds = oldFinalAndBronze.stream().map(Match::getId).collect(java.util.stream.Collectors.toSet());
+
+        int added = knockoutBracketService.generateNextKnockoutRound(host, tid);
+        assertEquals(2, added);
+
+        List<Match> rebuiltFinalAndBronze = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .list();
+        assertEquals(2, rebuiltFinalAndBronze.size());
+        for (Match m : rebuiltFinalAndBronze) {
+            assertTrue(!oldIds.contains(m.getId()), "应清理后续已生成轮次并重建新场次");
+            assertTrue(!Boolean.TRUE.equals(m.getResultLocked()), "重建后的场次应为未验收状态");
+        }
+    }
+
+    @Test
+    @DisplayName("手动生成下一轮：当前轮次未全部验收时应失败且不清除后续轮次")
+    void manualGenerateNextRound_requiresCurrentRoundAllLocked() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "k6");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        List<Match> r8 = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 8)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        for (Match m : r8) {
+            acceptKoWithWinner(host, m, true);
+        }
+        List<Match> semis = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 4)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(2, semis.size());
+        // 仅锁定一场半决赛，制造“当前轮次未全部验收”
+        acceptKoWithWinner(host, semis.get(0), true);
+
+        List<Match> finalsBefore = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .list();
+        assertEquals(0, finalsBefore.size(), "未全验收前不应有决赛/铜牌赛");
+
+        assertThrows(IllegalStateException.class, () -> knockoutBracketService.generateNextKnockoutRound(host, tid));
+
+        List<Match> finalsAfter = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .list();
+        assertEquals(0, finalsAfter.size(), "失败时不应清除/新增后续轮次");
+    }
+
+    @Test
+    @DisplayName("手动生成下一轮：无淘汰赛时应提示先生成首轮")
+    void manualGenerateNextRound_noKnockoutMatches() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "k7");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> knockoutBracketService.generateNextKnockoutRound(host, tid));
+        assertTrue(ex.getMessage().contains("先生成首轮"));
+    }
+
+    @Test
+    @DisplayName("手动生成下一轮：当前轮次未锁且存在错误后续轮次时，不应清除后续")
+    void manualGenerateNextRound_unlockedCurrentRound_keepsWrongDownstream() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "k8");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        List<Match> r8 = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 8)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        for (Match m : r8) {
+            acceptKoWithWinner(host, m, true);
+        }
+        List<Match> semis = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 4)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(2, semis.size());
+        acceptKoWithWinner(host, semis.get(0), true); // 当前轮次未全部锁定
+
+        Match wrongFinal = insertFakeKoMatch(tid, 1, 0, "MAIN", players.get(0).getId(), players.get(1).getId());
+        Long wrongFinalId = wrongFinal.getId();
+
+        assertThrows(IllegalStateException.class, () -> knockoutBracketService.generateNextKnockoutRound(host, tid));
+        Match stillThere = matchService.getById(wrongFinalId);
+        assertTrue(stillThere != null, "当前轮次未全验收时，不应清理后续错误轮次");
+    }
+
     /** 正赛/决赛须双方选手 + 办赛方（staff）验收后方可锁定并触发晋级链 */
     private void acceptKoWithWinner(User host, Match m, boolean player1Wins) {
         List<String> s1 = player1Wins ? WIN_SCORES : LOSE_SCORES;
@@ -400,5 +581,22 @@ class KnockoutFromGroupIntegrationTest {
             competitionService.acceptMatchScore(userService.getById(m.getPlayer1Id()), m.getId(), "it");
             competitionService.acceptMatchScore(userService.getById(m.getPlayer2Id()), m.getId(), "it");
         }
+    }
+
+    private Match insertFakeKoMatch(long tournamentId, int round, int slot, String phaseCode, Long p1, Long p2) {
+        Match m = new Match();
+        m.setTournamentId(tournamentId);
+        m.setPhaseCode(phaseCode);
+        m.setRound(round);
+        m.setKnockoutBracketSlot(slot);
+        m.setCategory("FAKE-KO");
+        m.setPlayer1Id(p1);
+        m.setPlayer2Id(p2);
+        m.setStatus((byte) 0);
+        m.setResultLocked(false);
+        m.setCreatedAt(LocalDateTime.now());
+        m.setUpdatedAt(LocalDateTime.now());
+        matchService.save(m);
+        return m;
     }
 }

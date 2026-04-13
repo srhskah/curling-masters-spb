@@ -237,6 +237,74 @@ public class KnockoutBracketService {
         return manualPairs.size();
     }
 
+    /**
+     * 按当前淘汰赛赛况手动补生成下一轮：
+     * 仅当某一轮（MAIN/FINAL）全部验收且下一轮尚未落地时，触发晋级链补生成。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public int generateNextKnockoutRound(User operator, Long tournamentId) {
+        if (!canManage(operator, tournamentId)) {
+            throw new SecurityException("无权生成下一轮淘汰赛");
+        }
+        List<Match> ko = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .isNotNull(Match::getRound)
+                .orderByDesc(Match::getRound)
+                .orderByAsc(Match::getKnockoutHalf)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        if (ko.isEmpty()) {
+            throw new IllegalStateException("当前无淘汰赛场次，请先生成首轮");
+        }
+        Map<Integer, List<Match>> byRound = ko.stream()
+                .filter(m -> m.getRound() != null && m.getRound() > 1)
+                .collect(Collectors.groupingBy(Match::getRound));
+        List<Integer> rounds = new ArrayList<>(byRound.keySet());
+        rounds.sort(Integer::compareTo);
+        Integer currentRound = rounds.getFirst();
+        List<Match> oneRound = byRound.getOrDefault(currentRound, List.of());
+        if (oneRound.isEmpty()) {
+            throw new IllegalStateException("当前不存在可手动生成的下一轮（需某一轮全部验收且下一轮尚未生成）");
+        }
+        boolean allLocked = oneRound.stream().allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()));
+        if (!allLocked) {
+            throw new IllegalStateException("当前轮次尚未全部验收，无法手动生成下一轮");
+        }
+        clearKnockoutDownstreamRounds(tournamentId, currentRound);
+        long before = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .count();
+        for (Match m : oneRound) {
+            tryAdvance(m);
+        }
+        long after = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .count();
+        if (after > before) {
+            return (int) (after - before);
+        }
+        throw new IllegalStateException("当前不存在可手动生成的下一轮（需某一轮全部验收且下一轮尚未生成）");
+    }
+
+    /**
+     * 清除指定轮次之后（更靠后轮次，round 值更小）的 MAIN/FINAL 场次及其局分，
+     * 便于按当前轮次赛果重新生成下一轮对阵。
+     */
+    private void clearKnockoutDownstreamRounds(Long tournamentId, int settledRound) {
+        List<Match> downstream = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .lt(Match::getRound, settledRound)
+                .list();
+        for (Match m : downstream) {
+            setScoreService.lambdaUpdate().eq(SetScore::getMatchId, m.getId()).remove();
+            matchService.removeById(m.getId());
+        }
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void tryAutoGenerateFromGroupStage(User operator, Long tournamentId) {
         TournamentCompetitionConfig cfg = configMapper.selectById(tournamentId);

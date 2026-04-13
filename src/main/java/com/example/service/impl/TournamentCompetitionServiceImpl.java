@@ -300,7 +300,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         groupMemberMapper.delete(Wrappers.<TournamentGroupMember>lambdaQuery()
                 .eq(TournamentGroupMember::getTournamentId, tournamentId)
                 .eq(TournamentGroupMember::getGroupId, groupId));
-        int seed = 1;
+            int seed = 1;
         for (Long uid : dedup) {
             TournamentGroupMember gm = new TournamentGroupMember();
             gm.setTournamentId(tournamentId);

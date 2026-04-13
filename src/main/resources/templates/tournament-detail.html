@@ -692,6 +692,11 @@
                             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                             <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-diagram-3"></i> 生成淘汰赛首轮</button>
                         </form>
+                        <form class="d-inline me-2" th:action="@{/tournament/competition/knockout/generate-next/{id}(id=${tournamentInfo.tournament.id})}" method="post"
+                              onsubmit="return confirm('确定按当前淘汰赛已验收赛果，手动生成下一轮对阵？');">
+                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-arrow-right-circle"></i> 手动生成下一轮</button>
+                        </form>
                         <button type="button" class="btn btn-outline-primary btn-sm me-2"
                                 th:attr="data-url=@{/tournament/competition/knockout/manual/{id}(id=${tournamentInfo.tournament.id})}"
                                 onclick="openKoManualModal(this)">
@@ -796,12 +801,12 @@
                             th:if="${competitionMatchTabs != null and !#lists.isEmpty(competitionMatchTabs)}">
                             <li class="nav-item text-nowrap" role="presentation" th:each="tab : ${competitionMatchTabs}">
                                 <button type="button" class="nav-link py-2 px-3" role="tab"
-                                        th:classappend="${tab.active} ? ' active'"
+                                        th:classappend="${(tab.active ? ' active' : '') + ((tab.kind == 'GROUP' and tab.groupCompleted) ? ' border border-warning text-warning-emphasis fw-semibold' : '')}"
                                         data-bs-toggle="pill"
                                         th:attr="aria-selected=${tab.active}"
                                         th:id="${'match-tab-btn-' + tab.tabId}"
                                         th:data-bs-target="${'#' + tab.tabId}">
-                                    <th:block th:if="${tab.kind == 'GROUP'}" th:text="|${tab.label}（已赛${tab.nonZeroMatchCount != null ? tab.nonZeroMatchCount : 0}）|">A组（已赛0）</th:block>
+                                    <th:block th:if="${tab.kind == 'GROUP'}" th:text="|${tab.label}（已赛${tab.completedMatchCount != null ? tab.completedMatchCount : 0}/${tab.expectedMatchCount != null ? tab.expectedMatchCount : 0}）|">A组（已赛0/0）</th:block>
                                     <th:block th:if="${tab.kind != 'GROUP'}" th:text="${tab.label}">淘汰赛</th:block>
                                 </button>
                             </li>

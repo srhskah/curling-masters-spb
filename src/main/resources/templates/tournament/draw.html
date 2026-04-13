@@ -25,15 +25,15 @@
                th:href="@{/tournament/{id}/draw(id=${tournament.id})}"
                class="btn btn-outline-secondary btn-sm">直通车抽签</a>
             <a th:href="@{/tournament/detail/{id}(id=${tournament.id})}" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-left"></i> 返回赛事详情
-            </a>
+                    <i class="bi bi-arrow-left"></i> 返回赛事详情
+                </a>
         </div>
     </div>
 
     <div class="alert alert-info">
         <div class="small mb-1"><strong>报名截止：</strong><span th:text="${registrationDeadlineText}">-</span></div>
         <div th:if="${drawConfig['registrationSetting'] != null}" class="small mb-0">
-            <strong>报名模式：</strong>
+                <strong>报名模式：</strong>
             <span th:if="${drawConfig['registrationSetting'].mode == 0}">默认 — 按名额截取后的正赛名单参与抽签</span>
             <span th:if="${drawConfig['registrationSetting'].mode == 1 and drawPool == 'MAIN'}">正赛+资格赛 — 当前为<strong>直通车</strong>池（仅前 m 人）</span>
             <span th:if="${drawConfig['registrationSetting'].mode == 1 and drawPool == 'QUALIFIER'}">正赛+资格赛 — 当前为<strong>资格赛晋级</strong>池（entry 已写入晋级名单的选手）</span>
@@ -70,36 +70,36 @@
         </div>
         <div class="card-body">
             <form id="drawConfigForm" class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">抽签类型</label>
+                    <div class="col-md-3">
+                        <label class="form-label">抽签类型</label>
                     <select class="form-select" id="drawType" name="drawType" required th:disabled="${drawPool == 'QUALIFIER'}">
-                        <option value="RANDOM" th:selected="${draw != null && draw.drawType == 'RANDOM'}">默认抽签</option>
+                            <option value="RANDOM" th:selected="${draw != null && draw.drawType == 'RANDOM'}">默认抽签</option>
                         <option th:if="${drawPool != 'QUALIFIER'}" value="TIERED" th:selected="${draw != null && draw.drawType == 'TIERED'}">分档抽签</option>
                         <option th:if="${drawPool != 'QUALIFIER'}" value="SEED" th:selected="${draw != null && draw.drawType == 'SEED'}">种子抽签</option>
-                    </select>
+                        </select>
                     <div th:if="${drawPool == 'QUALIFIER'}" class="form-text">资格赛池仅支持默认随机抽签</div>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">小组数</label>
-                    <select class="form-select" id="groupCount" name="groupCount" required>
-                        <option value="">请选择</option>
-                        <option th:each="count : ${validGroupCounts}"
-                                th:value="${count}"
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">小组数</label>
+                        <select class="form-select" id="groupCount" name="groupCount" required>
+                            <option value="">请选择</option>
+                            <option th:each="count : ${validGroupCounts}" 
+                                    th:value="${count}" 
                                 th:selected="${draw != null && draw.groupCount == count}"
                                 th:text="${count + ' 组'}">4组</option>
-                    </select>
-                </div>
-                <div class="col-md-3" id="tierCountDiv" style="display: none;">
-                    <label class="form-label">档数</label>
-                    <select class="form-select" id="tierCount" name="tierCount">
-                        <option value="">请选择</option>
-                        <option th:each="count : ${validTierCounts}"
-                                th:value="${count}"
+                        </select>
+                    </div>
+                    <div class="col-md-3" id="tierCountDiv" style="display: none;">
+                        <label class="form-label">档数</label>
+                        <select class="form-select" id="tierCount" name="tierCount">
+                            <option value="">请选择</option>
+                            <option th:each="count : ${validTierCounts}" 
+                                    th:value="${count}" 
                                 th:selected="${draw != null && draw.tierCount == count}"
                                 th:text="${count + ' 档'}">2档</option>
-                    </select>
+                        </select>
                     <div class="form-text">档数须 ≥2 且整除每组人数（与小组数无关）</div>
-                </div>
+                    </div>
                 <div class="col-md-3" id="seedCountDiv" style="display: none;">
                     <label class="form-label">种子人数</label>
                     <select class="form-select" id="seedCount" name="seedCount">
@@ -362,14 +362,14 @@
     function loadDrawResults() {
         fetch(`/tournament/${tournamentId}/draw/results?pool=` + encodeURIComponent(drawPool))
             .then(r => r.json())
-            .then(data => {
+        .then(data => {
                 lastResultsJson = data;
-                renderDrawResults(data);
-            })
-            .catch(err => {
+            renderDrawResults(data);
+        })
+        .catch(err => {
                 const box = document.getElementById('drawResults');
                 if (box) box.innerHTML = '<div class="alert alert-danger small">加载失败：' + err.message + '</div>';
-            });
+        });
     }
 
     function renderDrawResults(data) {

@@ -1436,9 +1436,14 @@ public class TournamentController {
             t.put("tabId", "match-tab-group-" + g.getId());
             t.put("label", g.getGroupName());
             t.put("group", g);
-            int completedNz = (int) groupCardsForTabs.getOrDefault(g.getId(), List.of()).stream()
+            List<Map<String, Object>> oneGroupCards = groupCardsForTabs.getOrDefault(g.getId(), List.of());
+            int expectedMatches = oneGroupCards.size();
+            int completedNz = (int) oneGroupCards.stream()
                     .filter(c -> Boolean.TRUE.equals(c.get("completedNonZero")))
                     .count();
+            t.put("expectedMatchCount", expectedMatches);
+            t.put("completedMatchCount", completedNz);
+            t.put("groupCompleted", expectedMatches > 0 && completedNz == expectedMatches);
             t.put("nonZeroMatchCount", completedNz);
             t.put("active", matchTabFirst);
             matchTabFirst = false;
