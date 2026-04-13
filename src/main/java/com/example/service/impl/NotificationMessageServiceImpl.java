@@ -96,7 +96,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
         entity.setContentHtml(renderHtml(cleanMd));
         entity.setPublishToHome(Boolean.TRUE.equals(publishToHome));
         if (entity.getId() == null) {
-            entity.setAuthorUserId(operator != null ? operator.getId() : null);
+        entity.setAuthorUserId(operator != null ? operator.getId() : null);
         }
         entity.setPublished(Boolean.TRUE.equals(publishNow));
         if (Boolean.TRUE.equals(publishNow) && entity.getPublishedAt() == null) {
