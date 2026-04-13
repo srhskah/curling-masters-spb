@@ -164,7 +164,7 @@ public class MatchController {
                 match.getId(),
                 "<strong>" + HtmlEscaper.escapeHtml(tournamentName) + "</strong>",
                 match.getCategory() != null ? match.getCategory() : "-",
-                match.getRound() != null ? "第" + match.getRound() + "轮" : "-",
+                match.getRound() != null ? "第" + match.getRound() + "场" : "-",
                 matchDisplay,
                 statusBadge,
                 timeStr,

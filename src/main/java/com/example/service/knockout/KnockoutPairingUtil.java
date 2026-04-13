@@ -9,18 +9,26 @@ public final class KnockoutPairingUtil {
     private KnockoutPairingUtil() {}
 
     public static List<int[]> classicOverallRankPairs(int bracketSize) {
-        if (bracketSize != 2 && bracketSize != 4 && bracketSize != 8 && bracketSize != 16) {
-            throw new IllegalArgumentException("淘汰赛首轮仅支持 16/8/4/2 人规模");
+        if (bracketSize != 2 && bracketSize != 4 && bracketSize != 8 && bracketSize != 16 && bracketSize != 32) {
+            throw new IllegalArgumentException("淘汰赛首轮仅支持 32/16/8/4/2 人规模");
         }
-        return switch (bracketSize) {
-            case 2 -> List.of(new int[]{1, 2});
-            case 4 -> List.of(new int[]{1, 4}, new int[]{2, 3});
-            case 8 -> List.of(new int[]{1, 8}, new int[]{4, 5}, new int[]{3, 6}, new int[]{2, 7});
-            case 16 -> List.of(
-                    new int[]{1, 16}, new int[]{8, 9}, new int[]{5, 12}, new int[]{4, 13},
-                    new int[]{3, 14}, new int[]{6, 11}, new int[]{7, 10}, new int[]{2, 15});
-            default -> List.of();
-        };
+        List<Integer> seeds = new ArrayList<>();
+        seeds.add(1);
+        seeds.add(2);
+        while (seeds.size() < bracketSize) {
+            int next = seeds.size() * 2;
+            List<Integer> expanded = new ArrayList<>(next);
+            for (int s : seeds) {
+                expanded.add(s);
+                expanded.add(next + 1 - s);
+            }
+            seeds = expanded;
+        }
+        List<int[]> out = new ArrayList<>();
+        for (int i = 0; i < seeds.size(); i += 2) {
+            out.add(new int[]{seeds.get(i), seeds.get(i + 1)});
+        }
+        return out;
     }
 
     public static List<int[]> halfCrossPairsBetweenTwoGroups(int size) {
@@ -28,8 +36,23 @@ public final class KnockoutPairingUtil {
             throw new IllegalArgumentException("组间交叉要求每组晋级偶数人");
         }
         List<int[]> out = new ArrayList<>();
-        for (int i = 0; i < size / 2; i++) {
-            out.add(new int[]{i + 1, size - i});
+        // 每组晋级 size 人，两个组交叉应产出 size 场（覆盖两组全部晋级者）
+        // 为了让强种子与挂载资格赛占位分布更平衡，顺序采用：
+        // size=2: A1-B2, A2-B1
+        // size=4: A1-B4, A3-B2, A2-B3, A4-B1
+        for (int i = 0; i < size; i++) {
+            int aRank;
+            if (i == 0) {
+                aRank = 1;
+            } else if (i == size - 1) {
+                aRank = size;
+            } else if (i % 2 == 1) {
+                aRank = size - (i / 2) - 1;
+            } else {
+                aRank = (i / 2) + 1;
+            }
+            int bRank = size + 1 - aRank;
+            out.add(new int[]{aRank, bRank});
         }
         return out;
     }

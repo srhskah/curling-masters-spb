@@ -1,6 +1,7 @@
 package com.example.service;
 
 import com.example.entity.Match;
+import com.example.entity.MatchAcceptance;
 import com.example.entity.SetScore;
 import com.example.entity.TournamentCompetitionConfig;
 import com.example.entity.TournamentGroup;
@@ -187,5 +188,169 @@ public class GroupRankingCalculator {
     private void maxInt(Map<String, Object> row, String key, int candidate) {
         int cur = ((Number) row.getOrDefault(key, 0)).intValue();
         row.put(key, Math.max(cur, candidate));
+    }
+
+    /**
+     * 检测伪小组并按伪小组内名次，把同分块在真实小组内的 groupRank 连续化为 blockStart~blockStart+n-1，最后按 groupRank 重排每组列表顺序。
+     * acceptByMatch 可为空 Map（仅影响导出用伪小组场次里的验收时间）。
+     */
+    public List<Map<String, Object>> buildPseudoGroupExportRowsAndApplyMainRanks(
+            List<TournamentGroup> groups,
+            Map<Long, List<Map<String, Object>>> rankingByGroupId,
+            List<Match> groupMatches,
+            Map<Long, List<SetScore>> setByMatch,
+            Map<Long, List<MatchAcceptance>> acceptByMatch,
+            Map<Long, String> usernameById,
+            boolean allowDraw,
+            int regularSets) {
+        List<Map<String, Object>> pseudoGroupRows = new ArrayList<>();
+        Map<Long, List<MatchAcceptance>> acceptSafe = acceptByMatch != null ? acceptByMatch : Map.of();
+        for (TournamentGroup g : groups) {
+            List<Map<String, Object>> ranking = rankingByGroupId.get(g.getId());
+            if (ranking == null) {
+                continue;
+            }
+            List<Match> gm = groupMatches.stream()
+                    .filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()) && Objects.equals(m.getGroupId(), g.getId()))
+                    .toList();
+            Map<Integer, List<Map<String, Object>>> byPoints = ranking.stream().collect(Collectors.groupingBy(
+                    r -> (Integer) r.getOrDefault("points", 0), LinkedHashMap::new, Collectors.toList()));
+            for (Map.Entry<Integer, List<Map<String, Object>>> e : byPoints.entrySet()) {
+                List<Map<String, Object>> tie = e.getValue();
+                if (tie.size() < 3) {
+                    continue;
+                }
+                Set<Long> tieIds = tie.stream()
+                        .map(r -> (Long) r.get("userId"))
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+                List<Match> tieMatches = gm.stream()
+                        .filter(m -> tieIds.contains(m.getPlayer1Id()) && tieIds.contains(m.getPlayer2Id()))
+                        .toList();
+                if (tieMatches.isEmpty()) {
+                    continue;
+                }
+                String rawGroupName = g.getGroupName() == null ? "-" : g.getGroupName();
+                String baseGroupName = rawGroupName.endsWith("组") ? rawGroupName.substring(0, rawGroupName.length() - 1) : rawGroupName;
+                String pseudoGroupName = baseGroupName + "'组";
+
+                Map<Long, List<Long>> pseudoMember = Map.of(g.getId(), new ArrayList<>(tieIds));
+                List<TournamentGroup> pseudoGroup = List.of(new TournamentGroup());
+                pseudoGroup.get(0).setId(g.getId());
+                pseudoGroup.get(0).setGroupName(pseudoGroupName);
+
+                List<Map<String, Object>> pseudoRanking = buildGroupRankingsByMemberIds(
+                        pseudoGroup, pseudoMember, usernameById, tieMatches, setByMatch, allowDraw, regularSets
+                ).getOrDefault(g.getId(), List.of());
+
+                boolean chainTie = pseudoRanking.size() >= 3;
+                if (chainTie) {
+                    int w0 = (int) pseudoRanking.get(0).getOrDefault("wins", 0);
+                    int d0 = (int) pseudoRanking.get(0).getOrDefault("draws", 0);
+                    int l0 = (int) pseudoRanking.get(0).getOrDefault("losses", 0);
+                    for (Map<String, Object> row : pseudoRanking) {
+                        int w = (int) row.getOrDefault("wins", 0);
+                        int d = (int) row.getOrDefault("draws", 0);
+                        int l = (int) row.getOrDefault("losses", 0);
+                        if (w != w0 || d != d0 || l != l0) {
+                            chainTie = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (chainTie) {
+                    List<Map<String, Object>> reordered = new ArrayList<>(pseudoRanking);
+                    reordered.sort((aa, bb) -> {
+                        int an = (int) aa.getOrDefault("net", 0), bn = (int) bb.getOrDefault("net", 0);
+                        if (an != bn) return Integer.compare(bn, an);
+                        int at = (int) aa.getOrDefault("totalScore", 0), bt = (int) bb.getOrDefault("totalScore", 0);
+                        if (at != bt) return Integer.compare(bt, at);
+                        int a2 = (int) aa.getOrDefault("matchGe2Count", 0), b2 = (int) bb.getOrDefault("matchGe2Count", 0);
+                        if (a2 != b2) return Integer.compare(b2, a2);
+                        int am = (int) aa.getOrDefault("matchMaxScore", 0), bm = (int) bb.getOrDefault("matchMaxScore", 0);
+                        if (am != bm) return Integer.compare(bm, am);
+                        int as = (int) aa.getOrDefault("stealCount", 0), bs = (int) bb.getOrDefault("stealCount", 0);
+                        if (as != bs) return Integer.compare(bs, as);
+                        int ax = (int) aa.getOrDefault("stealMax", 0), bx = (int) bb.getOrDefault("stealMax", 0);
+                        if (ax != bx) return Integer.compare(bx, ax);
+                        return String.valueOf(aa.getOrDefault("username", "")).compareTo(String.valueOf(bb.getOrDefault("username", "")));
+                    });
+                    for (int i = 0; i < reordered.size(); i++) {
+                        reordered.get(i).put("groupRank", i + 1);
+                    }
+                    pseudoRanking = reordered;
+                }
+
+                remapMainGroupRanksFromPseudoOrder(tie, pseudoRanking);
+
+                Map<String, Object> pg = new LinkedHashMap<>();
+                pg.put("groupName", pseudoGroupName);
+                pg.put("fromGroup", g.getGroupName());
+                pg.put("points", e.getKey());
+                pg.put("ranking", pseudoRanking);
+                pg.put("matches", tieMatches.stream().map(m -> {
+                    List<SetScore> ss = setByMatch.getOrDefault(m.getId(), List.of());
+                    int t1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
+                    int t2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
+                    List<Map<String, Object>> sets = ss.stream().map(s -> {
+                        String p1 = Boolean.TRUE.equals(s.getPlayer1IsX()) ? "X" : String.valueOf(s.getPlayer1Score() == null ? 0 : s.getPlayer1Score());
+                        String p2 = Boolean.TRUE.equals(s.getPlayer2IsX()) ? "X" : String.valueOf(s.getPlayer2Score() == null ? 0 : s.getPlayer2Score());
+                        String hammer = Objects.equals(s.getHammerPlayerId(), m.getPlayer1Id())
+                                ? usernameById.getOrDefault(m.getPlayer1Id(), "待定")
+                                : (Objects.equals(s.getHammerPlayerId(), m.getPlayer2Id())
+                                ? usernameById.getOrDefault(m.getPlayer2Id(), "待定")
+                                : "-");
+                        return Map.<String, Object>of(
+                                "setNumber", s.getSetNumber(),
+                                "player1ScoreText", p1,
+                                "player2ScoreText", p2,
+                                "hammer", hammer
+                        );
+                    }).toList();
+                    List<MatchAcceptance> ac = acceptSafe.getOrDefault(m.getId(), List.of());
+                    String ts = ac.isEmpty() ? "-" : String.valueOf(ac.get(ac.size() - 1).getAcceptedAt());
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("category", m.getCategory() == null ? "-" : m.getCategory());
+                    row.put("player1Name", usernameById.getOrDefault(m.getPlayer1Id(), "待定"));
+                    row.put("player2Name", usernameById.getOrDefault(m.getPlayer2Id(), "待定"));
+                    row.put("score", t1 + ":" + t2);
+                    row.put("firstHammerName", sets.isEmpty() ? "-" : String.valueOf(sets.get(0).getOrDefault("hammer", "-")));
+                    row.put("sets", sets);
+                    row.put("acceptedAt", ts);
+                    return row;
+                }).toList());
+                pseudoGroupRows.add(pg);
+            }
+        }
+        for (TournamentGroup g : groups) {
+            List<Map<String, Object>> rows = rankingByGroupId.get(g.getId());
+            if (rows != null && !rows.isEmpty()) {
+                rows.sort(Comparator.comparingInt(r -> (int) r.getOrDefault("groupRank", 999)));
+            }
+        }
+        return pseudoGroupRows;
+    }
+
+    /**
+     * 伪小组内名次 pseudoRanking（groupRank 1..n）映射到真实小组同分块在全局中的名次区间。
+     */
+    private void remapMainGroupRanksFromPseudoOrder(List<Map<String, Object>> mainTieRows, List<Map<String, Object>> pseudoRanking) {
+        int blockStart = mainTieRows.stream().mapToInt(r -> (int) r.getOrDefault("groupRank", 999)).min().orElse(1);
+        List<Map<String, Object>> order = new ArrayList<>(pseudoRanking);
+        order.sort(Comparator.comparingInt(a -> (int) a.getOrDefault("groupRank", 999)));
+        for (int i = 0; i < order.size(); i++) {
+            Long uid = (Long) order.get(i).get("userId");
+            if (uid == null) {
+                continue;
+            }
+            int newRank = blockStart + i;
+            for (Map<String, Object> row : mainTieRows) {
+                if (Objects.equals(row.get("userId"), uid)) {
+                    row.put("groupRank", newRank);
+                    break;
+                }
+            }
+        }
     }
 }

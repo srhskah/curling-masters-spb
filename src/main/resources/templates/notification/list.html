@@ -8,7 +8,9 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">消息通知</h3>
-        <a th:if="${isManager}" class="btn btn-primary btn-sm" href="/notification/edit">新建通知</a>
+        <a th:if="${isManager}" class="btn btn-primary btn-sm btn-mobile-compact" href="/notification/edit">
+            <span class="btn-label">新建通知</span><span class="btn-emoji" aria-hidden="true">➕</span>
+        </a>
     </div>
     <div class="list-group" th:if="${items != null and !#lists.isEmpty(items)}">
         <a class="list-group-item list-group-item-action"
@@ -19,6 +21,10 @@
                     <strong th:text="${m.title}">标题</strong>
                     <small class="text-muted d-block mt-1" th:if="${m.authorUsername != null}"
                            th:text="${'发起者：' + m.authorUsername}">发起者</small>
+                    <small class="text-primary d-block mt-1"
+                           th:if="${m.tournamentEditionLabel != null and !#strings.isEmpty(m.tournamentEditionLabel)}"
+                           th:text="${'关联赛事：' + m.tournamentEditionLabel}">关联赛事</small>
+                    <!-- 赛事链接移动到通知详情页，这里仅展示摘要 -->
                 </div>
                 <small class="text-muted text-nowrap ms-2" th:text="${m.publishedAt != null ? #temporals.format(m.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">时间</small>
             </div>

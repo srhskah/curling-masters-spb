@@ -30,9 +30,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
- * 集成测试：多用户报名（截止后视同通过）→ 初始化抽签 → 一名选手手动抽一次触发自动落位 →
+ * 集成测试：多用户报名（截止后视同通过）→ 初始化抽签 → 每名选手独立点签 →
  * 导入小组名单 → 生成小组赛对阵。
  * <p>
  * <strong>数据源（二选一）</strong>
@@ -221,14 +222,22 @@ class DrawFullFlowIntegrationTest {
         @SuppressWarnings("unchecked")
         List<Long> parts = (List<Long>) cfg.get("drawParticipants");
         assertFalse(parts == null || parts.isEmpty(), "抽签名单为空");
-        Long first = parts.getFirst();
-        List<Long> eligible = drawManagementService.getEligibleGroupIds(tournamentId, first);
-        assertFalse(eligible.isEmpty(), "首签选手无可用小组");
-        drawManagementService.performDraw(tournamentId, first, eligible.getFirst());
+        Map<String, Object> status = drawManagementService.getDrawStatus(tournamentId);
+        TournamentDraw draw = (TournamentDraw) status.get("draw");
+        assertNotNull(draw);
+        for (Long uid : parts) {
+            if ("RANDOM".equals(draw.getDrawType())) {
+                drawManagementService.performDraw(tournamentId, uid, null);
+            } else {
+                List<Long> eligible = drawManagementService.getEligibleGroupIds(tournamentId, uid);
+                assertFalse(eligible.isEmpty(), "选手无可用小组 uid=" + uid);
+                drawManagementService.performDraw(tournamentId, uid, eligible.getFirst());
+            }
+        }
         long drawn = drawResultMapper.selectCount(
                 Wrappers.<TournamentDrawResult>lambdaQuery()
                         .eq(TournamentDrawResult::getTournamentId, tournamentId));
-        assertEquals(parts.size(), drawn, "一次抽签后应全员落位（含自动分配）");
+        assertEquals(parts.size(), drawn, "抽签完成后应全员落位");
     }
 
     private void importAndGenerate(User host, long tournamentId, int expectedPlayers, int expectedGroupMatches) {

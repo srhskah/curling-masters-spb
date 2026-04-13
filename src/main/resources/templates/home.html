@@ -45,7 +45,9 @@
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-warning d-flex justify-content-between align-items-center">
                             <h5 class="mb-0"><i class="bi bi-bell"></i> 消息通知</h5>
-                            <a class="btn btn-sm btn-outline-dark" href="/notification/list">查看全部</a>
+                            <a class="btn btn-sm btn-outline-dark btn-mobile-compact" href="/notification/list">
+                                <span class="btn-label">查看全部</span><span class="btn-emoji" aria-hidden="true">查看</span>
+                            </a>
                         </div>
                         <div class="card-body">
                             <div class="list-group list-group-flush">
@@ -55,8 +57,13 @@
                                     <div class="d-flex justify-content-between align-items-start gap-2">
                                         <div>
                                             <strong th:text="${n.title}">通知标题</strong>
+                                            <!-- <span class="badge bg-secondary ms-2"
+                                                  th:if="${n.sourceType != null and !#strings.isEmpty(n.sourceType)}">自动</span> -->
                                             <small class="text-muted d-block mt-1" th:if="${n.authorUsername != null}"
                                                    th:text="${'发起者：' + n.authorUsername}">-</small>
+                                            <!-- <small class="text-primary d-block mt-1"
+                                                   th:if="${n.tournamentEditionLabel != null and !#strings.isEmpty(n.tournamentEditionLabel)}"
+                                                   th:text="${'关联赛事：' + n.tournamentEditionLabel}">关联赛事</small> -->
                                         </div>
                                         <small class="text-muted text-nowrap"
                                                th:text="${n.publishedAt != null ? #temporals.format(n.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">-</small>
@@ -68,8 +75,49 @@
                 </div>
             </div>
 
+            <div class="row mb-4" th:if="${homeActiveSeriesRows != null and !#lists.isEmpty(homeActiveSeriesRows)}">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-diagram-3"></i>当前赛事系列</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="border rounded p-3 mb-3" th:each="sr : ${homeActiveSeriesRows}">
+                                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                    <h6 class="mb-0">
+                                        <span th:text="${sr.seasonLabel + ' - ' + sr.seriesName}">赛季-系列</span>
+                                        <span class="badge bg-danger ms-2" th:if="${sr.isTestSeries}">测试</span>
+                                    </h6>
+                                    <a class="btn btn-sm btn-outline-secondary btn-mobile-compact"
+                                       th:href="${sr.entryUrl}">
+                                        <span class="btn-label">系列详情</span><span class="btn-emoji" aria-hidden="true">查看</span>
+                                    </a>
+                                </div>
+                                <ul class="list-group list-group-flush" th:if="${sr.tournaments != null and !#lists.isEmpty(sr.tournaments)}">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                                        th:each="t : ${sr.tournaments}">
+                                        <span class="d-inline-flex align-items-center gap-2 flex-wrap">
+                                            <span class="badge bg-secondary" th:text="${t.levelCode}">等级</span>
+                                            <span class="badge"
+                                                  th:classappend="${t.status == 0} ? ' bg-warning text-dark' : ' bg-primary'"
+                                                  th:text="${t.status == 0 ? '筹备中' : '进行中'}">进行中</span>
+                                            <span class="text-muted small" th:if="${t.startDate != null}"
+                                                  th:text="${#temporals.format(t.startDate, 'yyyy-MM-dd')}">日期</span>
+                                        </span>
+                                        <a class="btn btn-sm btn-outline-primary btn-mobile-compact"
+                                           th:href="@{/tournament/detail/{id}(id=${t.id})}">
+                                            <span class="btn-label">赛事详情</span><span class="btn-emoji" aria-hidden="true">详情</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 当前赛季 + 当前系列 + 系列赛事概览（合并） -->
-            <div class="row mb-4" th:if="${currentSeasonEntryName != null or currentSeriesName != null}">
+            <!-- <div class="row mb-4" th:if="${currentSeasonEntryName != null or currentSeriesName != null}">
                 <div class="col-12">
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
@@ -77,9 +125,11 @@
                                 <i class="bi bi-grid"></i>
                                 <span th:text="${(currentSeasonEntryName != null ? currentSeasonEntryName : '当前赛季') + '-' + (currentSeriesName != null ? currentSeriesName : '当前系列')}">当前赛季-当前系列</span>
                             </h5>
-                            <a class="btn btn-sm btn-outline-light"
+                            <a class="btn btn-sm btn-outline-light btn-mobile-compact"
                                th:if="${currentSeriesEntryUrl != null}"
-                               th:href="${currentSeriesEntryUrl}">系列详情</a>
+                               th:href="${currentSeriesEntryUrl}">
+                                <span class="btn-label">系列详情</span><span class="btn-emoji" aria-hidden="true">查看</span>
+                            </a>
                         </div>
                         <div class="card-body">
                             <div class="border rounded p-3 mb-3"
@@ -96,7 +146,9 @@
                                             <span class="text-muted small" th:if="${rt.startDate != null}"
                                                   th:text="${#temporals.format(rt.startDate, 'yyyy-MM-dd')}">日期</span>
                                         </span>
-                                        <a class="btn btn-sm btn-success" th:href="@{/tournament/registration/{id}(id=${rt.id})}">报名接龙</a>
+                                        <a class="btn btn-sm btn-success btn-mobile-compact" th:href="@{/tournament/registration/{id}(id=${rt.id})}">
+                                            <span class="btn-label">报名接龙</span><span class="btn-emoji" aria-hidden="true">📝</span>
+                                        </a>
                                     </li>
                                 </ul>
                             </div>
@@ -114,7 +166,9 @@
                                             <span class="text-muted small" th:if="${ot.startDate != null}"
                                                   th:text="${#temporals.format(ot.startDate, 'yyyy-MM-dd')}">日期</span>
                                         </span>
-                                        <a class="btn btn-sm btn-primary" th:href="@{/tournament/detail/{id}(id=${ot.id})}">赛事详情</a>
+                                        <a class="btn btn-sm btn-primary btn-mobile-compact" th:href="@{/tournament/detail/{id}(id=${ot.id})}">
+                                            <span class="btn-label">赛事详情</span><span class="btn-emoji" aria-hidden="true">详情</span>
+                                        </a>
                                     </li>
                                 </ul>
                                 <div class="text-muted small" th:if="${currentSeriesOngoingTournaments == null or currentSeriesOngoingTournaments.isEmpty()}">
@@ -124,7 +178,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
 
             <!-- 管理员功能区域 -->
             <div th:if="${isAdmin}" class="row mb-4">
@@ -184,7 +238,7 @@
             </div>
             
             <!-- 开放报名中的赛事（筹备中 + 已开启 + 未截止） -->
-            <div class="row mb-4" th:if="${openRegistrationTournaments != null and !openRegistrationTournaments.isEmpty()}">
+            <!-- <div class="row mb-4" th:if="${openRegistrationTournaments != null and !openRegistrationTournaments.isEmpty()}">
                 <div class="col-12">
                     <div class="card border-0 shadow-sm border-success border-2">
                         <div class="card-header bg-success text-white">
@@ -199,8 +253,8 @@
                                         <span class="text-muted small" th:if="${ot.startDate != null}"
                                               th:text="${#temporals.format(ot.startDate, 'yyyy-MM-dd')}">日期</span>
                                     </span>
-                                    <a class="btn btn-sm btn-success" th:href="@{/tournament/registration/{id}(id=${ot.id})}">
-                                        报名接龙
+                                    <a class="btn btn-sm btn-success btn-mobile-compact" th:href="@{/tournament/registration/{id}(id=${ot.id})}">
+                                        <span class="btn-label">报名接龙</span><span class="btn-emoji" aria-hidden="true">📝</span>
                                     </a>
                                 </li>
                             </ul>
@@ -208,7 +262,7 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
             
             <!-- 用户功能区域 -->
             <div th:if="${!isAdmin}" class="row mb-4">

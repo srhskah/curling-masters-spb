@@ -208,7 +208,7 @@
                                             aria-expanded="false"
                                             th:aria-controls="${'collapse-round-' + entry.key}">
                                         <i class="bi bi-diagram-3 me-2"></i>
-                                        <span th:text="${entry.key > 0 ? ('第' + entry.key + '轮') : '未设置轮次'}"></span>
+                                        <span th:text="${entry.key > 0 ? ('第' + entry.key + '场') : '未设置场次'}"></span>
                                         <span class="badge bg-secondary ms-2" th:text="${#lists.size(entry.value)} + '场'">0场</span>
                                     </button>
                                 </h2>
@@ -289,6 +289,16 @@
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <h5 class="mb-0 text-start"><i class="bi bi-list-ol"></i> 最终排名</h5>
                         <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
+                            <form th:if="${isAdmin or isHost}"
+                                  th:action="@{/tournament/ranking/rebuild/{tournamentId}(tournamentId=${tournamentInfo.tournament.id})}"
+                                  method="post"
+                                  onsubmit="return confirm('将删除当前积分并按最新规则重建排名，是否继续？')">
+                                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <button type="submit" class="btn btn-warning btn-sm btn-mobile-compact">
+                                    <span class="btn-text"><i class="bi bi-arrow-repeat"></i> 一键刷新排名</span>
+                                    <span class="btn-emoji d-none" aria-hidden="true">🔄</span>
+                                </button>
+                            </form>
                             <button type="button" class="btn btn-light btn-sm"
                                     id="tournamentCopyBtn"
                                     th:attr="data-tournament-id=${tournamentInfo.tournament.id}">
@@ -317,7 +327,7 @@
                                     <span class="text-muted"
                                           th:if="${entry.isWithdrawn}">（退赛（不计入排名））</span>
                                 </td>
-                                <td th:text="${entry.ranking != null and entry.ranking.points != null ? entry.ranking.points : 0}">0</td>
+                                <td th:text="${entry.ranking != null and entry.ranking.points != null ? entry.ranking.points : ''}"></td>
                             </tr>
                             <tr th:if="${rankingInfoList == null or #lists.isEmpty(rankingInfoList)}">
                                 <td colspan="3" class="text-center text-muted py-3">暂无数据</td>
@@ -334,9 +344,20 @@
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <h5 class="mb-0 text-start"><i class="bi bi-sliders"></i> 赛事配置 </h5>
-                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end"></div>
+                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
+                            <button class="btn btn-outline-dark btn-sm"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#competitionConfigCollapse"
+                                    aria-expanded="true"
+                                    aria-controls="competitionConfigCollapse">
+                                展开/收起
+                            </button>
+                        </div>
                     </div>
-                    <div class="card-body">
+                    <div id="competitionConfigCollapse"
+                         class="card-body collapse"
+                         th:classappend="${tournamentInfo.tournament.status == 1 and hasGroupStageMatches} ? '' : ' show'">
                         <form th:action="@{/tournament/competition/config/{id}(id=${tournamentInfo.tournament.id})}"
                               method="post" class="row g-3">
                             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
@@ -502,9 +523,19 @@
                                     全量重新生成小组赛对阵
                                 </button>
                             </th:block>
+                            <button class="btn btn-outline-light btn-sm"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#groupRosterCollapse"
+                                    aria-expanded="true"
+                                    aria-controls="groupRosterCollapse">
+                                展开/收起
+                            </button>
                                     </div>
                                 </div>
-                    <div class="card-body">
+                    <div id="groupRosterCollapse"
+                         class="card-body collapse"
+                         th:classappend="${tournamentInfo.tournament.status == 1 and hasGroupStageMatches} ? '' : ' show'">
                         <th:block th:if="${isAdmin or isHost}">
                             <div class="group-entry-mode-toolbar mb-3">
                                 <label class="form-label mb-1" for="groupListEntryMode">录入模式</label>
@@ -651,8 +682,8 @@
             <div class="col-12 mt-4"
                  th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and competitionConfig != null and competitionConfig.matchMode == 3 and (isAdmin or isHost)}">
                 <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-secondary text-white">
-                        <h5 class="mb-0 text-start"><i class="bi bi-trophy"></i> 淘汰赛（自小组赛生成）</h5>
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h5 class="mb-0 text-start"><i class="bi bi-trophy"></i> 淘汰赛</h5>
                     </div>
                     <div class="card-body">
                         <p class="small text-muted mb-2">须已保存「淘汰赛首轮」与对阵模式；小组赛全部场次验收后，可自动生成首轮，或在关闭自动生成时手动执行。重新生成会先删除已有 MAIN/FINAL 淘汰赛场次。</p>
@@ -661,10 +692,11 @@
                             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                             <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-diagram-3"></i> 生成淘汰赛首轮</button>
                         </form>
-                        <a class="btn btn-outline-primary btn-sm me-2"
-                           th:href="@{/tournament/competition/knockout/manual/{id}(id=${tournamentInfo.tournament.id})}">
+                        <button type="button" class="btn btn-outline-primary btn-sm me-2"
+                                th:attr="data-url=@{/tournament/competition/knockout/manual/{id}(id=${tournamentInfo.tournament.id})}"
+                                onclick="openKoManualModal(this)">
                             <i class="bi bi-ui-checks-grid"></i> 手动排签首轮（默认模式0）
-                        </a>
+                        </button>
                         <form class="d-inline" th:action="@{/tournament/competition/knockout/clear/{id}(id=${tournamentInfo.tournament.id})}" method="post"
                               onsubmit="return confirm('确定删除本赛事全部淘汰赛（MAIN/FINAL）场次？');">
                             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
@@ -700,7 +732,7 @@
                             <tbody>
                             <tr th:each="r : ${groupOverallRanking}"
                                 style="cursor:pointer;"
-                                th:attr="data-type='overall',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${r.groupName},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
+                                th:attr="data-type='overall',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${r.groupName},data-user-id=${r.userId},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
                                 onclick="openGroupRankDetailModal(this)">
                                 <td th:text="${r.overallRank}">1</td><td th:text="${r.groupRank}">1</td><td th:text="${r.groupName}">A组</td><td th:text="${r.username}">选手</td>
                                 <td th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0},pl=${r.played != null ? r.played : 0}"
@@ -805,7 +837,7 @@
                                         <tbody>
                                         <tr th:each="r : ${groupRankingByGroupId[g.id]}"
                                             style="cursor:pointer;"
-                                            th:attr="data-type='group',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${g.groupName},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
+                                            th:attr="data-type='group',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${g.groupName},data-user-id=${r.userId},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
                                             onclick="openGroupRankDetailModal(this)">
                                             <td th:text="${r.overallRank}">1</td>
                                             <td th:text="${r.groupRank}">1</td>
@@ -834,14 +866,22 @@
 
                                 <div class="fw-bold mb-2"><i class="bi bi-collection-play"></i> <span th:text="${g.groupName + ' 对阵'}">A组对阵</span></div>
 
-                                <div class="d-flex align-items-center gap-2 mb-2 match-filter-bar">
+                                <div class="d-flex align-items-center gap-2 mb-2 match-filter-bar flex-wrap">
                                     <label class="form-label mb-0 small text-muted">筛选选手</label>
                                     <select class="form-select form-select-sm match-player-filter"
-                                            th:attr="data-tab-id=${tab.tabId}">
+                                            th:attr="data-tab-id=${tab.tabId}"
+                                            style="max-width: 14rem;">
                                         <option value="">全部选手</option>
                                         <option th:each="m : ${groupMembersByGroupId[g.id]}"
                                                 th:value="${m.userId}"
                                                 th:text="${m.username}"></option>
+                                    </select>
+                                    <label class="form-label mb-0 small text-muted">状态</label>
+                                    <select class="form-select form-select-sm match-status-filter" style="max-width: 12rem;">
+                                        <option value="">全部</option>
+                                        <option value="not_started">未开始（0-0）</option>
+                                        <option value="completed_pending">已完成（未验收）</option>
+                                        <option value="accepted">已验收</option>
                                     </select>
                                 </div>
 
@@ -849,7 +889,7 @@
                                     <div class="card border-0 shadow-sm match-card"
                                          style="min-width: 260px; flex: 1 1 300px; cursor: pointer;"
                                          th:each="c : ${groupMatchCards[g.id]}"
-                                         th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}"
+                                         th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id},data-match-filter-status=${c.match.resultLocked != null and c.match.resultLocked ? 'accepted' : ((c.player1Total == 0 and c.player2Total == 0) ? 'not_started' : 'completed_pending')}"
                                          onclick="openGroupMatchModal(this)">
                                         <div class="card-body p-0 unified-match-score-card">
                                             <div class="small text-muted px-3 pt-2" th:text="${c.match.category}">A组 第1轮</div>
@@ -859,7 +899,7 @@
                                     <div class="text-muted" th:if="${#lists.isEmpty(groupMatchCards[g.id])}">暂无对阵</div>
                                 </div>
 
-                                <div class="text-muted match-filter-empty d-none w-100">没有该选手的比赛</div>
+                                <div class="text-muted match-filter-empty d-none w-100">没有符合条件的比赛</div>
                                 </th:block>
                                 <th:block th:if="${tab.kind == 'QUALIFIER'}">
                                     <div class="fw-bold mb-2 d-flex flex-wrap align-items-center gap-2">
@@ -893,7 +933,7 @@
                                             </div>
                                             <div class="text-muted" th:if="${tab.qualifierCards == null or #lists.isEmpty(tab.qualifierCards)}">本轮暂无场次</div>
                                         </div>
-                                        <div class="text-muted match-filter-empty d-none w-100">没有该选手的比赛</div>
+                                        <div class="text-muted match-filter-empty d-none w-100">没有符合条件的比赛</div>
                                     </details>
                                 </th:block>
                                 <th:block th:if="${tab.kind == 'KO'}">
@@ -925,7 +965,7 @@
                                         </div>
                                         <div class="text-muted" th:if="${tab.koCards == null or #lists.isEmpty(tab.koCards)}">本轮暂无场次</div>
                                     </div>
-                                    <div class="text-muted match-filter-empty d-none w-100">没有该选手的比赛</div>
+                                    <div class="text-muted match-filter-empty d-none w-100">没有符合条件的比赛</div>
                                 </th:block>
                             </div>
                         </div>
@@ -939,7 +979,7 @@
     </div>
 
     <div class="modal fade" id="groupMatchScoreModal" tabindex="-1" style="z-index:1919810;">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-dialog modal-xl modal-fullscreen-sm-down modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">单场比赛录分</h5>
@@ -951,6 +991,10 @@
                         <i class="bi bi-eye"></i> 当前为<strong>只读查看</strong>。仅<strong>办赛人员</strong>（管理员/主办）与<strong>本场比赛双方选手</strong>可修改比分、先后手、保存与验收。
                     </div>
                     <div class="mb-2 small text-muted" id="groupMatchTitle"></div>
+                    <div class="mb-2 d-flex align-items-center gap-2 flex-wrap group-match-action-bar">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="groupMatchCopyBtn">复制本场战绩文本</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="groupMatchExportPdfBtn">导出本场战绩PDF</button>
+                    </div>
                     <div class="mb-2 small text-muted" id="groupHammerTimeline"></div>
                     <div class="row g-2 mb-2">
                         <div class="col-md-4">
@@ -1038,6 +1082,10 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="mb-2 d-flex align-items-center gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="groupRankUserCopyBtn">复制该选手本赛事战绩</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="groupRankUserExportPdfBtn">导出该选手本赛事战绩PDF</button>
+                    </div>
                     <div id="groupRankDetailBody" class="small"></div>
                 </div>
             </div>
@@ -1120,6 +1168,31 @@
                     <button type="button" class="btn btn-outline-secondary" onclick="clearSignatureCanvas()">清除</button>
                     <button type="button" class="btn btn-primary" onclick="saveSignatureCanvas()">使用该签名</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="koManualModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <form id="koManualForm" method="post">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-ui-checks-grid"></i> 手动排签：淘汰赛首轮</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <input type="hidden" name="pairCount" id="koManualPairCount" value="0"/>
+                        <div class="alert alert-info small mb-2">
+                            默认按模式0填充。仅可选择小组赛晋级选手，且同一选手不可重复选择。
+                        </div>
+                        <div id="koManualBody" class="d-flex flex-column gap-2"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-primary">生成手动排签首轮</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -1479,43 +1552,52 @@
                     formSaveAllGen.submit();
                 });
             }
-            // 赛事详情页：按选手筛选各 tab 内的比赛卡片
-            const setupMatchPlayerFilters = () => {
-                const selects = document.querySelectorAll('.match-player-filter');
-                selects.forEach(select => {
-                    const tabPane = select.closest('.tab-pane');
-                    if (!tabPane) return;
-                    const wrap = tabPane.querySelector('.match-cards-wrap');
-                    const cards = wrap ? Array.from(wrap.querySelectorAll('.match-card')) : [];
-                    const emptyEl = tabPane.querySelector('.match-filter-empty');
+            // 赛事详情页：按选手 +（小组赛）状态筛选各 tab 内比赛卡片；每个 match-filter-bar 对应紧邻的 match-cards-wrap
+            const setupMatchFilters = () => {
+                document.querySelectorAll('.match-filter-bar').forEach((bar) => {
+                    const wrap = bar.nextElementSibling;
+                    if (!wrap || !wrap.classList.contains('match-cards-wrap')) return;
+                    const emptyEl = wrap.nextElementSibling && wrap.nextElementSibling.classList.contains('match-filter-empty')
+                        ? wrap.nextElementSibling
+                        : null;
+                    const playerSel = bar.querySelector('.match-player-filter');
+                    const statusSel = bar.querySelector('.match-status-filter');
+                    const cards = Array.from(wrap.querySelectorAll('.match-card'));
                     const apply = () => {
-                        const sid = String(select.value || '');
+                        const sid = playerSel ? String(playerSel.value || '') : '';
+                        const st = statusSel ? String(statusSel.value || '') : '';
                         if (!cards.length) {
                             if (emptyEl) emptyEl.classList.add('d-none');
                             return;
                         }
                         let visibleCount = 0;
-                        cards.forEach(card => {
+                        cards.forEach((card) => {
                             const p1 = String(card.dataset.player1Id || '');
                             const p2 = String(card.dataset.player2Id || '');
-                            const show = !sid || sid === p1 || sid === p2;
+                            const ms = String(card.dataset.matchFilterStatus || '');
+                            const playerOk = !sid || sid === p1 || sid === p2;
+                            const statusOk = !st || st === ms;
+                            const show = playerOk && statusOk;
                             card.classList.toggle('d-none', !show);
                             if (show) visibleCount++;
                         });
                         if (emptyEl) {
-                            emptyEl.classList.toggle('d-none', sid === '' || visibleCount > 0);
+                            const anyFilter = sid !== '' || st !== '';
+                            emptyEl.classList.toggle('d-none', !anyFilter || visibleCount > 0);
                         }
                     };
-                    select.addEventListener('change', apply);
+                    if (playerSel) playerSel.addEventListener('change', apply);
+                    if (statusSel) statusSel.addEventListener('change', apply);
                     apply();
                 });
             };
-            setupMatchPlayerFilters();
+            setupMatchFilters();
         });
 
         let groupMatchModal;
         let superAdminScoreModal;
         let matchPageModal;
+        let koManualModal;
         let groupRankDetailModal;
         let signatureModal;
         let currentSignatureData = '';
@@ -1535,10 +1617,86 @@
             matchPageModal.show();
         }
 
+        function refreshKoManualSelectDisables() {
+            const selects = Array.from(document.querySelectorAll('#koManualBody .ko-manual-player-select'));
+            const used = new Set(selects.map(s => s.value).filter(Boolean));
+            selects.forEach((sel) => {
+                const mine = sel.value;
+                Array.from(sel.options).forEach((op) => {
+                    if (!op.value) {
+                        op.disabled = false;
+                        return;
+                    }
+                    op.disabled = used.has(op.value) && op.value !== mine;
+                });
+            });
+        }
+
+        async function openKoManualModal(btn) {
+            const manualUrl = btn && btn.dataset ? btn.dataset.url : '';
+            if (!manualUrl) return;
+            const dataUrl = manualUrl.replace('/knockout/manual/', '/knockout/manual-data/');
+            const body = document.getElementById('koManualBody');
+            const pairCountEl = document.getElementById('koManualPairCount');
+            const form = document.getElementById('koManualForm');
+            if (!body || !pairCountEl || !form) return;
+            body.innerHTML = '<div class="text-muted small">加载中...</div>';
+            form.action = manualUrl;
+            if (!koManualModal) koManualModal = new bootstrap.Modal(document.getElementById('koManualModal'));
+            koManualModal.show();
+            try {
+                const res = await fetch(dataUrl);
+                const data = await res.json();
+                if (!data.ok) {
+                    body.innerHTML = `<div class="text-danger small">${data.message || '加载失败'}</div>`;
+                    pairCountEl.value = '0';
+                    return;
+                }
+                const options = Array.isArray(data.options) ? data.options : [];
+                const draft = Array.isArray(data.draft) ? data.draft : [];
+                pairCountEl.value = String(draft.length);
+                if (!draft.length) {
+                    body.innerHTML = '<div class="text-muted small">暂无可手动排签的首轮场次。</div>';
+                    return;
+                }
+                const optionHtml = (selectedId) => {
+                    const s = selectedId == null ? '' : String(selectedId);
+                    const rows = ['<option value="">-- 请选择选手 --</option>'];
+                    options.forEach((u) => {
+                        rows.push(`<option value="${u.userId}" ${String(u.userId) === s ? 'selected' : ''}>#${u.rank} ${u.username}</option>`);
+                    });
+                    return rows.join('');
+                };
+                body.innerHTML = draft.map((p) => `
+                    <div class="border rounded p-3">
+                        <div class="fw-bold mb-2">${p.label || '-'}</div>
+                        <div class="row g-2 align-items-center">
+                            <div class="col-md-5">
+                                <select class="form-select ko-manual-player-select" name="p1_${p.slot}">${optionHtml(p.defaultPlayer1Id)}</select>
+                            </div>
+                            <div class="col-md-2 text-center text-muted">VS</div>
+                            <div class="col-md-5">
+                                <select class="form-select ko-manual-player-select" name="p2_${p.slot}">${optionHtml(p.defaultPlayer2Id)}</select>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                document.querySelectorAll('#koManualBody .ko-manual-player-select').forEach((sel) => {
+                    sel.addEventListener('change', refreshKoManualSelectDisables);
+                });
+                refreshKoManualSelectDisables();
+            } catch (e) {
+                body.innerHTML = `<div class="text-danger small">${e.message || '加载失败'}</div>`;
+                pairCountEl.value = '0';
+            }
+        }
+
         function openGroupRankDetailModal(row) {
             if (!groupRankDetailModal) groupRankDetailModal = new bootstrap.Modal(document.getElementById('groupRankDetailModal'));
             const d = row.dataset;
             const body = document.getElementById('groupRankDetailBody');
+            const copyBtn = document.getElementById('groupRankUserCopyBtn');
+            const pdfBtn = document.getElementById('groupRankUserExportPdfBtn');
             if (!body) return;
             body.innerHTML = `
                 <div class="mb-1"><strong>选手：</strong>${d.username || '-'}</div>
@@ -1546,7 +1704,7 @@
                 <div class="mb-1"><strong>总排名：</strong>${d.rank || '-'}</div>
                 <div class="mb-1"><strong>小组排名：</strong>${d.groupRank || '-'}</div>
                 <hr class="my-2"/>
-                <div class="mb-1"><strong>积分：</strong>${d.points || 0}</div>
+                <div class="mb-1"><strong>积分：</strong>${(d.points != null && d.points !== '') ? d.points : ''}</div>
                 <div class="mb-1"><strong>净胜分：</strong>${d.net || 0}</div>
                 <div class="mb-1"><strong>总得分：</strong>${d.total || 0}</div>
                 <div class="mb-1"><strong>胜/平/负：</strong>${d.wins || 0}/${d.draws || 0}/${d.losses || 0}</div>
@@ -1556,6 +1714,9 @@
                 <div class="mb-1"><strong>偷分次数：</strong>${d.stealC || 0}</div>
                 <div class="mb-1"><strong>偷分单次最高：</strong>${d.stealM || 0}</div>
             `;
+            const uid = d.userId ? String(d.userId) : '';
+            if (copyBtn) copyBtn.dataset.userId = uid;
+            if (pdfBtn) pdfBtn.dataset.userId = uid;
             groupRankDetailModal.show();
         }
 
@@ -2111,6 +2272,45 @@
                 return out.join('\n');
             };
 
+            const formatMatchDetailsPlain = (data) => {
+                const title = data && data.title ? data.title : '战绩明细';
+                const matchDetails = (data && data.matchDetails) ? data.matchDetails : [];
+                const out = [title];
+                if (matchDetails.length > 0) {
+                    out.push('');
+                    out.push('===== 比赛明细 =====');
+                    for (const m of matchDetails) {
+                        out.push(`${m.category || ''}（${m.phaseCode || ''}） ${m.player1Name} vs ${m.player2Name} 总比分：${m.totalText || '-'}`);
+                        const sets = m.sets || [];
+                        for (const s of sets) {
+                            out.push(`  第${s.setNumber}局 [后手:${s.hammer}] ${s.player1ScoreText}:${s.player2ScoreText}`);
+                        }
+                        const logs = m.editLogs || [];
+                        out.push('  修改记录：');
+                        if (logs.length === 0) {
+                            out.push('    无');
+                        } else {
+                            for (const l of logs) {
+                                out.push(`    第${l.setNumber}局 ${l.editorUsername} ${l.oldScore} -> ${l.newScore} @ ${(l.editedAt || '').replace('T', ' ')}`);
+                            }
+                        }
+                        const acc = m.acceptances || [];
+                        const sigForPlain = (sig) => {
+                            const s = sig != null ? String(sig).trim() : '';
+                            if (!s) return '无签名';
+                            if (s.startsWith('data:image/')) return '[手写签名]';
+                            return s.length > 60 ? s.slice(0, 60) + '…' : s;
+                        };
+                        const accLine = acc.length === 0
+                            ? '无'
+                            : acc.map(a => `${a.username}（${sigForPlain(a.signature)}）@${(a.acceptedAt || '').replace('T', ' ')}`).join('；');
+                        out.push(`  验收信息：${accLine}`);
+                        out.push('');
+                    }
+                }
+                return out.join('\n');
+            };
+
             if (btn) btn.addEventListener('click', async () => {
                 const tid = btn.dataset.tournamentId;
                 if (!tid) return;
@@ -2225,10 +2425,61 @@
                     }
                 });
             });
+
+            const groupRankUserCopyBtn = document.getElementById('groupRankUserCopyBtn');
+            const groupRankUserExportPdfBtn = document.getElementById('groupRankUserExportPdfBtn');
+            const groupMatchCopyBtn = document.getElementById('groupMatchCopyBtn');
+            const groupMatchExportPdfBtn = document.getElementById('groupMatchExportPdfBtn');
+            const tournamentId = '[[${tournamentInfo.tournament.id}]]';
+
+            if (groupRankUserCopyBtn) groupRankUserCopyBtn.addEventListener('click', async () => {
+                const userId = groupRankUserCopyBtn.dataset.userId;
+                if (!tournamentId || !userId) return;
+                try {
+                    const data = await fetchJson(`/ranking/api/tournament/${encodeURIComponent(tournamentId)}/user/${encodeURIComponent(userId)}/performance`);
+                    await copyPlainTextToClipboard(formatMatchDetailsPlain(data));
+                    if (typeof showAlert === 'function') showAlert('复制成功', 'success'); else alert('复制成功');
+                } catch (e) {
+                    if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger'); else alert(e.message || '复制失败');
+                }
+            });
+
+            if (groupRankUserExportPdfBtn) groupRankUserExportPdfBtn.addEventListener('click', () => {
+                const userId = groupRankUserExportPdfBtn.dataset.userId;
+                if (!tournamentId || !userId) return;
+                window.open(`/ranking/export/pdf/tournament/${encodeURIComponent(tournamentId)}/user/${encodeURIComponent(userId)}/performance`);
+            });
+
+            if (groupMatchCopyBtn) groupMatchCopyBtn.addEventListener('click', async () => {
+                const matchId = document.getElementById('groupMatchIdInput')?.value;
+                if (!matchId) return;
+                try {
+                    const data = await fetchJson(`/ranking/api/match/${encodeURIComponent(matchId)}/performance`);
+                    await copyPlainTextToClipboard(formatMatchDetailsPlain(data));
+                    if (typeof showAlert === 'function') showAlert('复制成功', 'success'); else alert('复制成功');
+                } catch (e) {
+                    if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger'); else alert(e.message || '复制失败');
+                }
+            });
+
+            if (groupMatchExportPdfBtn) groupMatchExportPdfBtn.addEventListener('click', () => {
+                const matchId = document.getElementById('groupMatchIdInput')?.value;
+                if (!matchId) return;
+                window.open(`/ranking/export/pdf/match/${encodeURIComponent(matchId)}/performance`);
+            });
         })();
 
         document.addEventListener('DOMContentLoaded', () => {
             addSectionToggleButtons();
+            const groupModalEl = document.getElementById('groupMatchScoreModal');
+            if (groupModalEl) {
+                groupModalEl.addEventListener('hidden.bs.modal', () => {
+                    const active = document.activeElement;
+                    if (active && groupModalEl.contains(active) && typeof active.blur === 'function') {
+                        active.blur();
+                    }
+                });
+            }
         });
     </script>
 </body>

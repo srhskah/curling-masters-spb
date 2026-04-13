@@ -36,6 +36,14 @@ public class NotificationMessage {
     @TableField(exist = false)
     private String authorUsername;
 
+    /** 关联赛事届次标题（赛季-赛事等级-届次），查询时填充，不落库 */
+    @TableField(exist = false)
+    private String tournamentEditionLabel;
+
+    /** 关联赛事详情入口，查询时填充，不落库 */
+    @TableField(exist = false)
+    private String tournamentDetailUrl;
+
     @TableField("source_type")
     private String sourceType;
 

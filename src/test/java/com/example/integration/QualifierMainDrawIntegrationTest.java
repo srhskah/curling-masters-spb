@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 /**
  * 正赛+资格赛：直通车三种抽签 → 导入 MAIN 席 → 资格赛池（默认随机）→ 导入资格赛席 → 生成小组赛。
@@ -198,15 +199,23 @@ class QualifierMainDrawIntegrationTest {
         @SuppressWarnings("unchecked")
         List<Long> parts = (List<Long>) cfg.get("drawParticipants");
         assertFalse(parts == null || parts.isEmpty(), "抽签名单为空 pool=" + pool);
-        Long first = parts.getFirst();
-        List<Long> eligible = drawManagementService.getEligibleGroupIds(tournamentId, first, pool);
-        assertFalse(eligible.isEmpty(), "首签选手无可用小组");
-        drawManagementService.performDraw(tournamentId, first, eligible.getFirst(), pool);
+        Map<String, Object> status = drawManagementService.getDrawStatus(tournamentId, pool);
+        TournamentDraw draw = (TournamentDraw) status.get("draw");
+        assertNotNull(draw);
+        for (Long uid : parts) {
+            if ("RANDOM".equals(draw.getDrawType())) {
+                drawManagementService.performDraw(tournamentId, uid, null, pool);
+            } else {
+                List<Long> eligible = drawManagementService.getEligibleGroupIds(tournamentId, uid, pool);
+                assertFalse(eligible.isEmpty(), "选手无可用小组 pool=" + pool + " uid=" + uid);
+                drawManagementService.performDraw(tournamentId, uid, eligible.getFirst(), pool);
+            }
+        }
         long drawn = drawResultMapper.selectCount(
                 Wrappers.<TournamentDrawResult>lambdaQuery()
                         .eq(TournamentDrawResult::getTournamentId, tournamentId)
                         .eq(TournamentDrawResult::getDrawPool, pool.name()));
-        assertEquals(parts.size(), drawn, "一次抽签后应全员落位 pool=" + pool);
+        assertEquals(parts.size(), drawn, "抽签完成后应全员落位 pool=" + pool);
     }
 
     @ParameterizedTest(name = "MAIN={0} → 资格赛随机 → 小组赛")
