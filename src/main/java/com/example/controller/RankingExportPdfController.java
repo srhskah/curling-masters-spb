@@ -125,7 +125,10 @@ public class RankingExportPdfController {
      * 单个赛事排名PDF
      */
     @GetMapping(value = "/tournament/{tournamentId}", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> exportTournamentRankingPdf(@PathVariable Long tournamentId) {
+    public ResponseEntity<byte[]> exportTournamentRankingPdf(
+            @PathVariable Long tournamentId,
+            @RequestParam(defaultValue = "true") boolean includeMatchDetails
+    ) {
         java.util.Map<String, Object> data = rankingApiController.getTournamentRanking(tournamentId);
         String seasonLabel = data.get("seasonLabel") != null ? data.get("seasonLabel").toString() : "";
         String levelName = data.get("levelName") != null ? data.get("levelName").toString() : "";
@@ -153,6 +156,7 @@ public class RankingExportPdfController {
         model.put("title", title);
         model.put("rankings", data.get("rankings"));
         model.put("matchDetails", data.get("matchDetails"));
+        model.put("includeMatchDetails", includeMatchDetails);
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-ranking", model);
 
         return PdfExportSupport.attachmentPdf(pdfBytes, title + ".pdf");

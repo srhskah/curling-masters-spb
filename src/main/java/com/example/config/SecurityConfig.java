@@ -10,14 +10,18 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
@@ -121,5 +125,21 @@ public class SecurityConfig {
             );
 
         return http.build();
+    }
+
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return web -> web.requestRejectedHandler((request, response, requestRejectedException) ->
+                handleRejectedRequest(response, requestRejectedException));
+    }
+
+    private static void handleRejectedRequest(HttpServletResponse response, RequestRejectedException ex) {
+        try {
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Request rejected");
+            }
+        } catch (Exception ignored) {
+            // 这里不再向外抛，避免污染日志
+        }
     }
 }

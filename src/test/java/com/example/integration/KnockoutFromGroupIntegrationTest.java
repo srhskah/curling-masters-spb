@@ -89,6 +89,7 @@ class KnockoutFromGroupIntegrationTest {
     @Autowired private ITournamentRegistrationService registrationService;
     @Autowired private ITournamentCompetitionService competitionService;
     @Autowired private IMatchService matchService;
+    @Autowired private UserTournamentPointsService userTournamentPointsService;
     @Autowired private TournamentGroupMapper tournamentGroupMapper;
     @Autowired private KnockoutBracketService knockoutBracketService;
 
@@ -141,7 +142,7 @@ class KnockoutFromGroupIntegrationTest {
             boolean p1Wins = m.getPlayer1Id() != null && m.getPlayer1Id() < m.getPlayer2Id();
             List<String> s1 = p1Wins ? WIN_SCORES : LOSE_SCORES;
             List<String> s2 = p1Wins ? LOSE_SCORES : WIN_SCORES;
-            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null);
+            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null, false);
             User u1 = userService.getById(m.getPlayer1Id());
             User u2 = userService.getById(m.getPlayer2Id());
             competitionService.acceptMatchScore(u1, m.getId(), "it");
@@ -183,7 +184,7 @@ class KnockoutFromGroupIntegrationTest {
             boolean p1Wins = m.getPlayer1Id() != null && m.getPlayer1Id() < m.getPlayer2Id();
             List<String> s1 = p1Wins ? WIN_SCORES : LOSE_SCORES;
             List<String> s2 = p1Wins ? LOSE_SCORES : WIN_SCORES;
-            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null);
+            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null, false);
             competitionService.acceptMatchScore(userService.getById(m.getPlayer1Id()), m.getId(), "it");
             competitionService.acceptMatchScore(userService.getById(m.getPlayer2Id()), m.getId(), "it");
         }
@@ -235,6 +236,182 @@ class KnockoutFromGroupIntegrationTest {
                 .eq(Match::getPhaseCode, "MAIN")
                 .like(Match::getCategory, "铜")
                 .count());
+    }
+
+    @Test
+    @DisplayName("8人2组：首轮为1/4时，1/4验收后必须先生成半决赛，不能直接生成金铜牌赛")
+    void quarterFinalDoesNotSkipToMedalMatches() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "kq");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        TournamentCompetitionConfig cfgPatch = new TournamentCompetitionConfig();
+        cfgPatch.setTournamentId(tid);
+        cfgPatch.setKnockoutStartRound(4);
+        competitionService.saveConfig(host, cfgPatch);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        int generated = knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        assertEquals(4, generated);
+
+        List<Match> quarterFinals = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 4)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(4, quarterFinals.size());
+        for (Match m : quarterFinals) {
+            acceptKoWithWinner(host, m, true);
+        }
+
+        long medalMatchesPremature = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .count();
+        assertEquals(0, medalMatchesPremature, "1/4 决赛完成后不应直接生成金牌赛/铜牌赛");
+
+        List<Match> semis = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 2)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(2, semis.size(), "1/4 决赛完成后应先生成半决赛");
+        for (Match m : semis) {
+            acceptKoWithWinner(host, m, true);
+        }
+
+        long medalMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .count();
+        assertEquals(2, medalMatches, "半决赛完成后才应生成金牌赛/铜牌赛");
+    }
+
+    @Test
+    @DisplayName("1/4挂载资格赛：按赛果分步结算积分（资格赛落败→1/4落败→铜牌→金牌）")
+    void mountedQualifierPointsAwardedStepByStep() {
+        User host = createHost();
+        List<User> players = createPlayers(12, "kqp");
+        long tid = setupGroupTournament(host, 12, 6);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        TournamentCompetitionConfig cfgPatch = new TournamentCompetitionConfig();
+        cfgPatch.setTournamentId(tid);
+        cfgPatch.setKnockoutStartRound(4);
+        cfgPatch.setQualifierRound(4);
+        competitionService.saveConfig(host, cfgPatch);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        assertEquals(2, groups.size());
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 6).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(6, 12).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        List<Match> koQualifiers = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .eq(Match::getCreateSource, KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)
+                .orderByAsc(Match::getId)
+                .list();
+        assertEquals(2, koQualifiers.size());
+
+        // Step 1: 仅锁定一场挂载资格赛 -> 只应新增1个非空积分（该场资格赛落败者）
+        acceptKoWithWinner(host, koQualifiers.get(0), true);
+        long awardedAfterQualifier = userTournamentPointsService.lambdaQuery()
+                .eq(UserTournamentPoints::getTournamentId, tid)
+                .isNotNull(UserTournamentPoints::getPoints)
+                .count();
+        assertTrue(awardedAfterQualifier >= 1, "挂载资格赛落败后应先导出其积分");
+
+        // Step 2: 完成全部1/4决赛 -> 应能导出第5~8名（总的非空积分条目继续增加）
+        List<Match> quarterFinals = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 4)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(4, quarterFinals.size());
+        for (Match m : quarterFinals) {
+            // 若该槽位依赖未结束资格赛，先补锁资格赛
+            if ((m.getPlayer1Id() == null || m.getPlayer2Id() == null)
+                    && !Boolean.TRUE.equals(koQualifiers.get(1).getResultLocked())) {
+                acceptKoWithWinner(host, koQualifiers.get(1), true);
+                m = matchService.getById(m.getId());
+            }
+            acceptKoWithWinner(host, m, true);
+        }
+        long awardedAfterQuarter = userTournamentPointsService.lambdaQuery()
+                .eq(UserTournamentPoints::getTournamentId, tid)
+                .isNotNull(UserTournamentPoints::getPoints)
+                .count();
+        assertTrue(awardedAfterQuarter > awardedAfterQualifier, "1/4决赛完成后应继续新增第5~8名积分");
+
+        // Step 3: 半决赛完成会生成奖牌赛，先锁铜牌赛 -> 应继续增加已导出积分
+        List<Match> semis = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 2)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(2, semis.size());
+        for (Match m : semis) {
+            acceptKoWithWinner(host, m, true);
+        }
+        Match bronze = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .eq(Match::getPhaseCode, "MAIN")
+                .like(Match::getCategory, "铜")
+                .last("LIMIT 1")
+                .one();
+        assertTrue(bronze != null, "应生成铜牌赛");
+        acceptKoWithWinner(host, bronze, true);
+        long awardedAfterBronze = userTournamentPointsService.lambdaQuery()
+                .eq(UserTournamentPoints::getTournamentId, tid)
+                .isNotNull(UserTournamentPoints::getPoints)
+                .count();
+        assertTrue(awardedAfterBronze >= awardedAfterQuarter, "铜牌赛后应可导出第3/4名积分");
+
+        // Step 4: 锁定金牌赛 -> 全部12人应都有积分
+        Match gold = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .eq(Match::getPhaseCode, "FINAL")
+                .like(Match::getCategory, "金牌")
+                .last("LIMIT 1")
+                .one();
+        assertTrue(gold != null, "应生成金牌赛");
+        acceptKoWithWinner(host, gold, true);
+
+        long awardedFinal = userTournamentPointsService.lambdaQuery()
+                .eq(UserTournamentPoints::getTournamentId, tid)
+                .isNotNull(UserTournamentPoints::getPoints)
+                .count();
+        assertEquals(12L, awardedFinal, "金牌赛结束后应完成第1~12名积分");
     }
 
     @Test
@@ -496,7 +673,7 @@ class KnockoutFromGroupIntegrationTest {
     private void acceptKoWithWinner(User host, Match m, boolean player1Wins) {
         List<String> s1 = player1Wins ? WIN_SCORES : LOSE_SCORES;
         List<String> s2 = player1Wins ? LOSE_SCORES : WIN_SCORES;
-        competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null);
+        competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null, false);
         competitionService.acceptMatchScore(userService.getById(m.getPlayer1Id()), m.getId(), "ko-it");
         competitionService.acceptMatchScore(userService.getById(m.getPlayer2Id()), m.getId(), "ko-it");
         competitionService.acceptMatchScore(host, m.getId(), "ko-host");
@@ -577,7 +754,7 @@ class KnockoutFromGroupIntegrationTest {
             boolean p1Wins = m.getPlayer1Id() != null && m.getPlayer1Id() < m.getPlayer2Id();
             List<String> s1 = p1Wins ? WIN_SCORES : LOSE_SCORES;
             List<String> s2 = p1Wins ? LOSE_SCORES : WIN_SCORES;
-            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null);
+            competitionService.saveMatchScore(host, m.getId(), 1, s1, s2, false, null, false);
             competitionService.acceptMatchScore(userService.getById(m.getPlayer1Id()), m.getId(), "it");
             competitionService.acceptMatchScore(userService.getById(m.getPlayer2Id()), m.getId(), "it");
         }

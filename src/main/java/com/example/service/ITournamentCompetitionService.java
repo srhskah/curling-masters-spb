@@ -27,9 +27,24 @@ public interface ITournamentCompetitionService {
     boolean canEditMatchScore(User operator, Match match);
     /** 办赛人员（管理员/主办）或本场比赛双方选手是否可执行验收 */
     boolean canAcceptMatchScore(User operator, Match match);
+    /**
+     * @param allowPersistWithXWithoutAutoAccept 为 true 时，允许在存在 X 的情况下先落库比分（不触发 save 内自带的 autoAccept），
+     *               供 {@link #saveMatchScoreThenAccept} 等“保存后立即验收”的原子流程使用。
+     */
     void saveMatchScore(User operator, Long matchId, Integer firstEndHammer, List<String> player1Scores, List<String> player2Scores,
-                        Boolean autoAccept, String signature);
+                        Boolean autoAccept, String signature, boolean allowPersistWithXWithoutAutoAccept);
+    /**
+     * 原子提交：先按当前表单保存局分/先后手，再执行验收（避免“只点了验收、未先保存”导致数据未落库）。
+     */
+    void saveMatchScoreThenAccept(User operator, Long matchId, Integer firstEndHammer, List<String> player1Scores, List<String> player2Scores,
+                                  String signature);
     void acceptMatchScore(User operator, Long matchId, String signature);
     /** 小组赛截止后自动验收全部未锁定的小组赛场次。 */
     void autoAcceptOverdueGroupMatches(Long tournamentId);
+
+    /**
+     * 一键刷新排名：清空本赛事既有积分记录后，按当前赛况重算分步积分（与验收后触发的规则一致：
+     * 未晋级者、各轮落败者、奖牌赛结果等）。
+     */
+    void recomputeTournamentRankingPoints(Long tournamentId);
 }

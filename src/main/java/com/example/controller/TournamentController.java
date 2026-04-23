@@ -3,8 +3,9 @@ package com.example.controller;
 import com.example.entity.*;
 import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.service.*;
-import com.example.util.IpAddressUtil;
 import com.example.util.HtmlEscaper;
+import com.example.util.IpAddressUtil;
+import com.example.util.MatchPhaseClassifier;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -1382,6 +1383,31 @@ public class TournamentController {
             model.addAttribute("canManageTournamentDraw", false);
         }
 
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> gorListForFinal = (List<Map<String, Object>>) model.asMap().getOrDefault("groupOverallRanking", List.of());
+        Map<Long, Integer> groupOverallRankByUserIdForFinal = new HashMap<>();
+        for (Map<String, Object> row : gorListForFinal) {
+            Object uidObj = row.get("userId");
+            Object orObj = row.get("overallRank");
+            Long uid = uidObj instanceof Number ? ((Number) uidObj).longValue() : null;
+            if (uid == null) {
+                continue;
+            }
+            int gor = orObj instanceof Number ? ((Number) orObj).intValue() : 0;
+            if (gor > 0) {
+                groupOverallRankByUserIdForFinal.put(uid, gor);
+            }
+        }
+        for (Map<String, Object> ri : rankingInfoList) {
+            UserTournamentPoints utp = (UserTournamentPoints) ri.get("ranking");
+            if (utp != null && utp.getUserId() != null) {
+                ri.put("groupOverallRank", groupOverallRankByUserIdForFinal.get(utp.getUserId()));
+            } else {
+                ri.put("groupOverallRank", null);
+            }
+        }
+        model.addAttribute("rankingInfoList", rankingInfoList);
+
         if (!model.containsAttribute("scoreDisplayByMatchId")) {
             model.addAttribute("scoreDisplayByMatchId", buildScoreDisplayByMatchId(matches));
         }
@@ -1391,6 +1417,7 @@ public class TournamentController {
                 .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
         TreeMap<Integer, List<Map<String, Object>>> knockoutCardsByRound = new TreeMap<>();
         TreeMap<Integer, List<Map<String, Object>>> qualifierCardsByRound = new TreeMap<>();
+        TreeMap<Integer, List<Map<String, Object>>> knockoutQualifierCardsByRound = new TreeMap<>();
         for (Match m : matches) {
             String pc = m.getPhaseCode();
             if (pc != null && "GROUP".equalsIgnoreCase(pc)) {
@@ -1399,7 +1426,11 @@ public class TournamentController {
             if (pc != null && "QUALIFIER".equalsIgnoreCase(pc)) {
                 int qr = m.getQualifierRound() != null ? m.getQualifierRound() : (m.getRound() != null ? m.getRound() : 0);
                 Map<String, Object> card = buildMatchCardForDetail(m, unameById, scoresByMatchId, scoreDisplayMap);
-                qualifierCardsByRound.computeIfAbsent(qr, k -> new ArrayList<>()).add(card);
+                if (Objects.equals(m.getCreateSource(), com.example.service.impl.KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)) {
+                    knockoutQualifierCardsByRound.computeIfAbsent(qr, k -> new ArrayList<>()).add(card);
+                } else {
+                    qualifierCardsByRound.computeIfAbsent(qr, k -> new ArrayList<>()).add(card);
+                }
                 continue;
             }
             int r = m.getRound() == null ? 0 : m.getRound();
@@ -1411,11 +1442,15 @@ public class TournamentController {
                 .collect(Collectors.toList());
         model.addAttribute("knockoutMatchCards", knockoutMatchCards);
         model.addAttribute("qualifierCardsByRound", qualifierCardsByRound);
+        model.addAttribute("knockoutQualifierCardsByRound", knockoutQualifierCardsByRound);
         Integer kq = competitionConfig != null ? competitionConfig.getKnockoutQualifyCount() : null;
         boolean showQualifierMatchTab = competitionConfig != null
                 && Objects.equals(competitionConfig.getEntryMode(), 1)
-                && kq != null && kq > 0;
+                && kq != null && kq > 0
+                && !qualifierCardsByRound.isEmpty();
         model.addAttribute("showQualifierMatchTab", showQualifierMatchTab);
+        boolean showKnockoutQualifierMatchTab = !knockoutQualifierCardsByRound.isEmpty();
+        model.addAttribute("showKnockoutQualifierMatchTab", showKnockoutQualifierMatchTab);
 
         @SuppressWarnings("unchecked")
         List<TournamentGroup> groupsForMatchTabs = (List<TournamentGroup>) model.asMap().get("competitionGroups");
@@ -1459,14 +1494,35 @@ public class TournamentController {
             for (Integer qr : qRounds) {
                 List<Map<String, Object>> qCards = qualifierCardsByRound.getOrDefault(qr, List.of());
                 Map<String, Object> t = new LinkedHashMap<>();
-                t.put("kind", "QUALIFIER");
+                t.put("kind", "ENTRY_QUALIFIER");
                 t.put("tabId", "match-tab-qualifier-" + qr);
                 t.put("label", qualifierCardsByRound.isEmpty() && qr == 1
-                        ? "资格赛"
-                        : ("资格赛 第" + qr + "场"));
+                        ? "正赛资格赛"
+                        : ("正赛资格赛 第" + qr + "场"));
                 t.put("qualifierRound", qr);
                 t.put("qualifierCards", qCards);
                 t.put("qualifierLatestRound", latestQ);
+                t.put("qualifierInProgress", qCards.stream().anyMatch(c -> {
+                    Match mm = (Match) c.get("match");
+                    return mm != null && mm.getStatus() != null && mm.getStatus() == 1;
+                }));
+                t.put("active", matchTabFirst);
+                matchTabFirst = false;
+                competitionMatchTabs.add(t);
+            }
+        }
+        if (showKnockoutQualifierMatchTab) {
+            List<Integer> koQualifierRounds = new ArrayList<>(knockoutQualifierCardsByRound.keySet());
+            koQualifierRounds.sort(Comparator.reverseOrder());
+            for (Integer mountedKoRound : koQualifierRounds) {
+                List<Map<String, Object>> qCards = knockoutQualifierCardsByRound.getOrDefault(mountedKoRound, List.of());
+                Map<String, Object> t = new LinkedHashMap<>();
+                t.put("kind", "KO_QUALIFIER");
+                t.put("tabId", "match-tab-ko-qualifier-" + mountedKoRound);
+                t.put("label", "淘汰赛附加资格赛（通往" + knockoutRoundLabel(mountedKoRound) + "）");
+                t.put("mountedKoRound", mountedKoRound);
+                t.put("qualifierCards", qCards);
+                t.put("qualifierLatestRound", mountedKoRound);
                 t.put("qualifierInProgress", qCards.stream().anyMatch(c -> {
                     Match mm = (Match) c.get("match");
                     return mm != null && mm.getStatus() != null && mm.getStatus() == 1;
@@ -1752,53 +1808,21 @@ public class TournamentController {
                 redirectAttributes.addFlashAttribute("error", "当前仅支持小组赛模式一键刷新排名");
                 return "redirect:/tournament/detail/" + tournamentId;
             }
+
+            tournamentCompetitionService.recomputeTournamentRankingPoints(tournamentId);
+
             List<Long> rankedUserIds = loadCurrentOverallRankedUserIdsForGroupStage(tournamentId, cfg);
-            if (rankedUserIds.isEmpty()) {
-                redirectAttributes.addFlashAttribute("error", "未找到可用于重建的实时小组赛排名数据");
-                return "redirect:/tournament/detail/" + tournamentId;
-            }
-            TournamentLevel level = tournamentLevelService.lambdaQuery()
-                    .eq(TournamentLevel::getCode, tournament.getLevelCode())
-                    .one();
-            int basePoints = level != null && level.getDefaultBottomPoints() != null ? level.getDefaultBottomPoints() : 100;
-            BigDecimal ratio = tournament.getChampionPointsRatio();
-            if (ratio == null && level != null) {
-                ratio = level.getDefaultChampionRatio();
-            }
-
-            userTournamentPointsService.lambdaUpdate()
-                    .eq(UserTournamentPoints::getTournamentId, tournamentId)
-                    .remove();
-
             int participantCount = rankedUserIds.size();
             int qualifiedTotal = Math.min(participantCount,
                     Math.max(0, com.example.service.impl.KnockoutBracketService.playersInFirstKnockoutRound(cfg.getKnockoutStartRound())));
-            boolean firstRoundFinished = isFirstKnockoutRoundFinished(tournamentId, cfg);
+            boolean firstKnockoutPhaseDone = isFirstKnockoutPhaseIncludingQualifiersFinished(tournamentId, cfg);
 
-            for (int i = 0; i < rankedUserIds.size(); i++) {
-                Long uid = rankedUserIds.get(i);
-                if (uid == null) {
-                    continue;
-                }
-                UserTournamentPoints utp = new UserTournamentPoints();
-                utp.setUserId(uid);
-                utp.setTournamentId(tournamentId);
-                boolean keepBlankForQualified = !firstRoundFinished && i < qualifiedTotal;
-                if (keepBlankForQualified) {
-                    utp.setPoints(null);
-                } else {
-                    int rank = i + 1;
-                    int points = calculatePoints(rank, participantCount, basePoints, ratio);
-                    utp.setPoints(points);
-                }
-                utp.setCreatedAt(LocalDateTime.now());
-                userTournamentPointsService.save(utp);
-            }
-            if (!firstRoundFinished && qualifiedTotal > 0) {
+            if (!firstKnockoutPhaseDone && qualifiedTotal > 0) {
                 redirectAttributes.addFlashAttribute("success",
-                        "已按当前赛事数据重建排名（" + participantCount + " 人），首轮淘汰赛未完结：前 " + qualifiedTotal + " 名积分留空");
+                        "已按当前赛况重算积分（" + participantCount + " 人）：首轮淘汰赛（含挂载资格赛）未全部结束前，晋级区积分留空；其余按小组赛总排名分步结算");
             } else {
-                redirectAttributes.addFlashAttribute("success", "已按当前赛事数据重建排名（" + participantCount + " 人）");
+                redirectAttributes.addFlashAttribute("success",
+                        "已按当前赛况重算积分与排名（" + participantCount + " 人），规则含各轮落败者按小组赛总排名次序赋分、奖牌赛后定前四名等");
             }
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "刷新排名失败：" + e.getMessage());
@@ -2040,6 +2064,22 @@ public class TournamentController {
             return false;
         }
         return firstRoundMainMatches.stream().allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()));
+    }
+
+    /** 首轮淘汰赛 MAIN 场全部验收，且若存在首轮挂载资格赛则资格赛场也全部验收。 */
+    private boolean isFirstKnockoutPhaseIncludingQualifiersFinished(Long tournamentId, TournamentCompetitionConfig cfg) {
+        if (!isFirstKnockoutRoundFinished(tournamentId, cfg)) {
+            return false;
+        }
+        List<Match> mountedQ = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .eq(Match::getCreateSource, com.example.service.impl.KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)
+                .list();
+        if (mountedQ == null || mountedQ.isEmpty()) {
+            return true;
+        }
+        return mountedQ.stream().allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()));
     }
 
     private List<Long> loadCurrentOverallRankedUserIdsForGroupStage(Long tournamentId, TournamentCompetitionConfig cfg) {
