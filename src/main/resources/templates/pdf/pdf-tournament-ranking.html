@@ -36,6 +36,7 @@
     <tr>
         <th>排名</th>
         <th>选手</th>
+        <th>小组赛总排名</th>
         <th>积分</th>
     </tr>
     </thead>
@@ -48,14 +49,16 @@
             <span th:if="${!r.withdrawn}" th:text="${r.username}">选手</span>
             <span th:if="${r.withdrawn}" class="muted">（退赛（不计入排名））</span>
         </td>
+        <td th:text="${r.groupOverallRank != null ? r.groupOverallRank : '-'}">-</td>
         <td th:text="${r.points != null ? r.points : 0}">0</td>
     </tr>
     <tr th:if="${rankings == null or #lists.isEmpty(rankings)}">
-        <td colspan="3" class="muted" style="text-align:center;">暂无数据</td>
+        <td colspan="4" class="muted" style="text-align:center;">暂无数据</td>
     </tr>
     </tbody>
 </table>
 
+<th:block th:if="${includeMatchDetails == null or includeMatchDetails}">
 <div class="section-title">比赛明细</div>
 <div th:if="${matchDetails == null or #lists.isEmpty(matchDetails)}" class="muted">暂无比赛明细</div>
 <div th:each="m : ${matchDetails}" style="margin-bottom: 14px; border:1px solid #ddd; padding:8px;">
@@ -129,6 +132,7 @@
     </div>
     <div class="small muted" th:if="${m.acceptances == null or #lists.isEmpty(m.acceptances)}">暂无验收</div>
 </div>
+</th:block>
 </body>
 </html>
 

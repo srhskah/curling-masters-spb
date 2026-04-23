@@ -5,6 +5,8 @@ public class TournamentRankingItemDto {
     private String username;
     private int points;
     private boolean withdrawn;
+    /** 小组赛总排名（跨组）；无数据时为 null */
+    private Integer groupOverallRank;
 
     public TournamentRankingItemDto() {
     }
@@ -30,6 +32,14 @@ public class TournamentRankingItemDto {
 
     public boolean isWithdrawn() {
         return withdrawn;
+    }
+
+    public Integer getGroupOverallRank() {
+        return groupOverallRank;
+    }
+
+    public void setGroupOverallRank(Integer groupOverallRank) {
+        this.groupOverallRank = groupOverallRank;
     }
 }
 

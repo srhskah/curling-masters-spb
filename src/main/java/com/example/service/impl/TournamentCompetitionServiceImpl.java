@@ -10,6 +10,7 @@ import com.example.mapper.MatchScoreEditLogMapper;
 import com.example.mapper.TournamentGroupMapper;
 import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.service.*;
+import com.example.util.MatchPhaseClassifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,9 +19,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class TournamentCompetitionServiceImpl implements ITournamentCompetitionService {
+    private static final Pattern KO_QUALIFIER_SLOT_PATTERN = Pattern.compile("关联第(\\d+)场");
 
     @Autowired private TournamentCompetitionConfigMapper configMapper;
     @Autowired private TournamentGroupMapper groupMapper;
@@ -559,7 +563,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveMatchScore(User operator, Long matchId, Integer firstEndHammer, List<String> player1Scores, List<String> player2Scores,
-                               Boolean autoAccept, String signature) {
+                               Boolean autoAccept, String signature, boolean allowPersistWithXWithoutAutoAccept) {
         Match match = matchService.getById(matchId);
         if (match == null) throw new IllegalStateException("比赛不存在");
         if (!canEditMatchScore(operator, match)) throw new SecurityException("无权修改比分");
@@ -586,7 +590,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
         int xCutoff = detectXCutoff(p1, p2);
         boolean hasX = xCutoff >= 0;
-        if (hasX && !Boolean.TRUE.equals(autoAccept)) {
+        if (hasX && !Boolean.TRUE.equals(autoAccept) && !allowPersistWithXWithoutAutoAccept) {
             throw new IllegalArgumentException("存在X比分时，需确认“是否验收”后才能保存");
         }
         if (hasX && requiresSignature(match) && (signature == null || signature.trim().isEmpty())) {
@@ -681,6 +685,15 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveMatchScoreThenAccept(User operator, Long matchId, Integer firstEndHammer, List<String> player1Scores, List<String> player2Scores,
+                                         String signature) {
+        // 先保存（不走 save 内的 autoAccept，避免与后续验收重复触发晋级链/积分重算）
+        saveMatchScore(operator, matchId, firstEndHammer, player1Scores, player2Scores, false, signature, true);
+        acceptMatchScore(operator, matchId, signature);
+    }
+
     private Integer normalizeHammerSide(Integer hammerSide) {
         if (hammerSide == null || (hammerSide != 1 && hammerSide != 2)) {
             return null;
@@ -747,6 +760,8 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         matchService.updateById(match);
         knockoutBracketService.tryAutoGenerateFromGroupStage(operator, match.getTournamentId());
         knockoutBracketService.onKnockoutMatchLocked(operator, match);
+        TournamentCompetitionConfig cfg = getConfig(match.getTournamentId());
+        recomputeTournamentPointsByProgress(match.getTournamentId(), cfg);
     }
 
     public List<MatchAcceptance> listAcceptances(Long matchId) {
@@ -776,45 +791,68 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         for (Match m : matches) {
             acceptMatchScore(superAdmin, m.getId(), "SYSTEM_AUTO_ACCEPT");
         }
-        autoAwardPointsForNonKnockoutPlayers(tournamentId, cfg);
+        recomputeTournamentPointsByProgress(tournamentId, cfg);
     }
 
     private void autoAwardPointsForNonKnockoutPlayers(Long tournamentId, TournamentCompetitionConfig cfg) {
+        recomputeTournamentPointsByProgress(tournamentId, cfg);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recomputeTournamentRankingPoints(Long tournamentId) {
+        if (tournamentId == null) {
+            throw new IllegalStateException("缺少赛事ID");
+        }
+        TournamentCompetitionConfig cfg = getConfig(tournamentId);
+        if (cfg == null) {
+            throw new IllegalStateException("请先保存赛事运行配置");
+        }
+        if (!Objects.equals(cfg.getMatchMode(), 3)) {
+            throw new IllegalStateException("当前仅支持小组赛模式一键刷新排名");
+        }
+        if (cfg.getKnockoutStartRound() == null) {
+            throw new IllegalStateException("请先配置淘汰赛首轮");
+        }
+        List<Long> rankedIds = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
+        if (rankedIds.isEmpty()) {
+            throw new IllegalStateException("未找到可用于重建的实时小组赛排名数据");
+        }
+        userTournamentPointsService.lambdaUpdate()
+                .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                .remove();
+        recomputeTournamentPointsByProgress(tournamentId, cfg);
+    }
+
+    private static void sortUserIdsByOverallRankOrder(List<Long> userIds, Map<Long, Integer> overallIndex0Based) {
+        if (userIds == null || userIds.size() <= 1) {
+            return;
+        }
+        userIds.sort(Comparator.comparingInt(u -> overallIndex0Based.getOrDefault(u, Integer.MAX_VALUE)));
+    }
+
+    private void recomputeTournamentPointsByProgress(Long tournamentId, TournamentCompetitionConfig cfg) {
         if (tournamentId == null || cfg == null || cfg.getKnockoutStartRound() == null) return;
         Tournament tournament = tournamentService.getById(tournamentId);
         if (tournament == null) return;
 
-        int bracketPlayers = KnockoutBracketService.playersInFirstKnockoutRound(cfg.getKnockoutStartRound());
-        // 晋级淘汰赛总人数（含资格赛挂载名额）= 首轮总参赛人数
-        int qualifiedTotal = Math.max(0, bracketPlayers);
-
         List<Long> rankedIds = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
         if (rankedIds.isEmpty()) return;
-
-        // 小组赛结束后、首轮淘汰赛（含挂载资格赛）未结束前：
-        // 已晋级首轮（含资格赛名额）的选手积分先留空（置 null）。
-        for (int i = 0; i < Math.min(qualifiedTotal, rankedIds.size()); i++) {
-            Long uid = rankedIds.get(i);
-            if (uid == null) continue;
-            UserTournamentPoints existingRow = userTournamentPointsService.lambdaQuery()
-                    .eq(UserTournamentPoints::getTournamentId, tournamentId)
-                    .eq(UserTournamentPoints::getUserId, uid)
-                    .one();
-            if (existingRow == null) {
-                UserTournamentPoints utp = new UserTournamentPoints();
-                utp.setUserId(uid);
-                utp.setTournamentId(tournamentId);
-                utp.setPoints(null);
-                utp.setCreatedAt(LocalDateTime.now());
-                userTournamentPointsService.save(utp);
-            } else if (existingRow.getPoints() != null) {
-                existingRow.setPoints(null);
-                userTournamentPointsService.updateById(existingRow);
-            }
+        Map<Long, Integer> overallIdx = new HashMap<>();
+        for (int i = 0; i < rankedIds.size(); i++) {
+            overallIdx.put(rankedIds.get(i), i);
         }
 
+        int startRound = cfg.getKnockoutStartRound();
+        int bracketPlayers = Math.max(0, KnockoutBracketService.playersInFirstKnockoutRound(startRound));
+        List<Match> mountedQualifiers = listMountedKoQualifiers(tournamentId);
+        int mountedQualifierCount = mountedQualifiers.size();
+        int reservedTop = Math.min(rankedIds.size(), bracketPlayers + mountedQualifierCount);
+
         Set<Long> roster = tournamentRankingRosterService.rosterUserIdsForEventRanking(tournamentId);
-        int participantCount = roster.isEmpty() ? Math.max(rankedIds.size(), bracketPlayers) : Math.max(roster.size(), bracketPlayers);
+        int participantCount = roster.isEmpty()
+                ? Math.max(rankedIds.size(), reservedTop)
+                : Math.max(roster.size(), reservedTop);
 
         TournamentLevel level = tournamentLevelService.lambdaQuery()
                 .eq(TournamentLevel::getCode, tournament.getLevelCode())
@@ -823,31 +861,199 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         BigDecimal ratio = tournament.getChampionPointsRatio();
         if (ratio == null && level != null) ratio = level.getDefaultChampionRatio();
 
-        for (int i = qualifiedTotal; i < rankedIds.size(); i++) {
-            Long uid = rankedIds.get(i);
-            if (uid == null) continue;
-            // 未晋级选手名次从（所有晋级淘汰赛人数 + 1）开始递增
-            int rank = qualifiedTotal + (i - qualifiedTotal) + 1;
-            int pts = calculatePoints(rank, participantCount, bottomPoints, ratio);
-            UserTournamentPoints existingRow = userTournamentPointsService.lambdaQuery()
-                    .eq(UserTournamentPoints::getTournamentId, tournamentId)
-                    .eq(UserTournamentPoints::getUserId, uid)
-                    .one();
-            if (existingRow == null) {
-                UserTournamentPoints utp = new UserTournamentPoints();
-                utp.setUserId(uid);
-                utp.setTournamentId(tournamentId);
-                utp.setPoints(pts);
-                utp.setCreatedAt(LocalDateTime.now());
-                userTournamentPointsService.save(utp);
-            } else {
-                existingRow.setPoints(pts);
-                userTournamentPointsService.updateById(existingRow);
+        Map<Long, Integer> computedPoints = new LinkedHashMap<>();
+        boolean groupStageReadyForNonKnockoutAward = isGroupStageReadyForNonKnockoutAward(tournamentId, cfg);
+
+        // A) 未进入“首轮主淘汰 + 挂载资格赛”的选手：按既有规则，从后段名次开始给分。
+        // 仅当小组赛全部场次完成验收后，才允许给“未晋级首轮”的后段名次积分。
+        if (groupStageReadyForNonKnockoutAward) {
+            for (int i = reservedTop; i < rankedIds.size(); i++) {
+                Long uid = rankedIds.get(i);
+                if (uid == null) continue;
+                int rank = reservedTop + (i - reservedTop) + 1;
+                computedPoints.put(uid, calculatePoints(rank, participantCount, bottomPoints, ratio));
             }
+        }
+
+        // B) 挂载资格赛落败者：名次区间在主淘汰首轮之后（bracketPlayers+1 ...）；同批按小组赛总排名先后排序再赋对应名次积分。
+        List<Long> qualifierLosers = new ArrayList<>(mountedQualifierLosersBySlot(mountedQualifiers));
+        sortUserIdsByOverallRankOrder(qualifierLosers, overallIdx);
+        for (int i = 0; i < qualifierLosers.size(); i++) {
+            Long uid = qualifierLosers.get(i);
+            if (uid == null) continue;
+            int rank = bracketPlayers + i + 1;
+            computedPoints.put(uid, calculatePoints(rank, participantCount, bottomPoints, ratio));
+        }
+
+        // C) 各主淘汰轮次（直到半决赛前）整轮结束后结算落败者：round=r(>2) 对应名次 [r+1, 2r]；
+        // 同轮落败者按小组赛总排名相对顺序排序后再赋对应名次积分。
+        for (int round = startRound; round > 2; round = KnockoutBracketService.nextKnockoutRoundField(round)) {
+            List<Match> oneRound = matchService.lambdaQuery()
+                    .eq(Match::getTournamentId, tournamentId)
+                    .eq(Match::getPhaseCode, "MAIN")
+                    .eq(Match::getRound, round)
+                    .orderByAsc(Match::getKnockoutHalf)
+                    .orderByAsc(Match::getKnockoutBracketSlot)
+                    .orderByAsc(Match::getId)
+                    .list();
+            if (oneRound.isEmpty()) continue;
+            boolean allLocked = oneRound.stream().allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null);
+            if (!allLocked) continue;
+            List<Long> roundLosers = new ArrayList<>();
+            for (Match m : oneRound) {
+                Long loser = loserOf(m);
+                if (loser != null) {
+                    roundLosers.add(loser);
+                }
+            }
+            sortUserIdsByOverallRankOrder(roundLosers, overallIdx);
+            int rankCursor = round + 1;
+            for (Long uid : roundLosers) {
+                computedPoints.put(uid, calculatePoints(rankCursor++, participantCount, bottomPoints, ratio));
+            }
+        }
+
+        // D) 铜牌赛：结束后给第3/4名积分。
+        Match bronze = findMedalMatch(tournamentId, false);
+        if (bronze != null && Boolean.TRUE.equals(bronze.getResultLocked()) && bronze.getWinnerId() != null) {
+            Long winner = bronze.getWinnerId();
+            Long loser = loserOf(bronze);
+            if (winner != null) {
+                computedPoints.put(winner, calculatePoints(3, participantCount, bottomPoints, ratio));
+            }
+            if (loser != null) {
+                computedPoints.put(loser, calculatePoints(4, participantCount, bottomPoints, ratio));
+            }
+        }
+
+        // E) 金牌赛：结束后给第1/2名积分。
+        Match gold = findMedalMatch(tournamentId, true);
+        if (gold != null && Boolean.TRUE.equals(gold.getResultLocked()) && gold.getWinnerId() != null) {
+            Long winner = gold.getWinnerId();
+            Long loser = loserOf(gold);
+            if (winner != null) {
+                computedPoints.put(winner, calculatePoints(1, participantCount, bottomPoints, ratio));
+            }
+            if (loser != null) {
+                computedPoints.put(loser, calculatePoints(2, participantCount, bottomPoints, ratio));
+            }
+        }
+
+        // F) 本赛事排行榜名单中的选手统一落库：
+        // 已结算名次写积分；未结算阶段写 null（用于“分步导出”）。
+        Set<Long> candidates = new LinkedHashSet<>(rankedIds);
+        candidates.addAll(computedPoints.keySet());
+        for (Long uid : candidates) {
+            if (uid == null) continue;
+            if (overallIdx.containsKey(uid) && !roster.isEmpty() && !roster.contains(uid)) {
+                continue;
+            }
+            Integer pts = computedPoints.get(uid);
+            upsertTournamentPoints(tournamentId, uid, pts);
         }
     }
 
+    private void upsertTournamentPoints(Long tournamentId, Long userId, Integer points) {
+        UserTournamentPoints existingRow = userTournamentPointsService.lambdaQuery()
+                .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                .eq(UserTournamentPoints::getUserId, userId)
+                .one();
+        if (existingRow == null) {
+            UserTournamentPoints utp = new UserTournamentPoints();
+            utp.setUserId(userId);
+            utp.setTournamentId(tournamentId);
+            utp.setPoints(points);
+            utp.setCreatedAt(LocalDateTime.now());
+            userTournamentPointsService.save(utp);
+            return;
+        }
+        if (!Objects.equals(existingRow.getPoints(), points)) {
+            existingRow.setPoints(points);
+            userTournamentPointsService.updateById(existingRow);
+        }
+    }
+
+    private List<Match> listMountedKoQualifiers(Long tournamentId) {
+        return matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .eq(Match::getCreateSource, KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)
+                .orderByAsc(Match::getId)
+                .list();
+    }
+
+    private List<Long> mountedQualifierLosersBySlot(List<Match> qualifiers) {
+        if (qualifiers == null || qualifiers.isEmpty()) {
+            return List.of();
+        }
+        List<Match> locked = qualifiers.stream()
+                .filter(m -> Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null)
+                .sorted(Comparator
+                        .comparingInt(this::mountedQualifierLinkedKoSlot)
+                        .thenComparing(Match::getId))
+                .toList();
+        List<Long> losers = new ArrayList<>();
+        for (Match m : locked) {
+            Long loser = loserOf(m);
+            if (loser != null) {
+                losers.add(loser);
+            }
+        }
+        return losers;
+    }
+
+    private int mountedQualifierLinkedKoSlot(Match qualifierMatch) {
+        if (qualifierMatch == null || qualifierMatch.getCategory() == null) {
+            return Integer.MAX_VALUE;
+        }
+        Matcher matcher = KO_QUALIFIER_SLOT_PATTERN.matcher(qualifierMatch.getCategory());
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(1));
+            } catch (NumberFormatException ignored) {
+                return Integer.MAX_VALUE;
+            }
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private Long loserOf(Match m) {
+        if (m == null || m.getWinnerId() == null) {
+            return null;
+        }
+        if (Objects.equals(m.getWinnerId(), m.getPlayer1Id())) {
+            return m.getPlayer2Id();
+        }
+        if (Objects.equals(m.getWinnerId(), m.getPlayer2Id())) {
+            return m.getPlayer1Id();
+        }
+        return null;
+    }
+
+    private Match findMedalMatch(Long tournamentId, boolean gold) {
+        String phase = gold ? "FINAL" : "MAIN";
+        String keyword = gold ? "金牌" : "铜牌";
+        return matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getRound, 1)
+                .eq(Match::getPhaseCode, phase)
+                .like(Match::getCategory, keyword)
+                .last("LIMIT 1")
+                .one();
+    }
+
     private List<Long> loadOverallRankedUserIdsFromGroups(Long tournamentId, TournamentCompetitionConfig cfg) {
+        List<Map<String, Object>> overall = loadOverallRankingRowsFromGroups(tournamentId, cfg);
+        if (overall.isEmpty()) return List.of();
+        List<Long> out = new ArrayList<>();
+        for (Map<String, Object> row : overall) {
+            Long uid = (Long) row.get("userId");
+            if (uid != null) out.add(uid);
+        }
+        return out;
+    }
+
+    private List<Map<String, Object>> loadOverallRankingRowsFromGroups(Long tournamentId, TournamentCompetitionConfig cfg) {
         List<TournamentGroup> groups = groupMapper.selectList(Wrappers.<TournamentGroup>lambdaQuery()
                 .eq(TournamentGroup::getTournamentId, tournamentId)
                 .orderByAsc(TournamentGroup::getGroupOrder));
@@ -878,13 +1084,27 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         int regularSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
         groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
                 groups, byG, matches, scoreByMatch, Map.of(), uname, allowDraw, regularSets);
-        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byG);
-        List<Long> out = new ArrayList<>();
-        for (Map<String, Object> row : overall) {
-            Long uid = (Long) row.get("userId");
-            if (uid != null) out.add(uid);
+        return groupRankingCalculator.buildOverallRanking(byG);
+    }
+
+    private boolean isGroupStageReadyForNonKnockoutAward(Long tournamentId, TournamentCompetitionConfig cfg) {
+        if (!isGroupStageFullyLocked(tournamentId)) {
+            return false;
         }
-        return out;
+        List<Map<String, Object>> overallRows = loadOverallRankingRowsFromGroups(tournamentId, cfg);
+        if (overallRows.isEmpty()) {
+            return false;
+        }
+        for (Map<String, Object> row : overallRows) {
+            int expected = row.get("expectedGroupMatches") instanceof Number
+                    ? ((Number) row.get("expectedGroupMatches")).intValue() : 0;
+            int played = row.get("played") instanceof Number
+                    ? ((Number) row.get("played")).intValue() : 0;
+            if (expected <= 0 || played < expected) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private int calculatePoints(int rank, int participantCount, int bottomPoints, BigDecimal ratio) {
@@ -897,6 +1117,22 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         double points = championPoints * Math.pow(r, Math.max(0, rank - 1));
         int rounded = (int) Math.round(points);
         return Math.max(bottomPoints, rounded);
+    }
+
+    private boolean isGroupStageFullyLocked(Long tournamentId) {
+        long total = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .count();
+        if (total == 0) {
+            return false;
+        }
+        long locked = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .eq(Match::getResultLocked, true)
+                .count();
+        return total == locked;
     }
 
     @Override
@@ -922,6 +1158,15 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             if (staffAccepted) return true;
             return p1Accepted && p2Accepted;
         }
+        // 淘汰赛（MAIN/FINAL）及首轮挂载的淘汰赛资格赛（KO_QUALIFIER）：若比分修改记录显示「仅办赛人员」曾录入/修改局分，
+        // 则不要求双方选手验收——任一办赛人员验收即视为本场已验收。
+        if (isKnockoutOrKoQualifierPhase(match)
+                && onlyStaffEditorsInScoreEditLog(match.getTournamentId(), match.getId())) {
+            return acceptedUserIds.stream()
+                    .map(userService::getById)
+                    .filter(Objects::nonNull)
+                    .anyMatch(u -> isStaff(u, match.getTournamentId()));
+        }
         if (!p1Accepted || !p2Accepted) return false;
         Tournament t = tournamentService.getById(match.getTournamentId());
         if (t == null) return false;
@@ -940,12 +1185,52 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         return staffAccepted.stream().anyMatch(u -> !participantIds.contains(u.getId()));
     }
 
+    private static boolean isKnockoutOrKoQualifierPhase(Match match) {
+        if (match == null) {
+            return false;
+        }
+        if (MatchPhaseClassifier.isKnockoutQualifier(match)) {
+            return true;
+        }
+        if (match.getPhaseCode() == null) {
+            return false;
+        }
+        String pc = match.getPhaseCode().trim().toUpperCase();
+        return "MAIN".equals(pc) || "FINAL".equals(pc);
+    }
+
+    /**
+     * 本场存在比分修改记录，且每条记录的编辑者均为办赛人员（超管/管理员/主办）。
+     * 若无任何修改记录，则无法据此认定「仅办赛录分」，返回 false，沿用原双方+办赛验收规则。
+     */
+    private boolean onlyStaffEditorsInScoreEditLog(Long tournamentId, Long matchId) {
+        if (tournamentId == null || matchId == null) {
+            return false;
+        }
+        List<MatchScoreEditLog> logs = matchScoreEditLogMapper.selectList(Wrappers.<MatchScoreEditLog>lambdaQuery()
+                .eq(MatchScoreEditLog::getMatchId, matchId)
+                .orderByAsc(MatchScoreEditLog::getId));
+        if (logs == null || logs.isEmpty()) {
+            return false;
+        }
+        Set<Long> editors = new LinkedHashSet<>();
+        for (MatchScoreEditLog log : logs) {
+            if (log.getEditorUserId() == null) {
+                return false;
+            }
+            editors.add(log.getEditorUserId());
+        }
+        for (Long uid : editors) {
+            User u = userService.getById(uid);
+            if (u == null || !isStaff(u, tournamentId)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private boolean requiresSignature(Match match) {
-        if (match == null) return false;
-        String phase = match.getPhaseCode();
-        return "QUALIFIER".equalsIgnoreCase(phase)
-                || "MAIN".equalsIgnoreCase(phase)
-                || "FINAL".equalsIgnoreCase(phase);
+        return MatchPhaseClassifier.requiresSignature(match);
     }
 
     private boolean isStaff(User u, Long tournamentId) {

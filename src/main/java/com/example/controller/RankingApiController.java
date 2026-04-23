@@ -476,6 +476,27 @@ public class RankingApiController {
                         .orderByDesc(UserTournamentPoints::getPoints)
                         .list());
 
+        Map<Long, Integer> groupOverallRankByUserId = new HashMap<>();
+        try {
+            Map<String, Object> goData = getTournamentGroupOverallRanking(tournamentId);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> overallRows = (List<Map<String, Object>>) goData.getOrDefault("overallRanking", List.of());
+            for (Map<String, Object> row : overallRows) {
+                Object uidObj = row.get("userId");
+                Object orObj = row.get("overallRank");
+                Long uid = uidObj instanceof Number ? ((Number) uidObj).longValue() : null;
+                if (uid == null) {
+                    continue;
+                }
+                int gor = orObj instanceof Number ? ((Number) orObj).intValue() : 0;
+                if (gor > 0) {
+                    groupOverallRankByUserId.put(uid, gor);
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // 无小组赛数据等情况下总排名可能不可用
+        }
+
         List<TournamentRankingItemDto> rankings = new ArrayList<>();
         for (int i = 0; i < utps.size(); i++) {
             UserTournamentPoints utp = utps.get(i);
@@ -490,7 +511,11 @@ public class RankingApiController {
                 withdrawn = "退赛".equals(username);
             }
             int points = utp.getPoints() != null ? utp.getPoints() : 0;
-            rankings.add(new TournamentRankingItemDto(i + 1, username, points, withdrawn));
+            TournamentRankingItemDto dto = new TournamentRankingItemDto(i + 1, username, points, withdrawn);
+            if (utp.getUserId() != null) {
+                dto.setGroupOverallRank(groupOverallRankByUserId.get(utp.getUserId()));
+            }
+            rankings.add(dto);
         }
 
         List<Match> matches = matchService.lambdaQuery()

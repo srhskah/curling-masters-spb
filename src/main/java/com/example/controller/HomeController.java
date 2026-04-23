@@ -4,6 +4,8 @@ import com.example.util.CookieUtil;
 import com.example.util.TimezoneUtil;
 import com.example.entity.Season;
 import com.example.entity.User;
+import com.example.entity.UserTournamentPoints;
+import com.example.entity.TournamentLevel;
 import com.example.service.RankingService;
 import com.example.service.SeasonService;
 import com.example.service.ITournamentRegistrationService;
@@ -11,8 +13,11 @@ import com.example.service.INotificationService;
 import com.example.service.SeriesService;
 import com.example.service.TournamentService;
 import com.example.service.UserService;
+import com.example.service.UserTournamentPointsService;
+import com.example.service.ITournamentLevelService;
 import com.example.entity.Tournament;
 import com.example.entity.Series;
+import com.example.service.impl.TournamentRankingRosterService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,12 +28,16 @@ import org.springframework.web.bind.annotation.GetMapping;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Map;
 import java.util.List;
+import java.util.Set;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -43,6 +52,9 @@ public class HomeController {
     @Autowired private SeriesService seriesService;
     @Autowired private TournamentService tournamentService;
     @Autowired private UserService userService;
+    @Autowired private UserTournamentPointsService userTournamentPointsService;
+    @Autowired private ITournamentLevelService tournamentLevelService;
+    @Autowired private TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired private INotificationService notificationService;
 
     @GetMapping("/")
@@ -117,6 +129,8 @@ public class HomeController {
         model.addAttribute("currentSeason", currentSeason);
         model.addAttribute("currentSeasonRankingTop24",
                 currentSeason == null ? java.util.List.of() : rankingService.getSeasonRanking(currentSeason.getId(), 24));
+        model.addAttribute("homeTotalMedalBoard", buildTotalMedalBoard());
+        model.addAttribute("homeSeasonMedalBoard", buildSeasonMedalBoard(currentSeason));
 
         List<Tournament> openReg = tournamentRegistrationService.listOpenRegistrationTournaments(12, LocalDateTime.now());
         model.addAttribute("openRegistrationTournaments", openReg);
@@ -224,6 +238,223 @@ public class HomeController {
         TimezoneUtil.logTimezoneInfo();
         
         return "home";
+    }
+
+    private Map<String, Object> buildTotalMedalBoard() {
+        List<Tournament> tournaments = tournamentService.lambdaQuery()
+                .list();
+        List<String> levelCodes = tournaments == null ? List.of() : tournaments.stream()
+                .map(Tournament::getLevelCode)
+                .filter(Objects::nonNull)
+                .filter(s -> !s.isBlank())
+                .distinct()
+                .sorted()
+                .toList();
+        return buildMedalBoardByLevel(levelCodes, tournaments);
+    }
+
+    private Map<String, Object> buildSeasonMedalBoard(Season currentSeason) {
+        // 赛季奖牌榜：统计当前赛季内各赛事“等级名称”为 CM1000/CM500/CM250 的赛事，
+        // 以赛事等级为单位汇总金/银/铜次数（基于每届赛事最终排名第1/2/3）。
+        Set<String> allowedLevelNames = Set.of("CM1000", "CM500", "CM250");
+        if (currentSeason == null || currentSeason.getId() == null) {
+            return Map.of("levelCodes", List.of(), "levelLabels", Map.of(), "rowsByLevel", Map.of());
+        }
+        List<Long> seriesIds = seriesService.lambdaQuery()
+                .eq(Series::getSeasonId, currentSeason.getId())
+                .list()
+                .stream()
+                .map(Series::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (seriesIds.isEmpty()) {
+            return Map.of("levelCodes", List.of(), "levelLabels", Map.of(), "rowsByLevel", Map.of());
+        }
+
+        Set<String> allowedLevelCodes = tournamentLevelService.list().stream()
+                .filter(Objects::nonNull)
+                .filter(l -> l.getCode() != null && !l.getCode().isBlank())
+                .filter(l -> {
+                    String n = l.getName();
+                    return n != null && allowedLevelNames.contains(n.trim());
+                })
+                .map(TournamentLevel::getCode)
+                .collect(Collectors.toSet());
+        if (allowedLevelCodes.isEmpty()) {
+            return Map.of("levelCodes", List.of(), "levelLabels", Map.of(), "rowsByLevel", Map.of());
+        }
+
+        List<Tournament> tournaments = tournamentService.lambdaQuery()
+                .in(Tournament::getSeriesId, seriesIds)
+                .in(Tournament::getLevelCode, allowedLevelCodes)
+                .eq(Tournament::getStatus, 2)
+                .list();
+        List<String> levelCodes = tournaments == null ? List.of() : tournaments.stream()
+                .map(Tournament::getLevelCode)
+                .filter(Objects::nonNull)
+                .filter(s -> !s.isBlank())
+                .distinct()
+                .sorted()
+                .toList();
+        return buildMedalBoardByLevel(levelCodes, tournaments);
+    }
+
+    private Map<String, Object> buildMedalBoardByLevel(List<String> levelCodes, List<Tournament> tournaments) {
+        Map<String, Map<Long, int[]>> acc = new HashMap<>();
+        Set<Long> allUserIds = new HashSet<>();
+        int scanned = 0;
+        int contributed = 0;
+        for (Tournament t : tournaments == null ? List.<Tournament>of() : tournaments) {
+            if (t == null || t.getId() == null || t.getLevelCode() == null || t.getLevelCode().isBlank()) continue;
+            scanned++;
+            List<Long> top3 = resolveTournamentTop3ByFinalRanking(t);
+            if (top3.isEmpty()) continue;
+            contributed++;
+            Map<Long, int[]> levelMap = acc.computeIfAbsent(t.getLevelCode(), k -> new HashMap<>());
+            if (top3.size() >= 1 && top3.get(0) != null) {
+                levelMap.computeIfAbsent(top3.get(0), k -> new int[3])[0]++;
+                allUserIds.add(top3.get(0));
+            }
+            if (top3.size() >= 2 && top3.get(1) != null) {
+                levelMap.computeIfAbsent(top3.get(1), k -> new int[3])[1]++;
+                allUserIds.add(top3.get(1));
+            }
+            if (top3.size() >= 3 && top3.get(2) != null) {
+                levelMap.computeIfAbsent(top3.get(2), k -> new int[3])[2]++;
+                allUserIds.add(top3.get(2));
+            }
+        }
+        logger.info("MedalBoard: scanned tournaments={}, contributedTop3={}", scanned, contributed);
+        Map<Long, String> usernameById = allUserIds.isEmpty() ? Map.of() : userService.listByIds(allUserIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+
+        Map<String, String> levelLabels = buildLevelLabels(levelCodes);
+        Map<String, List<Map<String, Object>>> rowsByLevel = new HashMap<>();
+        for (String levelCode : levelCodes) {
+            List<Map<String, Object>> rows = acc.getOrDefault(levelCode, Map.of()).entrySet().stream()
+                    .map(e -> {
+                        Long uid = e.getKey();
+                        int[] c = e.getValue();
+                        Map<String, Object> row = new HashMap<>();
+                        row.put("userId", uid);
+                        row.put("username", usernameById.getOrDefault(uid, "未知"));
+                        row.put("gold", c[0]);
+                        row.put("silver", c[1]);
+                        row.put("bronze", c[2]);
+                        row.put("total", c[0] + c[1] + c[2]);
+                        return row;
+                    })
+                    .filter(r -> ((Integer) r.get("total")) > 0)
+                    .sorted((a, b) -> {
+                        int ag = (Integer) a.get("gold"), bg = (Integer) b.get("gold");
+                        if (ag != bg) return Integer.compare(bg, ag);
+                        int as = (Integer) a.get("silver"), bs = (Integer) b.get("silver");
+                        if (as != bs) return Integer.compare(bs, as);
+                        int ab = (Integer) a.get("bronze"), bb = (Integer) b.get("bronze");
+                        if (ab != bb) return Integer.compare(bb, ab);
+                        return String.valueOf(a.get("username")).compareTo(String.valueOf(b.get("username")));
+                    })
+                    .toList();
+            rowsByLevel.put(levelCode, rows);
+        }
+        return Map.of(
+                "levelCodes", levelCodes,
+                "levelLabels", levelLabels,
+                "rowsByLevel", rowsByLevel
+        );
+    }
+
+    private Map<String, String> buildLevelLabels(List<String> levelCodes) {
+        if (levelCodes == null || levelCodes.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> nameByCode = tournamentLevelService.list().stream()
+                .filter(Objects::nonNull)
+                .filter(l -> l.getCode() != null && !l.getCode().isBlank())
+                .collect(Collectors.toMap(TournamentLevel::getCode, l -> {
+                    String n = l.getName();
+                    return (n == null || n.isBlank()) ? l.getCode() : n.trim();
+                }, (a, b) -> a));
+        Map<String, String> out = new HashMap<>();
+        for (String c : levelCodes) {
+            if (c == null) continue;
+            out.put(c, nameByCode.getOrDefault(c, c));
+        }
+        return out;
+    }
+
+    /**
+     * 取某届赛事最终排名前 3 名（冠/亚/季），用于奖牌榜统计。
+     * 仅当该赛事“最终排名完整”时返回：即冠军积分满足
+     *   冠军积分 = (冠军积分/人数比率) * 参赛人数
+     * 其中“参赛人数”用该赛事 user_tournament_points 的有效人数近似（剔除 userId 为空）。
+     */
+    private List<Long> resolveTournamentTop3ByFinalRanking(Tournament tournament) {
+        if (tournament == null || tournament.getId() == null) {
+            return List.of();
+        }
+        Long tournamentId = tournament.getId();
+        List<UserTournamentPoints> rows = userTournamentPointsService.lambdaQuery()
+                .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                .orderByDesc(UserTournamentPoints::getPoints)
+                .orderByAsc(UserTournamentPoints::getId)
+                .list();
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        List<UserTournamentPoints> valid = rows.stream()
+                .filter(r -> r != null && r.getUserId() != null && r.getPoints() != null)
+                .toList();
+        if (valid.size() < 3) {
+            return List.of();
+        }
+
+        // 参赛人数 n：优先取“赛事最终排名名单”口径（报名/分组/直通/晋级等），避免仅靠 utp 行数导致 n 偏小/偏大。
+        // 若名单为空（某些老数据），再回退用 utp 的有效人数近似。
+        int participantCount;
+        try {
+            Set<Long> roster = tournamentRankingRosterService.rosterUserIdsForEventRanking(tournamentId);
+            participantCount = roster == null || roster.isEmpty()
+                    ? (int) valid.stream().map(UserTournamentPoints::getUserId).distinct().count()
+                    : roster.size();
+        } catch (RuntimeException ignored) {
+            participantCount = (int) valid.stream().map(UserTournamentPoints::getUserId).distinct().count();
+        }
+        if (participantCount < 3) {
+            return List.of();
+        }
+
+        Integer championPoints = valid.get(0).getPoints();
+        if (championPoints == null) {
+            return List.of();
+        }
+
+        BigDecimal ratio = tournament.getChampionPointsRatio();
+        if (ratio == null) {
+            TournamentLevel level = tournament.getLevelCode() == null ? null : tournamentLevelService.lambdaQuery()
+                    .eq(TournamentLevel::getCode, tournament.getLevelCode())
+                    .last("LIMIT 1")
+                    .one();
+            ratio = level == null ? null : level.getDefaultChampionRatio();
+        }
+
+        // 若没有比率信息，就无法判定“最终排名完整”，这里选择直接不统计，避免误计。
+        if (ratio == null) {
+            return List.of();
+        }
+        int expectedChampionPoints = ratio.multiply(BigDecimal.valueOf(participantCount))
+                .setScale(0, RoundingMode.HALF_UP)
+                .intValue();
+        if (!Objects.equals(expectedChampionPoints, championPoints)) {
+            return List.of();
+        }
+
+        List<Long> top3 = new ArrayList<>(3);
+        for (UserTournamentPoints row : valid) {
+            top3.add(row.getUserId());
+            if (top3.size() >= 3) break;
+        }
+        return top3.size() == 3 ? top3 : List.of();
     }
     
     private void addSystemStatistics(Model model) {

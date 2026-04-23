@@ -10,6 +10,89 @@
 <body th:classappend="${ipBgClass}">
     <div th:replace="~{fragments :: navbar}"></div>
 
+    <style>
+        .match-score-mobile-optimized .score-entry-table { table-layout: fixed; }
+        .tournament-detail-section-tabs .nav-link {
+            white-space: nowrap;
+        }
+        .match-score-mobile-optimized .score-player-name { white-space: nowrap; user-select: none; }
+        .match-score-mobile-optimized .score-player-name.score-player-name--tappable { cursor: pointer; }
+        .match-score-mobile-optimized .score-player-name--hammer {
+            background: #fff8e1;
+            color: #8a5300;
+            box-shadow: inset 0 0 0 1px #ffe08a;
+        }
+        .match-score-mobile-optimized .score-total-cell {
+            width: 5.2rem;
+            min-width: 5.2rem;
+            text-align: center;
+            vertical-align: top;
+        }
+        .match-score-mobile-optimized .score-total-box {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.75rem;
+            min-height: 2.2rem;
+            border: 1px solid #ced4da;
+            border-radius: .55rem;
+            background: #f8f9fa;
+            font-weight: 600;
+            line-height: 1;
+        }
+        .match-score-mobile-optimized .score-ends-cell { overflow: hidden; }
+        .match-score-mobile-optimized .score-ends-grid {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: .4rem;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: .15rem;
+        }
+        .match-score-mobile-optimized .score-end-item { flex: 0 0 auto; text-align: center; }
+        .match-score-mobile-optimized .score-end-label { display: block; font-size: .72rem; color: #6c757d; margin-bottom: .15rem; }
+
+        @media (max-width: 576px) {
+            .match-score-mobile-optimized .score-entry-table { font-size: .9rem; }
+            .match-score-mobile-optimized .score-total-cell { width: 4.4rem; min-width: 4.4rem; }
+            .match-score-mobile-optimized .score-player-name { width: 5rem; min-width: 5rem; }
+            .match-score-mobile-optimized .score-end-item { width: 2.75rem; }
+            .match-score-mobile-optimized .score-input {
+                width: 2.75rem;
+                height: 2.2rem;
+                padding: .2rem .3rem;
+                border-radius: .55rem;
+                text-align: center;
+                font-size: 1rem;
+                background-image: none !important;
+                -webkit-appearance: none;
+                appearance: none;
+            }
+
+            /* 覆盖 main.css 的“窄屏卡片化表格”规则：录分弹窗仍保持三列并排（姓名/总分/局次） */
+            .match-score-mobile-optimized .score-entry-table { border: 1px solid var(--bs-border-color) !important; }
+            .match-score-mobile-optimized .score-entry-table > thead { display: table-header-group !important; }
+            .match-score-mobile-optimized .score-entry-table > tbody > tr {
+                display: table-row !important;
+                width: auto !important;
+                margin: 0 !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                background: transparent !important;
+                padding: 0 !important;
+            }
+            .match-score-mobile-optimized .score-entry-table > tbody > tr > th,
+            .match-score-mobile-optimized .score-entry-table > tbody > tr > td {
+                display: table-cell !important;
+                width: auto !important;
+                border: 1px solid var(--bs-border-color) !important;
+                padding: .4rem .45rem !important;
+                background: transparent !important;
+                vertical-align: top;
+            }
+        }
+    </style>
+
     <!-- 消息提示 -->
     <div th:replace="~{fragments :: success-alert}"></div>
     <div th:replace="~{fragments :: error-alert}"></div>
@@ -284,211 +367,7 @@
                 </div>
             </div>
             
-            <div class="col-12 mt-4">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h5 class="mb-0 text-start"><i class="bi bi-list-ol"></i> 最终排名</h5>
-                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
-                            <form th:if="${isAdmin or isHost}"
-                                  th:action="@{/tournament/ranking/rebuild/{tournamentId}(tournamentId=${tournamentInfo.tournament.id})}"
-                                  method="post"
-                                  onsubmit="return confirm('将删除当前积分并按最新规则重建排名，是否继续？')">
-                                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                                <button type="submit" class="btn btn-warning btn-sm btn-mobile-compact">
-                                    <span class="btn-text"><i class="bi bi-arrow-repeat"></i> 一键刷新排名</span>
-                                    <span class="btn-emoji d-none" aria-hidden="true">🔄</span>
-                                </button>
-                            </form>
-                            <button type="button" class="btn btn-light btn-sm"
-                                    id="tournamentCopyBtn"
-                                    th:attr="data-tournament-id=${tournamentInfo.tournament.id}">
-                                复制为文本
-                        </button>
-                            <a class="btn btn-outline-light btn-sm"
-                               th:href="@{/ranking/export/pdf/tournament/{id}(id=${tournamentInfo.tournament.id})}">
-                                导出为PDF
-                            </a>
-                        </div>
-                    </div>
-                    <div class="card-body table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light">
-                            <tr>
-                                <th style="width: 90px;">排名</th>
-                                <th>选手</th>
-                                <th style="width: 120px;">积分</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr th:each="entry,st : ${rankingInfoList}">
-                                <td th:text="${st.index + 1}">1</td>
-                                <td>
-                                    <span th:text="${entry.userName}">选手</span>
-                                    <span class="text-muted"
-                                          th:if="${entry.isWithdrawn}">（退赛（不计入排名））</span>
-                                </td>
-                                <td th:text="${entry.ranking != null and entry.ranking.points != null ? entry.ranking.points : ''}"></td>
-                            </tr>
-                            <tr th:if="${rankingInfoList == null or #lists.isEmpty(rankingInfoList)}">
-                                <td colspan="3" class="text-center text-muted py-3">暂无数据</td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 筹备中/进行中：手动赛制配置与小组赛 -->
-            <div class="col-12 mt-4"
-                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and (isAdmin or isHost)}">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h5 class="mb-0 text-start"><i class="bi bi-sliders"></i> 赛事配置 </h5>
-                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
-                            <button class="btn btn-outline-dark btn-sm"
-                                    type="button"
-                                    data-bs-toggle="collapse"
-                                    data-bs-target="#competitionConfigCollapse"
-                                    aria-expanded="true"
-                                    aria-controls="competitionConfigCollapse">
-                                展开/收起
-                            </button>
-                        </div>
-                    </div>
-                    <div id="competitionConfigCollapse"
-                         class="card-body collapse"
-                         th:classappend="${tournamentInfo.tournament.status == 1 and hasGroupStageMatches} ? '' : ' show'">
-                        <form th:action="@{/tournament/competition/config/{id}(id=${tournamentInfo.tournament.id})}"
-                              method="post" class="row g-3">
-                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                            <div class="col-md-2">
-                                <label class="form-label">参赛人数</label>
-                                <input type="number" min="2" class="form-control" id="competitionParticipantCount" name="participantCount"
-                                       th:value="${competitionConfig != null ? competitionConfig.participantCount : 8}" required>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">报名模式</label>
-                                <select class="form-select" name="entryMode" id="competitionEntryMode">
-                                    <option value="0" th:selected="${competitionConfig == null or competitionConfig.entryMode == null or competitionConfig.entryMode == 0}">默认模式</option>
-                                    <option value="1" th:selected="${competitionConfig != null and competitionConfig.entryMode == 1}">正赛+资格赛</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2 d-none" id="qualifierQuotaRow">
-                                <label class="form-label">资格赛名额数</label>
-                                <input type="number" class="form-control" name="knockoutQualifyCount" id="knockoutQualifyCountInput" min="1"
-                                       th:attr="max=${competitionConfig != null and competitionConfig.participantCount != null ? competitionConfig.participantCount : ''}"
-                                       th:value="${competitionConfig != null and competitionConfig.knockoutQualifyCount != null ? competitionConfig.knockoutQualifyCount : ''}"
-                                       placeholder="≤参赛人数">
-                                <div class="form-text">正赛+资格赛时必填；与报名接龙中资格赛种子位数一致（按最终导出顺序）</div>
-                            </div>
-                            <div class="col-md-2 d-none" id="qualifierSetsRow">
-                                <label class="form-label">资格赛局数</label>
-                                <input type="number" class="form-control" name="qualifierSets" min="1" max="20"
-                                       th:value="${competitionConfig != null and competitionConfig.qualifierSets != null ? competitionConfig.qualifierSets : 8}">
-                                <div class="form-text">默认 8 局</div>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">赛事模式</label>
-                                <select class="form-select" name="matchMode" id="competitionMatchMode">
-                                    <option value="1" th:selected="${competitionConfig != null and competitionConfig.matchMode == 1}">单败淘汰赛</option>
-                                    <option value="2" th:selected="${competitionConfig != null and competitionConfig.matchMode == 2}">双败淘汰赛</option>
-                                    <option value="3" th:selected="${competitionConfig == null or competitionConfig.matchMode == 3}">小组赛</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">淘汰赛首轮</label>
-                                <select class="form-select" id="knockoutStartRoundSelect" name="knockoutStartRound"
-                                        th:attr="data-saved-knockout=${competitionConfig != null and competitionConfig.knockoutStartRound != null ? competitionConfig.knockoutStartRound : ''}">
-                                    <option value="">请选择</option>
-                                    <option value="16" th:selected="${competitionConfig != null and competitionConfig.knockoutStartRound == 16}">1/16决赛</option>
-                                    <option value="8" th:selected="${competitionConfig != null and competitionConfig.knockoutStartRound == 8}">1/8决赛</option>
-                                    <option value="4" th:selected="${competitionConfig != null and competitionConfig.knockoutStartRound == 4}">1/4决赛</option>
-                                    <option value="2" th:selected="${competitionConfig != null and competitionConfig.knockoutStartRound == 2}">半决赛</option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">首轮挂载资格赛</label>
-                                <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="qualifierEnabledSwitch" name="qualifierEnabled" value="true"
-                                           th:checked="${competitionConfig != null and competitionConfig.qualifierRound != null}">
-                                    <label class="form-check-label" for="qualifierEnabledSwitch">启用</label>
-                                </div>
-                                <div class="form-text">同赛事仅允许一轮资格赛；多轮淘汰时仅首轮可设置。</div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">小组赛模式</label>
-                                <select class="form-select" name="groupMode" id="competitionGroupMode">
-                                    <option value="1" th:selected="${competitionConfig == null or competitionConfig.groupMode == null or competitionConfig.groupMode == 1}">单循环（不分主客）</option>
-                                    <option value="2" th:selected="${competitionConfig != null and competitionConfig.groupMode == 2}">单循环（主客场，组内人数需奇数）</option>
-                                    <option value="3" th:selected="${competitionConfig != null and competitionConfig.groupMode == 3}">双循环（主客场）</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">每组人数</label>
-                                <select class="form-select" id="competitionGroupSize" name="groupSize">
-                                    <option th:each="opt : ${competitionGroupSizeOptions}"
-                                            th:value="${opt}"
-                                            th:selected="${competitionConfig != null and competitionConfig.groupSize == opt}"
-                                            th:text="${opt}">
-                                    </option>
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">小组赛允许平局</label>
-                                <div class="form-check form-switch mt-2">
-                                    <input class="form-check-input" type="checkbox" id="groupAllowDrawSwitch" name="groupAllowDraw"
-                                           th:checked="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}">
-                                    <label class="form-check-label" for="groupAllowDrawSwitch">启用</label>
-                                </div>
-                                <div class="form-text">关闭后，常规局打平会自动追加1局加局。</div>
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">小组赛局数</label>
-                                <input type="number" min="1" max="20" class="form-control" name="groupStageSets"
-                                       th:value="${competitionConfig != null and competitionConfig.groupStageSets != null ? competitionConfig.groupStageSets : 8}">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">小组赛截止时间</label>
-                                <input type="datetime-local" class="form-control" name="groupStageDeadline"
-                                       th:value="${competitionConfig != null and competitionConfig.groupStageDeadline != null ? #temporals.format(competitionConfig.groupStageDeadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">淘汰赛局数</label>
-                                <input type="number" min="1" max="20" class="form-control" name="knockoutStageSets"
-                                       th:value="${competitionConfig != null and competitionConfig.knockoutStageSets != null ? competitionConfig.knockoutStageSets : 8}">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">决赛局数</label>
-                                <input type="number" min="1" max="20" class="form-control" name="finalStageSets"
-                                       th:value="${competitionConfig != null and competitionConfig.finalStageSets != null ? competitionConfig.finalStageSets : 10}">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">淘汰赛对阵模式</label>
-                                <select class="form-select" name="knockoutBracketMode" id="knockoutBracketModeSelect"
-                                        title="小组赛结束后生成首轮淘汰赛时按此规则配对；晋级链对整体签表与上下半区均支持">
-                                    <option value="0" th:selected="${competitionConfig == null or competitionConfig.knockoutBracketMode == null or competitionConfig.knockoutBracketMode == 0}">按小组赛总排名经典种子交叉</option>
-                                    <option value="1" th:selected="${competitionConfig != null and competitionConfig.knockoutBracketMode == 1}">上下半区：相邻两组名次交叉（如 A1–B4）</option>
-                                    <option value="2" th:selected="${competitionConfig != null and competitionConfig.knockoutBracketMode == 2}">上下半区：世界杯式（偶数组两两结对，按名次线交错）</option>
-                                </select>
-                                <div class="form-text">模式 0 仅按小组赛<strong>总排名</strong>经典种子配对，与小组数量、奇偶无关。模式 1、2 均须偶数个小组（按组序两两结对）；模式 2 为世界杯式名次线交错，首轮人数须等于 小组数×每组晋级人数（未填每组人数时由首轮人数÷小组数推算）。</div>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">小组赛全验收后自动生成淘汰赛首轮</label>
-                                <select class="form-select" name="knockoutAutoFromGroup" id="knockoutAutoFromGroupSelect">
-                                    <option value="true" th:selected="${competitionConfig == null or competitionConfig.knockoutAutoFromGroup == null or competitionConfig.knockoutAutoFromGroup}">是</option>
-                                    <option value="false" th:selected="${competitionConfig != null and competitionConfig.knockoutAutoFromGroup != null and !competitionConfig.knockoutAutoFromGroup}">否</option>
-                                </select>
-                            </div>
-                            <div class="col-12">
-                                <button class="btn btn-warning" type="submit"><i class="bi bi-save"></i> 保存运行配置</button>
-                                <span class="small text-muted ms-2">筹备中或进行中均可保存；进行中且报名为空时，可先配置并手动录入分组名单。</span>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-                        </div>
-
-            <!-- 小组赛抽签入口：筹备中/进行中、已配置小组赛且尚未保存小组名单 -->
+            <!-- 小组赛抽签入口：位于详情页内容选择器上方 -->
             <div class="col-12 mt-4"
                  th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1)
                          and competitionConfig != null and competitionConfig.matchMode == 3
@@ -506,298 +385,589 @@
                     </div>
                 </div>
             </div>
-                        
-            <div class="col-12 mt-4"
-                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and competitionConfig != null and competitionConfig.matchMode == 3}">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h5 class="mb-0 text-start"><i class="bi bi-diagram-3"></i> 小组名单与对阵</h5>
-                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
-                            <th:block th:if="${isAdmin or isHost}">
-                                <form id="formSaveAllGroupsAndGenerate" class="d-none"
-                                      th:action="@{/tournament/competition/groups/save-all-and-generate/{id}(id=${tournamentInfo.tournament.id})}" method="post">
-                                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                                </form>
-                                <button type="button" class="btn btn-outline-light btn-sm" id="btnSaveAllGroupsAndGenerate"
-                                        title="先按页面上各组当前名单写入数据库，再清空全部小组赛场次并重算对阵（未先点「保存本组」的编辑也会一并保存）">
-                                    全量重新生成小组赛对阵
+
+            <div class="col-12 mt-4">
+                <div class="card border-0 shadow-sm tournament-detail-section-tabs">
+                    <div class="card-body d-flex align-items-center justify-content-center py-3">
+                        <ul class="nav nav-pills flex-nowrap overflow-auto justify-content-center w-100 gap-2" role="tablist">
+                            <li class="nav-item text-nowrap" role="presentation" th:if="${isSuperAdmin or isAdmin or isHost}">
+                                <button class="nav-link active"
+                                        id="detail-main-tab"
+                                        data-bs-toggle="pill"
+                                        data-bs-target="#detail-main-pane"
+                                        type="button"
+                                        role="tab"
+                                        aria-controls="detail-main-pane"
+                                        aria-selected="true">
+                                    赛事详情
                                 </button>
-                            </th:block>
-                            <button class="btn btn-outline-light btn-sm"
-                                    type="button"
-                                    data-bs-toggle="collapse"
-                                    data-bs-target="#groupRosterCollapse"
-                                    aria-expanded="true"
-                                    aria-controls="groupRosterCollapse">
-                                展开/收起
-                            </button>
+                            </li>
+                            <li class="nav-item text-nowrap" role="presentation">
+                                <button class="nav-link"
+                                        th:classappend="${!(isSuperAdmin or isAdmin or isHost)} ? ' active' : ''"
+                                        id="detail-final-ranking-tab"
+                                        data-bs-toggle="pill"
+                                        data-bs-target="#detail-final-ranking-pane"
+                                        type="button"
+                                        role="tab"
+                                        aria-controls="detail-final-ranking-pane"
+                                        th:attr="aria-selected=${!(isSuperAdmin or isAdmin or isHost)}">
+                                    最终排名
+                                </button>
+                            </li>
+                            <li class="nav-item text-nowrap" role="presentation">
+                                <button class="nav-link"
+                                        id="detail-group-overall-tab"
+                                        data-bs-toggle="pill"
+                                        data-bs-target="#detail-group-overall-pane"
+                                        type="button"
+                                        role="tab"
+                                        aria-controls="detail-group-overall-pane"
+                                        aria-selected="false">
+                                    小组赛总排名
+                                </button>
+                            </li>
+                            <li class="nav-item text-nowrap" role="presentation">
+                                <button class="nav-link"
+                                        id="detail-matches-tab"
+                                        data-bs-toggle="pill"
+                                        data-bs-target="#detail-matches-pane"
+                                        type="button"
+                                        role="tab"
+                                        aria-controls="detail-matches-pane"
+                                        aria-selected="false">
+                                    比赛
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mt-3">
+                <div class="tab-content">
+                    <div class="tab-pane fade"
+                         th:if="${isSuperAdmin or isAdmin or isHost}"
+                         id="detail-main-pane"
+                         role="tabpanel"
+                         aria-labelledby="detail-main-tab"
+                         th:classappend="${isSuperAdmin or isAdmin or isHost} ? ' show active' : ''">
+                        <div class="row g-4">
+                            <!-- 筹备中/进行中：手动赛制配置与小组赛 -->
+                            <div class="col-12"
+                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and (isSuperAdmin or isAdmin or isHost)}">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h5 class="mb-0 text-start"><i class="bi bi-sliders"></i> 赛事配置 </h5>
+                                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
+                                            <button class="btn btn-outline-dark btn-sm"
+                                                    type="button"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#competitionConfigCollapse"
+                                                    aria-expanded="true"
+                                                    aria-controls="competitionConfigCollapse">
+                                                展开/收起
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="competitionConfigCollapse"
+                                         class="card-body collapse"
+                                         th:classappend="${tournamentInfo.tournament.status == 1 and hasGroupStageMatches} ? '' : ' show'">
+                                        <form th:action="@{/tournament/competition/config/{id}(id=${tournamentInfo.tournament.id})}"
+                                              method="post" class="row g-3">
+                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <div class="col-md-2">
+                                                <label class="form-label">参赛人数</label>
+                                                <input type="number" min="2" class="form-control" id="competitionParticipantCount" name="participantCount"
+                                                       th:value="${competitionConfig != null ? competitionConfig.participantCount : 8}" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">报名模式</label>
+                                                <select class="form-select" name="entryMode" id="competitionEntryMode">
+                                                    <option value="0" th:selected="${competitionConfig == null or competitionConfig.entryMode == null or competitionConfig.entryMode == 0}">默认模式</option>
+                                                    <option value="1" th:selected="${competitionConfig != null and competitionConfig.entryMode == 1}">正赛+资格赛</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2 d-none" id="qualifierQuotaRow">
+                                                <label class="form-label">正赛资格赛晋级名额数</label>
+                                                <input type="number" class="form-control" name="knockoutQualifyCount" id="knockoutQualifyCountInput" min="1"
+                                                       th:attr="max=${competitionConfig != null and competitionConfig.participantCount != null ? competitionConfig.participantCount : ''}"
+                                                       th:value="${competitionConfig != null and competitionConfig.knockoutQualifyCount != null ? competitionConfig.knockoutQualifyCount : ''}"
+                                                       placeholder="≤参赛人数">
+                                                <div class="form-text">仅用于“正赛+资格赛”模式；表示从正赛资格赛晋级到正赛的名额数，并与报名接龙中的资格赛种子位数一致（按最终导出顺序）。</div>
+                                            </div>
+                                            <div class="col-md-2 d-none" id="qualifierSetsRow">
+                                                <label class="form-label">正赛资格赛局数</label>
+                                                <input type="number" class="form-control" name="qualifierSets" min="1" max="20"
+                                                       th:value="${competitionConfig != null and competitionConfig.qualifierSets != null ? competitionConfig.qualifierSets : 8}">
+                                                <div class="form-text">默认 8 局</div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">赛事模式</label>
+                                                <select class="form-select" name="matchMode" id="competitionMatchMode">
+                                                    <option value="1" th:selected="${competitionConfig != null and competitionConfig.matchMode == 1}">单败淘汰赛</option>
+                                                    <option value="2" th:selected="${competitionConfig != null and competitionConfig.matchMode == 2}">双败淘汰赛</option>
+                                                    <option value="3" th:selected="${competitionConfig == null or competitionConfig.matchMode == 3}">小组赛</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">淘汰赛首轮</label>
+                                                <select class="form-select" id="knockoutStartRoundSelect" name="knockoutStartRound"
+                                                        th:attr="data-saved-knockout=${competitionConfig != null and competitionConfig.knockoutStartRound != null ? competitionConfig.knockoutStartRound : ''}">
+                                                    <option value="">请选择</option>
+                                                    <option value="16" th:selected="${competitionConfig != null and competitionConfig.knockoutStartRound == 16}">1/16决赛</option>
+                                                    <option value="8" th:selected="${competitionConfig != null and competitionConfig.knockoutStartRound == 8}">1/8决赛</option>
+                                                    <option value="4" th:selected="${competitionConfig != null and competitionConfig.knockoutStartRound == 4}">1/4决赛</option>
+                                                    <option value="2" th:selected="${competitionConfig != null and competitionConfig.knockoutStartRound == 2}">半决赛</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">首轮淘汰赛附加资格赛</label>
+                                                <div class="form-check form-switch mt-2">
+                                                    <input class="form-check-input" type="checkbox" id="qualifierEnabledSwitch" name="qualifierEnabled" value="true"
+                                                           th:checked="${competitionConfig != null and competitionConfig.qualifierRound != null}">
+                                                    <label class="form-check-label" for="qualifierEnabledSwitch">启用</label>
+                                                </div>
+                                                <div class="form-text">这是淘汰赛体系内的附加资格赛，不是“正赛+资格赛”模式中的正赛资格赛；同赛事仅允许挂载一轮，且多轮淘汰时仅首轮可设置。</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">小组赛模式</label>
+                                                <select class="form-select" name="groupMode" id="competitionGroupMode">
+                                                    <option value="1" th:selected="${competitionConfig == null or competitionConfig.groupMode == null or competitionConfig.groupMode == 1}">单循环（不分主客）</option>
+                                                    <option value="2" th:selected="${competitionConfig != null and competitionConfig.groupMode == 2}">单循环（主客场，组内人数需奇数）</option>
+                                                    <option value="3" th:selected="${competitionConfig != null and competitionConfig.groupMode == 3}">双循环（主客场）</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">每组人数</label>
+                                                <select class="form-select" id="competitionGroupSize" name="groupSize">
+                                                    <option th:each="opt : ${competitionGroupSizeOptions}"
+                                                            th:value="${opt}"
+                                                            th:selected="${competitionConfig != null and competitionConfig.groupSize == opt}"
+                                                            th:text="${opt}">
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">小组赛允许平局</label>
+                                                <div class="form-check form-switch mt-2">
+                                                    <input class="form-check-input" type="checkbox" id="groupAllowDrawSwitch" name="groupAllowDraw"
+                                                           th:checked="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}">
+                                                    <label class="form-check-label" for="groupAllowDrawSwitch">启用</label>
+                                                </div>
+                                                <div class="form-text">关闭后，常规局打平会自动追加1局加局。</div>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">小组赛局数</label>
+                                                <input type="number" min="1" max="20" class="form-control" name="groupStageSets"
+                                                       th:value="${competitionConfig != null and competitionConfig.groupStageSets != null ? competitionConfig.groupStageSets : 8}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">小组赛截止时间</label>
+                                                <input type="datetime-local" class="form-control" name="groupStageDeadline"
+                                                       th:value="${competitionConfig != null and competitionConfig.groupStageDeadline != null ? #temporals.format(competitionConfig.groupStageDeadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">淘汰赛局数</label>
+                                                <input type="number" min="1" max="20" class="form-control" name="knockoutStageSets"
+                                                       th:value="${competitionConfig != null and competitionConfig.knockoutStageSets != null ? competitionConfig.knockoutStageSets : 8}">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label">决赛局数</label>
+                                                <input type="number" min="1" max="20" class="form-control" name="finalStageSets"
+                                                       th:value="${competitionConfig != null and competitionConfig.finalStageSets != null ? competitionConfig.finalStageSets : 10}">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">淘汰赛对阵模式</label>
+                                                <select class="form-select" name="knockoutBracketMode" id="knockoutBracketModeSelect"
+                                                        title="小组赛结束后生成首轮淘汰赛时按此规则配对；晋级链对整体签表与上下半区均支持">
+                                                    <option value="0" th:selected="${competitionConfig == null or competitionConfig.knockoutBracketMode == null or competitionConfig.knockoutBracketMode == 0}">按小组赛总排名经典种子交叉</option>
+                                                    <option value="1" th:selected="${competitionConfig != null and competitionConfig.knockoutBracketMode == 1}">上下半区：相邻两组名次交叉（如 A1–B4）</option>
+                                                    <option value="2" th:selected="${competitionConfig != null and competitionConfig.knockoutBracketMode == 2}">上下半区：世界杯式（偶数组两两结对，按名次线交错）</option>
+                                                </select>
+                                                <div class="form-text">模式 0 仅按小组赛<strong>总排名</strong>经典种子配对，与小组数量、奇偶无关。模式 1、2 均须偶数个小组（按组序两两结对）；模式 2 为世界杯式名次线交错，首轮人数须等于 小组数×每组晋级人数（未填每组人数时由首轮人数÷小组数推算）。</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">小组赛全验收后自动生成淘汰赛首轮</label>
+                                                <select class="form-select" name="knockoutAutoFromGroup" id="knockoutAutoFromGroupSelect">
+                                                    <option value="true" th:selected="${competitionConfig == null or competitionConfig.knockoutAutoFromGroup == null or competitionConfig.knockoutAutoFromGroup}">是</option>
+                                                    <option value="false" th:selected="${competitionConfig != null and competitionConfig.knockoutAutoFromGroup != null and !competitionConfig.knockoutAutoFromGroup}">否</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12">
+                                                <button class="btn btn-warning" type="submit"><i class="bi bi-save"></i> 保存运行配置</button>
+                                                <span class="small text-muted ms-2">筹备中或进行中均可保存；进行中且报名为空时，可先配置并手动录入分组名单。</span>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
-                    <div id="groupRosterCollapse"
-                         class="card-body collapse"
-                         th:classappend="${tournamentInfo.tournament.status == 1 and hasGroupStageMatches} ? '' : ' show'">
-                        <th:block th:if="${isAdmin or isHost}">
-                            <div class="group-entry-mode-toolbar mb-3">
-                                <label class="form-label mb-1" for="groupListEntryMode">录入模式</label>
-                                <select class="form-select form-select-sm" id="groupListEntryMode"
-                                        th:attr="data-tournament-id=${tournamentInfo.tournament.id}">
-                                    <option value="auto">① 报名优先自动分组</option>
-                                    <option value="manual" selected>② 手动导入小组名单</option>
-                                    <option value="picker">③ 下拉搜索选人（全库用户）</option>
-                                </select>
-                                <div class="form-text text-muted small mt-1">
-                                    三种方式互斥展示；②③ 编辑后请按<strong>各组</strong>「保存本组名单」提交；③ 为下拉检索（与② 共用同一解析规则）。
                             </div>
-                        </div>
 
-                            <div id="groupEntryPanelAuto" class="group-entry-mode-panel border rounded p-3 mb-3 bg-light d-none">
-                                <p class="mb-2 small mb-0">
-                                    按<strong>报名接龙顺序</strong>自动填充各小组名单（需已有报名数据；规则与后端「自动分组」一致）。
-                                </p>
-                                <form class="d-inline" th:action="@{/tournament/competition/groups/auto-fill/{id}(id=${tournamentInfo.tournament.id})}" method="post">
-                                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                                    <button class="btn btn-success btn-sm" type="submit"><i class="bi bi-magic"></i> 执行：报名优先自动分组</button>
-                                </form>
-                    </div>
-
-                            <div class="group-save-form">
-                            <datalist id="groupUserDatalist">
-                                <option th:each="u : ${allUsersForGroupPick}" th:value="${u.username}"></option>
-                            </datalist>
-                            <div class="alert alert-secondary py-2" th:if="${#lists.isEmpty(competitionGroups)}">
-                                请先在上方保存“小组赛配置”（参赛人数m + 每组人数），系统会自动创建 A/B/C 组后即可手动录入名单。
-                </div>
-                            <div class="row g-3">
-                                <div class="col-md-6 d-flex flex-column" th:each="g : ${competitionGroups}">
-                                    <form class="group-one-save-form border rounded p-2 h-100 d-flex flex-column"
-                                          th:action="@{/tournament/competition/groups/save-group/{id}(id=${tournamentInfo.tournament.id})}"
-                                          method="post">
-                                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                                        <input type="hidden" name="groupId" th:value="${g.id}"/>
-                                    <div class="group-member-card flex-grow-1" th:attr="data-group-id=${g.id}">
-                                        <div class="fw-bold mb-1" th:text="${g.groupName}">A组</div>
-                                        <div class="small text-muted mb-1">
-                                            已录入：
-                                            <span th:text="${#lists.size(groupMembersByGroupId[g.id])}">0</span> 人
-            </div>
-                                        <textarea class="form-control form-control-sm group-manual-import-area"
-                                                  th:id="${'group_textarea_' + g.id}"
-                                                  rows="4"
-                                                  name="groupMembers"
-                                                  th:text="${groupMemberImportTextByGroupId != null ? groupMemberImportTextByGroupId[g.id] : ''}"
-                                                  th:placeholder="'每行一位；行内多人用逗号或分号分隔。用户名可含空格，勿用空格分隔多人'"></textarea>
-                                        <div class="group-member-picker mt-2 group-picker-area" th:if="${groupMemberSlotIndexes != null and !#lists.isEmpty(groupMemberSlotIndexes)}">
-                                            <div class="small text-muted mb-1">
-                                                <th:block th:if="${groupPickerUseQualifierRules}">
-                                                    每组共 <span th:text="${#lists.size(groupMemberSlotIndexes)}">0</span> 个席位；
-                                                    高亮席位表示资格赛名额（每组
-                                                    <span th:text="${groupQualifierSlotsPerGroup}">0</span> 个）。
-                                                </th:block>
-                                                <th:block th:unless="${groupPickerUseQualifierRules}">
-                                                    从全库用户中下拉选择（每组
-                                                    <span th:text="${#lists.size(groupMemberSlotIndexes)}">0</span> 个席位，与「每组人数」一致）
-                                                </th:block>
-                                            </div>
-                                            <div class="mb-2">
-                                                <input type="text"
-                                                       class="form-control form-control-sm group-member-picker-search"
-                                                       th:attr="data-group-id=${g.id}"
-                                                       placeholder="搜索选手（支持空格/emoji/符号）">
-                                            </div>
-                                            <div class="group-member-slot-grid">
-                                                <div class="group-member-slot"
-                                                     th:each="slot,st : ${groupMemberSlotIndexes}"
-                                                     th:classappend="${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup} ? ' group-member-slot-qualifier' : ' group-member-slot-main'">
-                                                    <label class="form-label form-label-sm mb-1" th:text="${'席位' + (st.index + 1)}">席位1</label>
-                                                    <select class="form-select form-select-sm group-member-slot-input"
-                                                            th:attr="data-group-id=${g.id},
-                                                                     data-slot-index=${st.index},
-                                                                     data-slot-kind=${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup ? 'qualifier' : 'main'},
-                                                                     data-slot-flex=${groupPickerUseQualifierRules and groupQualifierFlexibleSlotPerGroup and st.index == 0 ? 'true' : 'false'}">
-                                                        <option value="">-- 请选择 --</option>
-                                                        <th:block th:if="${groupPickerUseQualifierRules}">
-                                                            <th:block th:if="${st.index < groupQualifierSlotsPerGroup}">
-                                                                <th:block th:if="${groupQualifierFlexibleSlotPerGroup and st.index == 0}">
-                                                                    <option th:each="name : ${groupEligibleUsernames}"
-                                                                            th:value="${name}"
-                                                                            th:text="${(#lists.contains(groupDirectUsernames, name) ? '【直通】' : (#lists.contains(groupQualifierUsernames, name) ? '【资格】' : '【报名】')) + name}"
-                                                                            th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
-                                                                    </option>
-                                                                </th:block>
-                                                                <th:block th:unless="${groupQualifierFlexibleSlotPerGroup and st.index == 0}">
-                                                                    <option th:each="name : ${groupQualifierUsernames}"
-                                                                            th:value="${name}"
-                                                                            th:text="${name}"
-                                                                            th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
-                                                                    </option>
-                                                                </th:block>
-                                                            </th:block>
-                                                            <th:block th:unless="${st.index < groupQualifierSlotsPerGroup}">
-                                                                <option th:each="name : ${groupDirectUsernames}"
-                                                                        th:value="${name}"
-                                                                        th:text="${name}"
-                                                                        th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
-                                                                </option>
-                                                            </th:block>
-                                                        </th:block>
-                                                        <th:block th:unless="${groupPickerUseQualifierRules}">
-                                                            <option th:each="u : ${allUsersForGroupPick}"
-                                                                    th:value="${u.username}"
-                                                                    th:text="${u.username}"
-                                                                    th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == u.username}">
-                                                            </option>
-                                                        </th:block>
-                                                    </select>
+                            <div class="col-12"
+                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and competitionConfig != null and competitionConfig.matchMode == 3}">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h5 class="mb-0 text-start"><i class="bi bi-diagram-3"></i> 小组名单与对阵</h5>
+                                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
+                                            <th:block th:if="${isSuperAdmin or isAdmin or isHost}">
+                                                <form id="formSaveAllGroupsAndGenerate" class="d-none"
+                                                      th:action="@{/tournament/competition/groups/save-all-and-generate/{id}(id=${tournamentInfo.tournament.id})}" method="post">
+                                                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                                </form>
+                                                <button type="button" class="btn btn-outline-light btn-sm" id="btnSaveAllGroupsAndGenerate"
+                                                        title="先按页面上各组当前名单写入数据库，再清空全部小组赛场次并重算对阵（未先点「保存本组」的编辑也会一并保存）">
+                                                    全量重新生成小组赛对阵
+                                                </button>
+                                            </th:block>
+                                            <button class="btn btn-outline-light btn-sm"
+                                                    type="button"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#groupRosterCollapse"
+                                                    aria-expanded="true"
+                                                    aria-controls="groupRosterCollapse">
+                                                展开/收起
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="groupRosterCollapse"
+                                         class="card-body collapse"
+                                         th:classappend="${tournamentInfo.tournament.status == 1 and hasGroupStageMatches} ? '' : ' show'">
+                                        <th:block th:if="${isSuperAdmin or isAdmin or isHost}">
+                                            <div class="group-entry-mode-toolbar mb-3">
+                                                <label class="form-label mb-1" for="groupListEntryMode">录入模式</label>
+                                                <select class="form-select form-select-sm" id="groupListEntryMode"
+                                                        th:attr="data-tournament-id=${tournamentInfo.tournament.id}">
+                                                    <option value="auto">① 报名优先自动分组</option>
+                                                    <option value="manual" selected>② 手动导入小组名单</option>
+                                                    <option value="picker">③ 下拉搜索选人（全库用户）</option>
+                                                </select>
+                                                <div class="form-text text-muted small mt-1">
+                                                    三种方式互斥展示；②③ 编辑后请按<strong>各组</strong>「保存本组名单」提交；③ 为下拉检索（与② 共用同一解析规则）。
                                                 </div>
                                             </div>
-                                            <div class="small mt-2 text-muted" th:if="${groupPickerUseQualifierRules}">
-                                                规则：高亮席位仅可选资格赛名单（非整除场景下每组第1个高亮席位可从全部报名名单选择）；非高亮席位仅可选直通正赛名单。高亮席位可留空保存。
+
+                                            <div id="groupEntryPanelAuto" class="group-entry-mode-panel border rounded p-3 mb-3 bg-light d-none">
+                                                <p class="mb-2 small mb-0">
+                                                    按<strong>报名接龙顺序</strong>自动填充各小组名单（需已有报名数据；规则与后端「自动分组」一致）。
+                                                </p>
+                                                <form class="d-inline" th:action="@{/tournament/competition/groups/auto-fill/{id}(id=${tournamentInfo.tournament.id})}" method="post">
+                                                    <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                                    <button class="btn btn-success btn-sm" type="submit"><i class="bi bi-magic"></i> 执行：报名优先自动分组</button>
+                                                </form>
                                             </div>
-                                        </div>
-                                        <div class="small text-muted mt-1"
-                                             th:if="${groupMembersByGroupId[g.id] != null and !#lists.isEmpty(groupMembersByGroupId[g.id])}">
-                                            当前名单：
-                                            <span th:each="m,st : ${groupMembersByGroupId[g.id]}"
-                                                  th:text="${m.username + (st.last ? '' : '、')}"></span>
-                                        </div>
+
+                                            <div class="group-save-form">
+                                                <datalist id="groupUserDatalist">
+                                                    <option th:each="u : ${allUsersForGroupPick}" th:value="${u.username}"></option>
+                                                </datalist>
+                                                <div class="alert alert-secondary py-2" th:if="${#lists.isEmpty(competitionGroups)}">
+                                                    请先在上方保存“小组赛配置”（参赛人数m + 每组人数），系统会自动创建 A/B/C 组后即可手动录入名单。
+                                                </div>
+                                                <div class="row g-3">
+                                                    <div class="col-md-6 d-flex flex-column" th:each="g : ${competitionGroups}">
+                                                        <form class="group-one-save-form border rounded p-2 h-100 d-flex flex-column"
+                                                              th:action="@{/tournament/competition/groups/save-group/{id}(id=${tournamentInfo.tournament.id})}"
+                                                              method="post">
+                                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                                            <input type="hidden" name="groupId" th:value="${g.id}"/>
+                                                            <div class="group-member-card flex-grow-1" th:attr="data-group-id=${g.id}">
+                                                                <div class="fw-bold mb-1" th:text="${g.groupName}">A组</div>
+                                                                <div class="small text-muted mb-1">
+                                                                    已录入：
+                                                                    <span th:text="${#lists.size(groupMembersByGroupId[g.id])}">0</span> 人
+                                                                </div>
+                                                                <textarea class="form-control form-control-sm group-manual-import-area"
+                                                                          th:id="${'group_textarea_' + g.id}"
+                                                                          rows="4"
+                                                                          name="groupMembers"
+                                                                          th:text="${groupMemberImportTextByGroupId != null ? groupMemberImportTextByGroupId[g.id] : ''}"
+                                                                          th:placeholder="'每行一位；行内多人用逗号或分号分隔。用户名可含空格，勿用空格分隔多人'"></textarea>
+                                                                <div class="group-member-picker mt-2 group-picker-area" th:if="${groupMemberSlotIndexes != null and !#lists.isEmpty(groupMemberSlotIndexes)}">
+                                                                    <div class="small text-muted mb-1">
+                                                                        <th:block th:if="${groupPickerUseQualifierRules}">
+                                                                            每组共 <span th:text="${#lists.size(groupMemberSlotIndexes)}">0</span> 个席位；
+                                                                            高亮席位表示资格赛名额（每组
+                                                                            <span th:text="${groupQualifierSlotsPerGroup}">0</span> 个）。
+                                                                        </th:block>
+                                                                        <th:block th:unless="${groupPickerUseQualifierRules}">
+                                                                            从全库用户中下拉选择（每组
+                                                                            <span th:text="${#lists.size(groupMemberSlotIndexes)}">0</span> 个席位，与「每组人数」一致）
+                                                                        </th:block>
+                                                                    </div>
+                                                                    <div class="mb-2">
+                                                                        <input type="text"
+                                                                               class="form-control form-control-sm group-member-picker-search"
+                                                                               th:attr="data-group-id=${g.id}"
+                                                                               placeholder="搜索选手（支持空格/emoji/符号）">
+                                                                    </div>
+                                                                    <div class="group-member-slot-grid">
+                                                                        <div class="group-member-slot"
+                                                                             th:each="slot,st : ${groupMemberSlotIndexes}"
+                                                                             th:classappend="${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup} ? ' group-member-slot-qualifier' : ' group-member-slot-main'">
+                                                                            <label class="form-label form-label-sm mb-1" th:text="${'席位' + (st.index + 1)}">席位1</label>
+                                                                            <select class="form-select form-select-sm group-member-slot-input"
+                                                                                    th:attr="data-group-id=${g.id},
+                                                                                             data-slot-index=${st.index},
+                                                                                             data-slot-kind=${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup ? 'qualifier' : 'main'},
+                                                                                             data-slot-flex=${groupPickerUseQualifierRules and groupQualifierFlexibleSlotPerGroup and st.index == 0 ? 'true' : 'false'}">
+                                                                                <option value="">-- 请选择 --</option>
+                                                                                <th:block th:if="${groupPickerUseQualifierRules}">
+                                                                                    <th:block th:if="${st.index < groupQualifierSlotsPerGroup}">
+                                                                                        <th:block th:if="${groupQualifierFlexibleSlotPerGroup and st.index == 0}">
+                                                                                            <option th:each="name : ${groupEligibleUsernames}"
+                                                                                                    th:value="${name}"
+                                                                                                    th:text="${(#lists.contains(groupDirectUsernames, name) ? '【直通】' : (#lists.contains(groupQualifierUsernames, name) ? '【资格】' : '【报名】')) + name}"
+                                                                                                    th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
+                                                                                            </option>
+                                                                                        </th:block>
+                                                                                        <th:block th:unless="${groupQualifierFlexibleSlotPerGroup and st.index == 0}">
+                                                                                            <option th:each="name : ${groupQualifierUsernames}"
+                                                                                                    th:value="${name}"
+                                                                                                    th:text="${name}"
+                                                                                                    th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
+                                                                                            </option>
+                                                                                        </th:block>
+                                                                                    </th:block>
+                                                                                    <th:block th:unless="${st.index < groupQualifierSlotsPerGroup}">
+                                                                                        <option th:each="name : ${groupDirectUsernames}"
+                                                                                                th:value="${name}"
+                                                                                                th:text="${name}"
+                                                                                                th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
+                                                                                        </option>
+                                                                                    </th:block>
+                                                                                </th:block>
+                                                                                <th:block th:unless="${groupPickerUseQualifierRules}">
+                                                                                    <option th:each="u : ${allUsersForGroupPick}"
+                                                                                            th:value="${u.username}"
+                                                                                            th:text="${u.username}"
+                                                                                            th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == u.username}">
+                                                                                    </option>
+                                                                                </th:block>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="small mt-2 text-muted" th:if="${groupPickerUseQualifierRules}">
+                                                                        规则：高亮席位仅可选资格赛名单（非整除场景下每组第1个高亮席位可从全部报名名单选择）；非高亮席位仅可选直通正赛名单。高亮席位可留空保存。
+                                                                    </div>
+                                                                </div>
+                                                                <div class="small text-muted mt-1"
+                                                                     th:if="${groupMembersByGroupId[g.id] != null and !#lists.isEmpty(groupMembersByGroupId[g.id])}">
+                                                                    当前名单：
+                                                                    <span th:each="m,st : ${groupMembersByGroupId[g.id]}"
+                                                                          th:text="${m.username + (st.last ? '' : '、')}"></span>
+                                                                </div>
+                                                            </div>
+                                                            <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
+                                                                <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-save"></i> 保存本组名单</button>
+                                                            </div>
+                                                        </form>
+                                                        <form class="mt-2" th:action="@{/tournament/competition/groups/sync-matches/{id}(id=${tournamentInfo.tournament.id})}" method="post"
+                                                              th:if="${isSuperAdmin or isAdmin or isHost}">
+                                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                                            <input type="hidden" name="groupId" th:value="${g.id}"/>
+                                                            <button class="btn btn-outline-primary btn-sm" type="submit" title="仅调整本组：按当前名单增删对阵，尽量不改动已有场次"><i class="bi bi-arrow-repeat"></i> 同步本组小组赛对阵</button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </th:block>
                                     </div>
-                                        <div class="d-flex flex-wrap gap-2 mt-2 align-items-center">
-                                            <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-save"></i> 保存本组名单</button>
-                                        </div>
-                                    </form>
-                                    <form class="mt-2" th:action="@{/tournament/competition/groups/sync-matches/{id}(id=${tournamentInfo.tournament.id})}" method="post"
-                                          th:if="${isAdmin or isHost}">
-                                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                                        <input type="hidden" name="groupId" th:value="${g.id}"/>
-                                        <button class="btn btn-outline-primary btn-sm" type="submit" title="仅调整本组：按当前名单增删对阵，尽量不改动已有场次"><i class="bi bi-arrow-repeat"></i> 同步本组小组赛对阵</button>
-                                    </form>
                                 </div>
                             </div>
+
+                            <div class="col-12"
+                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and competitionConfig != null and competitionConfig.matchMode == 3 and (isSuperAdmin or isAdmin or isHost)}">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <h5 class="mb-0 text-start"><i class="bi bi-trophy"></i> 淘汰赛</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="small text-muted mb-2">须已保存「淘汰赛首轮」与对阵模式；小组赛全部场次验收后，可自动生成首轮，或在关闭自动生成时手动执行。重新生成会先删除已有 MAIN/FINAL 淘汰赛场次。</p>
+                                        <form class="d-inline me-2" th:action="@{/tournament/competition/knockout/generate/{id}(id=${tournamentInfo.tournament.id})}" method="post"
+                                              onsubmit="return confirm('确定根据当前小组赛总排名生成淘汰赛首轮？将删除已有淘汰赛场次。');">
+                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-diagram-3"></i> 生成淘汰赛首轮</button>
+                                        </form>
+                                        <form class="d-inline me-2" th:action="@{/tournament/competition/knockout/generate-next/{id}(id=${tournamentInfo.tournament.id})}" method="post"
+                                              onsubmit="return confirm('确定按当前淘汰赛已验收赛果，手动生成下一轮对阵？');">
+                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-arrow-right-circle"></i> 手动生成下一轮</button>
+                                        </form>
+                                        <button type="button" class="btn btn-outline-primary btn-sm me-2"
+                                                th:attr="data-url=@{/tournament/competition/knockout/manual/{id}(id=${tournamentInfo.tournament.id})}"
+                                                onclick="openKoManualModal(this)">
+                                            <i class="bi bi-ui-checks-grid"></i> 手动排签首轮（默认模式0）
+                                        </button>
+                                        <form class="d-inline" th:action="@{/tournament/competition/knockout/clear/{id}(id=${tournamentInfo.tournament.id})}" method="post"
+                                              onsubmit="return confirm('确定删除本赛事全部淘汰赛（MAIN/FINAL）场次？');">
+                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> 清空淘汰赛</button>
+                                        </form>
+                                    </div>
+                                </div>
                             </div>
-                        </th:block>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 mt-4"
-                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and competitionConfig != null and competitionConfig.matchMode == 3 and (isAdmin or isHost)}">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h5 class="mb-0 text-start"><i class="bi bi-trophy"></i> 淘汰赛</h5>
-                    </div>
-                    <div class="card-body">
-                        <p class="small text-muted mb-2">须已保存「淘汰赛首轮」与对阵模式；小组赛全部场次验收后，可自动生成首轮，或在关闭自动生成时手动执行。重新生成会先删除已有 MAIN/FINAL 淘汰赛场次。</p>
-                        <form class="d-inline me-2" th:action="@{/tournament/competition/knockout/generate/{id}(id=${tournamentInfo.tournament.id})}" method="post"
-                              onsubmit="return confirm('确定根据当前小组赛总排名生成淘汰赛首轮？将删除已有淘汰赛场次。');">
-                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                            <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-diagram-3"></i> 生成淘汰赛首轮</button>
-                        </form>
-                        <form class="d-inline me-2" th:action="@{/tournament/competition/knockout/generate-next/{id}(id=${tournamentInfo.tournament.id})}" method="post"
-                              onsubmit="return confirm('确定按当前淘汰赛已验收赛果，手动生成下一轮对阵？');">
-                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                            <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-arrow-right-circle"></i> 手动生成下一轮</button>
-                        </form>
-                        <button type="button" class="btn btn-outline-primary btn-sm me-2"
-                                th:attr="data-url=@{/tournament/competition/knockout/manual/{id}(id=${tournamentInfo.tournament.id})}"
-                                onclick="openKoManualModal(this)">
-                            <i class="bi bi-ui-checks-grid"></i> 手动排签首轮（默认模式0）
-                        </button>
-                        <form class="d-inline" th:action="@{/tournament/competition/knockout/clear/{id}(id=${tournamentInfo.tournament.id})}" method="post"
-                              onsubmit="return confirm('确定删除本赛事全部淘汰赛（MAIN/FINAL）场次？');">
-                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                            <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> 清空淘汰赛</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 mt-4"
-                 th:if="${(competitionGroups != null and !#lists.isEmpty(competitionGroups)) or (competitionMatchTabs != null and !#lists.isEmpty(competitionMatchTabs)) or (groupOverallRanking != null and !#lists.isEmpty(groupOverallRanking))}">
-                <div class="card border-0 shadow-sm mb-3"
-                     th:if="${groupOverallRanking != null and !#lists.isEmpty(groupOverallRanking)}">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h5 class="mb-0 text-start"><i class="bi bi-list-stars"></i> 小组赛总排名</h5>
-                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
-                            <button type="button" class="btn btn-outline-light btn-sm"
-                                    id="groupOverallCopyBtn"
-                                    th:attr="data-tournament-id=${tournamentInfo.tournament.id}">复制为文本</button>
-                            <a class="btn btn-outline-light btn-sm"
-                               th:href="@{/ranking/export/pdf/tournament/{id}/group-overall-ranking(id=${tournamentInfo.tournament.id})}">导出为PDF</a>
                         </div>
                     </div>
-                    <div class="card-body table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
-                            <thead class="table-light">
-                            <tr>
-                                <th>🏅</th><th>组内</th><th>组</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th><th>积分</th><th>净胜</th><th>总分</th>
-                                <th class="d-none d-md-table-cell">胜</th><th class="d-none d-md-table-cell">平</th><th class="d-none d-md-table-cell">负</th>
-                                <th class="d-none d-md-table-cell" title="小组赛中所有局：得分≥2的局数总和（每场累加）">≥2局数总和</th><th class="d-none d-md-table-cell" title="小组赛中单局最高得分">单局最高</th><th class="d-none d-md-table-cell">偷分次数</th><th class="d-none d-md-table-cell" title="小组赛中单次偷分最高得分">偷分最高</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <tr th:each="r : ${groupOverallRanking}"
-                                style="cursor:pointer;"
-                                th:attr="data-type='overall',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${r.groupName},data-user-id=${r.userId},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
-                                onclick="openGroupRankDetailModal(this)">
-                                <td th:text="${r.overallRank}">1</td><td th:text="${r.groupRank}">1</td><td th:text="${r.groupName}">A组</td><td th:text="${r.username}">选手</td>
-                                <td th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0},pl=${r.played != null ? r.played : 0}"
-                                    th:classappend="${exp > 0 and pl == exp} ? ' group-ranking-matches-complete'"
-                                    th:text="|${pl}/${exp}|">0/0</td>
-                                <td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td>
-                                <td class="d-none d-md-table-cell" th:text="${r.wins}">0</td><td class="d-none d-md-table-cell" th:text="${r.draws}">0</td><td class="d-none d-md-table-cell" th:text="${r.losses}">0</td>
-                                <td class="d-none d-md-table-cell" th:text="${r.matchGe2Count}">0</td><td class="d-none d-md-table-cell" th:text="${r.matchMaxScore}">0</td><td class="d-none d-md-table-cell" th:text="${r.stealCount}">0</td><td class="d-none d-md-table-cell" th:text="${r.stealMax}">0</td>
-                            </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
 
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h5 class="mb-0 text-start"><i class="bi bi-grid-3x3-gap"></i> 比赛</h5>
-                        <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end"></div>
-                    </div>
-                    <div class="card-body">
-                        <!-- <div class="mb-3" th:if="${groupOverallRanking != null and !#lists.isEmpty(groupOverallRanking)}">
-                            <div class="fw-bold mb-2"><i class="bi bi-list-stars"></i> 总排名</div>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-hover align-middle">
+                    <div class="tab-pane fade"
+                         id="detail-final-ranking-pane"
+                         role="tabpanel"
+                         aria-labelledby="detail-final-ranking-tab"
+                         th:classappend="${!(isSuperAdmin or isAdmin or isHost)} ? ' show active' : ''">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <h5 class="mb-0 text-start"><i class="bi bi-list-ol"></i> 最终排名</h5>
+                                <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
+                                    <form th:if="${isSuperAdmin or isAdmin or isHost}"
+                                          th:action="@{/tournament/ranking/rebuild/{tournamentId}(tournamentId=${tournamentInfo.tournament.id})}"
+                                          method="post"
+                                          onsubmit="return confirm('将删除当前积分并按最新规则重建排名，是否继续？')">
+                                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                        <button type="submit" class="btn btn-warning btn-sm btn-mobile-compact">
+                                            <span class="btn-text"><i class="bi bi-arrow-repeat"></i> 一键刷新排名</span>
+                                            <span class="btn-emoji d-none" aria-hidden="true">🔄</span>
+                                        </button>
+                                    </form>
+                                    <button type="button" class="btn btn-light btn-sm"
+                                            id="tournamentCopyBtn"
+                                            th:attr="data-tournament-id=${tournamentInfo.tournament.id}">
+                                        复制为文本
+                                    </button>
+                                    <a class="btn btn-outline-light btn-sm"
+                                       id="tournamentPdfLink"
+                                       th:href="@{/ranking/export/pdf/tournament/{id}(id=${tournamentInfo.tournament.id},includeMatchDetails=true)}"
+                                       th:attr="data-pdf-base=@{/ranking/export/pdf/tournament/{id}(id=${tournamentInfo.tournament.id})}">
+                                        导出为PDF
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="card-body table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
                                     <thead class="table-light">
                                     <tr>
-                                        <th>🏅</th><th>组内</th><th>组</th><th>选手</th><th>积分</th><th>净胜</th><th>总分</th>
-                                        <th class="d-none d-md-table-cell">胜</th>
-                                        <th class="d-none d-md-table-cell" th:if="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}">平</th>
-                                        <th class="d-none d-md-table-cell">负</th>
+                                        <th style="width: 90px;">排名</th>
+                                        <th>选手</th>
+                                        <th style="width: 110px;">小组赛总排名</th>
+                                        <th style="width: 120px;">积分</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:each="entry,st : ${rankingInfoList}">
+                                        <td th:text="${st.index + 1}">1</td>
+                                        <td>
+                                            <span th:text="${entry.userName}">选手</span>
+                                            <span class="text-muted"
+                                                  th:if="${entry.isWithdrawn}">（退赛（不计入排名））</span>
+                                        </td>
+                                        <td th:text="${entry.groupOverallRank != null ? entry.groupOverallRank : '-'}">-</td>
+                                        <td th:text="${entry.ranking != null and entry.ranking.points != null ? entry.ranking.points : ''}"></td>
+                                    </tr>
+                                    <tr th:if="${rankingInfoList == null or #lists.isEmpty(rankingInfoList)}">
+                                        <td colspan="4" class="text-center text-muted py-3">暂无数据</td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="tab-pane fade"
+                         id="detail-group-overall-pane"
+                         role="tabpanel"
+                         aria-labelledby="detail-group-overall-tab">
+                        <div class="card border-0 shadow-sm"
+                             th:if="${groupOverallRanking != null and !#lists.isEmpty(groupOverallRanking)}">
+                            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <h5 class="mb-0 text-start"><i class="bi bi-list-stars"></i> 小组赛总排名</h5>
+                                <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
+                                    <button type="button" class="btn btn-outline-light btn-sm"
+                                            id="groupOverallCopyBtn"
+                                            th:attr="data-tournament-id=${tournamentInfo.tournament.id}">复制为文本</button>
+                                    <a class="btn btn-outline-light btn-sm"
+                                       th:href="@{/ranking/export/pdf/tournament/{id}/group-overall-ranking(id=${tournamentInfo.tournament.id})}">导出为PDF</a>
+                                </div>
+                            </div>
+                            <div class="card-body table-responsive">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th>🏅</th><th>组内</th><th>组</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th><th>积分</th><th>净胜</th><th>总分</th>
+                                        <th class="d-none d-md-table-cell">胜</th><th class="d-none d-md-table-cell">平</th><th class="d-none d-md-table-cell">负</th>
                                         <th class="d-none d-md-table-cell" title="小组赛中所有局：得分≥2的局数总和（每场累加）">≥2局数总和</th><th class="d-none d-md-table-cell" title="小组赛中单局最高得分">单局最高</th><th class="d-none d-md-table-cell">偷分次数</th><th class="d-none d-md-table-cell" title="小组赛中单次偷分最高得分">偷分最高</th>
                                     </tr>
                                     </thead>
                                     <tbody>
                                     <tr th:each="r : ${groupOverallRanking}"
                                         style="cursor:pointer;"
-                                        th:attr="data-type='overall',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${r.groupName},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax}"
+                                        th:attr="data-type='overall',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${r.groupName},data-user-id=${r.userId},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
                                         onclick="openGroupRankDetailModal(this)">
-                                        <td th:text="${r.overallRank}">1</td>
-                                        <td th:text="${r.groupRank}">1</td>
-                                        <td th:text="${r.groupName}">A组</td>
-                                        <td th:text="${r.username}">选手</td>
-                                        <td th:text="${r.points}">0</td>
-                                        <td th:text="${r.net}">0</td>
-                                        <td th:text="${r.totalScore}">0</td>
-                                        <td class="d-none d-md-table-cell" th:text="${r.wins}">0</td>
-                                        <td class="d-none d-md-table-cell" th:if="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}" th:text="${r.draws}">0</td>
-                                        <td class="d-none d-md-table-cell" th:text="${r.losses}">0</td>
-                                        <td class="d-none d-md-table-cell" th:text="${r.matchGe2Count}">0</td>
-                                        <td class="d-none d-md-table-cell" th:text="${r.matchMaxScore}">0</td>
-                                        <td class="d-none d-md-table-cell" th:text="${r.stealCount}">0</td>
-                                        <td class="d-none d-md-table-cell" th:text="${r.stealMax}">0</td>
+                                        <td th:text="${r.overallRank}">1</td><td th:text="${r.groupRank}">1</td><td th:text="${r.groupName}">A组</td><td th:text="${r.username}">选手</td>
+                                        <td th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0},pl=${r.played != null ? r.played : 0}"
+                                            th:classappend="${exp > 0 and pl == exp} ? ' group-ranking-matches-complete'"
+                                            th:text="|${pl}/${exp}|">0/0</td>
+                                        <td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td>
+                                        <td class="d-none d-md-table-cell" th:text="${r.wins}">0</td><td class="d-none d-md-table-cell" th:text="${r.draws}">0</td><td class="d-none d-md-table-cell" th:text="${r.losses}">0</td>
+                                        <td class="d-none d-md-table-cell" th:text="${r.matchGe2Count}">0</td><td class="d-none d-md-table-cell" th:text="${r.matchMaxScore}">0</td><td class="d-none d-md-table-cell" th:text="${r.stealCount}">0</td><td class="d-none d-md-table-cell" th:text="${r.stealMax}">0</td>
                                     </tr>
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="small text-muted d-md-none">轻触任意行查看完整统计</div>
-                        </div> -->
+                        </div>
+                        <div class="card border-0 shadow-sm" th:if="${groupOverallRanking == null or #lists.isEmpty(groupOverallRanking)}">
+                            <div class="card-body text-muted text-center py-4">暂无小组赛总排名数据</div>
+                        </div>
+                    </div>
 
-                        <ul class="nav nav-pills mb-3 flex-nowrap overflow-auto gap-1" role="tablist"
+                    <div class="tab-pane fade"
+                         id="detail-matches-pane"
+                         role="tabpanel"
+                         aria-labelledby="detail-matches-tab">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <h5 class="mb-0 text-start"><i class="bi bi-grid-3x3-gap"></i> 比赛</h5>
+                                <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end"></div>
+                            </div>
+                            <div class="card-body">
+                                <!-- <div class="mb-3" th:if="${groupOverallRanking != null and !#lists.isEmpty(groupOverallRanking)}">
+                                    <div class="fw-bold mb-2"><i class="bi bi-list-stars"></i> 总排名</div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle">
+                                            <thead class="table-light">
+                                            <tr>
+                                                <th>🏅</th><th>组内</th><th>组</th><th>选手</th><th>积分</th><th>净胜</th><th>总分</th>
+                                                <th class="d-none d-md-table-cell">胜</th>
+                                                <th class="d-none d-md-table-cell" th:if="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}">平</th>
+                                                <th class="d-none d-md-table-cell">负</th>
+                                                <th class="d-none d-md-table-cell" title="小组赛中所有局：得分≥2的局数总和（每场累加）">≥2局数总和</th><th class="d-none d-md-table-cell" title="小组赛中单局最高得分">单局最高</th><th class="d-none d-md-table-cell">偷分次数</th><th class="d-none d-md-table-cell" title="小组赛中单次偷分最高得分">偷分最高</th>
+                                            </tr>
+                                            </thead>
+                                            <tbody>
+                                            <tr th:each="r : ${groupOverallRanking}"
+                                                style="cursor:pointer;"
+                                                th:attr="data-type='overall',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${r.groupName},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax}"
+                                                onclick="openGroupRankDetailModal(this)">
+                                                <td th:text="${r.overallRank}">1</td>
+                                                <td th:text="${r.groupRank}">1</td>
+                                                <td th:text="${r.groupName}">A组</td>
+                                                <td th:text="${r.username}">选手</td>
+                                                <td th:text="${r.points}">0</td>
+                                                <td th:text="${r.net}">0</td>
+                                                <td th:text="${r.totalScore}">0</td>
+                                                <td class="d-none d-md-table-cell" th:text="${r.wins}">0</td>
+                                                <td class="d-none d-md-table-cell" th:if="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}" th:text="${r.draws}">0</td>
+                                                <td class="d-none d-md-table-cell" th:text="${r.losses}">0</td>
+                                                <td class="d-none d-md-table-cell" th:text="${r.matchGe2Count}">0</td>
+                                                <td class="d-none d-md-table-cell" th:text="${r.matchMaxScore}">0</td>
+                                                <td class="d-none d-md-table-cell" th:text="${r.stealCount}">0</td>
+                                                <td class="d-none d-md-table-cell" th:text="${r.stealMax}">0</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="small text-muted d-md-none">轻触任意行查看完整统计</div>
+                                </div> -->
+
+                                <ul class="nav nav-pills mb-3 flex-nowrap overflow-auto gap-1" role="tablist"
                             th:if="${competitionMatchTabs != null and !#lists.isEmpty(competitionMatchTabs)}">
                             <li class="nav-item text-nowrap" role="presentation" th:each="tab : ${competitionMatchTabs}">
                                 <button type="button" class="nav-link py-2 px-3" role="tab"
@@ -884,7 +1054,7 @@
                                     <label class="form-label mb-0 small text-muted">状态</label>
                                     <select class="form-select form-select-sm match-status-filter" style="max-width: 12rem;">
                                         <option value="">全部</option>
-                                        <option value="not_started">未开始（0-0）</option>
+                                        <option value="not_started">未开始</option>
                                         <option value="completed_pending">已完成（未验收）</option>
                                         <option value="accepted">已验收</option>
                                     </select>
@@ -906,14 +1076,24 @@
 
                                 <div class="text-muted match-filter-empty d-none w-100">没有符合条件的比赛</div>
                                 </th:block>
-                                <th:block th:if="${tab.kind == 'QUALIFIER'}">
+                                <th:block th:if="${tab.kind == 'ENTRY_QUALIFIER' or tab.kind == 'KO_QUALIFIER'}">
                                     <div class="fw-bold mb-2 d-flex flex-wrap align-items-center gap-2">
                                         <i class="bi bi-flag"></i>
                                         <span th:text="${tab.label}">资格赛</span>
-                                        <span th:if="${tab.qualifierRound == tab.qualifierLatestRound}" class="badge bg-primary">最新轮次</span>
-                                        <span th:if="${tab.qualifierInProgress}" class="badge bg-warning text-dark">进行中</span>
+                                        <span class="badge rounded-pill text-bg-secondary"
+                                              th:if="${tab.kind == 'ENTRY_QUALIFIER'}">决定正赛资格</span>
+                                        <span class="badge rounded-pill text-bg-dark"
+                                              th:if="${tab.kind == 'KO_QUALIFIER'}">属于淘汰赛体系</span>
+                                        <span th:if="${tab['qualifierRound'] != null and tab['qualifierRound'] == tab['qualifierLatestRound']}" class="badge bg-primary">最新轮次</span>
+                                        <span th:if="${tab['qualifierInProgress'] == true}" class="badge bg-warning text-dark">进行中</span>
                                     </div>
-                                    <details class="mb-2" th:attr="open=${tab.qualifierRound == tab.qualifierLatestRound or tab.qualifierInProgress}">
+                                    <div class="small text-muted mb-2" th:if="${tab.kind == 'ENTRY_QUALIFIER'}">
+                                        这是“正赛+资格赛”模式中的正赛资格赛；仅晋级正赛的选手继续计入本赛事最终排名。
+                                    </div>
+                                    <div class="small text-muted mb-2" th:if="${tab.kind == 'KO_QUALIFIER'}">
+                                        这是首轮淘汰赛附加资格赛，业务上属于正赛且属于淘汰赛；其胜者进入对应的首轮淘汰赛席位。
+                                    </div>
+                                    <details class="mb-2" th:attr="open=${(tab['qualifierRound'] != null and tab['qualifierRound'] == tab['qualifierLatestRound']) or tab['qualifierInProgress'] == true}">
                                         <summary class="small text-muted user-select-none">赛果与对阵</summary>
                                         <div class="d-flex align-items-center gap-2 mb-2 match-filter-bar mt-2">
                                             <label class="form-label mb-0 small text-muted">筛选选手</label>
@@ -928,7 +1108,7 @@
                                         <div class="d-flex flex-wrap gap-3 match-cards-wrap">
                                             <div class="card border-0 shadow-sm match-card"
                                                  style="min-width: 260px; flex: 1 1 300px; cursor: pointer;"
-                                                 th:each="c : ${tab.qualifierCards}"
+                                                 th:each="c : ${tab['qualifierCards']}"
                                                  th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}"
                                                  onclick="openGroupMatchModal(this)">
                                                 <div class="card-body p-0 unified-match-score-card">
@@ -936,7 +1116,7 @@
                                                     <th:block th:replace="~{fragments :: matchScoreCardCore(c=${c})}"/>
                                                 </div>
                                             </div>
-                                            <div class="text-muted" th:if="${tab.qualifierCards == null or #lists.isEmpty(tab.qualifierCards)}">本轮暂无场次</div>
+                                            <div class="text-muted" th:if="${tab['qualifierCards'] == null or #lists.isEmpty(tab['qualifierCards'])}">本轮暂无场次</div>
                                         </div>
                                         <div class="text-muted match-filter-empty d-none w-100">没有符合条件的比赛</div>
                                     </details>
@@ -974,7 +1154,9 @@
                                 </th:block>
                             </div>
                         </div>
-                        <p class="text-muted small mb-0" th:if="${competitionMatchTabs == null or #lists.isEmpty(competitionMatchTabs)}">暂无小组赛或淘汰赛对阵数据。</p>
+                                <p class="text-muted small mb-0" th:if="${competitionMatchTabs == null or #lists.isEmpty(competitionMatchTabs)}">暂无小组赛或淘汰赛对阵数据。</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1020,10 +1202,10 @@
                             <button type="button" class="btn btn-outline-primary w-100" id="groupRenderScoreRowsBtn" onclick="renderGroupScoreRows()">生成/重置局数</button>
                         </div>
                     </div>
-                    <div class="table-responsive score-entry-wrap">
+                    <div class="table-responsive score-entry-wrap match-score-mobile-optimized">
                         <table class="table table-sm table-bordered align-middle score-entry-table">
                             <thead class="table-light">
-                            <tr><th style="width: 26%">选手名称</th><th>局次</th><th style="width: 18%">总比分</th></tr>
+                            <tr><th style="width: 26%">选手名称</th><th style="width: 18%">总比分</th><th>局次</th></tr>
                             </thead>
                             <tbody id="groupScoreRows"></tbody>
                         </table>
@@ -1124,10 +1306,10 @@
                             <button type="button" class="btn btn-outline-primary w-100" onclick="renderSaScoreRows()">生成/重置局数</button>
                         </div>
                     </div>
-                    <div class="table-responsive score-entry-wrap">
+                    <div class="table-responsive score-entry-wrap match-score-mobile-optimized">
                         <table class="table table-sm table-bordered align-middle score-entry-table">
                             <thead class="table-light">
-                            <tr><th style="width: 26%">选手名称</th><th>局次</th><th style="width: 18%">总比分</th></tr>
+                            <tr><th style="width: 26%">选手名称</th><th style="width: 18%">总比分</th><th>局次</th></tr>
                             </thead>
                             <tbody id="saScoreRows"></tbody>
                         </table>
@@ -1136,6 +1318,24 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
                     <button type="button" class="btn btn-primary" onclick="saveSuperAdminScore()">保存并锁定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="finalRankingExportModeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">选择导出范围</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-muted small">请选择本次操作的导出范围。</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary" id="finalRankingModeRankingOnlyBtn">仅最终排名</button>
+                    <button type="button" class="btn btn-primary" id="finalRankingModeFullBtn">最终排名+赛果</button>
                 </div>
             </div>
         </div>
@@ -1597,6 +1797,41 @@
                 });
             };
             setupMatchFilters();
+
+            // 顶层「赛事详情/最终排名/小组赛总排名/比赛」手动切页签：
+            // 不依赖 bootstrap.Tab 运行态，避免页面里多层 tab/collapse 共存时偶发失效。
+            const detailTabsWrap = document.querySelector('.tournament-detail-section-tabs');
+            if (detailTabsWrap) {
+                const tabButtons = Array.from(detailTabsWrap.querySelectorAll('button[data-bs-target]'));
+                const tabContent = detailTabsWrap.parentElement && detailTabsWrap.parentElement.nextElementSibling
+                    ? detailTabsWrap.parentElement.nextElementSibling.querySelector('.tab-content')
+                    : null;
+                const tabPanes = tabContent ? Array.from(tabContent.querySelectorAll(':scope > .tab-pane')) : [];
+                const activateDetailTab = (btn) => {
+                    if (!btn) return;
+                    const target = btn.getAttribute('data-bs-target');
+                    if (!target || !target.startsWith('#')) return;
+                    const paneId = target.substring(1);
+                    tabButtons.forEach((b) => {
+                        const isActive = b === btn;
+                        b.classList.toggle('active', isActive);
+                        b.setAttribute('aria-selected', isActive ? 'true' : 'false');
+                    });
+                    tabPanes.forEach((pane) => {
+                        const isActive = pane.id === paneId;
+                        pane.classList.toggle('active', isActive);
+                        pane.classList.toggle('show', isActive);
+                    });
+                };
+                tabButtons.forEach((btn) => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        activateDetailTab(btn);
+                    });
+                });
+                const initialBtn = tabButtons.find((b) => b.classList.contains('active')) || tabButtons[0];
+                activateDetailTab(initialBtn);
+            }
         });
 
         let groupMatchModal;
@@ -1796,7 +2031,7 @@
             el.value = (s === '1' || s === '2') ? s : '';
         }
 
-        function buildScoreRow(label, values, n, inputClass, totalClass) {
+        function buildScoreRow(label, values, n, inputClass, totalClass, hammerSide) {
             const options = ['0','1','2','3','4','5','6','7','8','X'];
             const items = [];
             for (let i = 1; i <= n; i++) {
@@ -1805,9 +2040,9 @@
                 items.push(`<div class="score-end-item"><span class="score-end-label">第${i}局</span><select class="form-select form-select-sm score-input ${inputClass}">${opts}</select></div>`);
             }
             return `<tr>
-                <th class="score-player-name">${label}</th>
-                <td><div class="score-ends-grid">${items.join('')}</div></td>
-                <td><span class="badge rounded-pill text-bg-light border ${totalClass}">${scoreTotalText(values)}</span></td>
+                <th class="score-player-name score-player-name--tappable" data-hammer-side="${hammerSide}" title="双击可设置/取消开局后手">${label}</th>
+                <td class="score-total-cell"><span class="score-total-box ${totalClass}">${scoreTotalText(values)}</span></td>
+                <td class="score-ends-cell"><div class="score-ends-grid">${items.join('')}</div></td>
             </tr>`;
         }
 
@@ -1862,6 +2097,59 @@
             tbody.dataset.xCutoffBound = '1';
         }
 
+
+
+        function refreshHammerNameHighlight(tbodyId, hammerSelectId) {
+            const tbody = document.getElementById(tbodyId);
+            const hammer = document.getElementById(hammerSelectId);
+            if (!tbody || !hammer) return;
+            const side = String(hammer.value || '');
+            tbody.querySelectorAll('.score-player-name--tappable').forEach((el) => {
+                el.classList.toggle('score-player-name--hammer', side !== '' && String(el.dataset.hammerSide || '') === side);
+            });
+        }
+
+        function bindHammerHighlightSync(tbodyId, hammerSelectId) {
+            const tbody = document.getElementById(tbodyId);
+            const hammer = document.getElementById(hammerSelectId);
+            if (!tbody || !hammer || hammer.dataset.hammerHighlightBound === '1') return;
+            hammer.addEventListener('change', () => refreshHammerNameHighlight(tbodyId, hammerSelectId));
+            hammer.dataset.hammerHighlightBound = '1';
+        }
+
+        function bindNameDoubleTapHammerToggle(tbodyId, hammerSelectId) {
+            const tbody = document.getElementById(tbodyId);
+            const hammer = document.getElementById(hammerSelectId);
+            if (!tbody || !hammer || tbody.dataset.nameHammerBound === '1') return;
+            const apply = (target) => {
+                if (!target || !target.classList || !target.classList.contains('score-player-name--tappable')) return;
+                if (hammer.disabled) return;
+                const side = String(target.dataset.hammerSide || '').trim();
+                if (side !== '1' && side !== '2') return;
+                hammer.value = (hammer.value === side) ? '' : side;
+                refreshHammerNameHighlight(tbodyId, hammerSelectId);
+            };
+            tbody.addEventListener('dblclick', (e) => {
+                apply(e.target.closest('.score-player-name--tappable'));
+            });
+            let lastTapAt = 0;
+            let lastTapEl = null;
+            tbody.addEventListener('touchend', (e) => {
+                const el = e.target.closest('.score-player-name--tappable');
+                if (!el) return;
+                const now = Date.now();
+                if (lastTapEl === el && (now - lastTapAt) < 350) {
+                    apply(el);
+                    lastTapAt = 0;
+                    lastTapEl = null;
+                } else {
+                    lastTapAt = now;
+                    lastTapEl = el;
+                }
+            }, {passive: true});
+            tbody.dataset.nameHammerBound = '1';
+        }
+
         function renderGroupScoreRows(existing) {
             const tbody = document.getElementById('groupScoreRows');
             if (!tbody) return;
@@ -1878,13 +2166,18 @@
                 p1Vals.push(existing && existing[i - 1] ? scoreCellTokenFromRow(existing[i - 1], 1) : '0');
                 p2Vals.push(existing && existing[i - 1] ? scoreCellTokenFromRow(existing[i - 1], 2) : '0');
             }
-            tbody.innerHTML = buildScoreRow(p1Name, p1Vals, n, 'group-p1', 'group-total-p1')
-                + buildScoreRow(p2Name, p2Vals, n, 'group-p2', 'group-total-p2');
+            tbody.innerHTML = buildScoreRow(p1Name, p1Vals, n, 'group-p1', 'group-total-p1', '1')
+                + buildScoreRow(p2Name, p2Vals, n, 'group-p2', 'group-total-p2', '2');
             bindScoreTotal('groupScoreRows', 'group-p1', 'group-total-p1');
             bindScoreTotal('groupScoreRows', 'group-p2', 'group-total-p2');
             bindXCutoffForceZeros('groupScoreRows', 'group-p1', 'group-p2', 'group-total-p1', 'group-total-p2');
             const editable = typeof window._groupMatchModalEditable === 'boolean' ? window._groupMatchModalEditable : true;
             document.querySelectorAll('#groupScoreRows .group-p1, #groupScoreRows .group-p2').forEach(i => { i.disabled = !editable; });
+            bindNameDoubleTapHammerToggle('groupScoreRows', 'groupFirstEndHammer');
+            bindHammerHighlightSync('groupScoreRows', 'groupFirstEndHammer');
+            refreshHammerNameHighlight('groupScoreRows', 'groupFirstEndHammer');
+            bindHammerHighlightSync('groupScoreRows', 'groupFirstEndHammer');
+            refreshHammerNameHighlight('groupScoreRows', 'groupFirstEndHammer');
         }
 
         function applyGroupMatchModalEditMode(data) {
@@ -1916,6 +2209,11 @@
             const sigOpen = document.getElementById('groupSignatureOpenBtn');
             if (sigOpen) sigOpen.disabled = !editable && !canAccept;
             document.querySelectorAll('#groupScoreRows .group-p1, #groupScoreRows .group-p2').forEach(i => { i.disabled = !editable; });
+            bindNameDoubleTapHammerToggle('groupScoreRows', 'groupFirstEndHammer');
+            bindHammerHighlightSync('groupScoreRows', 'groupFirstEndHammer');
+            refreshHammerNameHighlight('groupScoreRows', 'groupFirstEndHammer');
+            bindHammerHighlightSync('groupScoreRows', 'groupFirstEndHammer');
+            refreshHammerNameHighlight('groupScoreRows', 'groupFirstEndHammer');
         }
 
         async function openGroupMatchModal(card) {
@@ -2041,17 +2339,32 @@
             return {name: input.name, value: input.value};
         }
 
+        /** 仅从「单场比赛录分」弹窗 tbody 收集比分与开局后手，避免误选页面上其它同类 class */
+        function collectGroupMatchScorePayload() {
+            const hammerEl = document.getElementById('groupFirstEndHammer');
+            const hammer = hammerEl ? String(hammerEl.value || '').trim() : '';
+            const tbody = document.getElementById('groupScoreRows');
+            const p1 = tbody ? Array.from(tbody.querySelectorAll('.group-p1')).map(i => i.value || '0') : [];
+            const p2 = tbody ? Array.from(tbody.querySelectorAll('.group-p2')).map(i => i.value || '0') : [];
+            return { hammer, p1, p2 };
+        }
+
+        function appendGroupScoreFormFields(form, payload) {
+            if (payload.hammer) form.append('firstEndHammer', payload.hammer);
+            payload.p1.forEach(v => form.append('player1Scores', v));
+            payload.p2.forEach(v => form.append('player2Scores', v));
+        }
+
+        let _groupMatchScoreSubmitting = false;
+
         async function saveGroupMatchScore() {
+            if (_groupMatchScoreSubmitting) return;
             const matchId = document.getElementById('groupMatchIdInput').value;
-            const hammer = document.getElementById('groupFirstEndHammer').value;
-            const p1 = Array.from(document.querySelectorAll('.group-p1')).map(i => i.value || '0');
-            const p2 = Array.from(document.querySelectorAll('.group-p2')).map(i => i.value || '0');
+            const { hammer, p1, p2 } = collectGroupMatchScorePayload();
             const hasX = [...p1, ...p2].some(v => String(v).toUpperCase() === 'X');
             const needSignature = currentMatchPhaseCode === 'QUALIFIER' || currentMatchPhaseCode === 'MAIN' || currentMatchPhaseCode === 'FINAL';
             const form = new URLSearchParams();
-            if (hammer) form.append('firstEndHammer', hammer);
-            p1.forEach(v => form.append('player1Scores', v));
-            p2.forEach(v => form.append('player2Scores', v));
+            appendGroupScoreFormFields(form, { hammer, p1, p2 });
             if (hasX) {
                 const ok = confirm('检测到X。是否验收？验收后不可再修改比分。');
                 if (!ok) return;
@@ -2064,41 +2377,72 @@
             }
             const csrf = getCsrf();
             if (csrf) form.append(csrf.name, csrf.value);
-            const res = await fetch(`/tournament/competition/match/save/${matchId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: form.toString()
-            });
-            const data = await res.json();
-            if (!data.ok) {
-                alert(data.message || '保存失败');
-                return;
+            _groupMatchScoreSubmitting = true;
+            const saveBtn = document.getElementById('groupSaveScoreBtn');
+            const acceptBtn = document.getElementById('groupAcceptScoreBtn');
+            if (saveBtn) saveBtn.disabled = true;
+            if (acceptBtn) acceptBtn.disabled = true;
+            try {
+                const res = await fetch(`/tournament/competition/match/save/${matchId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: form.toString()
+                });
+                const data = await res.json();
+                if (!data.ok) {
+                    alert(data.message || '保存失败');
+                    return;
+                }
+                location.reload();
+            } finally {
+                _groupMatchScoreSubmitting = false;
+                if (saveBtn) saveBtn.disabled = false;
+                if (acceptBtn) acceptBtn.disabled = false;
             }
-            location.reload();
         }
 
+        /** 验收前原子提交当前弹窗内的比分与开局后手，避免“只点验收、未先保存”或保存未完成导致数据未落库 */
         async function acceptGroupMatchScore() {
+            if (_groupMatchScoreSubmitting) return;
             const matchId = document.getElementById('groupMatchIdInput').value;
             const needSignature = currentMatchPhaseCode === 'QUALIFIER' || currentMatchPhaseCode === 'MAIN' || currentMatchPhaseCode === 'FINAL';
+            const { hammer, p1, p2 } = collectGroupMatchScorePayload();
+            const hasX = [...p1, ...p2].some(v => String(v).toUpperCase() === 'X');
+            if (hasX) {
+                const ok = confirm('检测到X。验收将锁定比分且不可再改，是否继续？');
+                if (!ok) return;
+            }
             if (needSignature && !currentSignatureData) {
                 alert('该阶段验收需手写签名，请先点击“手写电子签名”');
                 return;
             }
             const form = new URLSearchParams();
+            appendGroupScoreFormFields(form, { hammer, p1, p2 });
             if (currentSignatureData) form.append('signature', currentSignatureData);
             const csrf = getCsrf();
             if (csrf) form.append(csrf.name, csrf.value);
-            const res = await fetch(`/tournament/competition/match/accept/${matchId}`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: form.toString()
-            });
-            const data = await res.json();
-            if (!data.ok) {
-                alert(data.message || '验收失败');
-                return;
+            _groupMatchScoreSubmitting = true;
+            const saveBtn = document.getElementById('groupSaveScoreBtn');
+            const acceptBtn = document.getElementById('groupAcceptScoreBtn');
+            if (saveBtn) saveBtn.disabled = true;
+            if (acceptBtn) acceptBtn.disabled = true;
+            try {
+                const res = await fetch(`/tournament/competition/match/save-and-accept/${matchId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: form.toString()
+                });
+                const data = await res.json();
+                if (!data.ok) {
+                    alert(data.message || '验收失败');
+                    return;
+                }
+                location.reload();
+            } finally {
+                _groupMatchScoreSubmitting = false;
+                if (saveBtn) saveBtn.disabled = false;
+                if (acceptBtn) acceptBtn.disabled = false;
             }
-            location.reload();
         }
 
         function renderSaScoreRows(existing) {
@@ -2117,11 +2461,14 @@
                 p1Vals.push(existing && existing[i - 1] ? scoreCellTokenFromRow(existing[i - 1], 1) : '0');
                 p2Vals.push(existing && existing[i - 1] ? scoreCellTokenFromRow(existing[i - 1], 2) : '0');
             }
-            tbody.innerHTML = buildScoreRow(p1Name, p1Vals, n, 'sa-p1', 'sa-total-p1')
-                + buildScoreRow(p2Name, p2Vals, n, 'sa-p2', 'sa-total-p2');
+            tbody.innerHTML = buildScoreRow(p1Name, p1Vals, n, 'sa-p1', 'sa-total-p1', '1')
+                + buildScoreRow(p2Name, p2Vals, n, 'sa-p2', 'sa-total-p2', '2');
             bindScoreTotal('saScoreRows', 'sa-p1', 'sa-total-p1');
             bindScoreTotal('saScoreRows', 'sa-p2', 'sa-total-p2');
             bindXCutoffForceZeros('saScoreRows', 'sa-p1', 'sa-p2', 'sa-total-p1', 'sa-total-p2');
+            bindNameDoubleTapHammerToggle('saScoreRows', 'saFirstEndHammer');
+            bindHammerHighlightSync('saScoreRows', 'saFirstEndHammer');
+            refreshHammerNameHighlight('saScoreRows', 'saFirstEndHammer');
         }
 
         async function openSuperAdminScoreModal(btn) {
@@ -2232,17 +2579,19 @@
                 return await res.json();
             };
 
-            const formatTournamentRankingPlain = (data) => {
+            const formatTournamentRankingPlain = (data, mode) => {
                 const rankings = (data && data.rankings) ? data.rankings : [];
                 const matchDetails = (data && data.matchDetails) ? data.matchDetails : [];
                 const label = data && data.tournamentLabel ? data.tournamentLabel : '';
+                const includeMatches = mode !== 'rankingOnly';
                 const withdrawSuffix = username => `${username}（退赛（不计入排名））`;
                 const out = [`赛事排名（${label}）`];
                 for (const r of rankings) {
                     const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
-                    out.push(`${r.rank}. ${uname} - ${r.points}分`);
+                    const gor = (r.groupOverallRank != null && r.groupOverallRank !== '') ? String(r.groupOverallRank) : '-';
+                    out.push(`${r.rank}. ${uname} | 小组赛总排名: ${gor} | 积分: ${r.points}`);
                 }
-                if (matchDetails.length > 0) {
+                if (includeMatches && matchDetails.length > 0) {
                     out.push('');
                     out.push('===== 比赛明细 =====');
                     for (const m of matchDetails) {
@@ -2316,6 +2665,42 @@
                 return out.join('\n');
             };
 
+            const chooseFinalRankingExportMode = () => new Promise((resolve) => {
+                const modalEl = document.getElementById('finalRankingExportModeModal');
+                const rankingOnlyBtn = document.getElementById('finalRankingModeRankingOnlyBtn');
+                const fullBtn = document.getElementById('finalRankingModeFullBtn');
+                if (!modalEl || !rankingOnlyBtn || !fullBtn || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+                    resolve('full');
+                    return;
+                }
+                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+                let done = false;
+                const cleanup = () => {
+                    rankingOnlyBtn.removeEventListener('click', onRankingOnly);
+                    fullBtn.removeEventListener('click', onFull);
+                    modalEl.removeEventListener('hidden.bs.modal', onHidden);
+                };
+                const finish = (mode) => {
+                    if (done) return;
+                    done = true;
+                    cleanup();
+                    resolve(mode);
+                };
+                const onRankingOnly = () => {
+                    finish('rankingOnly');
+                    modal.hide();
+                };
+                const onFull = () => {
+                    finish('full');
+                    modal.hide();
+                };
+                const onHidden = () => finish(null);
+                rankingOnlyBtn.addEventListener('click', onRankingOnly);
+                fullBtn.addEventListener('click', onFull);
+                modalEl.addEventListener('hidden.bs.modal', onHidden);
+                modal.show();
+            });
+
             if (btn) btn.addEventListener('click', async () => {
                 const tid = btn.dataset.tournamentId;
                 if (!tid) return;
@@ -2323,7 +2708,9 @@
                     btn.disabled = true;
                     btn.style.opacity = '0.85';
                     const data = await fetchJson(`/ranking/api/tournament/${encodeURIComponent(tid)}/ranking`);
-                    await copyPlainTextToClipboard(formatTournamentRankingPlain(data));
+                    const mode = await chooseFinalRankingExportMode();
+                    if (!mode) return;
+                    await copyPlainTextToClipboard(formatTournamentRankingPlain(data, mode));
                     if (typeof showAlert === 'function') showAlert('复制成功', 'success');
                     else alert('复制成功');
                 } catch (e) {
@@ -2334,6 +2721,17 @@
                     btn.disabled = false;
                     btn.style.opacity = '';
                 }
+            });
+            const tournamentPdfLink = document.getElementById('tournamentPdfLink');
+            if (tournamentPdfLink) tournamentPdfLink.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const mode = await chooseFinalRankingExportMode();
+                if (!mode) return;
+                const base = tournamentPdfLink.dataset.pdfBase;
+                if (!base) return;
+                const includeMatchDetails = mode === 'full' ? 'true' : 'false';
+                const sep = base.includes('?') ? '&' : '?';
+                window.open(`${base}${sep}includeMatchDetails=${includeMatchDetails}`, '_blank');
             });
 
             const formatGroupRankingPlain = (data) => {
