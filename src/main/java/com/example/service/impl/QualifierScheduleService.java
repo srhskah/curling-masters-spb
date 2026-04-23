@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.entity.*;
 import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.service.*;
+import static com.example.service.impl.KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,9 +66,13 @@ public class QualifierScheduleService {
         if (q <= k) {
             return 0;
         }
+        // 仅清理“正赛资格赛”赛程，绝不影响“首轮淘汰赛附加资格赛”
         matchService.remove(Wrappers.<Match>lambdaQuery()
                 .eq(Match::getTournamentId, tournamentId)
-                .eq(Match::getPhaseCode, "QUALIFIER"));
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .and(qw -> qw.isNull(Match::getCreateSource)
+                        .or()
+                        .ne(Match::getCreateSource, SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)));
 
         int roundLabel = 1;
         int matchIdx = 1;
@@ -78,6 +83,8 @@ public class QualifierScheduleService {
             mch.setPhaseCode("QUALIFIER");
             mch.setQualifierRound(roundLabel);
             mch.setRound(roundLabel);
+            // 与「首轮淘汰赛附加资格赛」区分：正赛资格赛不打 createSource
+            mch.setCreateSource(null);
             mch.setPlayer1Id(qualifierUids.get(i));
             mch.setPlayer2Id(qualifierUids.get(i + 1));
             mch.setStatus((byte) 0);
@@ -94,6 +101,7 @@ public class QualifierScheduleService {
             mch.setPhaseCode("QUALIFIER");
             mch.setQualifierRound(roundLabel);
             mch.setRound(roundLabel);
+            mch.setCreateSource(null);
             mch.setPlayer1Id(bye);
             mch.setPlayer2Id(bye);
             mch.setWinnerId(bye);

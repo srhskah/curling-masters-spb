@@ -2,6 +2,7 @@ package com.example.controller;
 
 import com.example.entity.*;
 import com.example.service.*;
+import com.example.util.MatchPhaseClassifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -345,7 +346,7 @@ public class TournamentCompetitionController {
                                          @RequestParam(required = false) Boolean autoAccept,
                                          @RequestParam(required = false) String signature) {
         try {
-            competitionService.saveMatchScore(currentUser(), matchId, firstEndHammer, player1Scores, player2Scores, autoAccept, signature);
+            competitionService.saveMatchScore(currentUser(), matchId, firstEndHammer, player1Scores, player2Scores, autoAccept, signature, false);
             return Map.of("ok", true);
         } catch (Exception e) {
             return Map.of("ok", false, "message", e.getMessage());
@@ -361,7 +362,7 @@ public class TournamentCompetitionController {
                                                       @RequestParam List<String> player2Scores) {
         try {
             User cu = currentUser();
-            competitionService.saveMatchScore(cu, matchId, firstEndHammer, player1Scores, player2Scores, true, "SUPER_ADMIN_BYPASS");
+            competitionService.saveMatchScore(cu, matchId, firstEndHammer, player1Scores, player2Scores, true, "SUPER_ADMIN_BYPASS", false);
             Match m = matchService.getById(matchId);
             if (m != null) {
                 m.setResultLocked(true);
@@ -387,6 +388,21 @@ public class TournamentCompetitionController {
                                            @RequestParam(required = false) String signature) {
         try {
             competitionService.acceptMatchScore(currentUser(), matchId, signature);
+            return Map.of("ok", true);
+        } catch (Exception e) {
+            return Map.of("ok", false, "message", e.getMessage());
+        }
+    }
+
+    @PostMapping("/match/save-and-accept/{matchId}")
+    @ResponseBody
+    public Map<String, Object> saveAndAcceptMatch(@PathVariable Long matchId,
+                                                  @RequestParam(required = false) Integer firstEndHammer,
+                                                  @RequestParam List<String> player1Scores,
+                                                  @RequestParam List<String> player2Scores,
+                                                  @RequestParam(required = false) String signature) {
+        try {
+            competitionService.saveMatchScoreThenAccept(currentUser(), matchId, firstEndHammer, player1Scores, player2Scores, signature);
             return Map.of("ok", true);
         } catch (Exception e) {
             return Map.of("ok", false, "message", e.getMessage());
@@ -449,6 +465,7 @@ public class TournamentCompetitionController {
         // 显式构造局分 JSON，保证 player1IsX 等为布尔、避免仅实体序列化时字段缺失导致前端刷新后无法还原 X/先后手
         body.put("setScores", ss.stream().map(TournamentCompetitionController::toSetScoreView).toList());
         body.put("matchFirstEndHammer", m.getFirstEndHammer() == null ? null : m.getFirstEndHammer().intValue());
+        body.put("matchPhaseKind", MatchPhaseClassifier.classify(m));
         body.put("acceptances", acceptView);
         body.put("editLogs", logView);
         body.put("defaultSetCount", defaultSetCount);
