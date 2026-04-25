@@ -319,12 +319,18 @@
         <div class="match-card-pair-side flex-fill text-start rounded-2 px-2 py-2"
              th:classappend="${c.outcome == 'p1win'} ? ' match-card-pair-side--winner' : (${c.outcome == 'draw'} ? ' match-card-pair-side--draw')">
             <div class="fw-semibold text-truncate" th:text="${c.player1Name}">甲</div>
+            <div class="small text-muted lh-sm"
+                 th:if="${c.player1GroupRankBadge != null and !#strings.isEmpty(c.player1GroupRankBadge)}"
+                 th:text="${c.player1GroupRankBadge}">(12) A1</div>
             <div class="match-card-pair-score" th:text="${c.player1Total}">0</div>
         </div>
         <div class="match-card-pair-sep text-muted small align-self-center user-select-none">:</div>
         <div class="match-card-pair-side flex-fill text-end rounded-2 px-2 py-2"
              th:classappend="${c.outcome == 'p2win'} ? ' match-card-pair-side--winner' : (${c.outcome == 'draw'} ? ' match-card-pair-side--draw')">
             <div class="fw-semibold text-truncate" th:text="${c.player2Name}">乙</div>
+            <div class="small text-muted lh-sm"
+                 th:if="${c.player2GroupRankBadge != null and !#strings.isEmpty(c.player2GroupRankBadge)}"
+                 th:text="${c.player2GroupRankBadge}">(8) B2</div>
             <div class="match-card-pair-score" th:text="${c.player2Total}">0</div>
         </div>
     </div>

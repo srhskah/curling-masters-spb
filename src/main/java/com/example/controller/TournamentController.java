@@ -1330,7 +1330,7 @@ public class TournamentController {
                         .filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()))
                         .filter(m -> Objects.equals(m.getGroupId(), g.getId()))
                         .sorted(Comparator.comparing(Match::getRound, Comparator.nullsLast(Comparator.naturalOrder())))
-                        .map(m -> buildMatchCardForDetail(m, usernameById, scoresByMatchId, scoreDisplayByMatchId))
+                        .map(m -> buildMatchCardForDetail(m, usernameById, scoresByMatchId, scoreDisplayByMatchId, null))
                         .toList();
                 groupMatchCards.put(g.getId(), cards);
             }
@@ -1415,6 +1415,11 @@ public class TournamentController {
         Map<Long, String> scoreDisplayMap = (Map<Long, String>) model.asMap().get("scoreDisplayByMatchId");
         Map<Long, String> unameById = userService.list().stream()
                 .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        @SuppressWarnings("unchecked")
+        Map<Long, List<Map<String, Object>>> groupRankingByGroupIdForCards =
+                (Map<Long, List<Map<String, Object>>>) model.asMap().getOrDefault("groupRankingByGroupId", Map.of());
+        Map<Long, String> groupRankBadgeByUserIdForCards =
+                buildGroupRankBadgeByUserId(gorListForFinal, groupRankingByGroupIdForCards);
         TreeMap<Integer, List<Map<String, Object>>> knockoutCardsByRound = new TreeMap<>();
         TreeMap<Integer, List<Map<String, Object>>> qualifierCardsByRound = new TreeMap<>();
         TreeMap<Integer, List<Map<String, Object>>> knockoutQualifierCardsByRound = new TreeMap<>();
@@ -1425,7 +1430,7 @@ public class TournamentController {
             }
             if (pc != null && "QUALIFIER".equalsIgnoreCase(pc)) {
                 int qr = m.getQualifierRound() != null ? m.getQualifierRound() : (m.getRound() != null ? m.getRound() : 0);
-                Map<String, Object> card = buildMatchCardForDetail(m, unameById, scoresByMatchId, scoreDisplayMap);
+                Map<String, Object> card = buildMatchCardForDetail(m, unameById, scoresByMatchId, scoreDisplayMap, groupRankBadgeByUserIdForCards);
                 if (Objects.equals(m.getCreateSource(), com.example.service.impl.KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)) {
                     knockoutQualifierCardsByRound.computeIfAbsent(qr, k -> new ArrayList<>()).add(card);
                 } else {
@@ -1434,7 +1439,7 @@ public class TournamentController {
                 continue;
             }
             int r = m.getRound() == null ? 0 : m.getRound();
-            Map<String, Object> card = buildMatchCardForDetail(m, unameById, scoresByMatchId, scoreDisplayMap);
+            Map<String, Object> card = buildMatchCardForDetail(m, unameById, scoresByMatchId, scoreDisplayMap, groupRankBadgeByUserIdForCards);
             knockoutCardsByRound.computeIfAbsent(r, k -> new ArrayList<>()).add(card);
         }
         List<Map<String, Object>> knockoutMatchCards = knockoutCardsByRound.values().stream()
@@ -1582,7 +1587,7 @@ public class TournamentController {
             if (m == null) {
                 continue;
             }
-            mi.put("scoreCard", buildMatchCardForDetail(m, usernameById, scoresByMatchId, scoreDisplayAll));
+            mi.put("scoreCard", buildMatchCardForDetail(m, usernameById, scoresByMatchId, scoreDisplayAll, null));
         }
     }
 
@@ -1590,7 +1595,8 @@ public class TournamentController {
      * 赛事详情「比赛」卡片：总比分、是否已录入（非 0:0）、胜负/平局样式用 outcome。
      */
     private Map<String, Object> buildMatchCardForDetail(Match m, Map<Long, String> usernameById,
-            Map<Long, List<SetScore>> scoreByMatch, Map<Long, String> scoreDisplayMap) {
+            Map<Long, List<SetScore>> scoreByMatch, Map<Long, String> scoreDisplayMap,
+            Map<Long, String> groupRankBadgeByUserId) {
         List<SetScore> ss = scoreByMatch != null ? scoreByMatch.getOrDefault(m.getId(), List.of()) : List.of();
         int p1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
         int p2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
@@ -1613,9 +1619,48 @@ public class TournamentController {
         card.put("score", disp);
         card.put("player1Total", p1);
         card.put("player2Total", p2);
+        card.put("player1GroupRankBadge",
+                groupRankBadgeByUserId == null || m.getPlayer1Id() == null ? null : groupRankBadgeByUserId.get(m.getPlayer1Id()));
+        card.put("player2GroupRankBadge",
+                groupRankBadgeByUserId == null || m.getPlayer2Id() == null ? null : groupRankBadgeByUserId.get(m.getPlayer2Id()));
         card.put("completedNonZero", completedNonZero);
         card.put("outcome", outcome);
         return card;
+    }
+
+    private Map<Long, String> buildGroupRankBadgeByUserId(List<Map<String, Object>> groupOverallRanking,
+            Map<Long, List<Map<String, Object>>> groupRankingByGroupId) {
+        Map<Long, Integer> overallByUid = new HashMap<>();
+        for (Map<String, Object> row : groupOverallRanking == null ? List.<Map<String, Object>>of() : groupOverallRanking) {
+            Object uidObj = row.get("userId");
+            Object orObj = row.get("overallRank");
+            Long uid = uidObj instanceof Number ? ((Number) uidObj).longValue() : null;
+            Integer overall = orObj instanceof Number ? ((Number) orObj).intValue() : null;
+            if (uid != null && overall != null && overall > 0) {
+                overallByUid.put(uid, overall);
+            }
+        }
+        Map<Long, String> out = new HashMap<>();
+        for (List<Map<String, Object>> rows : groupRankingByGroupId == null ? List.<List<Map<String, Object>>>of() : groupRankingByGroupId.values()) {
+            for (Map<String, Object> row : rows) {
+                Object uidObj = row.get("userId");
+                Object grObj = row.get("groupRank");
+                Long uid = uidObj instanceof Number ? ((Number) uidObj).longValue() : null;
+                Integer groupRank = grObj instanceof Number ? ((Number) grObj).intValue() : null;
+                if (uid == null || groupRank == null || groupRank <= 0) {
+                    continue;
+                }
+                Integer overall = overallByUid.get(uid);
+                String groupName = String.valueOf(row.getOrDefault("groupName", ""));
+                String groupPrefix = groupName.endsWith("组") ? groupName.substring(0, groupName.length() - 1) : groupName;
+                if (groupPrefix.isBlank()) {
+                    groupPrefix = "-";
+                }
+                String badge = "(" + (overall != null ? overall : "-") + ") " + groupPrefix + groupRank;
+                out.putIfAbsent(uid, badge);
+            }
+        }
+        return out;
     }
 
     private Map<Long, String> buildScoreDisplayByMatchId(List<Match> matches) {

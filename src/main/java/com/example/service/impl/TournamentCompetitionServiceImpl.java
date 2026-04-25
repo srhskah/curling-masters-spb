@@ -62,8 +62,8 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         Long tid = form.getTournamentId();
         Tournament t = tournamentService.getById(tid);
         if (t == null) throw new IllegalStateException("赛事不存在");
-        if (t.getStatus() == null || (t.getStatus() != 0 && t.getStatus() != 1)) {
-            throw new IllegalStateException("仅筹备中或进行中赛事可使用此配置");
+        if (t.getStatus() == null || (t.getStatus() != 0 && t.getStatus() != 1 && t.getStatus() != 2)) {
+            throw new IllegalStateException("仅筹备中、进行中或已结束赛事可使用此配置");
         }
         if (!canManage(operator, tid)) throw new SecurityException("无权操作");
 
