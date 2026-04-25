@@ -369,7 +369,7 @@
             
             <!-- 小组赛抽签入口：位于详情页内容选择器上方 -->
             <div class="col-12 mt-4"
-                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1)
+                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1 or tournamentInfo.tournament.status == 2)
                          and competitionConfig != null and competitionConfig.matchMode == 3
                          and tournamentDrawMemberCount != null and tournamentDrawMemberCount == 0}">
                 <div class="card border-0 shadow-sm">
@@ -455,7 +455,7 @@
                         <div class="row g-4">
                             <!-- 筹备中/进行中：手动赛制配置与小组赛 -->
                             <div class="col-12"
-                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and (isSuperAdmin or isAdmin or isHost)}">
+                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1 or tournamentInfo.tournament.status == 2) and (isSuperAdmin or isAdmin or isHost)}">
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h5 class="mb-0 text-start"><i class="bi bi-sliders"></i> 赛事配置 </h5>
@@ -604,7 +604,7 @@
                             </div>
 
                             <div class="col-12"
-                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and competitionConfig != null and competitionConfig.matchMode == 3}">
+                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1 or tournamentInfo.tournament.status == 2) and competitionConfig != null and competitionConfig.matchMode == 3}">
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-header bg-info text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h5 class="mb-0 text-start"><i class="bi bi-diagram-3"></i> 小组名单与对阵</h5>
@@ -776,7 +776,7 @@
                             </div>
 
                             <div class="col-12"
-                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1) and competitionConfig != null and competitionConfig.matchMode == 3 and (isSuperAdmin or isAdmin or isHost)}">
+                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1 or tournamentInfo.tournament.status == 2) and competitionConfig != null and competitionConfig.matchMode == 3 and (isSuperAdmin or isAdmin or isHost)}">
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h5 class="mb-0 text-start"><i class="bi bi-trophy"></i> 淘汰赛</h5>
