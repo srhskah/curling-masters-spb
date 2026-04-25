@@ -938,13 +938,17 @@ public class KnockoutBracketService {
             int matchNo = 1;
             for (int h = 0; h < 2; h++) {
                 int lo = h == 0 ? 0 : halfCount;
-                TournamentGroup ga = groups.get(lo);
-                TournamentGroup gb = groups.get(lo + 1);
-                for (int[] pr : hx) {
-                    Long a = userAtGroupRank(gr, ga.getId(), pr[0]);
-                    Long b = userAtGroupRank(gr, gb.getId(), pr[1]);
-                    list.add(new PlannedKo(a, b, koRoundLabel(startField) + " 第" + matchNo + "场", h));
-                    matchNo++;
+                int hi = h == 0 ? halfCount : groups.size();
+                // 每个半区按“相邻两组”成对交叉（例如上半区 A-B、C-D；下半区 E-F、G-H）
+                for (int g = lo; g + 1 < hi; g += 2) {
+                    TournamentGroup ga = groups.get(g);
+                    TournamentGroup gb = groups.get(g + 1);
+                    for (int[] pr : hx) {
+                        Long a = userAtGroupRank(gr, ga.getId(), pr[0]);
+                        Long b = userAtGroupRank(gr, gb.getId(), pr[1]);
+                        list.add(new PlannedKo(a, b, koRoundLabel(startField) + " 第" + matchNo + "场", h));
+                        matchNo++;
+                    }
                 }
             }
             return list;
