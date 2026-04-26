@@ -47,4 +47,10 @@ public interface ITournamentCompetitionService {
      * 未晋级者、各轮落败者、奖牌赛结果等）。
      */
     void recomputeTournamentRankingPoints(Long tournamentId);
+
+    /**
+     * 按当前验收规则批量回补淘汰赛（MAIN/FINAL/KO_QUALIFIER）“已验收”状态。
+     * @return 本次由未验收 -> 已验收 的场次数
+     */
+    int recomputeKnockoutAcceptanceStates(User operator, Long tournamentId);
 }

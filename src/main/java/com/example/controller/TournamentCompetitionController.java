@@ -123,6 +123,18 @@ public class TournamentCompetitionController {
         return "redirect:/tournament/detail/" + tournamentId;
     }
 
+    @PostMapping("/knockout/recompute-acceptance/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    public String recomputeKnockoutAcceptance(@PathVariable Long tournamentId, RedirectAttributes ra) {
+        try {
+            int n = competitionService.recomputeKnockoutAcceptanceStates(currentUser(), tournamentId);
+            ra.addFlashAttribute("message", "已按当前规则回补淘汰赛验收状态，新增“已验收” " + n + " 场");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/tournament/detail/" + tournamentId;
+    }
+
     @GetMapping("/knockout/manual/{tournamentId}")
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
     public String knockoutManualPage(@PathVariable Long tournamentId, org.springframework.ui.Model model, RedirectAttributes ra) {

@@ -794,6 +794,43 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         recomputeTournamentPointsByProgress(tournamentId, cfg);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int recomputeKnockoutAcceptanceStates(User operator, Long tournamentId) {
+        if (tournamentId == null) {
+            throw new IllegalArgumentException("缺少赛事ID");
+        }
+        if (!canManage(operator, tournamentId)) {
+            throw new SecurityException("无权操作");
+        }
+        List<Match> matches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .list();
+        int changed = 0;
+        for (Match m : matches) {
+            if (!isKnockoutOrKoQualifierPhase(m)) {
+                continue;
+            }
+            boolean completed = isAcceptanceCompleted(m);
+            if (!completed) {
+                continue;
+            }
+            if (Boolean.TRUE.equals(m.getResultLocked())) {
+                continue;
+            }
+            m.setResultLocked(true);
+            m.setAcceptedByUserId(operator != null ? operator.getId() : null);
+            m.setAcceptedAt(LocalDateTime.now());
+            m.setUpdatedAt(LocalDateTime.now());
+            matchService.updateById(m);
+            knockoutBracketService.onKnockoutMatchLocked(operator, m);
+            changed++;
+        }
+        TournamentCompetitionConfig cfg = getConfig(tournamentId);
+        recomputeTournamentPointsByProgress(tournamentId, cfg);
+        return changed;
+    }
+
     private void autoAwardPointsForNonKnockoutPlayers(Long tournamentId, TournamentCompetitionConfig cfg) {
         recomputeTournamentPointsByProgress(tournamentId, cfg);
     }
@@ -1158,14 +1195,29 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             if (staffAccepted) return true;
             return p1Accepted && p2Accepted;
         }
-        // 淘汰赛（MAIN/FINAL）及首轮挂载的淘汰赛资格赛（KO_QUALIFIER）：若比分修改记录显示「仅办赛人员」曾录入/修改局分，
-        // 则不要求双方选手验收——任一办赛人员验收即视为本场已验收。
-        if (isKnockoutOrKoQualifierPhase(match)
-                && onlyStaffEditorsInScoreEditLog(match.getTournamentId(), match.getId())) {
-            return acceptedUserIds.stream()
-                    .map(userService::getById)
-                    .filter(Objects::nonNull)
-                    .anyMatch(u -> isStaff(u, match.getTournamentId()));
+        // 淘汰赛（MAIN/FINAL）及首轮挂载的淘汰赛资格赛（KO_QUALIFIER）验收规则：
+        // 1) 仅办赛人员录分（比分修改记录）：需 >=1 名办赛人员验收；
+        // 2) 若交战双方之一录分：需“录分者本人验收” + “>=1 名办赛人员验收”；
+        // 3) 其余情况沿用原规则（双方验收 + 办赛约束）。
+        if (isKnockoutOrKoQualifierPhase(match)) {
+            ScoreEditAcceptanceRule rule = resolveScoreEditAcceptanceRule(match.getTournamentId(), match);
+            if (rule == ScoreEditAcceptanceRule.STAFF_ONLY_EDITED) {
+                return acceptedUserIds.stream()
+                        .map(userService::getById)
+                        .filter(Objects::nonNull)
+                        .anyMatch(u -> isStaff(u, match.getTournamentId()));
+            }
+            if (rule == ScoreEditAcceptanceRule.PARTICIPANT_EDITED) {
+                boolean staffAccepted = acceptedUserIds.stream()
+                        .map(userService::getById)
+                        .filter(Objects::nonNull)
+                        .anyMatch(u -> isStaff(u, match.getTournamentId()));
+                if (!staffAccepted) {
+                    return false;
+                }
+                Set<Long> participantEditors = scoreEditParticipantEditors(match.getId(), match.getPlayer1Id(), match.getPlayer2Id());
+                return participantEditors.stream().anyMatch(acceptedUserIds::contains);
+            }
         }
         if (!p1Accepted || !p2Accepted) return false;
         Tournament t = tournamentService.getById(match.getTournamentId());
@@ -1200,33 +1252,69 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
     }
 
     /**
-     * 本场存在比分修改记录，且每条记录的编辑者均为办赛人员（超管/管理员/主办）。
-     * 若无任何修改记录，则无法据此认定「仅办赛录分」，返回 false，沿用原双方+办赛验收规则。
+     * 淘汰赛验收判定用：根据比分修改记录判断是“仅办赛录分”还是“交战双方有人录分”。
      */
-    private boolean onlyStaffEditorsInScoreEditLog(Long tournamentId, Long matchId) {
-        if (tournamentId == null || matchId == null) {
-            return false;
+    private ScoreEditAcceptanceRule resolveScoreEditAcceptanceRule(Long tournamentId, Match match) {
+        if (tournamentId == null || match == null || match.getId() == null) {
+            return ScoreEditAcceptanceRule.NONE;
+        }
+        List<MatchScoreEditLog> logs = matchScoreEditLogMapper.selectList(Wrappers.<MatchScoreEditLog>lambdaQuery()
+                .eq(MatchScoreEditLog::getMatchId, match.getId())
+                .orderByAsc(MatchScoreEditLog::getId));
+        if (logs == null || logs.isEmpty()) {
+            return ScoreEditAcceptanceRule.NONE;
+        }
+        Set<Long> editors = new LinkedHashSet<>();
+        boolean hasParticipantEditor = false;
+        for (MatchScoreEditLog log : logs) {
+            if (log.getEditorUserId() == null) {
+                return ScoreEditAcceptanceRule.NONE;
+            }
+            Long editorId = log.getEditorUserId();
+            editors.add(editorId);
+            if (Objects.equals(editorId, match.getPlayer1Id()) || Objects.equals(editorId, match.getPlayer2Id())) {
+                hasParticipantEditor = true;
+            }
+        }
+        if (hasParticipantEditor) {
+            return ScoreEditAcceptanceRule.PARTICIPANT_EDITED;
+        }
+        for (Long uid : editors) {
+            User u = userService.getById(uid);
+            if (u == null || !isStaff(u, tournamentId)) {
+                return ScoreEditAcceptanceRule.NONE;
+            }
+        }
+        return ScoreEditAcceptanceRule.STAFF_ONLY_EDITED;
+    }
+
+    private Set<Long> scoreEditParticipantEditors(Long matchId, Long player1Id, Long player2Id) {
+        if (matchId == null) {
+            return Set.of();
         }
         List<MatchScoreEditLog> logs = matchScoreEditLogMapper.selectList(Wrappers.<MatchScoreEditLog>lambdaQuery()
                 .eq(MatchScoreEditLog::getMatchId, matchId)
                 .orderByAsc(MatchScoreEditLog::getId));
         if (logs == null || logs.isEmpty()) {
-            return false;
+            return Set.of();
         }
-        Set<Long> editors = new LinkedHashSet<>();
+        Set<Long> out = new LinkedHashSet<>();
         for (MatchScoreEditLog log : logs) {
-            if (log.getEditorUserId() == null) {
-                return false;
+            Long editorId = log.getEditorUserId();
+            if (editorId == null) {
+                continue;
             }
-            editors.add(log.getEditorUserId());
-        }
-        for (Long uid : editors) {
-            User u = userService.getById(uid);
-            if (u == null || !isStaff(u, tournamentId)) {
-                return false;
+            if (Objects.equals(editorId, player1Id) || Objects.equals(editorId, player2Id)) {
+                out.add(editorId);
             }
         }
-        return true;
+        return out;
+    }
+
+    private enum ScoreEditAcceptanceRule {
+        NONE,
+        STAFF_ONLY_EDITED,
+        PARTICIPANT_EDITED
     }
 
     private boolean requiresSignature(Match match) {
