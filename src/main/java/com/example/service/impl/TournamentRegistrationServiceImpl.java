@@ -5,10 +5,13 @@ import com.example.dto.TournamentRegistrationPreviewDto;
 import com.example.dto.TournamentRegistrationRowDto;
 import com.example.dto.RankingEntry;
 import com.example.entity.*;
+import com.example.mapper.TournamentGroupMapper;
+import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.mapper.TournamentRegistrationMapper;
 import com.example.mapper.TournamentRegistrationSettingMapper;
 import com.example.service.*;
+import com.example.service.impl.KnockoutBracketService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +47,16 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     private TournamentCompetitionConfigMapper competitionConfigMapper;
     @Autowired
     private TournamentRankingRosterService tournamentRankingRosterService;
+    @Autowired
+    private TournamentGroupMapper groupMapper;
+    @Autowired
+    private TournamentGroupMemberMapper groupMemberMapper;
+    @Autowired
+    private IMatchService matchService;
+    @Autowired
+    private ISetScoreService setScoreService;
+    @Autowired
+    private GroupRankingCalculator groupRankingCalculator;
 
     @Override
     public TournamentRegistrationSetting getSetting(Long tournamentId) {
@@ -413,8 +426,8 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
             Long otherTid = s.getBanOtherTournamentId();
             Integer otherTop = s.getBanOtherTournamentTop();
             if (otherTid != null && otherTop != null && otherTop > 0) {
-                Integer rnk = getUserRankInTournament(userId, otherTid);
-                if (rnk != null && rnk <= otherTop) {
+                Set<Long> bannedByOtherTournament = getBannedUsersByTournamentProgress(otherTid, otherTop);
+                if (bannedByOtherTournament.contains(userId)) {
                     return "您在指定参照赛事中排名前 " + otherTop + " ，禁止报名";
                 }
             }
@@ -681,17 +694,245 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         return null;
     }
 
-    private Integer getUserRankInTournament(Long userId, Long tournamentId) {
-        List<UserTournamentPoints> list = tournamentRankingRosterService.filterUtpsForDisplay(tournamentId,
-                userTournamentPointsService.lambdaQuery()
-                        .eq(UserTournamentPoints::getTournamentId, tournamentId)
-                        .orderByDesc(UserTournamentPoints::getPoints)
-                        .list());
-        for (int i = 0; i < list.size(); i++) {
-            if (userId.equals(list.get(i).getUserId())) {
-                return i + 1;
+    private Set<Long> getBannedUsersByTournamentProgress(Long tournamentId, int k) {
+        if (tournamentId == null || k < 1) {
+            return Set.of();
+        }
+        TournamentCompetitionConfig cfg = competitionConfigMapper.selectById(tournamentId);
+        if (cfg == null || cfg.getKnockoutStartRound() == null) {
+            return Set.of();
+        }
+        List<Long> overallRanked = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
+        if (overallRanked.isEmpty()) {
+            return Set.of();
+        }
+        Map<Long, Integer> overallOrder = new HashMap<>();
+        for (int i = 0; i < overallRanked.size(); i++) {
+            overallOrder.put(overallRanked.get(i), i);
+        }
+
+        int startRound = cfg.getKnockoutStartRound();
+        Integer stageRound = resolveCurrentMainRound(tournamentId, startRound);
+        if (stageRound == null) {
+            return Set.of();
+        }
+        int l = stageRound;
+        if (l > k) {
+            return Set.of();
+        }
+
+        List<Match> roundMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, stageRound)
+                .orderByAsc(Match::getId)
+                .list();
+        if (roundMatches.isEmpty()) {
+            return Set.of();
+        }
+        boolean firstRound = stageRound == startRound;
+        List<Match> mountedQualifiers = listMountedKoQualifiers(tournamentId);
+        boolean firstRoundWithMountedQualifier = firstRound && !mountedQualifiers.isEmpty();
+
+        LinkedHashSet<Long> roundPlayers = collectRoundPlayers(roundMatches);
+        LinkedHashSet<Long> qualifierPlayers = firstRoundWithMountedQualifier
+                ? collectRoundPlayers(mountedQualifiers)
+                : new LinkedHashSet<>();
+        LinkedHashSet<Long> winners = collectLockedWinners(roundMatches);
+        LinkedHashSet<Long> losers = collectLockedLosers(roundMatches);
+        boolean allRoundLocked = roundMatches.stream()
+                .allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null);
+
+        LinkedHashSet<Long> banned = new LinkedHashSet<>();
+
+        if (2 * l < k) { // L < 0.5K
+            if (firstRoundWithMountedQualifier) {
+                banned.addAll(roundPlayers);
+                banned.addAll(qualifierPlayers);
+            } else {
+                banned.addAll(roundPlayers);
+                int extra = k - 2 * l;
+                if (extra > 0) {
+                    List<Long> notIntoThisRound = overallRanked.stream()
+                            .filter(uid -> uid != null && !roundPlayers.contains(uid) && !qualifierPlayers.contains(uid))
+                            .toList();
+                    banned.addAll(takeTopByOverallRank(notIntoThisRound, extra, overallOrder));
+                }
+            }
+            return banned;
+        }
+
+        if (2 * l == k) { // L = 0.5K
+            banned.addAll(roundPlayers);
+            if (firstRoundWithMountedQualifier) {
+                banned.addAll(qualifierPlayers);
+            }
+            return banned;
+        }
+
+        if (l < k) { // 0.5K < L < K
+            banned.addAll(winners);
+            if (allRoundLocked) {
+                int extra = k - l;
+                if (extra > 0) {
+                    banned.addAll(takeTopByOverallRank(new ArrayList<>(losers), extra, overallOrder));
+                }
+            }
+            return banned;
+        }
+
+        // L == K
+        banned.addAll(winners);
+        return banned;
+    }
+
+    private Integer resolveCurrentMainRound(Long tournamentId, int startRound) {
+        for (int round = startRound; round >= 1; round = KnockoutBracketService.nextKnockoutRoundField(round)) {
+            List<Match> oneRound = matchService.lambdaQuery()
+                    .eq(Match::getTournamentId, tournamentId)
+                    .eq(Match::getPhaseCode, "MAIN")
+                    .eq(Match::getRound, round)
+                    .list();
+            if (oneRound.isEmpty()) {
+                continue;
+            }
+            boolean allLocked = oneRound.stream()
+                    .allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null);
+            if (!allLocked) {
+                return round;
+            }
+            if (round == 1) {
+                return 1;
             }
         }
         return null;
+    }
+
+    private List<Match> listMountedKoQualifiers(Long tournamentId) {
+        return matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .eq(Match::getCreateSource, KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)
+                .orderByAsc(Match::getId)
+                .list();
+    }
+
+    private LinkedHashSet<Long> collectRoundPlayers(List<Match> matches) {
+        LinkedHashSet<Long> players = new LinkedHashSet<>();
+        if (matches == null || matches.isEmpty()) {
+            return players;
+        }
+        for (Match m : matches) {
+            if (m.getPlayer1Id() != null) {
+                players.add(m.getPlayer1Id());
+            }
+            if (m.getPlayer2Id() != null) {
+                players.add(m.getPlayer2Id());
+            }
+        }
+        return players;
+    }
+
+    private LinkedHashSet<Long> collectLockedWinners(List<Match> matches) {
+        LinkedHashSet<Long> winners = new LinkedHashSet<>();
+        if (matches == null || matches.isEmpty()) {
+            return winners;
+        }
+        for (Match m : matches) {
+            if (Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null) {
+                winners.add(m.getWinnerId());
+            }
+        }
+        return winners;
+    }
+
+    private LinkedHashSet<Long> collectLockedLosers(List<Match> matches) {
+        LinkedHashSet<Long> losers = new LinkedHashSet<>();
+        if (matches == null || matches.isEmpty()) {
+            return losers;
+        }
+        for (Match m : matches) {
+            if (!Boolean.TRUE.equals(m.getResultLocked()) || m.getWinnerId() == null) {
+                continue;
+            }
+            Long loser = loserOf(m);
+            if (loser != null) {
+                losers.add(loser);
+            }
+        }
+        return losers;
+    }
+
+    private Long loserOf(Match m) {
+        if (m == null || m.getWinnerId() == null) {
+            return null;
+        }
+        if (Objects.equals(m.getWinnerId(), m.getPlayer1Id())) {
+            return m.getPlayer2Id();
+        }
+        if (Objects.equals(m.getWinnerId(), m.getPlayer2Id())) {
+            return m.getPlayer1Id();
+        }
+        return null;
+    }
+
+    private List<Long> takeTopByOverallRank(List<Long> userIds, int limit, Map<Long, Integer> overallOrder) {
+        if (userIds == null || userIds.isEmpty() || limit <= 0) {
+            return List.of();
+        }
+        return userIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted(Comparator
+                        .comparingInt((Long uid) -> overallOrder.getOrDefault(uid, Integer.MAX_VALUE))
+                        .thenComparingLong(Long::longValue))
+                .limit(limit)
+                .toList();
+    }
+
+    private List<Long> loadOverallRankedUserIdsFromGroups(Long tournamentId, TournamentCompetitionConfig cfg) {
+        List<TournamentGroup> groups = groupMapper.selectList(Wrappers.<TournamentGroup>lambdaQuery()
+                .eq(TournamentGroup::getTournamentId, tournamentId)
+                .orderByAsc(TournamentGroup::getGroupOrder));
+        if (groups.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, List<Long>> memberIdsByGroup = new LinkedHashMap<>();
+        for (TournamentGroup g : groups) {
+            List<Long> uids = groupMemberMapper.selectList(Wrappers.<TournamentGroupMember>lambdaQuery()
+                            .eq(TournamentGroupMember::getTournamentId, tournamentId)
+                            .eq(TournamentGroupMember::getGroupId, g.getId()))
+                    .stream()
+                    .map(TournamentGroupMember::getUserId)
+                    .filter(Objects::nonNull)
+                    .toList();
+            memberIdsByGroup.put(g.getId(), uids);
+        }
+        Map<Long, String> uname = userService.list().stream()
+                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        List<Match> matches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .list();
+        List<Long> mids = matches.stream()
+                .map(Match::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        Map<Long, List<SetScore>> scoreByMatch = mids.isEmpty() ? Map.of() : setScoreService.lambdaQuery()
+                .in(SetScore::getMatchId, mids)
+                .list()
+                .stream()
+                .collect(Collectors.groupingBy(SetScore::getMatchId));
+        Map<Long, List<Map<String, Object>>> byGroup = groupRankingCalculator.buildGroupRankingsByMemberIds(
+                groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg);
+        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byGroup);
+        List<Long> out = new ArrayList<>();
+        for (Map<String, Object> row : overall) {
+            Long uid = (Long) row.get("userId");
+            if (uid != null) {
+                out.add(uid);
+            }
+        }
+        return out;
     }
 }
