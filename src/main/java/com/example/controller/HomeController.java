@@ -134,6 +134,11 @@ public class HomeController {
 
         List<Tournament> openReg = tournamentRegistrationService.listOpenRegistrationTournaments(12, LocalDateTime.now());
         model.addAttribute("openRegistrationTournaments", openReg);
+        Set<Long> openRegistrationTournamentIds = openReg.stream()
+                .map(Tournament::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        model.addAttribute("openRegistrationTournamentIds", openRegistrationTournamentIds);
 
         // 首页入口：当前赛季 / 当前系列
         model.addAttribute("currentSeasonEntryUrl", currentSeason != null ? ("/season/detail/" + currentSeason.getId()) : null);
