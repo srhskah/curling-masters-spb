@@ -798,6 +798,11 @@
                                                 onclick="openKoManualModal(this)">
                                             <i class="bi bi-ui-checks-grid"></i> 手动排签首轮（默认模式0）
                                         </button>
+                                        <form class="d-inline me-2" th:action="@{/tournament/competition/knockout/recompute-acceptance/{id}(id=${tournamentInfo.tournament.id})}" method="post"
+                                              onsubmit="return confirm('确定按当前规则批量重算本赛事淘汰赛验收状态？');">
+                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <button type="submit" class="btn btn-outline-warning btn-sm"><i class="bi bi-arrow-repeat"></i> 重算淘汰赛验收状态</button>
+                                        </form>
                                         <form class="d-inline" th:action="@{/tournament/competition/knockout/clear/{id}(id=${tournamentInfo.tournament.id})}" method="post"
                                               onsubmit="return confirm('确定删除本赛事全部淘汰赛（MAIN/FINAL）场次？');">
                                             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
