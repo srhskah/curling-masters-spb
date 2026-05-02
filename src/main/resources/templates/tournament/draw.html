@@ -416,10 +416,26 @@
         }
         html += '</div>';
         if (draw && draw.status) {
-            html = '<p class="small text-muted mb-2">状态：<strong>' + escapeHtml(draw.status) + '</strong>'
+            html = '<p class="small text-muted mb-2">状态：<strong>' + escapeHtml(drawStatusLabel(draw.status)) + '</strong>'
                 + ' · 已录入 <strong>' + (data.drawnPlayers || 0) + '</strong> / ' + (data.totalPlayers || 0) + '</p>' + html;
         }
         container.innerHTML = html;
+    }
+
+    function drawStatusLabel(status) {
+        const key = status == null ? '' : String(status).toUpperCase();
+        switch (key) {
+            case 'PENDING':
+                return '待开始';
+            case 'IN_PROGRESS':
+                return '进行中';
+            case 'COMPLETED':
+                return '已完成';
+            case 'CANCELLED':
+                return '已取消';
+            default:
+                return status == null ? '' : String(status);
+        }
     }
 
     function escapeHtml(s) {

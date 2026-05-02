@@ -4,6 +4,7 @@ import com.example.entity.*;
 import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.service.*;
 import com.example.util.HtmlEscaper;
+import com.example.util.TournamentPlacementListOrder;
 import com.example.util.IpAddressUtil;
 import com.example.util.MatchPhaseClassifier;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,6 +47,7 @@ public class TournamentController {
     @Autowired private com.example.service.impl.DrawManagementService drawManagementService;
     @Autowired private com.example.service.TournamentDrawAuthHelper tournamentDrawAuthHelper;
     @Autowired private com.example.service.impl.TournamentRankingRosterService tournamentRankingRosterService;
+    @Autowired private com.example.mapper.TournamentDisqualificationMapper tournamentDisqualificationMapper;
 
     private boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -1137,16 +1139,19 @@ public class TournamentController {
                 .collect(Collectors.groupingBy(SetScore::getMatchId, LinkedHashMap::new, Collectors.toList()));
         attachScoreCardsToMatchInfoList(matchInfoList, scoresByMatchId);
         
-        List<UserTournamentPoints> rankings = tournamentRankingRosterService.filterUtpsForDisplay(id,
+        List<UserTournamentPoints> rankings = new ArrayList<>(tournamentRankingRosterService.filterUtpsForDisplay(id,
                 userTournamentPointsService.lambdaQuery()
                         .eq(UserTournamentPoints::getTournamentId, id)
                         .orderByDesc(UserTournamentPoints::getPoints)
-                        .list());
+                        .list()));
+        Map<Long, Integer> placementRanks = tournamentCompetitionService.getProgressSettledPlacementRanks(id);
+        TournamentPlacementListOrder.sortUtpsByPlacementThenPoints(rankings, placementRanks);
         List<Map<String, Object>> rankingInfoList = new ArrayList<>();
         for (UserTournamentPoints utp : rankings) {
             Map<String, Object> rankingInfo = new HashMap<>();
             rankingInfo.put("ranking", utp);
-            
+            rankingInfo.put("displayRank", TournamentPlacementListOrder.rowRankForApi(utp, placementRanks));
+
             if (utp.getUserId() == null) {
                 rankingInfo.put("userName", "退赛");
                 rankingInfo.put("isWithdrawn", true);
@@ -1156,7 +1161,7 @@ public class TournamentController {
                 rankingInfo.put("userName", username);
                 rankingInfo.put("isWithdrawn", "退赛".equals(username));
             }
-            
+
             rankingInfoList.add(rankingInfo);
         }
         
@@ -1354,8 +1359,11 @@ public class TournamentController {
                     ? competitionConfig.getGroupStageSets() : 8;
             groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
                     groups, groupRankingByGroupId, groupMatchesOnly, scoresByMatchId, Map.of(), usernameById, allowDrawForPseudo, regularSetsForPseudo);
+            Map<Long, String> dqReasonByUserId = loadEffectiveDisqualificationReasonByUserId(id);
+            applyDisqualificationBottomInGroupRanking(groupRankingByGroupId, dqReasonByUserId);
             model.addAttribute("groupRankingByGroupId", groupRankingByGroupId);
             List<Map<String, Object>> groupOverallRanking = groupRankingCalculator.buildOverallRanking(groupRankingByGroupId);
+            applyDisqualificationBottomInOverallRanking(groupOverallRanking, dqReasonByUserId);
             Map<Long, Integer> overallRankByUserId = groupOverallRanking.stream()
                     .filter(r -> r.get("userId") != null)
                     .collect(Collectors.toMap(r -> (Long) r.get("userId"), r -> (Integer) r.get("overallRank"), (a, b) -> a));
@@ -1366,6 +1374,8 @@ public class TournamentController {
                 }
             }
             model.addAttribute("groupOverallRanking", groupOverallRanking);
+            model.addAttribute("disqualifiedReasonByUserId", dqReasonByUserId);
+            model.addAttribute("disqualificationRows", tournamentCompetitionService.listGroupDisqualifications(id));
             model.addAttribute("tournamentDrawMemberCount", drawManagementService.countGroupMembers(id));
             User drawViewer = getCurrentUser();
             model.addAttribute("canManageTournamentDraw",
@@ -1379,6 +1389,8 @@ public class TournamentController {
             model.addAttribute("groupMatchCards", Map.of());
             model.addAttribute("groupRankingByGroupId", Map.of());
             model.addAttribute("groupOverallRanking", List.of());
+            model.addAttribute("disqualifiedReasonByUserId", Map.of());
+            model.addAttribute("disqualificationRows", List.of());
             model.addAttribute("tournamentDrawMemberCount", null);
             model.addAttribute("canManageTournamentDraw", false);
         }
@@ -1559,6 +1571,82 @@ public class TournamentController {
         model.addAttribute("competitionMatchTabs", competitionMatchTabs);
 
         return "tournament-detail";
+    }
+
+    private Map<Long, String> loadEffectiveDisqualificationReasonByUserId(Long tournamentId) {
+        if (tournamentId == null) {
+            return Map.of();
+        }
+        return tournamentDisqualificationMapper.selectList(
+                        com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentDisqualification>lambdaQuery()
+                                .eq(TournamentDisqualification::getTournamentId, tournamentId)
+                                .eq(TournamentDisqualification::getEffective, true))
+                .stream()
+                .filter(dq -> dq.getUserId() != null)
+                .collect(Collectors.toMap(
+                        TournamentDisqualification::getUserId,
+                        dq -> dq.getReason() == null ? "" : dq.getReason(),
+                        (a, b) -> a
+                ));
+    }
+
+    private void applyDisqualificationBottomInGroupRanking(Map<Long, List<Map<String, Object>>> groupRankingByGroupId,
+                                                           Map<Long, String> dqReasonByUserId) {
+        if (groupRankingByGroupId == null || groupRankingByGroupId.isEmpty() || dqReasonByUserId == null || dqReasonByUserId.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<Long, List<Map<String, Object>>> e : groupRankingByGroupId.entrySet()) {
+            List<Map<String, Object>> rows = e.getValue();
+            if (rows == null || rows.isEmpty()) {
+                continue;
+            }
+            List<Map<String, Object>> normal = new ArrayList<>();
+            List<Map<String, Object>> dq = new ArrayList<>();
+            for (Map<String, Object> row : rows) {
+                Long uid = row.get("userId") instanceof Number ? ((Number) row.get("userId")).longValue() : null;
+                boolean isDq = uid != null && dqReasonByUserId.containsKey(uid);
+                row.put("disqualified", isDq);
+                row.put("disqualifiedReason", isDq ? dqReasonByUserId.get(uid) : null);
+                if (isDq) {
+                    dq.add(row);
+                } else {
+                    normal.add(row);
+                }
+            }
+            List<Map<String, Object>> merged = new ArrayList<>(rows.size());
+            merged.addAll(normal);
+            merged.addAll(dq);
+            for (int i = 0; i < merged.size(); i++) {
+                merged.get(i).put("groupRank", i + 1);
+            }
+            e.setValue(merged);
+        }
+    }
+
+    private void applyDisqualificationBottomInOverallRanking(List<Map<String, Object>> overallRows,
+                                                             Map<Long, String> dqReasonByUserId) {
+        if (overallRows == null || overallRows.isEmpty() || dqReasonByUserId == null || dqReasonByUserId.isEmpty()) {
+            return;
+        }
+        List<Map<String, Object>> normal = new ArrayList<>();
+        List<Map<String, Object>> dq = new ArrayList<>();
+        for (Map<String, Object> row : overallRows) {
+            Long uid = row.get("userId") instanceof Number ? ((Number) row.get("userId")).longValue() : null;
+            boolean isDq = uid != null && dqReasonByUserId.containsKey(uid);
+            row.put("disqualified", isDq);
+            row.put("disqualifiedReason", isDq ? dqReasonByUserId.get(uid) : null);
+            if (isDq) {
+                dq.add(row);
+            } else {
+                normal.add(row);
+            }
+        }
+        overallRows.clear();
+        overallRows.addAll(normal);
+        overallRows.addAll(dq);
+        for (int i = 0; i < overallRows.size(); i++) {
+            overallRows.get(i).put("overallRank", i + 1);
+        }
     }
 
     /**
