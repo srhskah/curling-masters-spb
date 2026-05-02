@@ -75,12 +75,12 @@
             <tr>
                 <td><span th:text="${m.player1Name}">选手1</span><span th:if="${m.firstHammerName == m.player1Name}"> 🔨</span></td>
                 <td th:each="s : ${m.sets}" th:text="${s.player1ScoreText}">0</td>
-                <td th:text="${m.score}">0:0</td>
+                <td th:text="${m['player1Total'] != null ? m['player1Total'] : 0}">0</td>
             </tr>
             <tr>
                 <td><span th:text="${m.player2Name}">选手2</span><span th:if="${m.firstHammerName == m.player2Name}"> 🔨</span></td>
                 <td th:each="s : ${m.sets}" th:text="${s.player2ScoreText}">0</td>
-                <td th:text="${m.score}">0:0</td>
+                <td th:text="${m['player2Total'] != null ? m['player2Total'] : 0}">0</td>
             </tr>
             </tbody>
         </table>
@@ -107,12 +107,12 @@
         <tr>
             <td><span th:text="${m.player1Name}">选手1</span><span th:if="${m.firstHammerName == m.player1Name}"> 🔨</span></td>
             <td th:each="s : ${m.sets}" th:text="${s.player1ScoreText}">0</td>
-            <td th:text="${m.score}">0:0</td>
+            <td th:text="${m['player1Total'] != null ? m['player1Total'] : 0}">0</td>
         </tr>
         <tr>
             <td><span th:text="${m.player2Name}">选手2</span><span th:if="${m.firstHammerName == m.player2Name}"> 🔨</span></td>
             <td th:each="s : ${m.sets}" th:text="${s.player2ScoreText}">0</td>
-            <td th:text="${m.score}">0:0</td>
+            <td th:text="${m['player2Total'] != null ? m['player2Total'] : 0}">0</td>
         </tr>
         </tbody>
     </table>

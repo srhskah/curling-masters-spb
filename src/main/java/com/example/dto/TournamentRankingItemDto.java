@@ -1,6 +1,9 @@
 package com.example.dto;
 
 public class TournamentRankingItemDto {
+    /**
+     * 与办赛分步赋分一致的名次（1 最好）；0 表示尚未定名次（仍在争冠）；退赛行亦为 0，请结合 {@link #withdrawn}。
+     */
     private int rank;
     private String username;
     private int points;

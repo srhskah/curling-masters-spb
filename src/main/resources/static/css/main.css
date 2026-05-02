@@ -173,6 +173,15 @@ body {
     color: #333;
 }
 
+.modal-dialog{
+    top:4.5em !important;
+    z-index: 1919810 !important;
+}
+
+span#groupRankQualificationBadge {
+    color: #000 !important;
+}
+
 /* 全局整体下移 2em：除顶部导航栏外（避免影响 fixed 定位弹窗/侧栏等） */
 /* body > *:not(.navbar):not(nav.navbar)
     :not(.modal):not(.modal-dialog):not(.offcanvas):not(.dropdown-menu):not(.cookie-banner):not(#backToTopBtn) {

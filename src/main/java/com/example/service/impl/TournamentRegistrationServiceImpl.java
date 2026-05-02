@@ -13,6 +13,7 @@ import com.example.mapper.TournamentRegistrationSettingMapper;
 import com.example.service.*;
 import com.example.service.impl.KnockoutBracketService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,11 +58,40 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     private ISetScoreService setScoreService;
     @Autowired
     private GroupRankingCalculator groupRankingCalculator;
+    @Autowired
+    @Lazy
+    private ITournamentCompetitionService tournamentCompetitionService;
 
     @Override
     public TournamentRegistrationSetting getSetting(Long tournamentId) {
         if (tournamentId == null) return null;
         return settingMapper.selectById(tournamentId);
+    }
+
+    @Override
+    public List<Long> resolveBanOtherTournamentRefIds(TournamentRegistrationSetting setting) {
+        if (setting == null) {
+            return List.of();
+        }
+        LinkedHashSet<Long> out = new LinkedHashSet<>();
+        String csv = setting.getBanOtherTournamentIds();
+        if (csv != null && !csv.isBlank()) {
+            for (String part : csv.split(",")) {
+                String p = part.trim();
+                if (p.isEmpty()) {
+                    continue;
+                }
+                try {
+                    out.add(Long.parseLong(p));
+                } catch (NumberFormatException ignored) {
+                    // skip invalid token
+                }
+            }
+        }
+        if (out.isEmpty() && setting.getBanOtherTournamentId() != null) {
+            out.add(setting.getBanOtherTournamentId());
+        }
+        return new ArrayList<>(out);
     }
 
     @Override
@@ -109,7 +139,16 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         if (form.getBanTotalRankTop() != null) {
             db.setBanTotalRankTop(form.getBanTotalRankTop());
         }
-        if (form.getBanOtherTournamentId() != null) {
+        if (form.getBanOtherTournamentIds() != null) {
+            String v = form.getBanOtherTournamentIds().trim();
+            if (v.isEmpty()) {
+                db.setBanOtherTournamentIds(null);
+                db.setBanOtherTournamentId(null);
+            } else {
+                db.setBanOtherTournamentIds(v);
+                db.setBanOtherTournamentId(null);
+            }
+        } else if (form.getBanOtherTournamentId() != null) {
             db.setBanOtherTournamentId(form.getBanOtherTournamentId());
         }
         if (form.getBanOtherTournamentTop() != null) {
@@ -178,8 +217,28 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
             }
         }
         if (appliesBanRules(t.getLevelCode())) {
-            if (s.getBanOtherTournamentId() != null && (s.getBanOtherTournamentTop() == null || s.getBanOtherTournamentTop() < 1)) {
+            List<Long> refIds = resolveBanOtherTournamentRefIds(s);
+            if (!refIds.isEmpty() && (s.getBanOtherTournamentTop() == null || s.getBanOtherTournamentTop() < 1)) {
                 throw new IllegalArgumentException("指定禁报参照赛事时须填写该赛事排名前 K（K≥1）");
+            }
+            Long selfId = s.getTournamentId();
+            if (t.getSeriesId() == null && !refIds.isEmpty()) {
+                throw new IllegalArgumentException("本赛事未归属系列时不可配置「参照系列内其他赛事」禁报");
+            }
+            for (Long oid : refIds) {
+                if (oid == null) {
+                    continue;
+                }
+                if (selfId != null && oid.equals(selfId)) {
+                    throw new IllegalArgumentException("禁报参照不可指向本赛事自身");
+                }
+                Tournament ot = tournamentService.getById(oid);
+                if (ot == null) {
+                    throw new IllegalArgumentException("参照赛事不存在（ID " + oid + "）");
+                }
+                if (!Objects.equals(ot.getSeriesId(), t.getSeriesId())) {
+                    throw new IllegalArgumentException("参照赛事须与本赛事同属一个系列");
+                }
             }
         }
     }
@@ -423,12 +482,13 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
                     return "您在总排名前 " + banTop + " 名，本赛事禁止报名";
                 }
             }
-            Long otherTid = s.getBanOtherTournamentId();
             Integer otherTop = s.getBanOtherTournamentTop();
-            if (otherTid != null && otherTop != null && otherTop > 0) {
-                Set<Long> bannedByOtherTournament = getBannedUsersByTournamentProgress(otherTid, otherTop);
-                if (bannedByOtherTournament.contains(userId)) {
-                    return "您在指定参照赛事中排名前 " + otherTop + " ，禁止报名";
+            if (otherTop != null && otherTop > 0) {
+                for (Long otherTid : resolveBanOtherTournamentRefIds(s)) {
+                    Set<Long> bannedByOtherTournament = getBannedUsersByTournamentProgress(otherTid, otherTop);
+                    if (bannedByOtherTournament.contains(userId)) {
+                        return "您在所配置的任一参照赛事中达到前 " + otherTop + " 强进度，禁止报名";
+                    }
                 }
             }
         }
@@ -646,15 +706,24 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
                 .list();
         List<String> parts = new ArrayList<>();
         for (Tournament ot : siblings) {
-            List<UserTournamentPoints> vis = tournamentRankingRosterService.filterUtpsForDisplay(ot.getId(),
-                    userTournamentPointsService.lambdaQuery()
-                            .eq(UserTournamentPoints::getTournamentId, ot.getId())
-                            .list());
-            boolean hasPoints = vis.stream().anyMatch(u -> userId.equals(u.getUserId()));
+            List<UserTournamentPoints> allFromDb = userTournamentPointsService.lambdaQuery()
+                    .eq(UserTournamentPoints::getTournamentId, ot.getId())
+                    .list();
+            UserTournamentPoints mineRow = null;
+            for (UserTournamentPoints u : allFromDb) {
+                if (userId.equals(u.getUserId())) {
+                    mineRow = u;
+                    break;
+                }
+            }
+            boolean hasScoredPoints = mineRow != null && mineRow.getPoints() != null;
             boolean registered = registrationMapper.selectCount(Wrappers.<TournamentRegistration>lambdaQuery()
                     .eq(TournamentRegistration::getTournamentId, ot.getId())
                     .eq(TournamentRegistration::getUserId, userId)) > 0;
-            if (hasPoints) {
+            Integer placementRank = tournamentCompetitionService.getProgressSettledPlacementRank(ot.getId(), userId);
+            if (placementRank != null) {
+                parts.add("在「" + formatTournamentLabel(ot) + "」排名第 " + placementRank + " 名");
+            } else if (hasScoredPoints) {
                 parts.add("已在「" + formatTournamentLabel(ot) + "」有成绩");
             } else if (registered) {
                 parts.add("已报名「" + formatTournamentLabel(ot) + "」");

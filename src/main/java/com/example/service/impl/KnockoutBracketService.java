@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.entity.*;
 import com.example.mapper.TournamentCompetitionConfigMapper;
+import com.example.mapper.TournamentDisqualificationMapper;
 import com.example.mapper.TournamentGroupMapper;
 import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.service.GroupRankingCalculator;
@@ -36,6 +37,7 @@ public class KnockoutBracketService {
     @Autowired private GroupRankingCalculator groupRankingCalculator;
     @Autowired private UserService userService;
     @Autowired private TournamentService tournamentService;
+    @Autowired private TournamentDisqualificationMapper tournamentDisqualificationMapper;
 
     public static int playersInFirstKnockoutRound(Integer knockoutStartRound) {
         if (knockoutStartRound == null) {
@@ -900,7 +902,18 @@ public class KnockoutBracketService {
                 out.add(uid);
             }
         }
-        return out;
+        Set<Long> dqUserIds = tournamentDisqualificationMapper.selectList(Wrappers.<TournamentDisqualification>lambdaQuery()
+                        .eq(TournamentDisqualification::getTournamentId, tournamentId)
+                        .eq(TournamentDisqualification::getEffective, true))
+                .stream()
+                .map(TournamentDisqualification::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (dqUserIds.isEmpty()) {
+            return out;
+        }
+        // 取消资格选手不可晋级淘汰赛等后续比赛：直接从候选池移除，晋级名额顺延。
+        return out.stream().filter(uid -> !dqUserIds.contains(uid)).toList();
     }
 
     private List<PlannedKo> planFirstRound(TournamentCompetitionConfig cfg, List<Long> rankedPlayers,

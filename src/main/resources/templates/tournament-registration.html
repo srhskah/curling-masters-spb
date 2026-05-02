@@ -149,21 +149,27 @@
                                    th:value="${setting != null ? setting.banTotalRankTop : ''}" placeholder="空=不限制">
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">参照本系列其他赛事</label>
-                            <select class="form-select" name="banOtherTournamentId">
-                                <option value="">不设置</option>
-                                <option th:each="ot : ${siblingTournaments}"
-                                        th:value="${ot.id}"
-                                        th:selected="${setting != null and setting.banOtherTournamentId != null and setting.banOtherTournamentId == ot.id}"
-                                        th:text="${(ot.levelCode != null ? ot.levelCode : '赛事') + (ot.startDate != null ? ('（' + #temporals.format(ot.startDate, 'yyyy-MM-dd') + '）') : ('（ID:' + ot.id + '）'))}">
-                                </option>
-                            </select>
+                            <label class="form-label">参照本系列其他赛事（可多选）</label>
+                            <div class="border rounded p-2 bg-light" style="max-height: 11rem; overflow-y: auto;"
+                                 th:if="${siblingTournaments != null and !#lists.isEmpty(siblingTournaments)}">
+                                <div class="form-check" th:each="ot : ${siblingTournaments}">
+                                    <input class="form-check-input" type="checkbox" name="banOtherTournamentIds"
+                                           th:value="${ot.id}" th:id="${'banOt' + ot.id}"
+                                           th:checked="${banRefTournamentIds != null and banRefTournamentIds.contains(ot.id)}"/>
+                                    <label class="form-check-label small" th:for="${'banOt' + ot.id}"
+                                           th:text="${(ot.levelCode != null ? ot.levelCode : '赛事') + (ot.startDate != null ? ('（' + #temporals.format(ot.startDate, 'yyyy-MM-dd') + '）') : ('（ID:' + ot.id + '）'))}">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-text text-muted small" th:if="${siblingTournaments != null and !#lists.isEmpty(siblingTournaments)}">
+                                勾选多个时，选手在<strong>任一</strong>所选赛事中达到下方 K 的淘汰赛进度即禁报。
+                            </div>
                             <div class="form-text" th:if="${siblingTournaments == null or #lists.isEmpty(siblingTournaments)}">
                                 当前系列暂无可参照的其他赛事
                             </div>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">该赛事前 K 名禁报</label>
+                            <label class="form-label">所选赛事前 K 名禁报（共用 K）</label>
                             <input type="number" class="form-control" name="banOtherTournamentTop" min="1"
                                    th:value="${setting != null ? setting.banOtherTournamentTop : ''}" placeholder="与上项配合">
                         </div>
@@ -221,7 +227,7 @@
                                                 <span class="text-end">
                                                     <span th:if="${row.totalRankPosition != null}"
                                                           class="badge bg-primary registration-total-rank-badge"
-                                                          th:text="${totalRankPosition }">1</span>
+                                                          th:text="${row.totalRankPosition}">1</span>
                                                     <span th:if="${row.totalRankPosition == null}" class="text-muted small">-</span>
                                                 </span>
                                             </div>
@@ -289,7 +295,7 @@
                                     <td>
                                         <span th:if="${row.totalRankPosition != null}"
                                               class="badge bg-primary registration-total-rank-badge"
-                                              th:text="${totalRankPosition }">1</span>
+                                              th:text="${row.totalRankPosition}">1</span>
                                         <span th:if="${row.totalRankPosition == null}" class="text-muted small">-</span>
                                     </td>
                                     <td class="small" th:text="${row.registeredAt != null ? #temporals.format(row.registeredAt, 'MM-dd HH:mm') : '-'}">-</td>

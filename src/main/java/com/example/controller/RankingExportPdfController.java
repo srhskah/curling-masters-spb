@@ -2,6 +2,7 @@ package com.example.controller;
 
 import com.example.dto.*;
 import com.example.entity.Season;
+import com.example.service.ITournamentCompetitionService;
 import com.example.service.RankingService;
 import com.example.service.SeasonService;
 import com.example.service.impl.RankingExportPdfService;
@@ -23,6 +24,7 @@ public class RankingExportPdfController {
     @Autowired private SeasonService seasonService;
     @Autowired private RankingExportPdfService rankingExportPdfService;
     @Autowired private RankingApiController rankingApiController;
+    @Autowired private ITournamentCompetitionService tournamentCompetitionService;
 
     private static LinkedHashMap<String, Object> basePdfModel() {
         LinkedHashMap<String, Object> m = new LinkedHashMap<>();
@@ -222,6 +224,16 @@ public class RankingExportPdfController {
         String rawTitle = data.get("title") != null ? data.get("title").toString() : ("单场比赛战绩-" + matchId);
         String title = (editionTitle != null && !editionTitle.isBlank()) ? (editionTitle + "-" + rawTitle) : rawTitle;
         byte[] pdfBytes = renderPerformancePdf(title, data.get("matchDetails"));
+        return PdfExportSupport.attachmentPdf(pdfBytes, title + ".pdf");
+    }
+
+    @GetMapping(value = "/tournament/{tournamentId}/disqualification", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportTournamentDisqualificationPdf(@PathVariable Long tournamentId) {
+        String title = buildTournamentEditionTitle(tournamentId) + "-取消资格记录";
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", title);
+        model.put("rows", tournamentCompetitionService.listGroupDisqualifications(tournamentId));
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-disqualification", model);
         return PdfExportSupport.attachmentPdf(pdfBytes, title + ".pdf");
     }
 

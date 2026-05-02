@@ -53,4 +53,19 @@ public interface ITournamentCompetitionService {
      * @return 本次由未验收 -> 已验收 的场次数
      */
     int recomputeKnockoutAcceptanceStates(User operator, Long tournamentId);
+
+    Map<String, Object> submitGroupDisqualification(User operator, Long tournamentId, Long userId, String reason, String signature);
+
+    List<Map<String, Object>> listGroupDisqualifications(Long tournamentId);
+
+    /**
+     * 按当前赛况与分步赋分规则已锁定的「赛事名次」（1 为最好；仍在争冠流程或未结算者为 null）。
+     * 与 {@link #recomputeTournamentRankingPoints} 所用名次区间一致：未进首轮主淘汰的后段名次、挂载资格赛落败、各轮 MAIN 淘汰、奖牌赛等。
+     */
+    Integer getProgressSettledPlacementRank(Long tournamentId, Long userId);
+
+    /**
+     * 与 {@link #getProgressSettledPlacementRank} 相同规则，一次返回全量已定名次（不含未淘汰/未结算者）。
+     */
+    Map<Long, Integer> getProgressSettledPlacementRanks(Long tournamentId);
 }

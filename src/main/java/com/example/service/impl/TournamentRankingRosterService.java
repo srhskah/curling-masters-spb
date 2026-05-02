@@ -63,6 +63,10 @@ public class TournamentRankingRosterService {
             return utps;
         }
         Set<Long> roster = rosterUserIdsForEventRanking(tournamentId);
+        // 尚无正赛入选/小组名单数据时，不按名单误伤全体（否则展示与积分均为空）
+        if (roster.isEmpty()) {
+            return utps;
+        }
         List<UserTournamentPoints> filtered = new ArrayList<>(utps.size());
         for (UserTournamentPoints u : utps) {
             if (u.getUserId() == null || roster.contains(u.getUserId())) {
@@ -80,6 +84,10 @@ public class TournamentRankingRosterService {
         if (!usesMainPlusQualifierMode(tournamentId)) {
             return false;
         }
-        return !rosterUserIdsForEventRanking(tournamentId).contains(userId);
+        Set<Long> roster = rosterUserIdsForEventRanking(tournamentId);
+        if (roster.isEmpty()) {
+            return false;
+        }
+        return !roster.contains(userId);
     }
 }
