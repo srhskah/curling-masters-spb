@@ -8,10 +8,21 @@ import com.example.entity.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 public interface ITournamentRegistrationService {
 
     TournamentRegistrationSetting getSetting(Long tournamentId);
+
+    /**
+     * 禁报规则中配置的「参照其他赛事」ID 列表（含旧版单列）；顺序与配置一致，已去重。
+     */
+    List<Long> resolveBanOtherTournamentRefIds(TournamentRegistrationSetting setting);
+
+    /** 同上，便于模板用 {@code th:checked} */
+    default Set<Long> resolveBanOtherTournamentRefIdSet(TournamentRegistrationSetting setting) {
+        return Set.copyOf(resolveBanOtherTournamentRefIds(setting));
+    }
 
     /**
      * 创建或更新报名配置（仅筹备中赛事；管理员或主办）

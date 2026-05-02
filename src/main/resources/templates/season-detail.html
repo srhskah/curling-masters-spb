@@ -976,12 +976,13 @@
                 const rankings = (data && data.rankings) ? data.rankings : [];
                 const label = data && data.tournamentLabel ? data.tournamentLabel : '';
                 const withdrawSuffix = username => `${username}（退赛（不计入排名））`;
+                const rankLabel = (r) => (r.rank != null && r.rank > 0) ? String(r.rank) : '—';
 
                 if (format === 'tsv') {
                     const lines = ['排名\t选手\t积分'];
                     for (const r of rankings) {
                         const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
-                        lines.push(`${r.rank}\t${uname}\t${r.points}`);
+                        lines.push(`${rankLabel(r)}\t${uname}\t${r.points}`);
                     }
                     return [`赛事排名（${label}）`, '', ...lines].join('\n');
                 }
@@ -989,14 +990,14 @@
                     const lines = ['|排名|选手|积分|', '|---|---|---|'];
                     for (const r of rankings) {
                         const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
-                        lines.push(`|${r.rank}|${String(uname).replaceAll('|','\\\\|')}|${r.points}|`);
+                        lines.push(`|${rankLabel(r)}|${String(uname).replaceAll('|','\\\\|')}|${r.points}|`);
                     }
                     return [`赛事排名（${label}）`, '', ...lines].join('\n');
                 }
                 const out = [`赛事排名（${label}）`];
                 for (const r of rankings) {
                     const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
-                    out.push(`${r.rank}. ${uname} - ${r.points}分`);
+                    out.push(`${rankLabel(r)}. ${uname} - ${r.points}分`);
                 }
                 return out.join('\n');
             };

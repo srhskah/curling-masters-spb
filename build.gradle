@@ -63,9 +63,11 @@ dependencies {
 	implementation 'com.baomidou:mybatis-plus-generator:3.5.7'
 	implementation 'org.apache.velocity:velocity-engine-core:2.3' // 模板引擎
     
-    // Lombok for annotations like @Getter, @Setter
-    implementation 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
+    // Lombok（JDK 21 下显式版本 + 显式 processor 配置，避免 getter/setter 丢失）
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+    testCompileOnly 'org.projectlombok:lombok:1.18.36'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
     
 	runtimeOnly 'com.mysql:mysql-connector-j'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

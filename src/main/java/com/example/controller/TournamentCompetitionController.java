@@ -406,6 +406,35 @@ public class TournamentCompetitionController {
         }
     }
 
+    @PostMapping("/group/disqualify/{tournamentId}/{userId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @ResponseBody
+    public Map<String, Object> submitGroupDisqualification(@PathVariable Long tournamentId,
+                                                           @PathVariable Long userId,
+                                                           @RequestParam(required = false) String reason,
+                                                           @RequestParam(required = false) String signature) {
+        try {
+            Map<String, Object> data = competitionService.submitGroupDisqualification(currentUser(), tournamentId, userId, reason, signature);
+            LinkedHashMap<String, Object> out = new LinkedHashMap<>();
+            out.put("ok", true);
+            out.putAll(data);
+            return out;
+        } catch (Exception e) {
+            return Map.of("ok", false, "message", e.getMessage());
+        }
+    }
+
+    @GetMapping("/group/disqualify/list/{tournamentId}")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @ResponseBody
+    public Map<String, Object> listGroupDisqualifications(@PathVariable Long tournamentId) {
+        try {
+            return Map.of("ok", true, "rows", competitionService.listGroupDisqualifications(tournamentId));
+        } catch (Exception e) {
+            return Map.of("ok", false, "message", e.getMessage(), "rows", List.of());
+        }
+    }
+
     @PostMapping("/match/save-and-accept/{matchId}")
     @ResponseBody
     public Map<String, Object> saveAndAcceptMatch(@PathVariable Long matchId,

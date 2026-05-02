@@ -11,10 +11,24 @@
         .match-block { border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 10px; }
         .match-title { font-size: 13px; font-weight: 700; margin-bottom: 5px; }
         .score-matrix td:first-child, .score-matrix th:first-child { text-align: left; white-space: nowrap; min-width: 120px; }
-        .hammer-mark { font-weight: 700; }
+        .hammer-mark {
+            font-family: "Noto Emoji","Noto Sans Symbols 2","DejaVu Sans","WenQuanYi Micro Hei","WenQuanYi Zen Hei",sans-serif;
+            font-weight: 400;
+        }
         table { width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: auto; }
         th, td { border: 1px solid #ddd; padding: 5px 7px; text-align: center; vertical-align: middle; }
         th { background: #f3f3f3; }
+        .sig-cell { width: 32%; text-align: center; }
+        .sig-img {
+            max-width: 88%;
+            max-height: 56px;
+            width: auto;
+            height: 56px;
+            object-fit: contain;
+            display: inline-block;
+            border-bottom: 1px solid #bbb;
+            padding: 0 2px 2px 2px;
+        }
     </style>
 </head>
 <body>
@@ -47,7 +61,7 @@
         <tr>
             <td>
                 <span th:text="${p1}">选手1</span>
-                <span class="hammer-mark" th:if="${firstHammer != null and firstHammer == p1}"> （开局后手）</span>
+                <span class="hammer-mark" th:if="${firstHammer != null and firstHammer == p1}"> 🔨</span>
             </td>
             <td th:each="s : ${m.sets}" th:text="${s.player1ScoreText != null ? s.player1ScoreText : '0'}">0</td>
             <td th:text="${m.player1Total != null ? m.player1Total : 0}">0</td>
@@ -55,7 +69,7 @@
         <tr>
             <td>
                 <span th:text="${p2}">选手2</span>
-                <span class="hammer-mark" th:if="${firstHammer != null and firstHammer == p2}"> （开局后手）</span>
+                <span class="hammer-mark" th:if="${firstHammer != null and firstHammer == p2}"> 🔨</span>
             </td>
             <td th:each="s : ${m.sets}" th:text="${s.player2ScoreText != null ? s.player2ScoreText : '0'}">0</td>
             <td th:text="${m.player2Total != null ? m.player2Total : 0}">0</td>
@@ -64,11 +78,29 @@
         </tbody>
     </table>
     <table>
-        <thead><tr><th>验收信息</th></tr></thead>
+        <thead>
+        <tr>
+            <th style="width:24%;">验收人</th>
+            <th style="width:44%;">验收时间</th>
+            <th class="sig-cell">电子签名</th>
+        </tr>
+        </thead>
         <tbody>
-        <tr th:if="${m.acceptances == null or #lists.isEmpty(m.acceptances)}"><td class="muted">无</td></tr>
+        <tr th:if="${m.acceptances == null or #lists.isEmpty(m.acceptances)}">
+            <td colspan="3" class="muted">无</td>
+        </tr>
         <tr th:each="a : ${m.acceptances}">
-            <td th:text="${(a.username != null ? a.username : '未知') + ' @ ' + (a.acceptedAt != null ? a.acceptedAt : '-') }">验收记录</td>
+            <td th:text="${a.username != null ? a.username : '未知'}">验收人</td>
+            <td th:text="${a.acceptedAt != null ? a.acceptedAt : '-'}">验收时间</td>
+            <td class="sig-cell">
+                <img th:if="${a.signature != null and #strings.startsWith(a.signature, 'data:image/')}"
+                     th:src="${a.signature}"
+                     alt="电子签名"
+                     class="sig-img"/>
+                <span th:if="${a.signature == null or a.signature == ''}" class="muted">无</span>
+                <span th:if="${a.signature != null and a.signature != '' and !#strings.startsWith(a.signature, 'data:image/')}"
+                      class="muted">已签名</span>
+            </td>
         </tr>
         </tbody>
     </table>

@@ -25,6 +25,8 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * 报名接龙路径统一为 /tournament/registration/{id}，避免与 /tournament/detail/{id} 产生匹配歧义。
@@ -90,6 +92,7 @@ public class TournamentRegistrationController {
                         .thenComparing(Tournament::getId, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
         model.addAttribute("siblingTournaments", siblingTournaments);
+        model.addAttribute("banRefTournamentIds", registrationService.resolveBanOtherTournamentRefIdSet(setting));
         try {
             Map<String, Object> exportData = registrationExportAssembler.assemble(tournamentId, now);
             if (exportData != null) {
@@ -175,7 +178,7 @@ public class TournamentRegistrationController {
                                @RequestParam(required = false) Integer mainDirectM,
                                @RequestParam(required = false) Integer qualifierSeedCount,
                                @RequestParam(required = false) Integer banTotalRankTop,
-                               @RequestParam(required = false) Long banOtherTournamentId,
+                               @RequestParam(required = false) List<Long> banOtherTournamentIds,
                                @RequestParam(required = false) Integer banOtherTournamentTop,
                                RedirectAttributes ra) {
         User editor = getCurrentUser();
@@ -195,11 +198,15 @@ public class TournamentRegistrationController {
         form.setMainDirectM(mainDirectM);
         form.setQualifierSeedCount(qualifierSeedCount);
         form.setBanTotalRankTop(banTotalRankTop);
-        if (banOtherTournamentId != null && banOtherTournamentId <= 0) {
-            form.setBanOtherTournamentId(null);
-        } else {
-            form.setBanOtherTournamentId(banOtherTournamentId);
-        }
+        List<Long> banIds = banOtherTournamentIds == null ? List.of() : banOtherTournamentIds.stream()
+                .filter(Objects::nonNull)
+                .filter(id -> id > 0)
+                .distinct()
+                .sorted()
+                .toList();
+        String banCsv = banIds.isEmpty() ? "" : banIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+        form.setBanOtherTournamentIds(banCsv);
+        form.setBanOtherTournamentId(null);
         form.setBanOtherTournamentTop(banOtherTournamentTop);
         try {
             registrationService.saveSetting(editor, form);

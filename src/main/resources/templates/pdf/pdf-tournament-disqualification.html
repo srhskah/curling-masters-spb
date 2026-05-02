@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">取消资格记录</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        .muted { color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: auto; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; }
+        th { background: #f3f3f3; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">取消资格记录</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<table>
+    <thead>
+    <tr>
+        <th style="width: 14%">选手</th>
+        <th style="width: 10%">状态</th>
+        <th style="width: 36%">理由</th>
+        <th style="width: 40%">签名确认</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:if="${rows == null or #lists.isEmpty(rows)}">
+        <td colspan="4" class="muted">暂无取消资格记录</td>
+    </tr>
+    <tr th:each="r : ${rows}">
+        <td th:text="${r.username}">选手</td>
+        <td th:text="${r.effective == true ? '已生效' : '待确认'}">待确认</td>
+        <td th:text="${r.reason}">理由</td>
+        <td>
+            <div th:if="${r.acceptances == null or #lists.isEmpty(r.acceptances)}" class="muted">暂无签名</div>
+            <div th:each="a : ${r.acceptances}">
+                <span th:text="${a.username}">人员</span>
+                <span th:text="${' @ ' + (a.acceptedAt != null ? a.acceptedAt : '-')}"></span>
+                <span th:text="${(a.signature == null or #strings.isEmpty(a.signature)) ? '（无签名）' : (#strings.startsWith(a.signature, 'data:image/') ? '（手写签名）' : '（电子签名）')}"></span>
+            </div>
+        </td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>
+

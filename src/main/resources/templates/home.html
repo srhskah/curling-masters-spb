@@ -54,20 +54,20 @@
                                             <div class="fw-bold mb-2">总奖牌榜</div>
                                             <ul class="nav nav-pills nav-sm mb-2" role="tablist">
                                                 <li class="nav-item" role="presentation"
-                                                    th:each="lc,st : ${homeTotalMedalBoard.levelCodes}">
+                                                    th:each="tab,st : ${homeTotalMedalBoard.tabs}">
                                                     <button class="nav-link"
                                                             th:classappend="${st.index == 0} ? ' active'"
                                                             data-bs-toggle="pill"
-                                                            th:data-bs-target="|#homeTotalMedalLg_${lc}|"
+                                                            th:data-bs-target="|#homeTotalMedalLg_${tab.tabId}|"
                                                             type="button"
                                                             role="tab"
-                                                            th:text="${homeTotalMedalBoard.levelLabels != null and homeTotalMedalBoard.levelLabels.get(lc) != null ? homeTotalMedalBoard.levelLabels.get(lc) : lc}">等级</button>
+                                                            th:text="${tab.label}">等级</button>
                                                 </li>
                                             </ul>
                                             <div class="tab-content">
                                                 <div class="tab-pane fade"
-                                                     th:each="lc,st : ${homeTotalMedalBoard.levelCodes}"
-                                                     th:id="|homeTotalMedalLg_${lc}|"
+                                                     th:each="tab,st : ${homeTotalMedalBoard.tabs}"
+                                                     th:id="|homeTotalMedalLg_${tab.tabId}|"
                                                      th:classappend="${st.index == 0} ? ' show active'">
                                                     <div class="table-responsive">
                                                         <table class="table table-sm table-hover mb-0">
@@ -75,43 +75,46 @@
                                                             <tr><th style="width:56px;">排名</th><th>选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
                                                             </thead>
                                                             <tbody>
-                                                            <tr th:each="r,s : ${homeTotalMedalBoard.rowsByLevel[lc]}">
+                                                            <tr th:each="r,s : ${tab.rows}"
+                                                                class="medal-board-row"
+                                                                style="cursor:pointer;"
+                                                                th:attr="data-board='total',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
                                                                 <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
                                                                 <td th:text="${r.username}">选手</td>
                                                                 <td th:text="${r.gold}">0</td>
                                                                 <td th:text="${r.silver}">0</td>
                                                                 <td th:text="${r.bronze}">0</td>
                                                             </tr>
-                                                            <tr th:if="${#lists.isEmpty(homeTotalMedalBoard.rowsByLevel[lc])}">
+                                                            <tr th:if="${#lists.isEmpty(tab.rows)}">
                                                                 <td colspan="5" class="text-center text-muted">暂无数据</td>
                                                             </tr>
                                                             </tbody>
                                                         </table>
                                                     </div>
                                                 </div>
-                                                <div th:if="${#lists.isEmpty(homeTotalMedalBoard.levelCodes)}" class="text-muted small">暂无总奖牌榜数据</div>
+                                                <div th:if="${#lists.isEmpty(homeTotalMedalBoard.tabs)}" class="text-muted small">暂无总奖牌榜数据</div>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-lg-6">
                                         <div class="border rounded p-2 h-100">
-                                            <div class="fw-bold mb-2">赛季奖牌榜（CM1000/CM500/CM250）</div>
+                                            <div class="fw-bold mb-2">当前赛季奖牌榜</div>
                                             <ul class="nav nav-pills nav-sm mb-2" role="tablist">
                                                 <li class="nav-item" role="presentation"
-                                                    th:each="lc,st : ${homeSeasonMedalBoard.levelCodes}">
+                                                    th:each="tab,st : ${homeSeasonMedalBoard.tabs}">
                                                     <button class="nav-link"
                                                             th:classappend="${st.index == 0} ? ' active'"
                                                             data-bs-toggle="pill"
-                                                            th:data-bs-target="|#homeSeasonMedalLg_${lc}|"
+                                                            th:data-bs-target="|#homeSeasonMedalLg_${tab.tabId}|"
                                                             type="button"
                                                             role="tab"
-                                                            th:text="${homeSeasonMedalBoard.levelLabels != null and homeSeasonMedalBoard.levelLabels.get(lc) != null ? homeSeasonMedalBoard.levelLabels.get(lc) : lc}">等级</button>
+                                                            th:text="${tab.label}">等级</button>
                                                 </li>
                                             </ul>
                                             <div class="tab-content">
                                                 <div class="tab-pane fade"
-                                                     th:each="lc,st : ${homeSeasonMedalBoard.levelCodes}"
-                                                     th:id="|homeSeasonMedalLg_${lc}|"
+                                                     th:each="tab,st : ${homeSeasonMedalBoard.tabs}"
+                                                     th:id="|homeSeasonMedalLg_${tab.tabId}|"
                                                      th:classappend="${st.index == 0} ? ' show active'">
                                                     <div class="table-responsive">
                                                         <table class="table table-sm table-hover mb-0">
@@ -119,21 +122,24 @@
                                                             <tr><th style="width:56px;">排名</th><th>选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
                                                             </thead>
                                                             <tbody>
-                                                            <tr th:each="r,s : ${homeSeasonMedalBoard.rowsByLevel[lc]}">
+                                                            <tr th:each="r,s : ${tab.rows}"
+                                                                class="medal-board-row"
+                                                                style="cursor:pointer;"
+                                                                th:attr="data-board='season',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
                                                                 <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
                                                                 <td th:text="${r.username}">选手</td>
                                                                 <td th:text="${r.gold}">0</td>
                                                                 <td th:text="${r.silver}">0</td>
                                                                 <td th:text="${r.bronze}">0</td>
                                                             </tr>
-                                                            <tr th:if="${#lists.isEmpty(homeSeasonMedalBoard.rowsByLevel[lc])}">
+                                                            <tr th:if="${#lists.isEmpty(tab.rows)}">
                                                                 <td colspan="5" class="text-center text-muted">暂无数据</td>
                                                             </tr>
                                                             </tbody>
                                                         </table>
                                                     </div>
                                                 </div>
-                                                <div th:if="${#lists.isEmpty(homeSeasonMedalBoard.levelCodes)}" class="text-muted small">暂无赛季奖牌榜数据</div>
+                                                <div th:if="${#lists.isEmpty(homeSeasonMedalBoard.tabs)}" class="text-muted small">暂无赛季奖牌榜数据</div>
                                             </div>
                                         </div>
                                     </div>
@@ -145,25 +151,25 @@
                                         <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#homeMedalMobileTotal" type="button" role="tab">总奖牌榜</button>
                                     </li>
                                     <li class="nav-item" role="presentation">
-                                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#homeMedalMobileSeason" type="button" role="tab">赛季奖牌榜</button>
+                                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#homeMedalMobileSeason" type="button" role="tab">当前赛季奖牌榜</button>
                                     </li>
                                 </ul>
                                 <div class="tab-content">
                                     <div class="tab-pane fade show active" id="homeMedalMobileTotal" role="tabpanel">
                                         <ul class="nav nav-pills nav-sm mb-2" role="tablist">
                                             <li class="nav-item" role="presentation"
-                                                th:each="lc,st : ${homeTotalMedalBoard.levelCodes}">
-                                                <button class="nav-link"
+                                                th:each="tab,st : ${homeTotalMedalBoard.tabs}">
+                                                <button class="nav-link" 
                                                         th:classappend="${st.index == 0} ? ' active'"
                                                         data-bs-toggle="pill"
-                                                        th:data-bs-target="|#homeTotalMedalSm_${lc}|" type="button"
-                                                        role="tab" th:text="${homeTotalMedalBoard.levelLabels != null and homeTotalMedalBoard.levelLabels.get(lc) != null ? homeTotalMedalBoard.levelLabels.get(lc) : lc}">等级</button>
+                                                        th:data-bs-target="|#homeTotalMedalSm_${tab.tabId}|" type="button"
+                                                        role="tab" th:text="${tab.label}">等级</button>
                                             </li>
                                         </ul>
                                         <div class="tab-content">
                                             <div class="tab-pane fade"
-                                                 th:each="lc,st : ${homeTotalMedalBoard.levelCodes}"
-                                                 th:id="|homeTotalMedalSm_${lc}|"
+                                                 th:each="tab,st : ${homeTotalMedalBoard.tabs}"
+                                                 th:id="|homeTotalMedalSm_${tab.tabId}|"
                                                  th:classappend="${st.index == 0} ? ' show active'">
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-hover mb-0">
@@ -171,38 +177,41 @@
                                                         <tr><th style="width:56px;">排名</th><th>选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
                                                         </thead>
                                                         <tbody>
-                                                        <tr th:each="r,s : ${homeTotalMedalBoard.rowsByLevel[lc]}">
+                                                        <tr th:each="r,s : ${tab.rows}"
+                                                            class="medal-board-row"
+                                                            style="cursor:pointer;"
+                                                            th:attr="data-board='total',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
                                                             <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
                                                             <td th:text="${r.username}">选手</td>
                                                             <td th:text="${r.gold}">0</td>
                                                             <td th:text="${r.silver}">0</td>
                                                             <td th:text="${r.bronze}">0</td>
                                                         </tr>
-                                                        <tr th:if="${#lists.isEmpty(homeTotalMedalBoard.rowsByLevel[lc])}">
+                                                        <tr th:if="${#lists.isEmpty(tab.rows)}">
                                                             <td colspan="5" class="text-center text-muted">暂无数据</td>
                                                         </tr>
                                                         </tbody>
                                                     </table>
                                                 </div>
                                             </div>
-                                            <div th:if="${#lists.isEmpty(homeTotalMedalBoard.levelCodes)}" class="text-muted small">暂无总奖牌榜数据</div>
+                                            <div th:if="${#lists.isEmpty(homeTotalMedalBoard.tabs)}" class="text-muted small">暂无总奖牌榜数据</div>
                                         </div>
                                     </div>
                                     <div class="tab-pane fade" id="homeMedalMobileSeason" role="tabpanel">
                                         <ul class="nav nav-pills nav-sm mb-2" role="tablist">
                                             <li class="nav-item" role="presentation"
-                                                th:each="lc,st : ${homeSeasonMedalBoard.levelCodes}">
+                                                th:each="tab,st : ${homeSeasonMedalBoard.tabs}">
                                                 <button class="nav-link"
                                                         th:classappend="${st.index == 0} ? ' active'"
                                                         data-bs-toggle="pill"
-                                                        th:data-bs-target="|#homeSeasonMedalSm_${lc}|" type="button"
-                                                        role="tab" th:text="${homeSeasonMedalBoard.levelLabels != null and homeSeasonMedalBoard.levelLabels.get(lc) != null ? homeSeasonMedalBoard.levelLabels.get(lc) : lc}">等级</button>
+                                                        th:data-bs-target="|#homeSeasonMedalSm_${tab.tabId}|" type="button"
+                                                        role="tab" th:text="${tab.label}">等级</button>
                                             </li>
                                         </ul>
                                         <div class="tab-content">
                                             <div class="tab-pane fade"
-                                                 th:each="lc,st : ${homeSeasonMedalBoard.levelCodes}"
-                                                 th:id="|homeSeasonMedalSm_${lc}|"
+                                                 th:each="tab,st : ${homeSeasonMedalBoard.tabs}"
+                                                 th:id="|homeSeasonMedalSm_${tab.tabId}|"
                                                  th:classappend="${st.index == 0} ? ' show active'">
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-hover mb-0">
@@ -210,21 +219,24 @@
                                                         <tr><th style="width:56px;">排名</th><th>选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
                                                         </thead>
                                                         <tbody>
-                                                        <tr th:each="r,s : ${homeSeasonMedalBoard.rowsByLevel[lc]}">
+                                                        <tr th:each="r,s : ${tab.rows}"
+                                                            class="medal-board-row"
+                                                            style="cursor:pointer;"
+                                                            th:attr="data-board='season',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
                                                             <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
                                                             <td th:text="${r.username}">选手</td>
                                                             <td th:text="${r.gold}">0</td>
                                                             <td th:text="${r.silver}">0</td>
                                                             <td th:text="${r.bronze}">0</td>
                                                         </tr>
-                                                        <tr th:if="${#lists.isEmpty(homeSeasonMedalBoard.rowsByLevel[lc])}">
+                                                        <tr th:if="${#lists.isEmpty(tab.rows)}">
                                                             <td colspan="5" class="text-center text-muted">暂无数据</td>
                                                         </tr>
                                                         </tbody>
                                                     </table>
                                                 </div>
                                             </div>
-                                            <div th:if="${#lists.isEmpty(homeSeasonMedalBoard.levelCodes)}" class="text-muted small">暂无赛季奖牌榜数据</div>
+                                            <div th:if="${#lists.isEmpty(homeSeasonMedalBoard.tabs)}" class="text-muted small">暂无赛季奖牌榜数据</div>
                                         </div>
                                     </div>
                                 </div>
@@ -522,6 +534,18 @@
 
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="homeRankTotal" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"
+                                         th:if="${totalRankingEarliestSeries != null and !#maps.isEmpty(totalRankingEarliestSeries)}">
+                                        <div class="small text-muted">
+                                            覆盖起始赛事系列：
+                                            <span class="fw-semibold text-body"
+                                                  th:text="${totalRankingEarliestSeries.seasonLabel + ' ' + totalRankingEarliestSeries.seriesName}">2025年上半年 第1系列</span>
+                                        </div>
+                                        <a class="btn btn-outline-secondary btn-sm"
+                                           th:href="${totalRankingEarliestSeries.entryUrl}">
+                                            直达该系列
+                                        </a>
+                                    </div>
                                     <div class="table-responsive">
                                         <table class="table table-sm table-hover mb-0">
                                             <tbody>
@@ -621,10 +645,101 @@
         </div>
     </div>
 
+    <div class="modal fade" id="homeMedalDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="homeMedalDetailTitle">奖牌榜计入明细</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="homeMedalDetailHint" class="small text-muted mb-2">加载中...</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>赛季</th><th>系列</th><th>等级</th><th>名次</th><th style="width:120px;">操作</th>
+                            </tr>
+                            </thead>
+                            <tbody id="homeMedalDetailRows">
+                            <tr><td colspan="5" class="text-center text-muted">暂无数据</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 页脚 -->
     <div th:replace="~{fragments :: footer}"></div>
 
     <!-- 脚本 -->
     <th:block th:replace="~{fragments :: scripts}"></th:block>
+    <script>
+        (() => {
+            let medalDetailModal;
+            const titleEl = () => document.getElementById('homeMedalDetailTitle');
+            const hintEl = () => document.getElementById('homeMedalDetailHint');
+            const rowsEl = () => document.getElementById('homeMedalDetailRows');
+
+            function escapeHtml(v) {
+                return String(v == null ? '' : v)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            async function openMedalRowDetail(tr) {
+                const board = tr.getAttribute('data-board') || '';
+                const levelCode = tr.getAttribute('data-level-code') || '';
+                const userId = tr.getAttribute('data-user-id') || '';
+                const username = tr.getAttribute('data-username') || '-';
+                if (!board || !levelCode || !userId) return;
+                if (!medalDetailModal) {
+                    medalDetailModal = new bootstrap.Modal(document.getElementById('homeMedalDetailModal'));
+                }
+                if (titleEl()) titleEl().textContent = `${username} - 奖牌计入赛事`;
+                if (hintEl()) hintEl().textContent = '加载中...';
+                if (rowsEl()) rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted">加载中...</td></tr>';
+                medalDetailModal.show();
+                try {
+                    const url = `/ranking/api/home/medal-contributions?boardType=${encodeURIComponent(board)}&levelCode=${encodeURIComponent(levelCode)}&userId=${encodeURIComponent(userId)}`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    if (!data.ok) {
+                        if (hintEl()) hintEl().textContent = data.message || '加载失败';
+                        if (rowsEl()) rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted">加载失败</td></tr>';
+                        return;
+                    }
+                    const rows = Array.isArray(data.rows) ? data.rows : [];
+                    if (hintEl()) hintEl().textContent = rows.length ? `共 ${rows.length} 场计入` : '该选手在当前榜单/等级暂无计入赛事';
+                    if (!rowsEl()) return;
+                    if (!rows.length) {
+                        rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted">暂无数据</td></tr>';
+                        return;
+                    }
+                    rowsEl().innerHTML = rows.map(r => `
+                        <tr>
+                            <td>${escapeHtml(r.seasonLabel || '-')}</td>
+                            <td>${escapeHtml(r.seriesLabel || '-')}</td>
+                            <td>${escapeHtml(r.levelLabel || '-')}</td>
+                            <td>${escapeHtml(r.rankLabel || '-')}</td>
+                            <td><a class="btn btn-outline-secondary btn-sm" href="${escapeHtml(r.detailUrl || '#')}">赛事详情</a></td>
+                        </tr>
+                    `).join('');
+                } catch (e) {
+                    if (hintEl()) hintEl().textContent = e.message || '加载失败';
+                    if (rowsEl()) rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted">加载失败</td></tr>';
+                }
+            }
+
+            document.querySelectorAll('.medal-board-row').forEach((tr) => {
+                tr.addEventListener('click', () => openMedalRowDetail(tr));
+            });
+        })();
+    </script>
 </body>
 </html>

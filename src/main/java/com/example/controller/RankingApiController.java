@@ -7,6 +7,7 @@ import com.example.mapper.MatchScoreEditLogMapper;
 import com.example.mapper.TournamentGroupMapper;
 import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.service.*;
+import com.example.util.TournamentPlacementListOrder;
 import com.example.mapper.RankingMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -149,16 +150,18 @@ public class RankingApiController {
                 tournamentLabel = tournamentLabel + " 第" + edition + "届";
             }
 
-            List<UserTournamentPoints> utps = tournamentRankingRosterService.filterUtpsForDisplay(t.getId(),
+            List<UserTournamentPoints> utps = new ArrayList<>(tournamentRankingRosterService.filterUtpsForDisplay(t.getId(),
                     userTournamentPointsService.lambdaQuery()
                             .eq(UserTournamentPoints::getTournamentId, t.getId())
                             .orderByDesc(UserTournamentPoints::getPoints)
-                            .list());
+                            .list()));
+            Map<Long, Integer> placements = tournamentCompetitionService.getProgressSettledPlacementRanks(t.getId());
+            TournamentPlacementListOrder.sortUtpsByPlacementThenPoints(utps, placements);
 
             List<TournamentRankingItemDto> rankings = new ArrayList<>();
             for (int i = 0; i < utps.size(); i++) {
                 UserTournamentPoints utp = utps.get(i);
-                int rank = i + 1;
+                int rank = TournamentPlacementListOrder.rowRankForApi(utp, placements);
 
                 String username;
                 boolean withdrawn;
@@ -308,15 +311,16 @@ public class RankingApiController {
         for (Tournament t : tournaments) {
             if (t.getId() == null) continue;
 
-            List<UserTournamentPoints> utps = tournamentRankingRosterService.filterUtpsForDisplay(t.getId(),
+            List<UserTournamentPoints> utps = new ArrayList<>(tournamentRankingRosterService.filterUtpsForDisplay(t.getId(),
                     userTournamentPointsService.lambdaQuery()
                             .eq(UserTournamentPoints::getTournamentId, t.getId())
                             .orderByDesc(UserTournamentPoints::getPoints)
-                            .list());
+                            .list()));
+            Map<Long, Integer> placements = tournamentCompetitionService.getProgressSettledPlacementRanks(t.getId());
+            TournamentPlacementListOrder.sortUtpsByPlacementThenPoints(utps, placements);
 
-            for (int i = 0; i < utps.size(); i++) {
-                UserTournamentPoints utp = utps.get(i);
-                int rankInTournament = i + 1;
+            for (UserTournamentPoints utp : utps) {
+                int rankInTournament = TournamentPlacementListOrder.rowRankForApi(utp, placements);
                 String username;
                 boolean withdrawn;
                 if (utp.getUserId() == null) {
@@ -340,13 +344,13 @@ public class RankingApiController {
                 });
 
                 agg.withdrawn = agg.withdrawn || withdrawn;
-                if (!withdrawn && rankInTournament <= 3) {
+                if (!withdrawn && rankInTournament > 0 && rankInTournament <= 3) {
                     agg.bestFinish = (agg.bestFinish == null) ? rankInTournament : Math.min(agg.bestFinish, rankInTournament);
                 }
 
                 String key = "t" + t.getId();
                 agg.pointsByKey.put(key, points);
-                agg.finishByKey.put(key, rankInTournament);
+                agg.finishByKey.put(key, rankInTournament > 0 ? rankInTournament : null);
                 if (points > agg.finalPoints) {
                     agg.finalPoints = points;
                     agg.bestKey = key;
@@ -470,11 +474,13 @@ public class RankingApiController {
             }
         }
 
-        List<UserTournamentPoints> utps = tournamentRankingRosterService.filterUtpsForDisplay(tournamentId,
+        List<UserTournamentPoints> utps = new ArrayList<>(tournamentRankingRosterService.filterUtpsForDisplay(tournamentId,
                 userTournamentPointsService.lambdaQuery()
                         .eq(UserTournamentPoints::getTournamentId, tournamentId)
                         .orderByDesc(UserTournamentPoints::getPoints)
-                        .list());
+                        .list()));
+        Map<Long, Integer> placements = tournamentCompetitionService.getProgressSettledPlacementRanks(tournamentId);
+        TournamentPlacementListOrder.sortUtpsByPlacementThenPoints(utps, placements);
 
         Map<Long, Integer> groupOverallRankByUserId = new HashMap<>();
         try {
@@ -498,8 +504,7 @@ public class RankingApiController {
         }
 
         List<TournamentRankingItemDto> rankings = new ArrayList<>();
-        for (int i = 0; i < utps.size(); i++) {
-            UserTournamentPoints utp = utps.get(i);
+        for (UserTournamentPoints utp : utps) {
             String username;
             boolean withdrawn;
             if (utp.getUserId() == null) {
@@ -511,7 +516,8 @@ public class RankingApiController {
                 withdrawn = "退赛".equals(username);
             }
             int points = utp.getPoints() != null ? utp.getPoints() : 0;
-            TournamentRankingItemDto dto = new TournamentRankingItemDto(i + 1, username, points, withdrawn);
+            int rank = TournamentPlacementListOrder.rowRankForApi(utp, placements);
+            TournamentRankingItemDto dto = new TournamentRankingItemDto(rank, username, points, withdrawn);
             if (utp.getUserId() != null) {
                 dto.setGroupOverallRank(groupOverallRankByUserId.get(utp.getUserId()));
             }
@@ -568,7 +574,7 @@ public class RankingApiController {
                 String un = u != null ? u.getUsername() : "未知";
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("username", un);
-                row.put("signature", a.getSignature());
+                row.put("signature", normalizeSignatureForPdf(a.getSignature()));
                 row.put("acceptedAt", a.getAcceptedAt());
                 return row;
             }).toList();
@@ -671,7 +677,7 @@ public class RankingApiController {
                         .orderByAsc(MatchAcceptance::getAcceptedAt)
         ).stream().map(a -> Map.<String, Object>of(
                 "username", uname.getOrDefault(a.getUserId(), "未知"),
-                "signature", a.getSignature(),
+                "signature", normalizeSignatureForPdf(a.getSignature()),
                 "acceptedAt", a.getAcceptedAt()
         )).toList();
         List<Map<String, Object>> editLogs = matchScoreEditLogMapper.selectList(
@@ -713,6 +719,24 @@ public class RankingApiController {
                 "title", title,
                 "matchDetails", List.of(matchDetail)
         );
+    }
+
+    private static String normalizeSignatureForPdf(String signature) {
+        if (signature == null) {
+            return "";
+        }
+        String raw = signature.trim();
+        if (raw.isEmpty()) {
+            return "";
+        }
+        if (raw.startsWith("data:image/")) {
+            return raw;
+        }
+        // 兼容历史数据：仅存了 base64 内容（未带 data:image 前缀），在 PDF 中按 png 签名渲染。
+        if (!raw.contains(":") && !raw.contains("/") && raw.length() > 80 && raw.matches("^[A-Za-z0-9+/=]+$")) {
+            return "data:image/png;base64," + raw;
+        }
+        return raw;
     }
 
     @GetMapping("/tournament/{tournamentId}/group-ranking")
@@ -785,6 +809,8 @@ public class RankingApiController {
             row.put("player1Name", uname.getOrDefault(m.getPlayer1Id(), "待定"));
             row.put("player2Name", uname.getOrDefault(m.getPlayer2Id(), "待定"));
             row.put("score", t1 + ":" + t2);
+            row.put("player1Total", t1);
+            row.put("player2Total", t2);
             row.put("firstHammerName", firstHammerName);
             row.put("sets", sets);
             row.put("acceptedAt", acceptedAt);

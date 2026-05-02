@@ -315,6 +315,8 @@ public class GroupRankingCalculator {
                     row.put("player1Name", usernameById.getOrDefault(m.getPlayer1Id(), "待定"));
                     row.put("player2Name", usernameById.getOrDefault(m.getPlayer2Id(), "待定"));
                     row.put("score", t1 + ":" + t2);
+                    row.put("player1Total", t1);
+                    row.put("player2Total", t2);
                     row.put("firstHammerName", sets.isEmpty() ? "-" : String.valueOf(sets.get(0).getOrDefault("hammer", "-")));
                     row.put("sets", sets);
                     row.put("acceptedAt", ts);

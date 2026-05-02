@@ -45,6 +45,12 @@ public class TournamentRegistrationSetting {
     @TableField("ban_other_tournament_id")
     private Long banOtherTournamentId;
 
+    /**
+     * 禁报参照的多个其他赛事 ID，逗号分隔；非空时优先于 {@link #banOtherTournamentId}。
+     */
+    @TableField("ban_other_tournament_ids")
+    private String banOtherTournamentIds;
+
     @TableField("ban_other_tournament_top")
     private Integer banOtherTournamentTop;
 

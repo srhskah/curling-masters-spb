@@ -858,7 +858,7 @@
                                     </thead>
                                     <tbody>
                                     <tr th:each="entry,st : ${rankingInfoList}">
-                                        <td th:text="${st.index + 1}">1</td>
+                                        <td th:text="${entry.displayRank != null and entry.displayRank > 0 ? entry.displayRank : '—'}">1</td>
                                         <td>
                                             <span th:text="${entry.userName}">选手</span>
                                             <span class="text-muted"
@@ -1017,7 +1017,7 @@
                                         <tbody>
                                         <tr th:each="r : ${groupRankingByGroupId[g.id]}"
                                             style="cursor:pointer;"
-                                            th:attr="data-type='group',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${g.groupName},data-user-id=${r.userId},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
+                                            th:attr="data-type='group',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${g.groupName},data-user-id=${r.userId},data-username=${r.username},data-disqualified=${r['disqualified'] == true ? 1 : 0},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
                                             onclick="openGroupRankDetailModal(this)">
                                             <td th:text="${r.overallRank}">1</td>
                                             <td th:text="${r.groupRank}">1</td>
@@ -1041,6 +1041,37 @@
                                         </tr>
                                         </tbody>
                                     </table>
+                                </div>
+                                <div class="border rounded p-2 mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                        <div class="fw-bold"><i class="bi bi-slash-circle"></i> 取消资格记录</div>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyDisqualificationText()">复制为文本</button>
+                                            <a class="btn btn-outline-secondary btn-sm"
+                                               th:href="@{/ranking/export/pdf/tournament/{id}/disqualification(id=${tournamentInfo.tournament.id})}">导出为PDF</a>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead class="table-light">
+                                            <tr><th>选手</th><th>状态</th><th>理由</th><th>签名数</th></tr>
+                                            </thead>
+                                            <tbody id="dqRowsBody">
+                                            <tr th:each="dq : ${disqualificationRows}">
+                                                <td th:text="${dq.username}">选手</td>
+                                                <td>
+                                                    <span class="badge bg-success" th:if="${dq.effective == true}">已生效</span>
+                                                    <span class="badge bg-secondary" th:if="${dq.effective != true}">待确认</span>
+                                                </td>
+                                                <td th:text="${dq.reason}">理由</td>
+                                                <td th:text="${dq.acceptances != null ? #lists.size(dq.acceptances) : 0}">0</td>
+                                            </tr>
+                                            <tr th:if="${disqualificationRows == null or #lists.isEmpty(disqualificationRows)}">
+                                                <td colspan="4" class="text-muted text-center">暂无取消资格记录</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                                 <div class="small text-muted d-md-none mb-2">轻触任意行查看完整统计</div>
 
@@ -1278,7 +1309,20 @@
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="groupRankUserCopyBtn">复制该选手本赛事战绩</button>
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="groupRankUserExportPdfBtn">导出该选手本赛事战绩PDF</button>
                     </div>
-                    <div id="groupRankDetailBody" class="small"></div>
+                    <div id="groupRankDetailBody" class="small">
+                        <div id="groupRankDetailRows"></div>
+                        <div class="mt-2">
+                            <div class="fw-bold small mb-1">资格状态</div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span id="groupRankQualificationBadge"
+                                      class="badge bg-success-subtle text-success-emphasis border">正常</span>
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-sm ms-0"
+                                        id="groupRankDisqualifyBtn"
+                                        th:if="${isSuperAdmin or isAdmin or isHost}">取消资格</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1377,6 +1421,32 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="clearSignatureCanvas()">清除</button>
                     <button type="button" class="btn btn-primary" onclick="saveSignatureCanvas()">使用该签名</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="disqualifyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">取消资格确认</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="dqUserId"/>
+                    <div class="small text-muted mb-2" id="dqTargetUserText">目标选手：-</div>
+                    <label class="form-label">理由（必填）</label>
+                    <textarea class="form-control" id="dqReason" rows="3" maxlength="2000" placeholder="请填写取消资格理由"></textarea>
+                    <div class="mb-2 d-flex align-items-center gap-2" id="dqSignatureRow">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="dqSignatureOpenBtn" onclick="openSignatureModal()">手写电子签名</button>
+                        <span class="small text-muted" id="dqSignatureStatus">未签名</span>
+                    </div>
+                    <div class="small text-muted mt-2">需至少 2 名办赛人员提交电子签名后生效。</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="submitDisqualification()">提交签名确认</button>
                 </div>
             </div>
         </div>
@@ -1845,9 +1915,11 @@
         let koManualModal;
         let groupRankDetailModal;
         let signatureModal;
+        let disqualifyModal;
         let currentSignatureData = '';
         let currentMatchPhaseCode = '';
         const currentUserId = Number('[[${currentUser != null ? currentUser.id : 0}]]');
+        const canDisqualifyGroupRanking = '[[${isSuperAdmin or isAdmin or isHost}]]' === 'true';
         let drawing = false;
         let sigCtx = null;
 
@@ -1939,7 +2011,7 @@
         function openGroupRankDetailModal(row) {
             if (!groupRankDetailModal) groupRankDetailModal = new bootstrap.Modal(document.getElementById('groupRankDetailModal'));
             const d = row.dataset;
-            const body = document.getElementById('groupRankDetailBody');
+            const body = document.getElementById('groupRankDetailRows');
             const copyBtn = document.getElementById('groupRankUserCopyBtn');
             const pdfBtn = document.getElementById('groupRankUserExportPdfBtn');
             if (!body) return;
@@ -1962,6 +2034,31 @@
             const uid = d.userId ? String(d.userId) : '';
             if (copyBtn) copyBtn.dataset.userId = uid;
             if (pdfBtn) pdfBtn.dataset.userId = uid;
+
+            const badge = document.getElementById('groupRankQualificationBadge');
+            const dqFlag = String(d.disqualified) === '1' || String(d.disqualified) === 'true';
+            if (badge) {
+                if (dqFlag) {
+                    badge.className = 'badge bg-danger';
+                    badge.textContent = '已取消资格';
+                } else {
+                    badge.className = 'badge bg-success-subtle text-success-emphasis border';
+                    badge.textContent = '正常';
+                }
+            }
+
+            const dqBtn = document.getElementById('groupRankDisqualifyBtn');
+            if (dqBtn) {
+                dqBtn.setAttribute('data-user-id', d.userId || '');
+                dqBtn.setAttribute('data-username', d.username || '-');
+                dqBtn.setAttribute('data-group-name', d.groupName || '-');
+                dqBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    openDisqualifyModal(dqBtn);
+                };
+            }
+
             groupRankDetailModal.show();
         }
 
@@ -2569,7 +2666,89 @@
             if (!canvas) return;
             currentSignatureData = canvas.toDataURL('image/png');
             document.getElementById('groupSignatureStatus').textContent = currentSignatureData ? '已签名' : '未签名';
+            const dqStatus = document.getElementById('dqSignatureStatus');
+            if (dqStatus) dqStatus.textContent = currentSignatureData ? '已签名' : '未签名';
             if (signatureModal) signatureModal.hide();
+        }
+
+        function openDisqualifyModal(btn) {
+            if (!btn) return;
+            if (!disqualifyModal) disqualifyModal = new bootstrap.Modal(document.getElementById('disqualifyModal'));
+            const uid = btn.getAttribute('data-user-id') || '';
+            const uname = btn.getAttribute('data-username') || '-';
+            const gname = btn.getAttribute('data-group-name') || '-';
+            const uidInput = document.getElementById('dqUserId');
+            const target = document.getElementById('dqTargetUserText');
+            const reason = document.getElementById('dqReason');
+            if (uidInput) uidInput.value = uid;
+            if (target) target.textContent = `目标选手：${uname}（${gname}）`;
+            if (reason) reason.value = '';
+            // 每次打开取消资格弹窗都重置签名，避免误用上次数据
+            currentSignatureData = '';
+            clearSignatureCanvas();
+            const groupStatus = document.getElementById('groupSignatureStatus');
+            if (groupStatus) groupStatus.textContent = '未签名';
+            const dqStatus = document.getElementById('dqSignatureStatus');
+            if (dqStatus) dqStatus.textContent = '未签名';
+            disqualifyModal.show();
+        }
+
+        async function submitDisqualification() {
+            const uid = (document.getElementById('dqUserId') || {}).value || '';
+            const reason = ((document.getElementById('dqReason') || {}).value || '').trim();
+            const tournamentId = '[[${tournamentInfo.tournament.id}]]';
+            if (!uid) {
+                alert('缺少选手');
+                return;
+            }
+            if (!reason) {
+                alert('取消资格理由不能为空');
+                return;
+            }
+            if (!currentSignatureData) {
+                alert('请先点击“手写电子签名”');
+                return;
+            }
+            const form = new URLSearchParams();
+            form.append('reason', reason);
+            form.append('signature', currentSignatureData);
+            const csrf = getCsrf();
+            if (csrf) form.append(csrf.name, csrf.value);
+            const res = await fetch(`/tournament/competition/group/disqualify/${tournamentId}/${uid}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: form.toString()
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                alert(data.message || '提交失败');
+                return;
+            }
+            const tip = data.effective ? '取消资格已生效' : `已提交签名，当前签名数：${data.signedCount || 0}/${data.requiredSignCount || 2}`;
+            alert(tip);
+            if (disqualifyModal) disqualifyModal.hide();
+            location.reload();
+        }
+
+        function copyDisqualificationText() {
+            const rows = Array.from(document.querySelectorAll('#dqRowsBody tr'));
+            const lines = ['取消资格记录'];
+            rows.forEach((tr) => {
+                const tds = tr.querySelectorAll('td');
+                if (tds.length < 4) return;
+                const name = (tds[0].innerText || '').trim();
+                const status = (tds[1].innerText || '').trim();
+                const reason = (tds[2].innerText || '').trim();
+                const sigCount = (tds[3].innerText || '').trim();
+                if (!name || name === '暂无取消资格记录') return;
+                lines.push(`${name} | ${status} | 理由：${reason} | 签名数：${sigCount}`);
+            });
+            const text = lines.join('\n');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => alert('已复制')).catch(() => fallbackCopy(text));
+            } else {
+                fallbackCopy(text);
+            }
         }
 
         (() => {
@@ -2594,7 +2773,8 @@
                 for (const r of rankings) {
                     const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
                     const gor = (r.groupOverallRank != null && r.groupOverallRank !== '') ? String(r.groupOverallRank) : '-';
-                    out.push(`${r.rank}. ${uname} | 小组赛总排名: ${gor} | 积分: ${r.points}`);
+                    const rankLabel = (r.rank != null && r.rank > 0) ? String(r.rank) : '—';
+                    out.push(`${rankLabel}. ${uname} | 小组赛总排名: ${gor} | 积分: ${r.points}`);
                 }
                 if (includeMatches && matchDetails.length > 0) {
                     out.push('');

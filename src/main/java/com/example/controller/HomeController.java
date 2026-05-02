@@ -25,6 +25,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -121,6 +123,7 @@ public class HomeController {
 
         // 首页排名模块：总排名/当前赛季排名（仅前24）
         model.addAttribute("totalRankingTop24", rankingService.getTotalRanking(24));
+        model.addAttribute("totalRankingEarliestSeries", resolveTotalRankingEarliestSeries());
         Season currentSeason = seasonService.lambdaQuery()
                 .orderByDesc(Season::getYear)
                 .orderByDesc(Season::getHalf)
@@ -245,22 +248,191 @@ public class HomeController {
         return "home";
     }
 
+    @GetMapping("/ranking/api/home/medal-contributions")
+    @ResponseBody
+    public Map<String, Object> medalContributions(@RequestParam String boardType,
+                                                  @RequestParam String levelCode,
+                                                  @RequestParam Long userId) {
+        try {
+            if (userId == null || levelCode == null || levelCode.isBlank()) {
+                return Map.of("ok", false, "message", "参数不完整", "rows", List.of());
+            }
+            String bt = boardType == null ? "" : boardType.trim().toLowerCase();
+            if (!"total".equals(bt) && !"season".equals(bt)) {
+                return Map.of("ok", false, "message", "无效的榜单类型", "rows", List.of());
+            }
+            String targetLevelCode = levelCode.trim();
+            List<Tournament> tournaments;
+            if ("season".equals(bt)) {
+                Season currentSeason = seasonService.lambdaQuery()
+                        .orderByDesc(Season::getYear)
+                        .orderByDesc(Season::getHalf)
+                        .last("LIMIT 1")
+                        .one();
+                if (currentSeason == null || currentSeason.getId() == null) {
+                    return Map.of("ok", true, "rows", List.of());
+                }
+                Set<String> allowedLevelNames = Set.of("CM1000", "CM500", "CM250");
+                Set<String> allowedLevelCodes = tournamentLevelService.list().stream()
+                        .filter(Objects::nonNull)
+                        .filter(l -> l.getCode() != null && !l.getCode().isBlank())
+                        .filter(l -> {
+                            String n = l.getName();
+                            return n != null && allowedLevelNames.contains(n.trim());
+                        })
+                        .map(TournamentLevel::getCode)
+                        .collect(Collectors.toSet());
+                if (!allowedLevelCodes.contains(targetLevelCode)) {
+                    return Map.of("ok", true, "rows", List.of());
+                }
+                List<Long> seriesIds = seriesService.lambdaQuery()
+                        .eq(Series::getSeasonId, currentSeason.getId())
+                        .list()
+                        .stream()
+                        .map(Series::getId)
+                        .filter(Objects::nonNull)
+                        .toList();
+                tournaments = seriesIds.isEmpty() ? List.of() : tournamentService.lambdaQuery()
+                        .in(Tournament::getSeriesId, seriesIds)
+                        .eq(Tournament::getLevelCode, targetLevelCode)
+                        .list();
+            } else {
+                tournaments = tournamentService.lambdaQuery()
+                        .eq(Tournament::getLevelCode, targetLevelCode)
+                        .list();
+            }
+
+            Map<Long, Series> seriesById = tournaments == null || tournaments.isEmpty() ? Map.of() :
+                    seriesService.listByIds(
+                                    tournaments.stream().map(Tournament::getSeriesId).filter(Objects::nonNull).collect(Collectors.toSet()))
+                            .stream().collect(Collectors.toMap(Series::getId, s -> s, (a, b) -> a));
+            Map<Long, Season> seasonById = seriesById.isEmpty() ? Map.of() :
+                    seasonService.listByIds(seriesById.values().stream().map(Series::getSeasonId).filter(Objects::nonNull).collect(Collectors.toSet()))
+                            .stream().collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+            Map<String, String> levelNameByCode = tournamentLevelService.list().stream()
+                    .filter(Objects::nonNull)
+                    .filter(l -> l.getCode() != null && !l.getCode().isBlank())
+                    .collect(Collectors.toMap(TournamentLevel::getCode, l -> {
+                        String n = l.getName();
+                        return n == null || n.isBlank() ? l.getCode() : n.trim();
+                    }, (a, b) -> a));
+
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (Tournament t : tournaments == null ? List.<Tournament>of() : tournaments) {
+                MedalTop3Result r = resolveTournamentTop3ByFinalRanking(t);
+                if (!r.eligible()) {
+                    continue;
+                }
+                List<Long> top3 = r.top3();
+                int idx = top3.indexOf(userId);
+                if (idx < 0 || idx > 2) {
+                    continue;
+                }
+                Series s = seriesById.get(t.getSeriesId());
+                Season se = s == null ? null : seasonById.get(s.getSeasonId());
+                String seasonLabel = se == null ? "-" : (se.getYear() + "年" + (Objects.equals(se.getHalf(), 1) ? "上半年" : "下半年"));
+                String seriesLabel = s == null ? "-" : ((s.getName() != null && !s.getName().isBlank()) ? s.getName().trim()
+                        : ("第" + (s.getSequence() == null ? "?" : s.getSequence()) + "系列"));
+                String levelLabel = levelNameByCode.getOrDefault(t.getLevelCode(), t.getLevelCode());
+                String rankLabel = (idx == 0) ? "第1名（🥇）" : (idx == 1) ? "第2名（🥈）" : "第3名（🥉）";
+                Map<String, Object> one = new HashMap<>();
+                one.put("tournamentId", t.getId());
+                one.put("seasonLabel", seasonLabel);
+                one.put("seriesLabel", seriesLabel);
+                one.put("levelLabel", levelLabel);
+                one.put("rankLabel", rankLabel);
+                one.put("detailUrl", "/tournament/detail/" + t.getId());
+                rows.add(one);
+            }
+            rows.sort((a, b) -> String.valueOf(b.getOrDefault("seasonLabel", "")).compareTo(String.valueOf(a.getOrDefault("seasonLabel", ""))));
+            return Map.of("ok", true, "rows", rows);
+        } catch (Exception e) {
+            return Map.of("ok", false, "message", e.getMessage(), "rows", List.of());
+        }
+    }
+
+    private Map<String, Object> resolveTotalRankingEarliestSeries() {
+        List<UserTournamentPoints> utpRows = userTournamentPointsService.list();
+        if (utpRows == null || utpRows.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> tournamentIds = utpRows.stream()
+                .map(UserTournamentPoints::getTournamentId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (tournamentIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Tournament> tournaments = tournamentService.listByIds(tournamentIds);
+        if (tournaments == null || tournaments.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> seriesIds = tournaments.stream()
+                .map(Tournament::getSeriesId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (seriesIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Series> seriesById = seriesService.listByIds(seriesIds).stream()
+                .collect(Collectors.toMap(Series::getId, s -> s, (a, b) -> a));
+        Set<Long> seasonIds = seriesById.values().stream()
+                .map(Series::getSeasonId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Season> seasonById = seasonIds.isEmpty() ? Map.of() : seasonService.listByIds(seasonIds).stream()
+                .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+
+        Series earliest = seriesById.values().stream()
+                .min((a, b) -> {
+                    Season sa = seasonById.get(a.getSeasonId());
+                    Season sb = seasonById.get(b.getSeasonId());
+                    int ya = sa == null || sa.getYear() == null ? Integer.MAX_VALUE : sa.getYear();
+                    int yb = sb == null || sb.getYear() == null ? Integer.MAX_VALUE : sb.getYear();
+                    if (ya != yb) return Integer.compare(ya, yb);
+                    int ha = sa == null || sa.getHalf() == null ? Integer.MAX_VALUE : sa.getHalf();
+                    int hb = sb == null || sb.getHalf() == null ? Integer.MAX_VALUE : sb.getHalf();
+                    if (ha != hb) return Integer.compare(ha, hb);
+                    int qa = a.getSequence() == null ? Integer.MAX_VALUE : a.getSequence();
+                    int qb = b.getSequence() == null ? Integer.MAX_VALUE : b.getSequence();
+                    if (qa != qb) return Integer.compare(qa, qb);
+                    Long ia = a.getId() == null ? Long.MAX_VALUE : a.getId();
+                    Long ib = b.getId() == null ? Long.MAX_VALUE : b.getId();
+                    return ia.compareTo(ib);
+                })
+                .orElse(null);
+        if (earliest == null || earliest.getId() == null) {
+            return Map.of();
+        }
+        Season season = seasonById.get(earliest.getSeasonId());
+        String seasonLabel = season == null
+                ? ""
+                : (season.getYear() + "年" + (Objects.equals(season.getHalf(), 1) ? "上半年" : "下半年"));
+        String seriesName = (earliest.getName() != null && !earliest.getName().isBlank())
+                ? earliest.getName().trim()
+                : ("第" + (earliest.getSequence() == null ? "?" : earliest.getSequence()) + "系列");
+        Map<String, Object> out = new HashMap<>();
+        out.put("seriesId", earliest.getId());
+        out.put("seriesName", seriesName);
+        out.put("seasonLabel", seasonLabel);
+        out.put("entryUrl", "/season/detail/by-series/" + earliest.getId());
+        return out;
+    }
+
     private Map<String, Object> buildTotalMedalBoard() {
-        List<Tournament> tournaments = tournamentService.lambdaQuery()
-                .list();
-        List<String> levelCodes = tournaments == null ? List.of() : tournaments.stream()
+        List<Tournament> tournaments = tournamentService.lambdaQuery().list();
+        List<String> levelCodes = (tournaments == null ? List.<Tournament>of() : tournaments).stream()
                 .map(Tournament::getLevelCode)
                 .filter(Objects::nonNull)
+                .map(String::trim)
                 .filter(s -> !s.isBlank())
                 .distinct()
                 .sorted()
                 .toList();
-        return buildMedalBoardByLevel(levelCodes, tournaments);
+        return buildMedalBoard(levelCodes, tournaments);
     }
 
     private Map<String, Object> buildSeasonMedalBoard(Season currentSeason) {
-        // 赛季奖牌榜：统计当前赛季内各赛事“等级名称”为 CM1000/CM500/CM250 的赛事，
-        // 以赛事等级为单位汇总金/银/铜次数（基于每届赛事最终排名第1/2/3）。
         Set<String> allowedLevelNames = Set.of("CM1000", "CM500", "CM250");
         if (currentSeason == null || currentSeason.getId() == null) {
             return Map.of("levelCodes", List.of(), "levelLabels", Map.of(), "rowsByLevel", Map.of());
@@ -289,51 +461,70 @@ public class HomeController {
             return Map.of("levelCodes", List.of(), "levelLabels", Map.of(), "rowsByLevel", Map.of());
         }
 
-        List<Tournament> tournaments = tournamentService.lambdaQuery()
-                .in(Tournament::getSeriesId, seriesIds)
-                .in(Tournament::getLevelCode, allowedLevelCodes)
-                .eq(Tournament::getStatus, 2)
-                .list();
-        List<String> levelCodes = tournaments == null ? List.of() : tournaments.stream()
-                .map(Tournament::getLevelCode)
+        List<String> levelCodes = tournamentLevelService.list().stream()
                 .filter(Objects::nonNull)
-                .filter(s -> !s.isBlank())
+                .filter(l -> l.getCode() != null && !l.getCode().isBlank())
+                .filter(l -> {
+                    String n = l.getName();
+                    return n != null && allowedLevelNames.contains(n.trim());
+                })
+                .map(TournamentLevel::getCode)
                 .distinct()
                 .sorted()
                 .toList();
-        return buildMedalBoardByLevel(levelCodes, tournaments);
+        List<Tournament> tournaments = tournamentService.lambdaQuery()
+                .in(Tournament::getSeriesId, seriesIds)
+                .in(Tournament::getLevelCode, allowedLevelCodes)
+                .list();
+        return buildMedalBoard(levelCodes, tournaments);
     }
 
-    private Map<String, Object> buildMedalBoardByLevel(List<String> levelCodes, List<Tournament> tournaments) {
+    private Map<String, Object> buildMedalBoard(List<String> levelCodes, List<Tournament> tournaments) {
         Map<String, Map<Long, int[]>> acc = new HashMap<>();
         Set<Long> allUserIds = new HashSet<>();
+        Map<String, Integer> skippedReasons = new HashMap<>();
         int scanned = 0;
         int contributed = 0;
-        for (Tournament t : tournaments == null ? List.<Tournament>of() : tournaments) {
-            if (t == null || t.getId() == null || t.getLevelCode() == null || t.getLevelCode().isBlank()) continue;
+
+        for (Tournament tournament : tournaments == null ? List.<Tournament>of() : tournaments) {
+            if (tournament == null || tournament.getId() == null) {
+                incrementReason(skippedReasons, "invalid_tournament");
+                continue;
+            }
+            String levelCode = tournament.getLevelCode() == null ? "" : tournament.getLevelCode().trim();
+            if (levelCode.isBlank()) {
+                incrementReason(skippedReasons, "blank_level_code");
+                continue;
+            }
             scanned++;
-            List<Long> top3 = resolveTournamentTop3ByFinalRanking(t);
-            if (top3.isEmpty()) continue;
+            MedalTop3Result result = resolveTournamentTop3ByFinalRanking(tournament);
+            if (!result.eligible()) {
+                incrementReason(skippedReasons, result.reason());
+                continue;
+            }
+            List<Long> top3 = result.top3();
+            if (top3.size() < 3) {
+                incrementReason(skippedReasons, "top3_incomplete");
+                continue;
+            }
             contributed++;
-            Map<Long, int[]> levelMap = acc.computeIfAbsent(t.getLevelCode(), k -> new HashMap<>());
-            if (top3.size() >= 1 && top3.get(0) != null) {
-                levelMap.computeIfAbsent(top3.get(0), k -> new int[3])[0]++;
-                allUserIds.add(top3.get(0));
-            }
-            if (top3.size() >= 2 && top3.get(1) != null) {
-                levelMap.computeIfAbsent(top3.get(1), k -> new int[3])[1]++;
-                allUserIds.add(top3.get(1));
-            }
-            if (top3.size() >= 3 && top3.get(2) != null) {
-                levelMap.computeIfAbsent(top3.get(2), k -> new int[3])[2]++;
-                allUserIds.add(top3.get(2));
+            Map<Long, int[]> levelMap = acc.computeIfAbsent(levelCode, k -> new HashMap<>());
+            for (int medalIdx = 0; medalIdx < 3; medalIdx++) {
+                Long userId = top3.get(medalIdx);
+                if (userId == null) {
+                    continue;
+                }
+                levelMap.computeIfAbsent(userId, k -> new int[3])[medalIdx]++;
+                allUserIds.add(userId);
             }
         }
-        logger.info("MedalBoard: scanned tournaments={}, contributedTop3={}", scanned, contributed);
+
+        logger.info("MedalBoard rebuilt: scanned={}, contributed={}, skipped={}", scanned, contributed, skippedReasons);
         Map<Long, String> usernameById = allUserIds.isEmpty() ? Map.of() : userService.listByIds(allUserIds).stream()
                 .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
 
         Map<String, String> levelLabels = buildLevelLabels(levelCodes);
+        Map<String, String> levelTabIds = buildLevelTabIds(levelCodes);
         Map<String, List<Map<String, Object>>> rowsByLevel = new HashMap<>();
         for (String levelCode : levelCodes) {
             List<Map<String, Object>> rows = acc.getOrDefault(levelCode, Map.of()).entrySet().stream()
@@ -362,10 +553,28 @@ public class HomeController {
                     .toList();
             rowsByLevel.put(levelCode, rows);
         }
+        List<String> orderedLevelCodes = levelCodes == null ? List.of() : levelCodes.stream()
+                .sorted((a, b) -> {
+                    boolean aHasRows = !rowsByLevel.getOrDefault(a, List.of()).isEmpty();
+                    boolean bHasRows = !rowsByLevel.getOrDefault(b, List.of()).isEmpty();
+                    if (aHasRows != bHasRows) {
+                        return aHasRows ? -1 : 1;
+                    }
+                    String al = levelLabels.getOrDefault(a, a);
+                    String bl = levelLabels.getOrDefault(b, b);
+                    return al.compareTo(bl);
+                })
+                .toList();
+        List<Map<String, Object>> tabs = orderedLevelCodes.stream().map(code -> {
+            Map<String, Object> tab = new HashMap<>();
+            tab.put("code", code);
+            tab.put("label", levelLabels.getOrDefault(code, code));
+            tab.put("tabId", levelTabIds.getOrDefault(code, code));
+            tab.put("rows", rowsByLevel.getOrDefault(code, List.of()));
+            return tab;
+        }).toList();
         return Map.of(
-                "levelCodes", levelCodes,
-                "levelLabels", levelLabels,
-                "rowsByLevel", rowsByLevel
+                "tabs", tabs
         );
     }
 
@@ -388,15 +597,31 @@ public class HomeController {
         return out;
     }
 
-    /**
-     * 取某届赛事最终排名前 3 名（冠/亚/季），用于奖牌榜统计。
-     * 仅当该赛事“最终排名完整”时返回：即冠军积分满足
-     *   冠军积分 = (冠军积分/人数比率) * 参赛人数
-     * 其中“参赛人数”用该赛事 user_tournament_points 的有效人数近似（剔除 userId 为空）。
-     */
-    private List<Long> resolveTournamentTop3ByFinalRanking(Tournament tournament) {
+    private Map<String, String> buildLevelTabIds(List<String> levelCodes) {
+        if (levelCodes == null || levelCodes.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> out = new HashMap<>();
+        for (int i = 0; i < levelCodes.size(); i++) {
+            String code = levelCodes.get(i);
+            if (code == null) {
+                continue;
+            }
+            String normalized = code.trim().toLowerCase()
+                    .replaceAll("[^a-z0-9_-]+", "-")
+                    .replaceAll("^-+", "")
+                    .replaceAll("-+$", "");
+            if (normalized.isBlank()) {
+                normalized = "level";
+            }
+            out.put(code, normalized + "-" + i);
+        }
+        return out;
+    }
+
+    private MedalTop3Result resolveTournamentTop3ByFinalRanking(Tournament tournament) {
         if (tournament == null || tournament.getId() == null) {
-            return List.of();
+            return MedalTop3Result.ineligible("invalid_tournament");
         }
         Long tournamentId = tournament.getId();
         List<UserTournamentPoints> rows = userTournamentPointsService.lambdaQuery()
@@ -405,33 +630,32 @@ public class HomeController {
                 .orderByAsc(UserTournamentPoints::getId)
                 .list();
         if (rows == null || rows.isEmpty()) {
-            return List.of();
+            return MedalTop3Result.ineligible("no_utp_rows");
+        }
+
+        int participantCount;
+        int pointsUserCount = (int) rows.stream()
+                .filter(r -> r != null && r.getUserId() != null)
+                .map(UserTournamentPoints::getUserId)
+                .distinct()
+                .count();
+        try {
+            Set<Long> roster = tournamentRankingRosterService.rosterUserIdsForEventRanking(tournamentId);
+            int rosterCount = roster == null ? 0 : roster.size();
+            participantCount = Math.max(rosterCount, pointsUserCount);
+        } catch (RuntimeException ignored) {
+            participantCount = pointsUserCount;
         }
         List<UserTournamentPoints> valid = rows.stream()
                 .filter(r -> r != null && r.getUserId() != null && r.getPoints() != null)
                 .toList();
         if (valid.size() < 3) {
-            return List.of();
-        }
-
-        // 参赛人数 n：优先取“赛事最终排名名单”口径（报名/分组/直通/晋级等），避免仅靠 utp 行数导致 n 偏小/偏大。
-        // 若名单为空（某些老数据），再回退用 utp 的有效人数近似。
-        int participantCount;
-        try {
-            Set<Long> roster = tournamentRankingRosterService.rosterUserIdsForEventRanking(tournamentId);
-            participantCount = roster == null || roster.isEmpty()
-                    ? (int) valid.stream().map(UserTournamentPoints::getUserId).distinct().count()
-                    : roster.size();
-        } catch (RuntimeException ignored) {
-            participantCount = (int) valid.stream().map(UserTournamentPoints::getUserId).distinct().count();
-        }
-        if (participantCount < 3) {
-            return List.of();
+            return MedalTop3Result.ineligible("ranked_rows_lt_3");
         }
 
         Integer championPoints = valid.get(0).getPoints();
         if (championPoints == null) {
-            return List.of();
+            return MedalTop3Result.ineligible("champion_points_null");
         }
 
         BigDecimal ratio = tournament.getChampionPointsRatio();
@@ -442,24 +666,77 @@ public class HomeController {
                     .one();
             ratio = level == null ? null : level.getDefaultChampionRatio();
         }
-
-        // 若没有比率信息，就无法判定“最终排名完整”，这里选择直接不统计，避免误计。
         if (ratio == null) {
-            return List.of();
+            return MedalTop3Result.ineligible("ratio_missing");
+        }
+        if (ratio.compareTo(BigDecimal.ZERO) <= 0) {
+            return MedalTop3Result.ineligible("ratio_invalid");
+        }
+        try {
+            BigDecimal inferredParticipants = BigDecimal.valueOf(championPoints).divide(ratio, 8, RoundingMode.HALF_UP);
+            BigDecimal roundedParticipants = inferredParticipants.setScale(0, RoundingMode.HALF_UP);
+            if (inferredParticipants.subtract(roundedParticipants).abs().compareTo(new BigDecimal("0.0001")) <= 0) {
+                participantCount = Math.max(participantCount, roundedParticipants.intValue());
+            }
+        } catch (ArithmeticException ignored) {
+            // 保留已有 participantCount 口径
+        }
+        if (participantCount < 3) {
+            return MedalTop3Result.ineligible("participant_count_lt_3");
         }
         int expectedChampionPoints = ratio.multiply(BigDecimal.valueOf(participantCount))
                 .setScale(0, RoundingMode.HALF_UP)
                 .intValue();
         if (!Objects.equals(expectedChampionPoints, championPoints)) {
-            return List.of();
+            return MedalTop3Result.ineligible("champion_points_not_ready");
         }
 
         List<Long> top3 = new ArrayList<>(3);
         for (UserTournamentPoints row : valid) {
+            if (top3.contains(row.getUserId())) {
+                continue;
+            }
             top3.add(row.getUserId());
             if (top3.size() >= 3) break;
         }
-        return top3.size() == 3 ? top3 : List.of();
+        return top3.size() == 3 ? MedalTop3Result.eligible(top3) : MedalTop3Result.ineligible("top3_incomplete");
+    }
+
+    private void incrementReason(Map<String, Integer> skippedReasons, String reason) {
+        String key = (reason == null || reason.isBlank()) ? "unknown" : reason;
+        skippedReasons.merge(key, 1, Integer::sum);
+    }
+
+    private static final class MedalTop3Result {
+        private final boolean eligible;
+        private final List<Long> top3;
+        private final String reason;
+
+        private MedalTop3Result(boolean eligible, List<Long> top3, String reason) {
+            this.eligible = eligible;
+            this.top3 = top3;
+            this.reason = reason;
+        }
+
+        static MedalTop3Result eligible(List<Long> top3) {
+            return new MedalTop3Result(true, top3 == null ? List.of() : top3, null);
+        }
+
+        static MedalTop3Result ineligible(String reason) {
+            return new MedalTop3Result(false, List.of(), reason);
+        }
+
+        boolean eligible() {
+            return eligible;
+        }
+
+        List<Long> top3() {
+            return top3;
+        }
+
+        String reason() {
+            return reason;
+        }
     }
     
     private void addSystemStatistics(Model model) {
