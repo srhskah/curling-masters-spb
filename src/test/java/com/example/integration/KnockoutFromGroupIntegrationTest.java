@@ -113,7 +113,7 @@ class KnockoutFromGroupIntegrationTest {
     }
 
     @Test
-    @DisplayName("8人2组：小组赛全验收后生成1/8淘汰赛首轮4场")
+    @DisplayName("8人2组：小组赛全验收后生成1/4淘汰赛首轮4场")
     void generateKnockoutAfterGroupStage() {
         User host = createHost();
         List<User> players = createPlayers(8, "ko");
@@ -156,13 +156,13 @@ class KnockoutFromGroupIntegrationTest {
         long ko = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .in(Match::getPhaseCode, "MAIN", "FINAL")
-                .eq(Match::getRound, 8)
+                .eq(Match::getRound, 4)
                 .count();
         assertEquals(4, ko);
     }
 
     @Test
-    @DisplayName("8人2组：淘汰赛 1/8→1/4→奖牌赛 自动晋级链")
+    @DisplayName("8人2组：淘汰赛 1/4→半决赛→奖牌赛 自动晋级链")
     void knockoutProgressesToGoldAndBronze() {
         User host = createHost();
         List<User> players = createPlayers(8, "k2");
@@ -191,30 +191,24 @@ class KnockoutFromGroupIntegrationTest {
 
         knockoutBracketService.generateFirstKnockoutRound(host, tid);
 
-        List<Match> r8 = matchService.lambdaQuery()
+        List<Match> quarterFinals = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, 8)
+                .eq(Match::getRound, 4)
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
-        assertEquals(4, r8.size());
-        for (Match m : r8) {
+        assertEquals(4, quarterFinals.size());
+        for (Match m : quarterFinals) {
             acceptKoWithWinner(host, m, true);
         }
 
-        long r4 = matchService.lambdaQuery()
-                .eq(Match::getTournamentId, tid)
-                .eq(Match::getRound, 4)
-                .in(Match::getPhaseCode, "MAIN", "FINAL")
-                .count();
-        assertEquals(2, r4);
-
         List<Match> semis = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
-                .eq(Match::getRound, 4)
+                .eq(Match::getRound, 2)
                 .eq(Match::getPhaseCode, "MAIN")
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
+        assertEquals(2, semis.size());
         for (Match m : semis) {
             acceptKoWithWinner(host, m, true);
         }
@@ -726,7 +720,8 @@ class KnockoutFromGroupIntegrationTest {
         cfg.setGroupStageSets(8);
         cfg.setKnockoutStageSets(8);
         cfg.setFinalStageSets(10);
-        cfg.setKnockoutStartRound(8);
+        // 本文件 8/12 人用例首轮均为 1/4（需 8 人）；与 playersInFirstKnockoutRound(4) 一致
+        cfg.setKnockoutStartRound(4);
         cfg.setKnockoutBracketMode(0);
         cfg.setKnockoutAutoFromGroup(false);
         cfg.setQualifierRound(null);
