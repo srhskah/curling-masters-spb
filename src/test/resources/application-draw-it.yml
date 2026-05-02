@@ -5,6 +5,9 @@ spring:
     # 空库从零执行：先 test-bootstrap(V0_1) 再 db/migration
     baseline-on-migrate: false
     locations: classpath:db/test-bootstrap,classpath:db/migration
+    # CI/本机若使用持久库 draw_it_integration（DRAW_IT_JDBC_URL），库内 flyway_schema_history 与当前迁移文件
+    # 正文 checksum 可能不一致（历史上迁移曾被修订）；关闭校验避免 Spring 无法启动。仍会执行未应用的迁移。
+    validate-on-migrate: false
   jpa:
     hibernate:
       ddl-auto: none
