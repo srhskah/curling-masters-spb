@@ -308,6 +308,7 @@ class KnockoutFromGroupIntegrationTest {
 
         TournamentCompetitionConfig cfgPatch = new TournamentCompetitionConfig();
         cfgPatch.setTournamentId(tid);
+        cfgPatch.setMatchMode(3);
         cfgPatch.setKnockoutStartRound(4);
         cfgPatch.setQualifierRound(4);
         competitionService.saveConfig(host, cfgPatch);
@@ -362,7 +363,14 @@ class KnockoutFromGroupIntegrationTest {
                 .eq(UserTournamentPoints::getTournamentId, tid)
                 .isNotNull(UserTournamentPoints::getPoints)
                 .count();
-        assertTrue(awardedAfterQuarter > awardedAfterQualifier, "1/4决赛完成后应继续新增第5~8名积分");
+        // 积分行多为 upsert：同一选手可能从「未定名次」更新为第5~8名，非空行数未必递增；以名次表为准
+        Map<Long, Integer> placementsAfterQuarter = competitionService.getProgressSettledPlacementRanks(tid);
+        long settledRanks5to8 = placementsAfterQuarter.values().stream()
+                .filter(Objects::nonNull)
+                .filter(r -> r >= 5 && r <= 8)
+                .count();
+        assertEquals(4, settledRanks5to8, "1/4决赛完成后应已确定第5~8名");
+        assertTrue(awardedAfterQuarter >= awardedAfterQualifier, "1/4决赛完成后积分导出条目不应减少");
 
         // Step 3: 半决赛完成会生成奖牌赛，先锁铜牌赛 -> 应继续增加已导出积分
         List<Match> semis = matchService.lambdaQuery()
@@ -437,14 +445,14 @@ class KnockoutFromGroupIntegrationTest {
         int n = knockoutBracketService.generateFirstKnockoutRoundManual(host, tid, picked);
         assertEquals(4, n);
 
-        List<Match> r8 = matchService.lambdaQuery()
+        List<Match> quarterFinals = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, 8)
+                .eq(Match::getRound, 4)
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
-        assertEquals(4, r8.size());
-        for (Match m : r8) {
+        assertEquals(4, quarterFinals.size());
+        for (Match m : quarterFinals) {
             assertTrue(m.getCategory() != null && m.getCategory().startsWith("[手动排签]"));
             assertEquals(host.getId(), m.getCreatedByUserId());
             assertEquals(KnockoutBracketService.SOURCE_MANUAL_KO_EDITOR, m.getCreateSource());
@@ -503,19 +511,19 @@ class KnockoutFromGroupIntegrationTest {
         lockAllGroupMatches(host, tid);
 
         knockoutBracketService.generateFirstKnockoutRound(host, tid);
-        List<Match> r8 = matchService.lambdaQuery()
+        List<Match> quarterFinals = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, 8)
+                .eq(Match::getRound, 4)
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
-        for (Match m : r8) {
+        for (Match m : quarterFinals) {
             acceptKoWithWinner(host, m, true);
         }
         List<Match> semis = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, 4)
+                .eq(Match::getRound, 2)
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
         for (Match m : semis) {
@@ -566,19 +574,19 @@ class KnockoutFromGroupIntegrationTest {
         lockAllGroupMatches(host, tid);
 
         knockoutBracketService.generateFirstKnockoutRound(host, tid);
-        List<Match> r8 = matchService.lambdaQuery()
+        List<Match> quarterFinals = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, 8)
+                .eq(Match::getRound, 4)
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
-        for (Match m : r8) {
+        for (Match m : quarterFinals) {
             acceptKoWithWinner(host, m, true);
         }
         List<Match> semis = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, 4)
+                .eq(Match::getRound, 2)
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
         assertEquals(2, semis.size());
@@ -637,19 +645,19 @@ class KnockoutFromGroupIntegrationTest {
         lockAllGroupMatches(host, tid);
 
         knockoutBracketService.generateFirstKnockoutRound(host, tid);
-        List<Match> r8 = matchService.lambdaQuery()
+        List<Match> quarterFinals = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, 8)
+                .eq(Match::getRound, 4)
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
-        for (Match m : r8) {
+        for (Match m : quarterFinals) {
             acceptKoWithWinner(host, m, true);
         }
         List<Match> semis = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tid)
                 .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, 4)
+                .eq(Match::getRound, 2)
                 .orderByAsc(Match::getKnockoutBracketSlot)
                 .list();
         assertEquals(2, semis.size());
