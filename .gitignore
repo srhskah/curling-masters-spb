@@ -86,6 +86,10 @@ mybatis-generator.xml
 *.swo
 *~
 backup/
+backup_*.sql
+backup-*.sql
+backup_*.sql:Zone.Identifier
+backup-*.sql:Zone.Identifier
 =======
 # Compiled class file
 *.class
