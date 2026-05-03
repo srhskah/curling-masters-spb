@@ -1,0 +1,1 @@
+od /home/srhskah/webapp/curling masters/app &t ./gradlew integrationTest —no-daemon —rerun-tasks —tests com. example. integration. KnockoutFromGroupIntegrationTest tail 352>&1
