@@ -860,7 +860,12 @@
                                     <tr th:each="entry,st : ${rankingInfoList}">
                                         <td th:text="${entry.displayRank != null and entry.displayRank > 0 ? entry.displayRank : '—'}">1</td>
                                         <td>
-                                            <span th:text="${entry.userName}">选手</span>
+                                            <a th:if="${entry.ranking != null and entry.ranking.userId != null}"
+                                               th:href="@{/user/profile/{uid}(uid=${entry.ranking.userId})}"
+                                               class="text-decoration-none"
+                                               th:text="${entry.userName}">选手</a>
+                                            <span th:if="${entry.ranking == null or entry.ranking.userId == null}"
+                                                  th:text="${entry.userName}">选手</span>
                                             <span class="text-muted"
                                                   th:if="${entry.isWithdrawn}">（退赛（不计入排名））</span>
                                         </td>
@@ -906,7 +911,7 @@
                                         style="cursor:pointer;"
                                         th:attr="data-type='overall',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${r.groupName},data-user-id=${r.userId},data-username=${r.username},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
                                         onclick="openGroupRankDetailModal(this)">
-                                        <td th:text="${r.overallRank}">1</td><td th:text="${r.groupRank}">1</td><td th:text="${r.groupName}">A组</td><td th:text="${r.username}">选手</td>
+                                        <td th:text="${r.overallRank}">1</td><td th:text="${r.groupRank}">1</td><td th:text="${r.groupName}">A组</td><td><a th:if="${r.userId != null}" th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}"></a><span th:if="${r.userId == null}" th:text="${r.username}"></span></td>
                                         <td th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0},pl=${r.played != null ? r.played : 0}"
                                             th:classappend="${exp > 0 and pl == exp} ? ' group-ranking-matches-complete'"
                                             th:text="|${pl}/${exp}|">0/0</td>
@@ -954,7 +959,7 @@
                                                 <td th:text="${r.overallRank}">1</td>
                                                 <td th:text="${r.groupRank}">1</td>
                                                 <td th:text="${r.groupName}">A组</td>
-                                                <td th:text="${r.username}">选手</td>
+                                                <td><a th:if="${r.userId != null}" th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}"></a><span th:if="${r.userId == null}" th:text="${r.username}"></span></td>
                                                 <td th:text="${r.points}">0</td>
                                                 <td th:text="${r.net}">0</td>
                                                 <td th:text="${r.totalScore}">0</td>
@@ -1021,7 +1026,7 @@
                                             onclick="openGroupRankDetailModal(this)">
                                             <td th:text="${r.overallRank}">1</td>
                                             <td th:text="${r.groupRank}">1</td>
-                                            <td th:text="${r.username}">选手</td>
+                                            <td><a th:if="${r.userId != null}" th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}"></a><span th:if="${r.userId == null}" th:text="${r.username}"></span></td>
                                             <td th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0},pl=${r.played != null ? r.played : 0}"
                                                 th:classappend="${exp > 0 and pl == exp} ? ' group-ranking-matches-complete'"
                                                 th:text="|${pl}/${exp}|">0/0</td>

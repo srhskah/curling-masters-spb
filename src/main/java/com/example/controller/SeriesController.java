@@ -4,6 +4,7 @@ import com.example.entity.*;
 import com.example.service.*;
 import com.example.util.IpAddressUtil;
 import com.example.util.HtmlEscaper;
+import com.example.util.SeriesDisplayNames;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -63,19 +64,7 @@ public class SeriesController {
     }
 
     private String buildSeriesDisplayName(Series series) {
-        if (series == null) return "";
-        if (series.getName() != null && !series.getName().trim().isEmpty()) return series.getName().trim();
-        if (series.getSeasonId() == null || series.getSequence() == null) return "第?系列";
-        long namedCount = seriesService.lambdaQuery()
-                .eq(Series::getSeasonId, series.getSeasonId())
-                .le(Series::getSequence, series.getSequence())
-                .list()
-                .stream()
-                .filter(s -> s.getName() != null && !s.getName().trim().isEmpty())
-                .count();
-        int displayIdx = (int) (series.getSequence() - namedCount);
-        if (displayIdx < 1) displayIdx = 1;
-        return "第" + displayIdx + "系列";
+        return SeriesDisplayNames.seriesDisplayName(seriesService, series);
     }
 
     @GetMapping("/list")

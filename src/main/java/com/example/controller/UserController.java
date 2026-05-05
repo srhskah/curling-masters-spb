@@ -2,7 +2,11 @@ package com.example.controller;
 
 import java.util.Map;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.example.dto.UserMedalByLevelDto;
+import com.example.dto.UserMedalEventDto;
+import com.example.dto.UserTournamentPlacementHistoryDto;
 import com.example.entity.User;
+import com.example.service.TournamentMedalStandingsService;
 import com.example.service.UserService;
 import com.example.util.CookieUtil;
 import com.example.util.UsernameValidator;
@@ -35,10 +39,13 @@ public class UserController {
 
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final TournamentMedalStandingsService tournamentMedalStandingsService;
 
-    public UserController(UserService userService, PasswordEncoder passwordEncoder) {
+    public UserController(UserService userService, PasswordEncoder passwordEncoder,
+                          TournamentMedalStandingsService tournamentMedalStandingsService) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
+        this.tournamentMedalStandingsService = tournamentMedalStandingsService;
     }
 
     @GetMapping("/test")
@@ -389,7 +396,18 @@ public class UserController {
             
             model.addAttribute("user", user);
             model.addAttribute("isOwner", currentUser.getId().equals(id));
-            
+            model.addAttribute("viewerRole", currentUser.getRole());
+
+            List<UserMedalByLevelDto> medalsByLevel = tournamentMedalStandingsService.summarizeUserMedalsByLevel(id);
+            List<UserMedalEventDto> medalEvents = tournamentMedalStandingsService.listUserMedalEvents(id);
+            List<UserTournamentPlacementHistoryDto> tournamentHistory =
+                    tournamentMedalStandingsService.buildUserTournamentPlacementHistory(id);
+            model.addAttribute("userMedalsByLevel", medalsByLevel);
+            model.addAttribute("userMedalEvents", medalEvents);
+            model.addAttribute("userTournamentHistory", tournamentHistory);
+            model.addAttribute("userProfileCopyText",
+                    buildUserProfileCopyText(user, medalsByLevel, medalEvents, tournamentHistory));
+
             return "user-profile";
         } catch (Exception e) {
             e.printStackTrace();
@@ -477,5 +495,66 @@ public class UserController {
             redirectAttributes.addFlashAttribute("error", "更新失败：" + e.getMessage());
             return "redirect:/user/profile/" + currentUser.getId();
         }
+    }
+
+    private static String buildUserProfileCopyText(User user,
+                                                   List<UserMedalByLevelDto> byLevel,
+                                                   List<UserMedalEventDto> events,
+                                                   List<UserTournamentPlacementHistoryDto> history) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("用户：").append(user.getUsername()).append(" (ID ").append(user.getId()).append(")\n\n");
+
+        sb.append("【各级别奖牌汇总】（与全站奖牌榜规则一致）\n");
+        if (byLevel == null || byLevel.isEmpty()) {
+            sb.append("（暂无）\n");
+        } else {
+            for (UserMedalByLevelDto r : byLevel) {
+                sb.append(r.levelLabel())
+                        .append("\t金 ").append(r.gold())
+                        .append(" 银 ").append(r.silver())
+                        .append(" 铜 ").append(r.bronze())
+                        .append("\n");
+            }
+        }
+
+        sb.append("\n【奖牌明细】\n");
+        if (events == null || events.isEmpty()) {
+            sb.append("（暂无）\n");
+        } else {
+            sb.append("奖牌\t级别\t赛季与系列\t赛事（级别·日期）\n");
+            for (UserMedalEventDto e : events) {
+                sb.append(e.medalLabel())
+                        .append("\t")
+                        .append(e.levelLabel())
+                        .append("\t")
+                        .append(e.seasonSeriesLine())
+                        .append("\t")
+                        .append(e.tournamentName())
+                        .append("\n");
+            }
+        }
+
+        sb.append("\n【历届赛事名次与积分】\n");
+        if (history == null || history.isEmpty()) {
+            sb.append("（暂无）\n");
+        } else {
+            sb.append("赛事（级别·日期）\t级别\t赛季与系列\t最终名次\t积分\t奖牌\n");
+            for (UserTournamentPlacementHistoryDto h : history) {
+                sb.append(h.tournamentName())
+                        .append("\t")
+                        .append(h.levelLabel())
+                        .append("\t")
+                        .append(h.seasonSeriesLine())
+                        .append("\t")
+                        .append(h.finalRank() != null ? h.finalRank().toString() : "—")
+                        .append("\t")
+                        .append(h.points() != null ? h.points().toString() : "—")
+                        .append("\t")
+                        .append(h.medalLabel() != null && !h.medalLabel().isEmpty() ? h.medalLabel() : "—")
+                        .append("\n");
+            }
+        }
+
+        return sb.toString();
     }
 }

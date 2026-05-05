@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">生涯战绩</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 11px; color: #111; }
+        h2 { margin: 0 0 8px; font-size: 15px; }
+        .muted { color: #666; }
+        .meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin: 0 0 10px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        section { margin-bottom: 14px; }
+        h3 { font-size: 13px; margin: 0 0 6px; border-bottom: 1px solid #ccc; padding-bottom: 2px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+        th, td { border: 1px solid #ddd; padding: 5px 6px; vertical-align: top; text-align: left; }
+        th { background: #f3f3f3; text-align: center; }
+        td.num { text-align: center; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">用户名 - 生涯战绩</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}"></div>
+        <!-- <div class="muted">奖牌统计规则与全站奖牌榜一致（赛事冠军积分须等于级别默认冠军算法对应分值）。</div> -->
+    </div>
+</div>
+
+<section>
+    <h3>各级别奖牌汇总</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>级别</th>
+            <th class="num">金</th>
+            <th class="num">银</th>
+            <th class="num">铜</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="m : ${medalsByLevel}">
+            <td th:text="${m.levelLabel}">CM250</td>
+            <td class="num" th:text="${m.gold}">0</td>
+            <td class="num" th:text="${m.silver}">0</td>
+            <td class="num" th:text="${m.bronze}">0</td>
+        </tr>
+        <tr th:if="${medalsByLevel == null or #lists.isEmpty(medalsByLevel)}">
+            <td colspan="4" class="muted" style="text-align:center;">暂无奖牌数据</td>
+        </tr>
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <h3>奖牌明细</h3>
+    <table>
+        <thead>
+        <tr>
+            <th>奖牌</th>
+            <th>级别</th>
+            <th>赛季与系列</th>
+            <!-- <th>赛事（级别·日期）</th> -->
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="e : ${medalEvents}">
+            <td th:text="${e.medalLabel}">金牌</td>
+            <td th:text="${e.levelLabel}"></td>
+            <td th:text="${e.seasonSeriesLine()}"></td>
+            <!-- <td th:text="${e.tournamentName}"></td> -->
+        </tr>
+        <tr th:if="${medalEvents == null or #lists.isEmpty(medalEvents)}">
+            <td colspan="3" class="muted" style="text-align:center;">暂无</td>
+        </tr>
+        </tbody>
+    </table>
+</section>
+
+<section>
+    <h3>历届赛事名次与积分</h3>
+    <table>
+        <thead>
+        <tr>
+            <!-- <th>赛事（级别·日期）</th> -->
+            <th>赛季与系列</th>
+            <th>级别</th>
+            <th class="num">名次</th>
+            <th class="num">积分</th>
+            <th>奖牌</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="h : ${tournamentHistory}">
+            <!-- <td th:text="${h.tournamentName}"></td> -->
+            <td th:text="${h.seasonSeriesLine()}"></td>
+            <td th:text="${h.levelLabel}"></td>
+            <td class="num" th:text="${h.finalRank != null ? h.finalRank : '—'}"></td>
+            <td class="num" th:text="${h.points != null ? h.points : '—'}"></td>
+            <td th:text="${h.medalLabel != null and !h.medalLabel.isEmpty() ? h.medalLabel : '—'}"></td>
+        </tr>
+        <tr th:if="${tournamentHistory == null or #lists.isEmpty(tournamentHistory)}">
+            <td colspan="5" class="muted" style="text-align:center;">暂无参赛积分记录</td>
+        </tr>
+        </tbody>
+    </table>
+</section>
+</body>
+</html>

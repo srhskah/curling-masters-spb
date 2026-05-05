@@ -1038,6 +1038,50 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         return placements;
     }
 
+    /**
+     * 当淘汰赛/小组赛推导不出名次时（例如后台手工录入最终排名），按积分表顺序补全展示名次。
+     * 已有进程推导名次的用户保持不变；其余用户按积分降序、记录 id 升序接续排名。
+     */
+    private void mergePointsOnlyPlacementFallback(Long tournamentId, Map<Long, Integer> placements) {
+        if (tournamentId == null) {
+            return;
+        }
+        List<UserTournamentPoints> rows = userTournamentPointsService.lambdaQuery()
+                .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                .isNotNull(UserTournamentPoints::getUserId)
+                .isNotNull(UserTournamentPoints::getPoints)
+                .list();
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        rows.sort(Comparator
+                .comparing(UserTournamentPoints::getPoints, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(UserTournamentPoints::getId, Comparator.nullsLast(Long::compareTo)));
+        List<Long> orderedUserIds = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (UserTournamentPoints r : rows) {
+            Long uid = r.getUserId();
+            if (uid == null || !seen.add(uid)) {
+                continue;
+            }
+            orderedUserIds.add(uid);
+        }
+        List<Long> needRank = new ArrayList<>();
+        for (Long uid : orderedUserIds) {
+            if (!placements.containsKey(uid)) {
+                needRank.add(uid);
+            }
+        }
+        if (needRank.isEmpty()) {
+            return;
+        }
+        int maxRank = placements.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        int rankCursor = maxRank + 1;
+        for (Long uid : needRank) {
+            placements.put(uid, rankCursor++);
+        }
+    }
+
     private void recomputeTournamentPointsByProgress(Long tournamentId, TournamentCompetitionConfig cfg) {
         if (tournamentId == null || cfg == null || cfg.getKnockoutStartRound() == null) return;
         Tournament tournament = tournamentService.getById(tournamentId);
@@ -1095,15 +1139,16 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (tournamentId == null) {
             return Map.of();
         }
+        Map<Long, Integer> placements = new HashMap<>();
         TournamentCompetitionConfig cfg = getConfig(tournamentId);
-        if (cfg == null || cfg.getKnockoutStartRound() == null) {
-            return new HashMap<>();
+        if (cfg != null && cfg.getKnockoutStartRound() != null) {
+            List<Long> rankedIds = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
+            if (!rankedIds.isEmpty()) {
+                placements.putAll(buildProgressPlacementRanks(tournamentId, cfg, rankedIds));
+            }
         }
-        List<Long> rankedIds = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
-        if (rankedIds.isEmpty()) {
-            return new HashMap<>();
-        }
-        return buildProgressPlacementRanks(tournamentId, cfg, rankedIds);
+        mergePointsOnlyPlacementFallback(tournamentId, placements);
+        return placements;
     }
 
     private void upsertTournamentPoints(Long tournamentId, Long userId, Integer points) {

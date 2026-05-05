@@ -2,9 +2,12 @@ package com.example.controller;
 
 import com.example.dto.*;
 import com.example.entity.Season;
+import com.example.entity.User;
 import com.example.service.ITournamentCompetitionService;
 import com.example.service.RankingService;
 import com.example.service.SeasonService;
+import com.example.service.TournamentMedalStandingsService;
+import com.example.service.UserService;
 import com.example.service.impl.RankingExportPdfService;
 import com.example.util.PdfExportSupport;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +28,8 @@ public class RankingExportPdfController {
     @Autowired private RankingExportPdfService rankingExportPdfService;
     @Autowired private RankingApiController rankingApiController;
     @Autowired private ITournamentCompetitionService tournamentCompetitionService;
+    @Autowired private UserService userService;
+    @Autowired private TournamentMedalStandingsService tournamentMedalStandingsService;
 
     private static LinkedHashMap<String, Object> basePdfModel() {
         LinkedHashMap<String, Object> m = new LinkedHashMap<>();
@@ -235,6 +240,27 @@ public class RankingExportPdfController {
         model.put("rows", tournamentCompetitionService.listGroupDisqualifications(tournamentId));
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-disqualification", model);
         return PdfExportSupport.attachmentPdf(pdfBytes, title + ".pdf");
+    }
+
+    /**
+     * 用户详情页：各级别奖牌汇总、奖牌明细、历届赛事名次（规则与全站奖牌榜一致）。
+     */
+    @GetMapping(value = "/user/{userId}", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportUserCareerPdf(@PathVariable Long userId) {
+        User u = userService.getById(userId);
+        if (u == null) {
+            return ResponseEntity.notFound().build();
+        }
+        LinkedHashMap<String, Object> model = basePdfModel();
+        String title = u.getUsername() + " - 生涯战绩";
+        model.put("title", title);
+        model.put("username", u.getUsername());
+        model.put("userId", userId);
+        model.put("medalsByLevel", tournamentMedalStandingsService.summarizeUserMedalsByLevel(userId));
+        model.put("medalEvents", tournamentMedalStandingsService.listUserMedalEvents(userId));
+        model.put("tournamentHistory", tournamentMedalStandingsService.buildUserTournamentPlacementHistory(userId));
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-user-profile", model);
+        return PdfExportSupport.attachmentPdf(pdfBytes, u.getUsername() + "-生涯战绩.pdf");
     }
 
     private byte[] renderGroupRankingPdf(String title, Object groups, Object pseudoGroups, Object groupMatches) {
