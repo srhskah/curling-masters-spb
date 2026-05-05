@@ -6,7 +6,9 @@ import com.example.entity.Season;
 import com.example.entity.User;
 import com.example.entity.UserTournamentPoints;
 import com.example.entity.TournamentLevel;
+import com.example.dto.MedalTop3Resolution;
 import com.example.service.RankingService;
+import com.example.service.TournamentMedalStandingsService;
 import com.example.service.SeasonService;
 import com.example.service.ITournamentRegistrationService;
 import com.example.service.INotificationService;
@@ -30,8 +32,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Map;
 import java.util.List;
 import java.util.Set;
@@ -58,6 +58,7 @@ public class HomeController {
     @Autowired private ITournamentLevelService tournamentLevelService;
     @Autowired private TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired private INotificationService notificationService;
+    @Autowired private TournamentMedalStandingsService tournamentMedalStandingsService;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model, HttpServletRequest request) {
@@ -319,7 +320,7 @@ public class HomeController {
 
             List<Map<String, Object>> rows = new ArrayList<>();
             for (Tournament t : tournaments == null ? List.<Tournament>of() : tournaments) {
-                MedalTop3Result r = resolveTournamentTop3ByFinalRanking(t);
+                MedalTop3Resolution r = tournamentMedalStandingsService.resolveTournamentTop3ByFinalRanking(t);
                 if (!r.eligible()) {
                     continue;
                 }
@@ -497,7 +498,7 @@ public class HomeController {
                 continue;
             }
             scanned++;
-            MedalTop3Result result = resolveTournamentTop3ByFinalRanking(tournament);
+            MedalTop3Resolution result = tournamentMedalStandingsService.resolveTournamentTop3ByFinalRanking(tournament);
             if (!result.eligible()) {
                 incrementReason(skippedReasons, result.reason());
                 continue;
@@ -619,126 +620,11 @@ public class HomeController {
         return out;
     }
 
-    private MedalTop3Result resolveTournamentTop3ByFinalRanking(Tournament tournament) {
-        if (tournament == null || tournament.getId() == null) {
-            return MedalTop3Result.ineligible("invalid_tournament");
-        }
-        Long tournamentId = tournament.getId();
-        List<UserTournamentPoints> rows = userTournamentPointsService.lambdaQuery()
-                .eq(UserTournamentPoints::getTournamentId, tournamentId)
-                .orderByDesc(UserTournamentPoints::getPoints)
-                .orderByAsc(UserTournamentPoints::getId)
-                .list();
-        if (rows == null || rows.isEmpty()) {
-            return MedalTop3Result.ineligible("no_utp_rows");
-        }
-
-        int participantCount;
-        int pointsUserCount = (int) rows.stream()
-                .filter(r -> r != null && r.getUserId() != null)
-                .map(UserTournamentPoints::getUserId)
-                .distinct()
-                .count();
-        try {
-            Set<Long> roster = tournamentRankingRosterService.rosterUserIdsForEventRanking(tournamentId);
-            int rosterCount = roster == null ? 0 : roster.size();
-            participantCount = Math.max(rosterCount, pointsUserCount);
-        } catch (RuntimeException ignored) {
-            participantCount = pointsUserCount;
-        }
-        List<UserTournamentPoints> valid = rows.stream()
-                .filter(r -> r != null && r.getUserId() != null && r.getPoints() != null)
-                .toList();
-        if (valid.size() < 3) {
-            return MedalTop3Result.ineligible("ranked_rows_lt_3");
-        }
-
-        Integer championPoints = valid.get(0).getPoints();
-        if (championPoints == null) {
-            return MedalTop3Result.ineligible("champion_points_null");
-        }
-
-        BigDecimal ratio = tournament.getChampionPointsRatio();
-        if (ratio == null) {
-            TournamentLevel level = tournament.getLevelCode() == null ? null : tournamentLevelService.lambdaQuery()
-                    .eq(TournamentLevel::getCode, tournament.getLevelCode())
-                    .last("LIMIT 1")
-                    .one();
-            ratio = level == null ? null : level.getDefaultChampionRatio();
-        }
-        if (ratio == null) {
-            return MedalTop3Result.ineligible("ratio_missing");
-        }
-        if (ratio.compareTo(BigDecimal.ZERO) <= 0) {
-            return MedalTop3Result.ineligible("ratio_invalid");
-        }
-        try {
-            BigDecimal inferredParticipants = BigDecimal.valueOf(championPoints).divide(ratio, 8, RoundingMode.HALF_UP);
-            BigDecimal roundedParticipants = inferredParticipants.setScale(0, RoundingMode.HALF_UP);
-            if (inferredParticipants.subtract(roundedParticipants).abs().compareTo(new BigDecimal("0.0001")) <= 0) {
-                participantCount = Math.max(participantCount, roundedParticipants.intValue());
-            }
-        } catch (ArithmeticException ignored) {
-            // 保留已有 participantCount 口径
-        }
-        if (participantCount < 3) {
-            return MedalTop3Result.ineligible("participant_count_lt_3");
-        }
-        int expectedChampionPoints = ratio.multiply(BigDecimal.valueOf(participantCount))
-                .setScale(0, RoundingMode.HALF_UP)
-                .intValue();
-        if (!Objects.equals(expectedChampionPoints, championPoints)) {
-            return MedalTop3Result.ineligible("champion_points_not_ready");
-        }
-
-        List<Long> top3 = new ArrayList<>(3);
-        for (UserTournamentPoints row : valid) {
-            if (top3.contains(row.getUserId())) {
-                continue;
-            }
-            top3.add(row.getUserId());
-            if (top3.size() >= 3) break;
-        }
-        return top3.size() == 3 ? MedalTop3Result.eligible(top3) : MedalTop3Result.ineligible("top3_incomplete");
-    }
-
     private void incrementReason(Map<String, Integer> skippedReasons, String reason) {
         String key = (reason == null || reason.isBlank()) ? "unknown" : reason;
         skippedReasons.merge(key, 1, Integer::sum);
     }
 
-    private static final class MedalTop3Result {
-        private final boolean eligible;
-        private final List<Long> top3;
-        private final String reason;
-
-        private MedalTop3Result(boolean eligible, List<Long> top3, String reason) {
-            this.eligible = eligible;
-            this.top3 = top3;
-            this.reason = reason;
-        }
-
-        static MedalTop3Result eligible(List<Long> top3) {
-            return new MedalTop3Result(true, top3 == null ? List.of() : top3, null);
-        }
-
-        static MedalTop3Result ineligible(String reason) {
-            return new MedalTop3Result(false, List.of(), reason);
-        }
-
-        boolean eligible() {
-            return eligible;
-        }
-
-        List<Long> top3() {
-            return top3;
-        }
-
-        String reason() {
-            return reason;
-        }
-    }
-    
     private void addSystemStatistics(Model model) {
         // 获取系统基础统计信息
         Runtime runtime = Runtime.getRuntime();

@@ -7,6 +7,7 @@ import com.example.mapper.MatchScoreEditLogMapper;
 import com.example.mapper.TournamentGroupMapper;
 import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.service.*;
+import com.example.util.SeriesDisplayNames;
 import com.example.util.TournamentPlacementListOrder;
 import com.example.mapper.RankingMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -227,7 +228,7 @@ public class RankingApiController {
         String seasonLabel = season == null
                 ? ""
                 : (season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年"));
-        String seriesName = buildSeriesDisplayName(series.getSeasonId(), series);
+        String seriesName = buildSeriesDisplayName(series);
 
         List<Tournament> tournaments = tournamentService.lambdaQuery()
                 .eq(Tournament::getSeriesId, seriesId)
@@ -1016,7 +1017,7 @@ public class RankingApiController {
             Series s = seriesById.get(sid);
             Season se = s != null ? seasonById.get(s.getSeasonId()) : null;
             String seasonLabel = se == null ? "" : (se.getYear() + "年" + (se.getHalf() == 1 ? "上半年" : "下半年"));
-            String seriesName = s == null ? "" : buildSeriesDisplayName(s.getSeasonId(), s);
+            String seriesName = s == null ? "" : buildSeriesDisplayName(s);
             regular.add(new UserPerformanceSeriesItemDto(seasonLabel, seriesName, s != null ? s.getSequence() : null, pts, false));
         }
         regular.sort(Comparator.comparingInt((UserPerformanceSeriesItemDto r) -> r.getPoints() != null ? r.getPoints() : 0).reversed()
@@ -1040,7 +1041,7 @@ public class RankingApiController {
             Series s = seriesById.get(sid);
             Season se = s != null ? seasonById.get(s.getSeasonId()) : null;
             String seasonLabel = se == null ? "" : (se.getYear() + "年" + (se.getHalf() == 1 ? "上半年" : "下半年"));
-            String seriesName = s == null ? "" : buildSeriesDisplayName(s.getSeasonId(), s);
+            String seriesName = s == null ? "" : buildSeriesDisplayName(s);
             String levelName = levelNameByCode.getOrDefault(levelCode, levelCode);
             finals.add(new UserPerformanceFinalItemDto(seasonLabel, seriesName, levelName, pts));
         }
@@ -1071,35 +1072,13 @@ public class RankingApiController {
     }
 
     private String buildSeriesLabel(Season season, Series series) {
-        String seasonText = season == null ? "" : (season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年"));
-        String displayName = buildSeriesDisplayName(series.getSeasonId(), series);
+        String seasonText = SeriesDisplayNames.formatSeason(season);
+        String displayName = buildSeriesDisplayName(series);
         return seasonText + " - " + displayName;
     }
 
-    /**
-     * 系列展示名称规则：
-     * - 若 name 有值：直接显示 name
-     * - 若 name 为空：显示为“第{sequence - namedCount}系列”，其中 namedCount 为同赛季、sequence<=当前 且 name 非空的系列数
-     */
-    private String buildSeriesDisplayName(Long seasonId, Series series) {
-        if (series == null) return "";
-        if (series.getName() != null && !series.getName().trim().isEmpty()) {
-            return series.getName().trim();
-        }
-        Integer seq = series.getSequence();
-        if (seasonId == null || seq == null) {
-            return "第" + (seq != null ? seq : "?") + "系列";
-        }
-        long namedCount = seriesService.lambdaQuery()
-                .eq(Series::getSeasonId, seasonId)
-                .le(Series::getSequence, seq)
-                .list()
-                .stream()
-                .filter(s -> s.getName() != null && !s.getName().trim().isEmpty())
-                .count();
-        int idx = (int) (seq - namedCount);
-        if (idx < 1) idx = 1;
-        return "第" + idx + "系列";
+    private String buildSeriesDisplayName(Series series) {
+        return SeriesDisplayNames.buildSeriesDisplayName(seriesService, series);
     }
 
     private static Integer parseLimit(String limit) {
