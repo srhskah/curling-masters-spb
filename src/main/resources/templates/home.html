@@ -80,7 +80,7 @@
                                                                 style="cursor:pointer;"
                                                                 th:attr="data-board='total',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
                                                                 <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
-                                                                <td th:text="${r.username}">选手</td>
+                                                                <td><a th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}">选手</a></td>
                                                                 <td th:text="${r.gold}">0</td>
                                                                 <td th:text="${r.silver}">0</td>
                                                                 <td th:text="${r.bronze}">0</td>
@@ -127,7 +127,7 @@
                                                                 style="cursor:pointer;"
                                                                 th:attr="data-board='season',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
                                                                 <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
-                                                                <td th:text="${r.username}">选手</td>
+                                                                <td><a th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}">选手</a></td>
                                                                 <td th:text="${r.gold}">0</td>
                                                                 <td th:text="${r.silver}">0</td>
                                                                 <td th:text="${r.bronze}">0</td>
@@ -182,7 +182,7 @@
                                                             style="cursor:pointer;"
                                                             th:attr="data-board='total',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
                                                             <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
-                                                            <td th:text="${r.username}">选手</td>
+                                                            <td><a th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}">选手</a></td>
                                                             <td th:text="${r.gold}">0</td>
                                                             <td th:text="${r.silver}">0</td>
                                                             <td th:text="${r.bronze}">0</td>
@@ -224,7 +224,7 @@
                                                             style="cursor:pointer;"
                                                             th:attr="data-board='season',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
                                                             <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
-                                                            <td th:text="${r.username}">选手</td>
+                                                            <td><a th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}">选手</a></td>
                                                             <td th:text="${r.gold}">0</td>
                                                             <td th:text="${r.silver}">0</td>
                                                             <td th:text="${r.bronze}">0</td>
@@ -553,7 +553,7 @@
                                                 <td style="width: 56px;">
                                                     <span class="badge bg-primary" th:text="${stat.index + 1}"></span>
                                                 </td>
-                                                <td th:text="${entry.username}"></td>
+                                                <td><a th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a></td>
                                                 <td style="width: 90px; text-align: right;">
                                                     <span class="badge bg-success" th:text="${entry.points}"></span>
                                                 </td>
@@ -576,7 +576,7 @@
                                                 <td style="width: 56px;">
                                                     <span class="badge bg-primary" th:text="${stat.index + 1}"></span>
                                                 </td>
-                                                <td th:text="${entry.username}"></td>
+                                                <td><a th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a></td>
                                                 <td style="width: 90px; text-align: right;">
                                                     <span class="badge bg-success" th:text="${entry.points}"></span>
                                                 </td>

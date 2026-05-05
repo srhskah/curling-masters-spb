@@ -94,7 +94,7 @@
                                 <tbody>
                                 <tr th:each="entry, stat : ${seasonRanking}">
                                     <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                                    <td th:text="${entry.username}"></td>
+                                    <td><a th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a></td>
                                     <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                                 </tr>
                                 <tr th:if="${#lists.isEmpty(seasonRanking)}">
@@ -352,7 +352,7 @@
                                     <tbody>
                                     <tr th:each="entry, stat : ${seasonRanking}">
                                         <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                                        <td th:text="${entry.username}"></td>
+                                        <td><a th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a></td>
                                         <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                                     </tr>
                                     <tr th:if="${#lists.isEmpty(seasonRanking)}">

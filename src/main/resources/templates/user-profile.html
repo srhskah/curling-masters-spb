@@ -14,35 +14,130 @@
 
     <div class="container mt-4">
         <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0">个人中心</h4>
+            <div class="col-12 col-xl-10 col-xxl-9">
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header bg-primary text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <h4 class="mb-0" th:if="${isOwner}">个人中心</h4>
+                        <h4 class="mb-0" th:unless="${isOwner}" th:text="${user.username}">用户</h4>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-light btn-sm" id="userProfileCopyBtn" title="复制各级别奖牌与历届名次（纯文本）">复制生涯文本</button>
+                            <a class="btn btn-light btn-sm" th:href="@{/ranking/export/pdf/user/{id}(id=${user.id})}">导出PDF</a>
+                        </div>
                     </div>
                     <div class="card-body">
                         <!-- 个人信息显示 -->
                         <div class="row mb-4">
                             <div class="col-md-12">
-                                <h5>基本信息</h5>
+                                <h5 class="text-secondary">基本信息</h5>
                                 <hr>
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <p><strong>用户ID:</strong> <span th:text="${user.id}"></span></p>
+                                        <p th:if="${viewerRole != null and viewerRole == 0}"><strong>用户ID:</strong> <span th:text="${user.id}"></span></p>
                                         <p><strong>用户名:</strong> <span th:text="${user.username}"></span></p>
                                         <p><strong>邮箱:</strong> <span th:text="${user.email}"></span></p>
                                     </div>
                                     <div class="col-md-6">
-                                        <p><strong>角色:</strong> 
+                                        <p th:if="${viewerRole != null and viewerRole == 0}"><strong>角色:</strong>
                                             <span th:if="${user.role == 0}" class="badge bg-danger">超级管理员</span>
                                             <span th:if="${user.role == 1}" class="badge bg-warning">普通管理员</span>
                                             <span th:if="${user.role == 2}" class="badge bg-secondary">普通用户</span>
                                         </p>
-                                        <p><strong>注册时间:</strong> <span th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></span></p>
-                                        <p><strong>最后更新:</strong> <span th:text="${#temporals.format(user.updatedAt, 'yyyy-MM-dd HH:mm')}"></span></p>
+                                        <p th:if="${viewerRole != null and (viewerRole == 0 or viewerRole == 1)}"><strong>注册时间:</strong> <span th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></span></p>
+                                        <p th:if="${viewerRole != null and (viewerRole == 0 or viewerRole == 1)}"><strong>最后更新:</strong> <span th:text="${#temporals.format(user.updatedAt, 'yyyy-MM-dd HH:mm')}"></span></p>
                                     </div>
                                 </div>
                             </div>
                         </div>
+
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5 class="text-secondary">历届赛事奖牌统计</h5>
+                                <hr>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered align-middle mb-0">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th>级别</th>
+                                            <th class="text-center" style="width:4rem;">🥇</th>
+                                            <th class="text-center" style="width:4rem;">🥈</th>
+                                            <th class="text-center" style="width:4rem;">🥉</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr th:each="m : ${userMedalsByLevel}">
+                                            <td th:text="${m.levelLabel}">级别</td>
+                                            <td class="text-center" th:text="${m.gold}">0</td>
+                                            <td class="text-center" th:text="${m.silver}">0</td>
+                                            <td class="text-center" th:text="${m.bronze}">0</td>
+                                        </tr>
+                                        <tr th:if="${userMedalsByLevel == null or #lists.isEmpty(userMedalsByLevel)}">
+                                            <td colspan="4" class="text-muted text-center py-3">暂无奖牌数据</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-12 col-lg-6 mb-3 mb-lg-0">
+                                <h5 class="text-secondary">奖牌明细</h5>
+                                <hr>
+                                <div class="table-responsive" style="max-height: 320px;">
+                                    <table class="table table-sm table-hover align-middle mb-0">
+                                        <thead class="table-light sticky-top">
+                                        <tr><th>奖牌</th><th>级别</th><th>赛事</th></tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr th:each="e : ${userMedalEvents}">
+                                            <td th:text="${e.medalLabel}">金牌</td>
+                                            <td th:text="${e.levelLabel}"></td>
+                                            <td>
+                                                <span class="d-block small text-muted" th:text="${e.seasonSeriesLine()}">赛季 · 系列</span>
+                                                <a th:href="@{/tournament/detail/{tid}(tid=${e.tournamentId})}" class="text-decoration-none" th:text="${e.tournamentName}">赛事</a>
+                                            </td>
+                                        </tr>
+                                        <tr th:if="${userMedalEvents == null or #lists.isEmpty(userMedalEvents)}">
+                                            <td colspan="3" class="text-muted text-center py-3">暂无</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <h5 class="text-secondary">历届赛事名次与积分</h5>
+                                <hr>
+                                <div class="table-responsive" style="max-height: 320px;">
+                                    <table class="table table-sm table-hover align-middle mb-0">
+                                        <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>赛事</th>
+                                            <th class="text-center">名次</th>
+                                            <th class="text-center">积分</th>
+                                            <th class="text-center">奖牌</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr th:each="h : ${userTournamentHistory}">
+                                            <td>
+                                                <a th:href="@{/tournament/detail/{tid}(tid=${h.tournamentId})}" class="text-decoration-none" th:text="${h.seasonSeriesLine() + ' · ' + h.levelLabel}">赛事</a>
+                                                <!-- <span class="small text-muted d-block" th:text="${h.levelLabel + ' · ' + h.seasonSeriesLine()}"></span> -->
+                                                <!-- <a th:href="@{/tournament/detail/{tid}(tid=${h.tournamentId})}" class="text-decoration-none" th:text="${h.tournamentName}">赛事</a> -->
+                                            </td>
+                                            <td class="text-center" th:text="${h.finalRank != null ? h.finalRank : '—'}">—</td>
+                                            <td class="text-center" th:text="${h.points != null ? h.points : '—'}">—</td>
+                                            <td class="text-center text-nowrap" th:text="${h.medalLabel != null and !h.medalLabel.isEmpty() ? h.medalLabel : '—'}">—</td>
+                                        </tr>
+                                        <tr th:if="${userTournamentHistory == null or #lists.isEmpty(userTournamentHistory)}">
+                                            <td colspan="4" class="text-muted text-center py-3">暂无参赛积分记录</td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <textarea id="userProfileCopySource" class="visually-hidden" aria-hidden="true" readonly rows="1" cols="1" th:text="${userProfileCopyText}"></textarea>
 
                         <!-- 本人可以编辑，非本人只能查看 -->
                         <div th:if="${isOwner}" class="row">
@@ -71,8 +166,8 @@
                         </div>
 
                         <!-- 非本人查看时的提示 -->
-                        <div th:unless="${isOwner}" class="alert alert-info">
-                            <i class="bi bi-info-circle"></i> 您只能查看自己的个人信息。如需修改，请访问您的个人中心。
+                        <div th:unless="${isOwner}" class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle"></i> 您正在查看其他用户的公开战绩。修改用户名与邮箱请登录本人账号后操作。
                         </div>
 
                         <!-- 操作按钮 -->
@@ -103,5 +198,24 @@
 
     <!-- 脚本 -->
     <th:block th:replace="~{fragments :: scripts}"></th:block>
+    <script>
+        (function () {
+            var btn = document.getElementById('userProfileCopyBtn');
+            var src = document.getElementById('userProfileCopySource');
+            if (!btn || !src) return;
+            btn.addEventListener('click', function () {
+                var t = src.value || src.textContent || '';
+                if (!t) return;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(t).then(function () {
+                        btn.textContent = '已复制';
+                        setTimeout(function () { btn.textContent = '复制生涯文本'; }, 2000);
+                    }).catch(function () { window.prompt('请手动复制：', t); });
+                } else {
+                    window.prompt('请手动复制：', t);
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
