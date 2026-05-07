@@ -75,6 +75,7 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/",
                         "/ranking", "/ranking/**",
+                        "/h2h", "/h2h/**",
                         "/season/list", "/season/detail/**",
                         "/tournament/list", "/tournament/detail/**",
                         "/user/login", "/user/register", "/user/change-password",
