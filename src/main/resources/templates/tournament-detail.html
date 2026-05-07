@@ -11,85 +11,8 @@
     <div th:replace="~{fragments :: navbar}"></div>
 
     <style>
-        .match-score-mobile-optimized .score-entry-table { table-layout: fixed; }
         .tournament-detail-section-tabs .nav-link {
             white-space: nowrap;
-        }
-        .match-score-mobile-optimized .score-player-name { white-space: nowrap; user-select: none; }
-        .match-score-mobile-optimized .score-player-name.score-player-name--tappable { cursor: pointer; }
-        .match-score-mobile-optimized .score-player-name--hammer {
-            background: #fff8e1;
-            color: #8a5300;
-            box-shadow: inset 0 0 0 1px #ffe08a;
-        }
-        .match-score-mobile-optimized .score-total-cell {
-            width: 5.2rem;
-            min-width: 5.2rem;
-            text-align: center;
-            vertical-align: top;
-        }
-        .match-score-mobile-optimized .score-total-box {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 2.75rem;
-            min-height: 2.2rem;
-            border: 1px solid #ced4da;
-            border-radius: .55rem;
-            background: #f8f9fa;
-            font-weight: 600;
-            line-height: 1;
-        }
-        .match-score-mobile-optimized .score-ends-cell { overflow: hidden; }
-        .match-score-mobile-optimized .score-ends-grid {
-            display: flex;
-            flex-wrap: nowrap;
-            gap: .4rem;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: .15rem;
-        }
-        .match-score-mobile-optimized .score-end-item { flex: 0 0 auto; text-align: center; }
-        .match-score-mobile-optimized .score-end-label { display: block; font-size: .72rem; color: #6c757d; margin-bottom: .15rem; }
-
-        @media (max-width: 576px) {
-            .match-score-mobile-optimized .score-entry-table { font-size: .9rem; }
-            .match-score-mobile-optimized .score-total-cell { width: 4.4rem; min-width: 4.4rem; }
-            .match-score-mobile-optimized .score-player-name { width: 5rem; min-width: 5rem; }
-            .match-score-mobile-optimized .score-end-item { width: 2.75rem; }
-            .match-score-mobile-optimized .score-input {
-                width: 2.75rem;
-                height: 2.2rem;
-                padding: .2rem .3rem;
-                border-radius: .55rem;
-                text-align: center;
-                font-size: 1rem;
-                background-image: none !important;
-                -webkit-appearance: none;
-                appearance: none;
-            }
-
-            /* 覆盖 main.css 的“窄屏卡片化表格”规则：录分弹窗仍保持三列并排（姓名/总分/局次） */
-            .match-score-mobile-optimized .score-entry-table { border: 1px solid var(--bs-border-color) !important; }
-            .match-score-mobile-optimized .score-entry-table > thead { display: table-header-group !important; }
-            .match-score-mobile-optimized .score-entry-table > tbody > tr {
-                display: table-row !important;
-                width: auto !important;
-                margin: 0 !important;
-                border: 0 !important;
-                border-radius: 0 !important;
-                background: transparent !important;
-                padding: 0 !important;
-            }
-            .match-score-mobile-optimized .score-entry-table > tbody > tr > th,
-            .match-score-mobile-optimized .score-entry-table > tbody > tr > td {
-                display: table-cell !important;
-                width: auto !important;
-                border: 1px solid var(--bs-border-color) !important;
-                padding: .4rem .45rem !important;
-                background: transparent !important;
-                vertical-align: top;
-            }
         }
     </style>
 
@@ -1206,101 +1129,7 @@
         </div>
     </div>
 
-    <div class="modal fade" id="groupMatchScoreModal" tabindex="-1" style="z-index:1919810;">
-        <div class="modal-dialog modal-xl modal-fullscreen-sm-down modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">单场比赛录分</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="groupMatchIdInput">
-                    <div id="groupMatchReadOnlyHint" class="alert alert-info py-2 small d-none mb-2">
-                        <i class="bi bi-eye"></i> 当前为<strong>只读查看</strong>。仅<strong>办赛人员</strong>（管理员/主办）与<strong>本场比赛双方选手</strong>可修改比分、先后手、保存与验收。
-                    </div>
-                    <div class="mb-2 small text-muted" id="groupMatchTitle"></div>
-                    <div class="mb-2 d-flex align-items-center gap-2 flex-wrap group-match-action-bar">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="groupMatchCopyBtn">复制本场战绩文本</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="groupMatchExportPdfBtn">导出本场战绩PDF</button>
-                    </div>
-                    <div class="mb-2 small text-muted" id="groupHammerTimeline"></div>
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-4">
-                            <label class="form-label">开局后手</label>
-                            <select class="form-select" id="groupFirstEndHammer">
-                                <option value="">不设置</option>
-                                <option value="1" id="groupHammerPlayer1Option">player1</option>
-                                <option value="2" id="groupHammerPlayer2Option">player2</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">局数</label>
-                            <input type="number" min="1" max="20" id="groupSetCount" class="form-control"
-                                   th:attr="data-default=${competitionConfig != null and competitionConfig.groupStageSets != null ? competitionConfig.groupStageSets : 8}"
-                                   th:value="${competitionConfig != null and competitionConfig.groupStageSets != null ? competitionConfig.groupStageSets : 8}">
-                        </div>
-                        <div class="col-md-4 d-flex align-items-end">
-                            <button type="button" class="btn btn-outline-primary w-100" id="groupRenderScoreRowsBtn" onclick="renderGroupScoreRows()">生成/重置局数</button>
-                        </div>
-                    </div>
-                    <div class="table-responsive score-entry-wrap match-score-mobile-optimized">
-                        <table class="table table-sm table-bordered align-middle score-entry-table">
-                            <thead class="table-light">
-                            <tr><th style="width: 26%">选手名称</th><th style="width: 18%">总比分</th><th>局次</th></tr>
-                            </thead>
-                            <tbody id="groupScoreRows"></tbody>
-                        </table>
-                    </div>
-                    <div class="mb-2 d-flex align-items-center gap-2" id="groupSignatureRow">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="groupSignatureOpenBtn" onclick="openSignatureModal()">手写电子签名</button>
-                        <span class="small text-muted" id="groupSignatureStatus">未签名</span>
-                    </div>
-                    <div class="mt-2">
-                        <div class="small fw-bold">验收信息</div>
-                        <div class="small text-muted mb-2" id="groupAcceptanceStatusLine">暂无</div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-bordered align-middle mb-0" id="groupAcceptanceTable">
-                                <thead class="table-light">
-                                <tr>
-                                    <th style="width: 18%">验收人</th>
-                                    <th style="width: 50%">电子签名</th>
-                                    <th style="width: 32%">验收时间</th>
-                                </tr>
-                                </thead>
-                                <tbody id="groupAcceptanceTbody">
-                                <tr><td colspan="3" class="text-muted text-center">暂无</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="mt-2">
-                        <div class="small fw-bold">比分修改记录</div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped table-hover table-bordered align-middle mb-0" id="groupEditLogTable">
-                                <thead class="table-light">
-                                <tr>
-                                    <th style="width: 10%">局次</th>
-                                    <th style="width: 18%">修改人</th>
-                                    <th style="width: 26%">修改前</th>
-                                    <th style="width: 26%">修改后</th>
-                                    <th style="width: 20%">修改时间</th>
-                                </tr>
-                                </thead>
-                                <tbody id="groupEditLogTbody">
-                                <tr><td colspan="5" class="text-muted text-center">暂无</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                    <button type="button" class="btn btn-primary" id="groupSaveScoreBtn" onclick="saveGroupMatchScore()">保存比分</button>
-                    <button type="button" class="btn btn-success" id="groupAcceptScoreBtn" onclick="acceptGroupMatchScore()">验收并锁定</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <th:block th:replace="~{fragments-group-match-score-modal :: groupMatchScoreModalAndSignature}"/>
 
     <div class="modal fade" id="groupRankDetailModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
@@ -1412,25 +1241,6 @@
         </div>
     </div>
 
-    <div class="modal fade" id="signatureModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">手写电子签名</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <canvas id="signatureCanvas" width="420" height="180" style="width:100%;border:1px solid #ced4da;border-radius:6px;background:#fff;"></canvas>
-                    <div class="small text-muted mt-2">请在签名框内手写，保存后用于验收记录。</div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" onclick="clearSignatureCanvas()">清除</button>
-                    <button type="button" class="btn btn-primary" onclick="saveSignatureCanvas()">使用该签名</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="modal fade" id="disqualifyModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -1530,6 +1340,7 @@
     <div th:replace="~{fragments :: footer}"></div>
 
     <th:block th:replace="~{fragments :: scripts}"></th:block>
+    <script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
     <script>
         function calcGroupSizeFactors(m) {
             const out = [];
@@ -1914,19 +1725,13 @@
             }
         });
 
-        let groupMatchModal;
         let superAdminScoreModal;
         let matchPageModal;
         let koManualModal;
         let groupRankDetailModal;
-        let signatureModal;
         let disqualifyModal;
-        let currentSignatureData = '';
-        let currentMatchPhaseCode = '';
         const currentUserId = Number('[[${currentUser != null ? currentUser.id : 0}]]');
         const canDisqualifyGroupRanking = '[[${isSuperAdmin or isAdmin or isHost}]]' === 'true';
-        let drawing = false;
-        let sigCtx = null;
 
         function openMatchPageModal(btn, title) {
             const url = btn.dataset.url;
@@ -2098,460 +1903,6 @@
                 }
             });
         }
-        function scoreTotalText(values) {
-            if (!values || values.length === 0) return '0';
-            // 业务规则：存在 X 时，X 那一局及之后局计为 0（总分展示按 0 统计）
-            return String(values.reduce((sum, v) => {
-                const s = String(v ?? '').trim();
-                if (s.toUpperCase() === 'X') return sum; // 0
-                const num = Number(s);
-                return sum + (Number.isFinite(num) ? num : 0);
-            }, 0));
-        }
-
-        /** 与 match/detail 返回的局分行兼容（含 player1_is_x 等别名） */
-        function scoreCellTokenFromRow(row, side) {
-            if (!row) return '0';
-            const isP1 = side === 1;
-            const isX = isP1
-                ? (row.player1IsX === true || row.player1_is_x === true || row.player1_is_x === 1)
-                : (row.player2IsX === true || row.player2_is_x === true || row.player2_is_x === 1);
-            if (isX) return 'X';
-            const sc = isP1 ? row.player1Score : row.player2Score;
-            return String(sc ?? 0);
-        }
-
-        function applyFirstEndHammerSelect(selectId, data) {
-            const el = document.getElementById(selectId);
-            if (!el) return;
-            let raw = null;
-            if (data && data.matchFirstEndHammer != null && data.matchFirstEndHammer !== '') {
-                raw = data.matchFirstEndHammer;
-            } else if (data && data.match) {
-                raw = data.match.firstEndHammer != null ? data.match.firstEndHammer : data.match.first_end_hammer;
-            }
-            if (raw === null || raw === undefined || raw === '') {
-                el.value = '';
-                return;
-            }
-            const s = String(raw);
-            el.value = (s === '1' || s === '2') ? s : '';
-        }
-
-        function buildScoreRow(label, values, n, inputClass, totalClass, hammerSide) {
-            const options = ['0','1','2','3','4','5','6','7','8','X'];
-            const items = [];
-            for (let i = 1; i <= n; i++) {
-                const valStr = String(values[i - 1] ?? '0');
-                const opts = options.map(v => `<option value="${v}" ${valStr === v ? 'selected' : ''}>${v}</option>`).join('');
-                items.push(`<div class="score-end-item"><span class="score-end-label">第${i}局</span><select class="form-select form-select-sm score-input ${inputClass}">${opts}</select></div>`);
-            }
-            return `<tr>
-                <th class="score-player-name score-player-name--tappable" data-hammer-side="${hammerSide}" title="双击可设置/取消开局后手">${label}</th>
-                <td class="score-total-cell"><span class="score-total-box ${totalClass}">${scoreTotalText(values)}</span></td>
-                <td class="score-ends-cell"><div class="score-ends-grid">${items.join('')}</div></td>
-            </tr>`;
-        }
-
-        function bindScoreTotal(tbodyId, inputClass, totalClass) {
-            const tbody = document.getElementById(tbodyId);
-            if (!tbody || tbody.dataset.totalBound === '1') return;
-            tbody.addEventListener('change', (e) => {
-                if (!e.target.classList.contains(inputClass)) return;
-                const values = Array.from(tbody.querySelectorAll(`.${inputClass}`)).map(i => i.value || '0');
-                const total = tbody.querySelector(`.${totalClass}`);
-                if (total) total.textContent = scoreTotalText(values);
-            });
-            tbody.dataset.totalBound = '1';
-        }
-
-        // 录入 X 时：按“首个 X 的局”作为截点，截点及之后局都强制计为 0
-        // 这样前端总分展示与后端一致（同时避免 X 后的比分/后手展示错乱）
-        function bindXCutoffForceZeros(tbodyId, p1Class, p2Class, totalP1Class, totalP2Class) {
-            const tbody = document.getElementById(tbodyId);
-            if (!tbody || tbody.dataset.xCutoffBound === '1') return;
-            tbody.addEventListener('change', (e) => {
-                const p1Changed = e.target && e.target.classList && e.target.classList.contains(p1Class);
-                const p2Changed = e.target && e.target.classList && e.target.classList.contains(p2Class);
-                if (!p1Changed && !p2Changed) return;
-
-                const p1Els = Array.from(tbody.querySelectorAll(`.${p1Class}`));
-                const p2Els = Array.from(tbody.querySelectorAll(`.${p2Class}`));
-                if (!p1Els.length || !p2Els.length) return;
-
-                const n = Math.min(p1Els.length, p2Els.length);
-                let cutoff = -1;
-                for (let i = 0; i < n; i++) {
-                    const v1 = String(p1Els[i].value || '').trim().toUpperCase();
-                    const v2 = String(p2Els[i].value || '').trim().toUpperCase();
-                    if (v1 === 'X' || v2 === 'X') { cutoff = i; break; }
-                }
-
-                if (cutoff >= 0) {
-                    for (let j = cutoff; j < n; j++) {
-                        p1Els[j].value = (j === cutoff) ? 'X' : '0';
-                        p2Els[j].value = (j === cutoff) ? 'X' : '0';
-                    }
-                }
-
-                const p1Vals = p1Els.map(i => i.value || '0');
-                const p2Vals = p2Els.map(i => i.value || '0');
-                const t1 = tbody.querySelector(`.${totalP1Class}`);
-                if (t1) t1.textContent = scoreTotalText(p1Vals);
-                const t2 = tbody.querySelector(`.${totalP2Class}`);
-                if (t2) t2.textContent = scoreTotalText(p2Vals);
-            });
-            tbody.dataset.xCutoffBound = '1';
-        }
-
-
-
-        function refreshHammerNameHighlight(tbodyId, hammerSelectId) {
-            const tbody = document.getElementById(tbodyId);
-            const hammer = document.getElementById(hammerSelectId);
-            if (!tbody || !hammer) return;
-            const side = String(hammer.value || '');
-            tbody.querySelectorAll('.score-player-name--tappable').forEach((el) => {
-                el.classList.toggle('score-player-name--hammer', side !== '' && String(el.dataset.hammerSide || '') === side);
-            });
-        }
-
-        function bindHammerHighlightSync(tbodyId, hammerSelectId) {
-            const tbody = document.getElementById(tbodyId);
-            const hammer = document.getElementById(hammerSelectId);
-            if (!tbody || !hammer || hammer.dataset.hammerHighlightBound === '1') return;
-            hammer.addEventListener('change', () => refreshHammerNameHighlight(tbodyId, hammerSelectId));
-            hammer.dataset.hammerHighlightBound = '1';
-        }
-
-        function bindNameDoubleTapHammerToggle(tbodyId, hammerSelectId) {
-            const tbody = document.getElementById(tbodyId);
-            const hammer = document.getElementById(hammerSelectId);
-            if (!tbody || !hammer || tbody.dataset.nameHammerBound === '1') return;
-            const apply = (target) => {
-                if (!target || !target.classList || !target.classList.contains('score-player-name--tappable')) return;
-                if (hammer.disabled) return;
-                const side = String(target.dataset.hammerSide || '').trim();
-                if (side !== '1' && side !== '2') return;
-                hammer.value = (hammer.value === side) ? '' : side;
-                refreshHammerNameHighlight(tbodyId, hammerSelectId);
-            };
-            tbody.addEventListener('dblclick', (e) => {
-                apply(e.target.closest('.score-player-name--tappable'));
-            });
-            let lastTapAt = 0;
-            let lastTapEl = null;
-            tbody.addEventListener('touchend', (e) => {
-                const el = e.target.closest('.score-player-name--tappable');
-                if (!el) return;
-                const now = Date.now();
-                if (lastTapEl === el && (now - lastTapAt) < 350) {
-                    apply(el);
-                    lastTapAt = 0;
-                    lastTapEl = null;
-                } else {
-                    lastTapAt = now;
-                    lastTapEl = el;
-                }
-            }, {passive: true});
-            tbody.dataset.nameHammerBound = '1';
-        }
-
-        function renderGroupScoreRows(existing) {
-            const tbody = document.getElementById('groupScoreRows');
-            if (!tbody) return;
-            const n = Number(document.getElementById('groupSetCount').value || 0);
-            if (!Number.isInteger(n) || n < 1) {
-                tbody.innerHTML = '';
-                return;
-            }
-            const p1Name = document.getElementById('groupHammerPlayer1Option').textContent || 'player1';
-            const p2Name = document.getElementById('groupHammerPlayer2Option').textContent || 'player2';
-            const p1Vals = [];
-            const p2Vals = [];
-            for (let i = 1; i <= n; i++) {
-                p1Vals.push(existing && existing[i - 1] ? scoreCellTokenFromRow(existing[i - 1], 1) : '0');
-                p2Vals.push(existing && existing[i - 1] ? scoreCellTokenFromRow(existing[i - 1], 2) : '0');
-            }
-            tbody.innerHTML = buildScoreRow(p1Name, p1Vals, n, 'group-p1', 'group-total-p1', '1')
-                + buildScoreRow(p2Name, p2Vals, n, 'group-p2', 'group-total-p2', '2');
-            bindScoreTotal('groupScoreRows', 'group-p1', 'group-total-p1');
-            bindScoreTotal('groupScoreRows', 'group-p2', 'group-total-p2');
-            bindXCutoffForceZeros('groupScoreRows', 'group-p1', 'group-p2', 'group-total-p1', 'group-total-p2');
-            const editable = typeof window._groupMatchModalEditable === 'boolean' ? window._groupMatchModalEditable : true;
-            document.querySelectorAll('#groupScoreRows .group-p1, #groupScoreRows .group-p2').forEach(i => { i.disabled = !editable; });
-            bindNameDoubleTapHammerToggle('groupScoreRows', 'groupFirstEndHammer');
-            bindHammerHighlightSync('groupScoreRows', 'groupFirstEndHammer');
-            refreshHammerNameHighlight('groupScoreRows', 'groupFirstEndHammer');
-            bindHammerHighlightSync('groupScoreRows', 'groupFirstEndHammer');
-            refreshHammerNameHighlight('groupScoreRows', 'groupFirstEndHammer');
-        }
-
-        function applyGroupMatchModalEditMode(data) {
-            const canEdit = data.canEditScore === true;
-            const canAccept = data.canAcceptScore === true;
-            const locked = data.match && (data.match.resultLocked === true || data.match.resultLocked === 1);
-            const viewerIsSuperAdmin = data.viewerIsSuperAdmin === true;
-            // 已验收锁定后：仅超级管理员允许继续修改，其它角色保持只读
-            const editable = canEdit && (!locked || viewerIsSuperAdmin);
-            window._groupMatchModalEditable = editable;
-            const banner = document.getElementById('groupMatchReadOnlyHint');
-            if (banner) {
-                banner.classList.toggle('d-none', editable || canAccept);
-            }
-            const sigRow = document.getElementById('groupSignatureRow');
-            if (sigRow) {
-                sigRow.classList.toggle('d-none', !editable && !canAccept);
-            }
-            const saveBtn = document.getElementById('groupSaveScoreBtn');
-            const acceptBtn = document.getElementById('groupAcceptScoreBtn');
-            const renderBtn = document.getElementById('groupRenderScoreRowsBtn');
-            if (saveBtn) saveBtn.style.display = editable ? '' : 'none';
-            if (acceptBtn) acceptBtn.style.display = (canAccept && !locked) ? '' : 'none';
-            if (renderBtn) renderBtn.disabled = !editable;
-            const hammer = document.getElementById('groupFirstEndHammer');
-            const setCount = document.getElementById('groupSetCount');
-            if (hammer) hammer.disabled = !editable;
-            if (setCount) setCount.disabled = !editable;
-            const sigOpen = document.getElementById('groupSignatureOpenBtn');
-            if (sigOpen) sigOpen.disabled = !editable && !canAccept;
-            document.querySelectorAll('#groupScoreRows .group-p1, #groupScoreRows .group-p2').forEach(i => { i.disabled = !editable; });
-            bindNameDoubleTapHammerToggle('groupScoreRows', 'groupFirstEndHammer');
-            bindHammerHighlightSync('groupScoreRows', 'groupFirstEndHammer');
-            refreshHammerNameHighlight('groupScoreRows', 'groupFirstEndHammer');
-            bindHammerHighlightSync('groupScoreRows', 'groupFirstEndHammer');
-            refreshHammerNameHighlight('groupScoreRows', 'groupFirstEndHammer');
-        }
-
-        async function openGroupMatchModal(card) {
-            const matchId = card.dataset.matchId;
-            if (!matchId) return;
-            const player1Name = card.dataset.player1Name || 'player1';
-            const player2Name = card.dataset.player2Name || 'player2';
-            if (!groupMatchModal) groupMatchModal = new bootstrap.Modal(document.getElementById('groupMatchScoreModal'));
-            const res = await fetch(`/tournament/competition/match/detail/${matchId}`);
-            const data = await res.json();
-            if (!data.ok) {
-                alert(data.message || '加载失败');
-                return;
-            }
-            document.getElementById('groupMatchIdInput').value = String(matchId);
-            document.getElementById('groupMatchTitle').textContent = (data.match.category || '') + ' / round ' + (data.match.round || '-');
-            currentMatchPhaseCode = (data.match.phaseCode || '').toUpperCase();
-            currentSignatureData = '';
-            document.getElementById('groupSignatureStatus').textContent = '未签名';
-            document.getElementById('groupHammerPlayer1Option').textContent = player1Name;
-            document.getElementById('groupHammerPlayer2Option').textContent = player2Name;
-            applyFirstEndHammerSelect('groupFirstEndHammer', data);
-            const setScores = Array.isArray(data.setScores) ? data.setScores : [];
-            document.getElementById('groupHammerTimeline').textContent = setScores.length > 0
-                ? ('全场先后手：' + setScores.map(s => `第${s.setNumber}局-${s.hammerPlayerId === data.match.player1Id ? player1Name : (s.hammerPlayerId === data.match.player2Id ? player2Name : '未设置')}`).join('；'))
-                : '全场先后手：未录入';
-            const defaultGroupSets = Number(document.getElementById('groupSetCount').getAttribute('data-default') || document.getElementById('groupSetCount').value || 8);
-            document.getElementById('groupSetCount').value = setScores.length ? setScores.length : defaultGroupSets;
-            applyGroupMatchModalEditMode(data);
-            renderGroupScoreRows(setScores);
-            renderAcceptanceTable(data.acceptances || [], data.match);
-            renderEditLogTable(data.editLogs || []);
-            groupMatchModal.show();
-        }
-
-        function renderAcceptanceTable(acceptances, match) {
-            const tbody = document.getElementById('groupAcceptanceTbody');
-            const statusLine = document.getElementById('groupAcceptanceStatusLine');
-            if (!tbody || !statusLine) return;
-            tbody.innerHTML = '';
-            if (!acceptances || acceptances.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="text-muted text-center">暂无</td></tr>';
-                statusLine.textContent = '当前验收状态：暂无验收';
-                return;
-            }
-            const acceptedIds = new Set(acceptances.map(a => Number(a.userId)));
-            const p1 = Number(match.player1Id || 0);
-            const p2 = Number(match.player2Id || 0);
-            const selfIsP1 = currentUserId > 0 && currentUserId === p1;
-            const selfIsP2 = currentUserId > 0 && currentUserId === p2;
-            if (selfIsP1 || selfIsP2) {
-                const selfAccepted = acceptedIds.has(currentUserId);
-                const opponentId = selfIsP1 ? p2 : p1;
-                const opponentAccepted = acceptedIds.has(opponentId);
-                if (selfAccepted) {
-                    statusLine.textContent = opponentAccepted ? '你已验收；对方已验收。' : '你已验收；对方未验收。';
-                } else {
-                    statusLine.textContent = opponentAccepted ? '你未验收；对方已验收。' : '你未验收；对方未验收。';
-                }
-            } else {
-                statusLine.textContent = '当前验收状态：查看全部验收记录';
-            }
-            for (const a of acceptances) {
-                const tr = document.createElement('tr');
-                const tdUser = document.createElement('td');
-                tdUser.textContent = a.username || '未知';
-                const tdSig = document.createElement('td');
-                tdSig.className = 'align-middle';
-                const rawSig = a.signature != null ? String(a.signature).trim() : '';
-                if (!rawSig) {
-                    const s = document.createElement('span');
-                    s.className = 'text-muted';
-                    s.textContent = '(无签名)';
-                    tdSig.appendChild(s);
-                } else if (rawSig.startsWith('data:image/')) {
-                    const img = document.createElement('img');
-                    img.src = rawSig;
-                    img.alt = '电子签名';
-                    img.className = 'match-acceptance-signature-img';
-                    img.loading = 'lazy';
-                    tdSig.appendChild(img);
-                } else {
-                    const span = document.createElement('span');
-                    span.className = 'text-break small';
-                    span.textContent = rawSig;
-                    tdSig.appendChild(span);
-                }
-                const tdTime = document.createElement('td');
-                tdTime.textContent = (a.acceptedAt || '').replace('T', ' ');
-                tr.appendChild(tdUser);
-                tr.appendChild(tdSig);
-                tr.appendChild(tdTime);
-                tbody.appendChild(tr);
-            }
-        }
-
-        function renderEditLogTable(editLogs) {
-            const tbody = document.getElementById('groupEditLogTbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            if (!editLogs || editLogs.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center">暂无</td></tr>';
-                return;
-            }
-            for (const l of editLogs) {
-                const oldScore = `${l.oldPlayer1IsX ? 'X' : (l.oldPlayer1Score ?? 0)} : ${l.oldPlayer2IsX ? 'X' : (l.oldPlayer2Score ?? 0)}`;
-                const newScore = `${l.newPlayer1IsX ? 'X' : (l.newPlayer1Score ?? 0)} : ${l.newPlayer2IsX ? 'X' : (l.newPlayer2Score ?? 0)}`;
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>第${l.setNumber}局</td>
-                    <td>${l.editorUsername || '未知'}</td>
-                    <td>${oldScore}</td>
-                    <td><span class="badge bg-light text-dark border">${newScore}</span></td>
-                    <td>${(l.editedAt || '').replace('T', ' ')}</td>
-                `;
-                tbody.appendChild(tr);
-            }
-        }
-
-        function getCsrf() {
-            const input = document.querySelector('input[name="_csrf"]');
-            if (!input) return null;
-            return {name: input.name, value: input.value};
-        }
-
-        /** 仅从「单场比赛录分」弹窗 tbody 收集比分与开局后手，避免误选页面上其它同类 class */
-        function collectGroupMatchScorePayload() {
-            const hammerEl = document.getElementById('groupFirstEndHammer');
-            const hammer = hammerEl ? String(hammerEl.value || '').trim() : '';
-            const tbody = document.getElementById('groupScoreRows');
-            const p1 = tbody ? Array.from(tbody.querySelectorAll('.group-p1')).map(i => i.value || '0') : [];
-            const p2 = tbody ? Array.from(tbody.querySelectorAll('.group-p2')).map(i => i.value || '0') : [];
-            return { hammer, p1, p2 };
-        }
-
-        function appendGroupScoreFormFields(form, payload) {
-            if (payload.hammer) form.append('firstEndHammer', payload.hammer);
-            payload.p1.forEach(v => form.append('player1Scores', v));
-            payload.p2.forEach(v => form.append('player2Scores', v));
-        }
-
-        let _groupMatchScoreSubmitting = false;
-
-        async function saveGroupMatchScore() {
-            if (_groupMatchScoreSubmitting) return;
-            const matchId = document.getElementById('groupMatchIdInput').value;
-            const { hammer, p1, p2 } = collectGroupMatchScorePayload();
-            const hasX = [...p1, ...p2].some(v => String(v).toUpperCase() === 'X');
-            const needSignature = currentMatchPhaseCode === 'QUALIFIER' || currentMatchPhaseCode === 'MAIN' || currentMatchPhaseCode === 'FINAL';
-            const form = new URLSearchParams();
-            appendGroupScoreFormFields(form, { hammer, p1, p2 });
-            if (hasX) {
-                const ok = confirm('检测到X。是否验收？验收后不可再修改比分。');
-                if (!ok) return;
-                if (needSignature && !currentSignatureData) {
-                    alert('该阶段验收需手写签名，请先点击“手写电子签名”');
-                    return;
-                }
-                form.append('autoAccept', 'true');
-                if (currentSignatureData) form.append('signature', currentSignatureData);
-            }
-            const csrf = getCsrf();
-            if (csrf) form.append(csrf.name, csrf.value);
-            _groupMatchScoreSubmitting = true;
-            const saveBtn = document.getElementById('groupSaveScoreBtn');
-            const acceptBtn = document.getElementById('groupAcceptScoreBtn');
-            if (saveBtn) saveBtn.disabled = true;
-            if (acceptBtn) acceptBtn.disabled = true;
-            try {
-                const res = await fetch(`/tournament/competition/match/save/${matchId}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: form.toString()
-                });
-                const data = await res.json();
-                if (!data.ok) {
-                    alert(data.message || '保存失败');
-                    return;
-                }
-                location.reload();
-            } finally {
-                _groupMatchScoreSubmitting = false;
-                if (saveBtn) saveBtn.disabled = false;
-                if (acceptBtn) acceptBtn.disabled = false;
-            }
-        }
-
-        /** 验收前原子提交当前弹窗内的比分与开局后手，避免“只点验收、未先保存”或保存未完成导致数据未落库 */
-        async function acceptGroupMatchScore() {
-            if (_groupMatchScoreSubmitting) return;
-            const matchId = document.getElementById('groupMatchIdInput').value;
-            const needSignature = currentMatchPhaseCode === 'QUALIFIER' || currentMatchPhaseCode === 'MAIN' || currentMatchPhaseCode === 'FINAL';
-            const { hammer, p1, p2 } = collectGroupMatchScorePayload();
-            const hasX = [...p1, ...p2].some(v => String(v).toUpperCase() === 'X');
-            if (hasX) {
-                const ok = confirm('检测到X。验收将锁定比分且不可再改，是否继续？');
-                if (!ok) return;
-            }
-            if (needSignature && !currentSignatureData) {
-                alert('该阶段验收需手写签名，请先点击“手写电子签名”');
-                return;
-            }
-            const form = new URLSearchParams();
-            appendGroupScoreFormFields(form, { hammer, p1, p2 });
-            if (currentSignatureData) form.append('signature', currentSignatureData);
-            const csrf = getCsrf();
-            if (csrf) form.append(csrf.name, csrf.value);
-            _groupMatchScoreSubmitting = true;
-            const saveBtn = document.getElementById('groupSaveScoreBtn');
-            const acceptBtn = document.getElementById('groupAcceptScoreBtn');
-            if (saveBtn) saveBtn.disabled = true;
-            if (acceptBtn) acceptBtn.disabled = true;
-            try {
-                const res = await fetch(`/tournament/competition/match/save-and-accept/${matchId}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body: form.toString()
-                });
-                const data = await res.json();
-                if (!data.ok) {
-                    alert(data.message || '验收失败');
-                    return;
-                }
-                location.reload();
-            } finally {
-                _groupMatchScoreSubmitting = false;
-                if (saveBtn) saveBtn.disabled = false;
-                if (acceptBtn) acceptBtn.disabled = false;
-            }
-        }
-
         function renderSaScoreRows(existing) {
             const tbody = document.getElementById('saScoreRows');
             if (!tbody) return;
@@ -2565,17 +1916,17 @@
             const p1Vals = [];
             const p2Vals = [];
             for (let i = 1; i <= n; i++) {
-                p1Vals.push(existing && existing[i - 1] ? scoreCellTokenFromRow(existing[i - 1], 1) : '0');
-                p2Vals.push(existing && existing[i - 1] ? scoreCellTokenFromRow(existing[i - 1], 2) : '0');
+                p1Vals.push(existing && existing[i - 1] ? window.scoreCellTokenFromRow(existing[i - 1], 1) : '0');
+                p2Vals.push(existing && existing[i - 1] ? window.scoreCellTokenFromRow(existing[i - 1], 2) : '0');
             }
-            tbody.innerHTML = buildScoreRow(p1Name, p1Vals, n, 'sa-p1', 'sa-total-p1', '1')
-                + buildScoreRow(p2Name, p2Vals, n, 'sa-p2', 'sa-total-p2', '2');
-            bindScoreTotal('saScoreRows', 'sa-p1', 'sa-total-p1');
-            bindScoreTotal('saScoreRows', 'sa-p2', 'sa-total-p2');
-            bindXCutoffForceZeros('saScoreRows', 'sa-p1', 'sa-p2', 'sa-total-p1', 'sa-total-p2');
-            bindNameDoubleTapHammerToggle('saScoreRows', 'saFirstEndHammer');
-            bindHammerHighlightSync('saScoreRows', 'saFirstEndHammer');
-            refreshHammerNameHighlight('saScoreRows', 'saFirstEndHammer');
+            tbody.innerHTML = window.buildScoreRow(p1Name, p1Vals, n, 'sa-p1', 'sa-total-p1', '1')
+                + window.buildScoreRow(p2Name, p2Vals, n, 'sa-p2', 'sa-total-p2', '2');
+            window.bindScoreTotal('saScoreRows', 'sa-p1', 'sa-total-p1');
+            window.bindScoreTotal('saScoreRows', 'sa-p2', 'sa-total-p2');
+            window.bindXCutoffForceZeros('saScoreRows', 'sa-p1', 'sa-p2', 'sa-total-p1', 'sa-total-p2');
+            window.bindNameDoubleTapHammerToggle('saScoreRows', 'saFirstEndHammer');
+            window.bindHammerHighlightSync('saScoreRows', 'saFirstEndHammer');
+            window.refreshHammerNameHighlight('saScoreRows', 'saFirstEndHammer');
         }
 
         async function openSuperAdminScoreModal(btn) {
@@ -2594,7 +1945,7 @@
             document.getElementById('saMatchTitle').textContent = `${p1} vs ${p2} / ${(data.match.category || '')}`;
             document.getElementById('saHammerPlayer1Option').textContent = p1;
             document.getElementById('saHammerPlayer2Option').textContent = p2;
-            applyFirstEndHammerSelect('saFirstEndHammer', data);
+            window.applyFirstEndHammerSelect('saFirstEndHammer', data);
             document.getElementById('saSetCount').value = (data.setScores && data.setScores.length) ? data.setScores.length : 8;
             renderSaScoreRows(data.setScores || []);
             superAdminScoreModal.show();
@@ -2610,7 +1961,7 @@
             if (hammer) form.append('firstEndHammer', hammer);
             p1.forEach(v => form.append('player1Scores', v));
             p2.forEach(v => form.append('player2Scores', v));
-            const csrf = getCsrf();
+            const csrf = window.getCsrf();
             if (csrf) form.append(csrf.name, csrf.value);
             const res = await fetch(`/tournament/competition/match/save-super-admin/${matchId}`, {
                 method: 'POST',
@@ -2623,57 +1974,6 @@
                 return;
             }
             location.reload();
-        }
-
-        function openSignatureModal() {
-            if (!signatureModal) signatureModal = new bootstrap.Modal(document.getElementById('signatureModal'));
-            signatureModal.show();
-            initSignatureCanvas();
-        }
-
-        function initSignatureCanvas() {
-            const canvas = document.getElementById('signatureCanvas');
-            if (!canvas) return;
-            sigCtx = canvas.getContext('2d');
-            sigCtx.lineWidth = 2;
-            sigCtx.lineCap = 'round';
-            sigCtx.strokeStyle = '#111';
-            const start = (x, y) => { drawing = true; sigCtx.beginPath(); sigCtx.moveTo(x, y); };
-            const move = (x, y) => { if (!drawing) return; sigCtx.lineTo(x, y); sigCtx.stroke(); };
-            const end = () => { drawing = false; };
-            canvas.onmousedown = (e) => start(e.offsetX, e.offsetY);
-            canvas.onmousemove = (e) => move(e.offsetX, e.offsetY);
-            canvas.onmouseup = end;
-            canvas.onmouseleave = end;
-            canvas.ontouchstart = (e) => {
-                const r = canvas.getBoundingClientRect();
-                const t = e.touches[0];
-                start(t.clientX - r.left, t.clientY - r.top);
-                e.preventDefault();
-            };
-            canvas.ontouchmove = (e) => {
-                const r = canvas.getBoundingClientRect();
-                const t = e.touches[0];
-                move(t.clientX - r.left, t.clientY - r.top);
-                e.preventDefault();
-            };
-            canvas.ontouchend = end;
-        }
-
-        function clearSignatureCanvas() {
-            const canvas = document.getElementById('signatureCanvas');
-            if (!canvas || !sigCtx) return;
-            sigCtx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        function saveSignatureCanvas() {
-            const canvas = document.getElementById('signatureCanvas');
-            if (!canvas) return;
-            currentSignatureData = canvas.toDataURL('image/png');
-            document.getElementById('groupSignatureStatus').textContent = currentSignatureData ? '已签名' : '未签名';
-            const dqStatus = document.getElementById('dqSignatureStatus');
-            if (dqStatus) dqStatus.textContent = currentSignatureData ? '已签名' : '未签名';
-            if (signatureModal) signatureModal.hide();
         }
 
         function openDisqualifyModal(btn) {
@@ -2689,8 +1989,8 @@
             if (target) target.textContent = `目标选手：${uname}（${gname}）`;
             if (reason) reason.value = '';
             // 每次打开取消资格弹窗都重置签名，避免误用上次数据
-            currentSignatureData = '';
-            clearSignatureCanvas();
+            window.__cmSharedSignatureData = '';
+            window.clearSignatureCanvas();
             const groupStatus = document.getElementById('groupSignatureStatus');
             if (groupStatus) groupStatus.textContent = '未签名';
             const dqStatus = document.getElementById('dqSignatureStatus');
@@ -2710,14 +2010,14 @@
                 alert('取消资格理由不能为空');
                 return;
             }
-            if (!currentSignatureData) {
+            if (!window.__cmSharedSignatureData) {
                 alert('请先点击“手写电子签名”');
                 return;
             }
             const form = new URLSearchParams();
             form.append('reason', reason);
-            form.append('signature', currentSignatureData);
-            const csrf = getCsrf();
+            form.append('signature', window.__cmSharedSignatureData);
+            const csrf = window.getCsrf();
             if (csrf) form.append(csrf.name, csrf.value);
             const res = await fetch(`/tournament/competition/group/disqualify/${tournamentId}/${uid}`, {
                 method: 'POST',
@@ -3021,8 +2321,6 @@
 
             const groupRankUserCopyBtn = document.getElementById('groupRankUserCopyBtn');
             const groupRankUserExportPdfBtn = document.getElementById('groupRankUserExportPdfBtn');
-            const groupMatchCopyBtn = document.getElementById('groupMatchCopyBtn');
-            const groupMatchExportPdfBtn = document.getElementById('groupMatchExportPdfBtn');
             const tournamentId = '[[${tournamentInfo.tournament.id}]]';
 
             if (groupRankUserCopyBtn) groupRankUserCopyBtn.addEventListener('click', async () => {
@@ -3043,36 +2341,10 @@
                 window.open(`/ranking/export/pdf/tournament/${encodeURIComponent(tournamentId)}/user/${encodeURIComponent(userId)}/performance`);
             });
 
-            if (groupMatchCopyBtn) groupMatchCopyBtn.addEventListener('click', async () => {
-                const matchId = document.getElementById('groupMatchIdInput')?.value;
-                if (!matchId) return;
-                try {
-                    const data = await fetchJson(`/ranking/api/match/${encodeURIComponent(matchId)}/performance`);
-                    await copyPlainTextToClipboard(formatMatchDetailsPlain(data));
-                    if (typeof showAlert === 'function') showAlert('复制成功', 'success'); else alert('复制成功');
-                } catch (e) {
-                    if (typeof showAlert === 'function') showAlert(e.message || '复制失败', 'danger'); else alert(e.message || '复制失败');
-                }
-            });
-
-            if (groupMatchExportPdfBtn) groupMatchExportPdfBtn.addEventListener('click', () => {
-                const matchId = document.getElementById('groupMatchIdInput')?.value;
-                if (!matchId) return;
-                window.open(`/ranking/export/pdf/match/${encodeURIComponent(matchId)}/performance`);
-            });
         })();
 
         document.addEventListener('DOMContentLoaded', () => {
             addSectionToggleButtons();
-            const groupModalEl = document.getElementById('groupMatchScoreModal');
-            if (groupModalEl) {
-                groupModalEl.addEventListener('hidden.bs.modal', () => {
-                    const active = document.activeElement;
-                    if (active && groupModalEl.contains(active) && typeof active.blur === 'function') {
-                        active.blur();
-                    }
-                });
-            }
         });
     </script>
 </body>

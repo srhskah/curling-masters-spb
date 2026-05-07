@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('H2H 交手记录')}"></head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+
+<div class="container mt-4 mb-5 h2h-page" id="h2hRoot"
+     th:data-api-users="@{/h2h/api/users}"
+     th:data-api-opponents="@{/h2h/api/opponents}"
+     th:data-api-matches="@{/h2h/api/matches}">
+    <h1 class="h3 mb-2"><i class="bi bi-shuffle"></i> H2H 交手记录</h1>
+    <p class="text-muted small mb-4">
+        选择<strong>选手一</strong>并确定后，即列出该选手<strong>全部历史场次</strong>（赛季 → <strong>系列</strong>（可展开/收起）→ 等级；赛季与系列均为<strong>从新到旧</strong>）。<br>
+        可选<strong>选手二</strong>（仅列出与选手一交手过的选手）以<strong>收窄为双方 H2H</strong>。<br>
+        点击下拉后在<strong>弹出菜单顶部</strong>搜索。点击场次可在<strong>与赛事详情页相同的原生弹窗</strong>中查看/录入比分（权限与赛事详情一致）。<br>
+        <span class="d-inline d-md-none">窄屏下每场以<strong>卡片</strong>展示，<strong>轻点整张卡片</strong>即可打开场次详情。</span>
+    </p>
+
+    <div class="card border-0 shadow-sm mb-4 h2h-picker-card">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label">选手一</label>
+                    <div class="dropdown w-100">
+                        <button id="h2hBtnA" type="button"
+                                class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center"
+                                data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                                data-h2h-picker="a"
+                                aria-expanded="false">
+                            <span id="h2hLabelA" class="text-truncate flex-grow-1 me-1">请选择选手</span>
+                        </button>
+                        <div class="dropdown-menu w-100 p-0 shadow-sm">
+                            <div class="p-2 border-bottom bg-white position-sticky top-0" style="z-index: 2;">
+                                <input type="search" class="form-control form-control-sm" id="h2hFilterA"
+                                       placeholder="搜索用户名…" autocomplete="off">
+                            </div>
+                            <div id="h2hListA" class="list-group list-group-flush overflow-auto" style="max-height: 280px;"></div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="h2hValA" value="">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">选手二（仅显示与选手一交手过的选手）</label>
+                    <div class="dropdown w-100">
+                        <button id="h2hBtnB" type="button" disabled
+                                class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center"
+                                data-bs-toggle="dropdown" data-bs-auto-close="outside"
+                                data-h2h-picker="b"
+                                aria-expanded="false">
+                            <span id="h2hLabelB" class="text-truncate flex-grow-1 me-1">请先选择选手一</span>
+                        </button>
+                        <div class="dropdown-menu w-100 p-0 shadow-sm">
+                            <div class="p-2 border-bottom bg-white position-sticky top-0" style="z-index: 2;">
+                                <input type="search" class="form-control form-control-sm" id="h2hFilterB"
+                                       placeholder="搜索用户名…" autocomplete="off" disabled>
+                            </div>
+                            <div id="h2hListB" class="list-group list-group-flush overflow-auto" style="max-height: 280px;"></div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="h2hValB" value="">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-primary w-100" id="h2hQueryBtn" disabled title="有选手一时可刷新列表；选了选手二后为双方交手">
+                        <i class="bi bi-search"></i> 刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="h2hLoading" class="alert alert-light d-none small">加载中…</div>
+    <div id="h2hEmpty" class="alert alert-secondary d-none small"></div>
+    <div id="h2hResults"></div>
+</div>
+
+<th:block th:replace="~{fragments-group-match-score-modal :: groupMatchScoreModalAndSignature}"/>
+
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
+<script>
+(function () {
+    const root = document.getElementById('h2hRoot');
+    const H2H_API_USERS = root && root.dataset.apiUsers ? root.dataset.apiUsers : '/h2h/api/users';
+    const H2H_API_OPPONENTS = root && root.dataset.apiOpponents ? root.dataset.apiOpponents : '/h2h/api/opponents';
+    const H2H_API_MATCHES = root && root.dataset.apiMatches ? root.dataset.apiMatches : '/h2h/api/matches';
+
+    const btnA = document.getElementById('h2hBtnA');
+    const btnB = document.getElementById('h2hBtnB');
+    const labelA = document.getElementById('h2hLabelA');
+    const labelB = document.getElementById('h2hLabelB');
+    const valA = document.getElementById('h2hValA');
+    const valB = document.getElementById('h2hValB');
+    const listA = document.getElementById('h2hListA');
+    const listB = document.getElementById('h2hListB');
+    const filterA = document.getElementById('h2hFilterA');
+    const filterB = document.getElementById('h2hFilterB');
+    const btn = document.getElementById('h2hQueryBtn');
+    const resultsEl = document.getElementById('h2hResults');
+    const loadingEl = document.getElementById('h2hLoading');
+    const emptyEl = document.getElementById('h2hEmpty');
+
+    let allUsers = [];
+    let opponentsOfA = [];
+
+    /** 后端对 H2H 的 id 使用 JSON 字符串；若仍为 number 且超出安全整数，无法还原，请勿依赖 number 路径。 */
+    function uidOf(u) {
+        if (u == null) return '';
+        const v = u.id != null ? u.id : u.userId;
+        if (typeof v === 'string') return v.trim();
+        if (typeof v === 'number' && Number.isFinite(v) && !Number.isSafeInteger(v)) {
+            console.warn('H2H: 用户 id 超出 JavaScript 安全整数，请确认接口返回的 id 为字符串');
+        }
+        return String(v);
+    }
+
+    function escapeHtml(s) {
+        if (s == null) return '';
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function applyFilterToList(listEl, keywordRaw) {
+        if (!listEl) return;
+        const keyword = (keywordRaw || '').trim().toLowerCase();
+        listEl.querySelectorAll('.h2h-item').forEach((el) => {
+            const t = (el.textContent || '').toLowerCase();
+            el.classList.toggle('d-none', !!(keyword && !t.includes(keyword)));
+        });
+    }
+
+    /**
+     * @param {object} [extra]
+     * @param {{ label?: string, title?: string, itemClass?: string, onPick: function(): void }} [extra.leadingChoice]
+     */
+    function renderPickerList(listEl, users, excludeId, onPick, extra) {
+        listEl.innerHTML = '';
+        const ex = excludeId != null && excludeId !== '' ? String(excludeId) : null;
+        const lc = extra && extra.leadingChoice;
+        if (lc && typeof lc.onPick === 'function') {
+            const lead = document.createElement('button');
+            lead.type = 'button';
+            lead.className = 'list-group-item list-group-item-action h2h-item py-2 px-3 text-start border-0 rounded-0 border-bottom';
+            if (lc.itemClass) {
+                lead.className += ' ' + lc.itemClass;
+            }
+            lead.textContent = lc.label || '全部选手';
+            if (lc.title) {
+                lead.setAttribute('title', lc.title);
+            }
+            lead.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                lc.onPick();
+            });
+            listEl.appendChild(lead);
+        }
+        (users || []).forEach((u) => {
+            const id = uidOf(u);
+            if (!id || (ex && id === ex)) return;
+            const name = u.username || '';
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'list-group-item list-group-item-action h2h-item py-2 px-3 text-start border-0 rounded-0';
+            b.dataset.userId = id;
+            b.textContent = name;
+            b.addEventListener('click', (ev) => {
+                ev.preventDefault();
+                onPick(id, name);
+            });
+            listEl.appendChild(b);
+        });
+        if (!listEl.children.length) {
+            const empty = document.createElement('div');
+            empty.className = 'small text-muted px-3 py-2';
+            empty.textContent = '（无候选）';
+            listEl.appendChild(empty);
+        }
+    }
+
+    function hideDropdown(btn) {
+        const dd = bootstrap.Dropdown.getInstance(btn);
+        if (dd) dd.hide();
+    }
+
+    function updateQueryEnabled() {
+        btn.disabled = !valA.value;
+    }
+
+    /** 选手二列表首项：不限定对手，等同于仅选选手一 */
+    function pickPlayerBAllOpponents() {
+        valB.value = '';
+        labelB.textContent = '全部选手';
+        hideDropdown(btnB);
+        filterB.value = '';
+        applyFilterToList(listB, '');
+        refreshPickerAOptions();
+        updateQueryEnabled();
+        void runQuery();
+    }
+
+    function listBExtraWithLeadingAll() {
+        if (!valA.value) {
+            return undefined;
+        }
+        return {
+            leadingChoice: {
+                label: '全部选手',
+                title: '选手一历史上交手过的全部选手（不限定选手二）；等同于仅选择选手一',
+                itemClass: 'fw-semibold text-primary bg-light',
+                onPick: pickPlayerBAllOpponents
+            }
+        };
+    }
+
+    function pickPlayerA(id, name) {
+        valA.value = id;
+        labelA.textContent = name || '请选择选手';
+        hideDropdown(btnA);
+        filterA.value = '';
+        applyFilterToList(listA, '');
+        void refreshAfterPlayerA();
+    }
+
+    function pickPlayerB(id, name) {
+        valB.value = id;
+        labelB.textContent = name || '请选择选手';
+        hideDropdown(btnB);
+        filterB.value = '';
+        applyFilterToList(listB, '');
+        refreshPickerAOptions();
+        updateQueryEnabled();
+        void runQuery();
+    }
+
+    function refreshPickerAOptions() {
+        renderPickerList(listA, allUsers, valB.value || null, pickPlayerA);
+        applyFilterToList(listA, filterA.value);
+    }
+
+    async function refreshAfterPlayerA() {
+        valB.value = '';
+        labelB.textContent = valA.value ? '请选择选手' : '请先选择选手一';
+        filterB.value = '';
+        btnB.disabled = !valA.value;
+        filterB.disabled = !valA.value;
+        if (valA.value) {
+            bootstrap.Dropdown.getOrCreateInstance(btnB);
+        }
+        renderPickerList(listB, [], null, () => {});
+        if (!valA.value) {
+            updateQueryEnabled();
+            return;
+        }
+        loadingEl.classList.remove('d-none');
+        try {
+            const res = await fetch(H2H_API_OPPONENTS + '?userId=' + encodeURIComponent(valA.value));
+            if (!res.ok) {
+                const t = await res.text();
+                throw new Error('加载对阵选手失败 (' + res.status + '): ' + (t && t.length < 200 ? t : res.statusText));
+            }
+            const ct = res.headers.get('content-type') || '';
+            if (!ct.includes('application/json')) {
+                const t = await res.text();
+                throw new Error('接口未返回 JSON，请检查是否部署在子路径需刷新缓存，或是否未登录被拦截。');
+            }
+            opponentsOfA = await res.json();
+            renderPickerList(listB, opponentsOfA, valA.value, pickPlayerB, listBExtraWithLeadingAll());
+            applyFilterToList(listB, filterB.value);
+        } catch (e) {
+            alert(e.message || String(e));
+            opponentsOfA = [];
+            renderPickerList(listB, [], null, () => {}, listBExtraWithLeadingAll());
+        } finally {
+            loadingEl.classList.add('d-none');
+        }
+        refreshPickerAOptions();
+        updateQueryEnabled();
+        const uid = valA.value;
+        if (uid) {
+            await runQuery(uid);
+        }
+    }
+
+    filterA.addEventListener('input', () => applyFilterToList(listA, filterA.value));
+    filterB.addEventListener('input', () => applyFilterToList(listB, filterB.value));
+
+    filterA.addEventListener('click', (e) => e.stopPropagation());
+    filterB.addEventListener('click', (e) => e.stopPropagation());
+
+    document.querySelectorAll('.h2h-picker-card [data-bs-toggle="dropdown"]').forEach((btn) => {
+        const wrap = btn.closest('.dropdown');
+        if (!wrap) return;
+        btn.addEventListener('shown.bs.dropdown', () => wrap.classList.add('h2h-dropdown-open'));
+        btn.addEventListener('hidden.bs.dropdown', () => wrap.classList.remove('h2h-dropdown-open'));
+    });
+
+    async function loadAllUsers() {
+        const res = await fetch(H2H_API_USERS);
+        if (!res.ok) throw new Error('加载选手列表失败');
+        const ct0 = res.headers.get('content-type') || '';
+        if (!ct0.includes('application/json')) throw new Error('选手列表接口未返回 JSON（请确认页面地址与部署 context-path）');
+        allUsers = await res.json();
+        refreshPickerAOptions();
+        renderPickerList(listB, [], null, () => {});
+    }
+
+    function statusBadge(st) {
+        if (st === 0) return '<span class="badge bg-secondary">未开始</span>';
+        if (st === 1) return '<span class="badge bg-primary">进行中</span>';
+        if (st === 2) return '<span class="badge bg-success">已结束</span>';
+        if (st === 3) return '<span class="badge bg-danger">退赛</span>';
+        return '<span class="badge bg-light text-dark">-</span>';
+    }
+
+    /** @returns {'p1win'|'p2win'|'draw'|''} */
+    function matchOutcome(m) {
+        if (!m) return '';
+        const w = m.winnerId != null && m.winnerId !== '' ? String(m.winnerId) : '';
+        const p1 = m.player1Id != null && m.player1Id !== '' ? String(m.player1Id) : '';
+        const p2 = m.player2Id != null && m.player2Id !== '' ? String(m.player2Id) : '';
+        if (w && p1 && w === p1) return 'p1win';
+        if (w && p2 && w === p2) return 'p2win';
+        const t1 = Number(m.totalPlayer1);
+        const t2 = Number(m.totalPlayer2);
+        if (Number(m.status) === 2 && !w && t1 === t2) return 'draw';
+        return '';
+    }
+
+    function buildH2hMatchCardHtml(m) {
+        const mid = encodeURIComponent(String(m.matchId));
+        const dp1 = encodeURIComponent(String(m.player1Name || ''));
+        const dp2 = encodeURIComponent(String(m.player2Name || ''));
+        const oc = matchOutcome(m);
+        const side1 = oc === 'p1win' ? ' match-card-pair-side--winner' : (oc === 'draw' ? ' match-card-pair-side--draw' : '');
+        const side2 = oc === 'p2win' ? ' match-card-pair-side--winner' : (oc === 'draw' ? ' match-card-pair-side--draw' : '');
+        const acceptLocked = m.resultLocked
+            ? '<span class="badge bg-success">已验收</span>'
+            : '<span class="badge bg-warning text-dark">待验收</span>';
+        const metaTitle = escapeHtml(m.tournamentTitle || '');
+        const metaId = escapeHtml(String(m.matchId != null ? m.matchId : ''));
+        const catParts = [m.category, m.phaseCode].filter(Boolean).map((x) => escapeHtml(x));
+        let metaCat = catParts.join(' · ');
+        if (m.round != null) {
+            metaCat += (metaCat ? ' · ' : '') + '轮次 ' + escapeHtml(String(m.round));
+        }
+        const winLabel = m.winnerName ? escapeHtml(m.winnerName) : '—';
+        return (
+            '<div class="card border-0 shadow-sm h2h-match-card" role="button" tabindex="0" ' +
+            'data-match-id="' + mid + '" data-p1="' + dp1 + '" data-p2="' + dp2 + '" ' +
+            'aria-label="打开场次详情">' +
+            '<div class="card-body p-0 unified-match-score-card">' +
+            // '<div class="small text-muted px-3 pt-2">' + metaTitle + '<br/><span class="text-muted">#' + metaId + '</span></div>' +
+            '<div class="small text-muted px-3 pt-2">' + metaTitle + '</div>' +
+            (metaCat ? '<div class="small text-muted px-3 pt-1">' + metaCat + '</div>' : '') +
+            '<div class="match-card-accept-row px-3 pt-1 pb-2">' + acceptLocked + '</div>' +
+            '<div class="d-flex align-items-stretch match-card-pair-row px-2 pb-2 gap-1">' +
+            '<div class="match-card-pair-side flex-fill text-start rounded-2 px-2 py-2' + side1 + '">' +
+            '<div class="fw-semibold text-truncate">' + escapeHtml(m.player1Name || '') + '</div>' +
+            '<div class="match-card-pair-score">' + escapeHtml(String(m.totalPlayer1 != null ? m.totalPlayer1 : '')) + '</div></div>' +
+            '<div class="match-card-pair-sep text-muted small align-self-center user-select-none">:</div>' +
+            '<div class="match-card-pair-side flex-fill text-end rounded-2 px-2 py-2' + side2 + '">' +
+            '<div class="fw-semibold text-truncate">' + escapeHtml(m.player2Name || '') + '</div>' +
+            '<div class="match-card-pair-score">' + escapeHtml(String(m.totalPlayer2 != null ? m.totalPlayer2 : '')) + '</div></div>' +
+            '</div>' +
+            // '<div class="px-3 pb-2 pt-0 small border-top d-flex flex-wrap justify-content-between align-items-center gap-2">' +
+            // '<span class="text-muted">胜者 <span class="text-body">' + winLabel + '</span></span>' +
+            // '<span>' + statusBadge(m.status) + '</span></div>' 
+            '</div></div>'
+        );
+    }
+
+    function parseSeasons(payload) {
+        if (payload == null) return [];
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload.seasons)) return payload.seasons;
+        return [];
+    }
+
+    function renderH2hLevelsHtml(levels) {
+        let html = '';
+        (levels || []).forEach((lvl) => {
+            const lc = lvl.levelCode != null ? escapeHtml(String(lvl.levelCode)) : '';
+            const ln = lvl.levelName != null ? escapeHtml(String(lvl.levelName)) : '';
+            // const lvlTitle = lc && ln ? lc + ' · ' + ln : (lc || ln);
+            html += '<div class="mb-2 ms-md-2">';
+            html += '<div class="small text-muted mb-1">' + ln + '</div>';
+            html += '<div class="d-none d-md-block"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">';
+            html += '<thead class="table-light"><tr><th>赛事 / 场次</th><th>类别 / 阶段</th><th>对阵</th><th>总分</th><th>胜者</th><th></th></tr></thead><tbody>';
+            (lvl.matches || []).forEach((m) => {
+                const vs = escapeHtml(m.player1Name) + ' vs ' + escapeHtml(m.player2Name);
+                const tot = m.totalPlayer1 + ':' + m.totalPlayer2;
+                const win = m.winnerName ? escapeHtml(m.winnerName) : '—';
+                const cat = escapeHtml((m.category || '') + ' · ' + (m.phaseCode || ''));
+                html += '<tr>';
+                // html += '<td class="text-nowrap small">' + escapeHtml(m.tournamentTitle || '') + '<br/><span class="text-muted">#' + m.matchId + '</span></td>';
+                html += '<td class="text-nowrap small">' + escapeHtml(m.tournamentTitle || '') + '</td>';
+                html += '<td class="small">' + cat + (m.round != null ? '<br/>轮次 ' + m.round : '') + '</td>';
+                html += '<td class="small">' + vs + '</td>';
+                html += '<td class="text-nowrap">' + tot + '</td>';
+                html += '<td class="small">' + win + ' ' + statusBadge(m.status) + '</td>';
+                html += '<td><button type="button" class="btn btn-sm btn-outline-primary h2h-open-match" data-match-id="' + encodeURIComponent(String(m.matchId)) + '" data-p1="' + encodeURIComponent(String(m.player1Name || '')) + '" data-p2="' + encodeURIComponent(String(m.player2Name || '')) + '">详情</button></td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table></div></div>';
+            html += '<div class="d-md-none h2h-match-cards-stack">';
+            (lvl.matches || []).forEach((m) => {
+                html += buildH2hMatchCardHtml(m);
+            });
+            html += '</div></div>';
+        });
+        return html;
+    }
+
+    function renderPayload(payload) {
+        resultsEl.innerHTML = '';
+        const seasons = parseSeasons(payload);
+        if (!seasons.length) {
+            emptyEl.textContent = valA.value
+                ? (valB.value
+                    ? '未找到这两名选手之间的交手记录。可尝试只选选手一，查看其全部历史场次。'
+                    : '未找到该选手的赛程记录。若其已参赛仍显示此项，可能是赛程未录入或选手账号与当时登记不一致。')
+                : '请先在下拉中选择选手一。';
+            emptyEl.classList.remove('d-none');
+            return;
+        }
+        emptyEl.classList.add('d-none');
+
+        const wrap = document.createElement('div');
+        wrap.className = 'accordion';
+        wrap.id = 'h2hAccordionRoot';
+
+        seasons.forEach((season, si) => {
+            const seasonKey = 'h2hSeason' + si;
+            const seasonItem = document.createElement('div');
+            seasonItem.className = 'accordion-item';
+            seasonItem.innerHTML =
+                '<h2 class="accordion-header" id="heading_' + seasonKey + '">' +
+                '<button class="accordion-button' + (si === 0 ? '' : ' collapsed') + '" type="button" data-bs-toggle="collapse" data-bs-target="#collapse_' + seasonKey + '">' +
+                '<i class="bi bi-calendar3 me-2"></i>' + escapeHtml(season.seasonLabel) +
+                '</button></h2>' +
+                '<div id="collapse_' + seasonKey + '" class="accordion-collapse collapse' + (si === 0 ? ' show' : '') + '">' +
+                '<div class="accordion-body p-2" id="body_' + seasonKey + '"></div></div>';
+            wrap.appendChild(seasonItem);
+
+            const body = seasonItem.querySelector('#body_' + seasonKey);
+            const seriesAccordionId = 'h2hSeriesAcc_' + seasonKey;
+            let seriesHtml = '<div class="accordion accordion-flush h2h-series-accordion border rounded-2 overflow-hidden" id="' + seriesAccordionId + '">';
+            (season.series || []).forEach((ser, ri) => {
+                const collapseId = 'collapse_' + seasonKey + '_ser_' + ri;
+                const headingId = 'heading_' + seasonKey + '_ser_' + ri;
+                const openSeries = ri === 0;
+                seriesHtml += '<div class="accordion-item">';
+                seriesHtml += '<h3 class="accordion-header m-0" id="' + headingId + '">';
+                seriesHtml += '<button class="accordion-button py-2' + (openSeries ? '' : ' collapsed') + '" type="button" data-bs-toggle="collapse" data-bs-target="#' + collapseId + '" aria-expanded="' + openSeries + '" aria-controls="' + collapseId + '">';
+                seriesHtml += '<i class="bi bi-collection me-2"></i>' + escapeHtml(ser.seriesLabel) + '</button></h3>';
+                seriesHtml += '<div id="' + collapseId + '" class="accordion-collapse collapse' + (openSeries ? ' show' : '') + '" aria-labelledby="' + headingId + '">';
+                seriesHtml += '<div class="accordion-body p-2 pt-1">';
+                seriesHtml += renderH2hLevelsHtml(ser.levels);
+                seriesHtml += '</div></div></div>';
+            });
+            seriesHtml += '</div>';
+            body.innerHTML = seriesHtml;
+        });
+
+        resultsEl.appendChild(wrap);
+
+        resultsEl.querySelectorAll('.h2h-open-match').forEach((b) => {
+            b.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                openH2hMatchScoreModal(b);
+            });
+        });
+        resultsEl.querySelectorAll('.h2h-match-card').forEach((card) => {
+            card.addEventListener('click', () => openH2hMatchScoreModal(card));
+            card.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    openH2hMatchScoreModal(card);
+                }
+            });
+        });
+    }
+
+    function openH2hMatchScoreModal(el) {
+        if (!el) return;
+        const rawId = el.getAttribute('data-match-id');
+        if (!rawId) return;
+        const matchId = decodeURIComponent(rawId);
+        const p1 = decodeURIComponent(el.getAttribute('data-p1') || '');
+        const p2 = decodeURIComponent(el.getAttribute('data-p2') || '');
+        if (typeof window.openGroupMatchScoreModalForMatch === 'function') {
+            void window.openGroupMatchScoreModalForMatch(matchId, p1, p2);
+        } else {
+            alert('场次弹窗脚本未加载');
+        }
+    }
+
+    window.onGroupMatchScoreSaved = function () {
+        const u = valA.value;
+        if (u) void runQuery(u);
+    };
+
+    /**
+     * @param {string|undefined} forcedUserId1 传入时优先使用（避免异步流程里与隐藏域不同步）
+     */
+    async function runQuery(forcedUserId1) {
+        const u1 = forcedUserId1 !== undefined && forcedUserId1 !== null && forcedUserId1 !== ''
+            ? String(forcedUserId1)
+            : String(valA.value || '');
+        const u2 = String(valB.value || '');
+        if (!u1) return;
+        loadingEl.classList.remove('d-none');
+        emptyEl.classList.add('d-none');
+        resultsEl.innerHTML = '';
+        try {
+            let url = H2H_API_MATCHES + '?userId1=' + encodeURIComponent(u1);
+            if (u2) {
+                url += '&userId2=' + encodeURIComponent(u2);
+            }
+            const res = await fetch(url, { headers: { Accept: 'application/json' } });
+            const rawText = await res.text();
+            if (!res.ok) {
+                throw new Error('查询失败 HTTP ' + res.status + '：' + (rawText.length < 300 ? rawText : res.statusText));
+            }
+            let payload;
+            try {
+                payload = JSON.parse(rawText);
+            } catch (je) {
+                throw new Error('接口返回不是 JSON（可能是登录页或错误页）。请检查部署路径是否为：' + H2H_API_MATCHES);
+            }
+            renderPayload(payload);
+        } catch (e) {
+            alert(e.message || String(e));
+        } finally {
+            loadingEl.classList.add('d-none');
+        }
+    }
+
+    btn.addEventListener('click', runQuery);
+
+    loadAllUsers().catch((e) => alert(e.message || String(e)));
+})();
+</script>
+</body>
+</html>

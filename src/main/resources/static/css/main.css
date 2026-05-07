@@ -986,6 +986,65 @@ table.table-hover.align-middle tbody tr > td {
     background-size: 12px 10px;
 }
 
+/*
+ * 场次录分弹窗（fragments-group-match-score-modal：赛事详情 / H2H 共用）
+ * 与赛事详情页原内联样式一致；窄屏下覆盖本文件中全局「score-entry-table 卡片化」规则。
+ */
+.match-score-mobile-optimized .score-entry-table {
+    table-layout: fixed;
+}
+.match-score-mobile-optimized .score-player-name {
+    white-space: nowrap;
+    user-select: none;
+}
+.match-score-mobile-optimized .score-player-name.score-player-name--tappable {
+    cursor: pointer;
+}
+.match-score-mobile-optimized .score-player-name--hammer {
+    background: #fff8e1;
+    color: #8a5300;
+    box-shadow: inset 0 0 0 1px #ffe08a;
+}
+.match-score-mobile-optimized .score-total-cell {
+    width: 5.2rem;
+    min-width: 5.2rem;
+    text-align: center;
+    vertical-align: top;
+}
+.match-score-mobile-optimized .score-total-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    min-height: 2.2rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.55rem;
+    background: #f8f9fa;
+    font-weight: 600;
+    line-height: 1;
+}
+.match-score-mobile-optimized .score-ends-cell {
+    overflow: hidden;
+}
+.match-score-mobile-optimized .score-ends-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.15rem;
+}
+.match-score-mobile-optimized .score-end-item {
+    flex: 0 0 auto;
+    text-align: center;
+}
+.match-score-mobile-optimized .score-end-label {
+    display: block;
+    font-size: 0.72rem;
+    color: #6c757d;
+    margin-bottom: 0.15rem;
+}
+
 #groupMatchScoreModal .modal-header {
     position: sticky;
     top: 0;
@@ -1078,6 +1137,57 @@ table.table-hover.align-middle tbody tr > td {
         margin-top: 0.35rem;
         display: flex;
         justify-content: flex-end;
+    }
+
+    /* 弹窗内录分表：保持三列表格式（姓名/总分/局次），不被上文卡片化规则拆分 */
+    .match-score-mobile-optimized .score-entry-table {
+        font-size: 0.9rem;
+    }
+    .match-score-mobile-optimized .score-total-cell {
+        width: 4.4rem;
+        min-width: 4.4rem;
+    }
+    .match-score-mobile-optimized .score-player-name {
+        width: 5rem;
+        min-width: 5rem;
+    }
+    .match-score-mobile-optimized .score-end-item {
+        width: 2.75rem;
+    }
+    .match-score-mobile-optimized .score-input {
+        width: 2.75rem;
+        height: 2.2rem;
+        padding: 0.2rem 0.3rem;
+        border-radius: 0.55rem;
+        text-align: center;
+        font-size: 1rem;
+        background-image: none !important;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    .match-score-mobile-optimized .score-entry-table {
+        border: 1px solid var(--bs-border-color) !important;
+    }
+    .match-score-mobile-optimized .score-entry-table > thead {
+        display: table-header-group !important;
+    }
+    .match-score-mobile-optimized .score-entry-table > tbody > tr {
+        display: table-row !important;
+        width: auto !important;
+        margin: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        padding: 0 !important;
+    }
+    .match-score-mobile-optimized .score-entry-table > tbody > tr > th,
+    .match-score-mobile-optimized .score-entry-table > tbody > tr > td {
+        display: table-cell !important;
+        width: auto !important;
+        border: 1px solid var(--bs-border-color) !important;
+        padding: 0.4rem 0.45rem !important;
+        background: transparent !important;
+        vertical-align: top;
     }
 }
 
@@ -1204,4 +1314,67 @@ table.table-hover.align-middle tbody tr > td {
     max-height: min(70vh, calc(100vh - 220px));
     overflow-y: auto;
     overflow-x: hidden;
+}
+
+/* H2H：筛选区须在 stacking 上高于下方结果列表，否则 #h2hResults 在后序 DOM 中会盖住展开的下拉菜单 */
+.h2h-page {
+    position: relative;
+    z-index: 10;
+}
+.h2h-page > .h2h-picker-card {
+    position: relative;
+    z-index: 5;
+}
+.h2h-page > #h2hResults {
+    position: relative;
+    z-index: 1;
+}
+/* 选手下拉：默认同层；打开中的下拉抬高，避免窄屏上下排列时「选手二」区块盖住「选手一」菜单 */
+.h2h-page .h2h-picker-card .dropdown {
+    position: relative;
+    z-index: 1919810;
+}
+.h2h-page .h2h-picker-card .dropdown.h2h-dropdown-open {
+    z-index: 1919835 !important;
+}
+.h2h-page .dropdown-menu {
+    z-index: 1919815 !important;
+}
+
+/* H2H：窄屏卡片列表（与赛事详情 match 卡片同款骨架：验收 + 双栏比分） */
+@media (max-width: 767.98px) {
+    .h2h-page .h2h-match-cards-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    .h2h-page .h2h-match-card {
+        cursor: pointer;
+        transition: box-shadow 0.15s ease, transform 0.08s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .h2h-page .h2h-match-card:focus-visible {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: 2px;
+    }
+    .h2h-page .h2h-match-card:active {
+        transform: scale(0.995);
+    }
+    .h2h-page #h2hAccordionRoot .accordion-body {
+        padding-left: 0.35rem;
+        padding-right: 0.35rem;
+    }
+}
+
+/* H2H：赛季内的系列折叠（嵌套 accordion） */
+.h2h-page .h2h-series-accordion .accordion-button {
+    font-size: 0.95rem;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+}
+.h2h-page .h2h-series-accordion .accordion-button:not(.collapsed) {
+    box-shadow: none;
+}
+.h2h-page .h2h-series-accordion > .accordion-item > .accordion-header .accordion-button {
+    background-color: rgba(13, 110, 253, 0.06);
 }

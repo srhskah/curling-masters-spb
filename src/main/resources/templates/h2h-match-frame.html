@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('比赛详情')}"></head>
+<body th:classappend="${h2hFrame ? 'p-2 p-md-3 bg-light' : ''}">
+<div th:unless="${h2hFrame}" th:replace="~{fragments :: navbar}"></div>
+<div th:unless="${h2hFrame}" th:replace="~{fragments :: success-alert}"></div>
+<div th:unless="${h2hFrame}" th:replace="~{fragments :: error-alert}"></div>
+
+<div th:classappend="${h2hFrame ? '' : 'container mt-4'}">
+    <div th:class="${h2hFrame ? '' : 'row'}">
+        <div th:class="${h2hFrame ? '' : 'col-lg-10 mx-auto'}">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-info text-white py-2">
+                    <h6 class="mb-0"><i class="bi bi-controller"></i> 比赛信息</h6>
+                </div>
+                <div class="card-body py-2">
+                    <div class="row small">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>比赛 ID：</strong><span th:text="${match.id}"></span></p>
+                            <p class="mb-1"><strong>选手1：</strong><span th:text="${player1 != null ? player1.username : '待定'}"></span></p>
+                            <p class="mb-1"><strong>选手2：</strong><span th:text="${player2 != null ? player2.username : '待定'}"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>预定时间：</strong>
+                                <span th:text="${match.scheduledTime != null ? #temporals.format(match.scheduledTime, 'yyyy-MM-dd HH:mm') : '未设置'}"></span>
+                            </p>
+                            <p class="mb-1"><strong>状态：</strong>
+                                <span th:if="${match.status == 0}" class="badge bg-secondary">未开始</span>
+                                <span th:if="${match.status == 1}" class="badge bg-primary">进行中</span>
+                                <span th:if="${match.status == 2}" class="badge bg-success">已结束</span>
+                                <span th:if="${match.status == 3}" class="badge bg-danger">退赛</span>
+                            </p>
+                            <p class="mb-1"><strong>总分：</strong><span th:text="${totalPlayer1 + ' : ' + totalPlayer2}"></span></p>
+                        </div>
+                    </div>
+                    <div class="mt-2" th:if="${tournament != null}">
+                        <a class="btn btn-sm btn-outline-secondary" th:href="@{/tournament/detail/{id}(id=${match.tournamentId})}" target="_blank">
+                            <i class="bi bi-box-arrow-up-right"></i> 打开赛事详情
+                        </a>
+                        <a class="btn btn-sm btn-outline-secondary" th:if="${backUrl != null}" th:href="${backUrl}">返回 H2H</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 只读：非超级管理员或已验收锁定 -->
+            <div class="card border-0 shadow-sm" th:if="${!canSubmitScore}">
+                <div class="card-header bg-secondary text-white py-2">
+                    <h6 class="mb-0"><i class="bi bi-eye"></i> 比分（只读）</h6>
+                </div>
+                <div class="card-body py-2">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>局</th>
+                                <th th:text="${player1 != null ? player1.username : '选手1'}">p1</th>
+                                <th th:text="${player2 != null ? player2.username : '选手2'}">p2</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="ss : ${setScores}">
+                                <td th:text="${ss.setNumber}">1</td>
+                                <td th:text="${ss.player1Score}">0</td>
+                                <td th:text="${ss.player2Score}">0</td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(setScores)}">
+                                <td colspan="3" class="text-muted small">暂无局分数据</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mb-0 mt-2" th:if="${resultLocked}">
+                        <i class="bi bi-lock"></i> 本场已验收锁定。如需修改请超级管理员在「比赛管理」中操作。
+                    </p>
+                    <p class="small text-muted mb-0 mt-2" th:if="${!resultLocked and !isSuperAdmin}">
+                        <i class="bi bi-info-circle"></i> H2H 页面仅支持查看；录入比分请使用赛事详情页。
+                    </p>
+                </div>
+            </div>
+
+            <!-- 可编辑：仅超级管理员且未锁定 -->
+            <div class="card border-0 shadow-sm" th:if="${canSubmitScore}">
+                <div class="card-header bg-primary text-white py-2">
+                    <h6 class="mb-0"><i class="bi bi-pencil-square"></i> 录入比分（超级管理员）</h6>
+                </div>
+                <div class="card-body py-2">
+                    <form th:action="@{/match/score/save/{matchId}(matchId=${match.id})}" method="post">
+                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+                        <div class="row mb-2 g-2">
+                            <div class="col-md-4">
+                                <label class="form-label small">先后手</label>
+                                <select class="form-select form-select-sm" name="firstEndHammer">
+                                    <option value="">不设置</option>
+                                    <option value="1" th:selected="${match.firstEndHammer == 1}" th:text="${player1 != null ? player1.username : '选手1'}">p1</option>
+                                    <option value="2" th:selected="${match.firstEndHammer == 2}" th:text="${player2 != null ? player2.username : '选手2'}">p2</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small">局数</label>
+                                <input type="number" class="form-control form-control-sm" id="setCountInput" min="1" max="20"
+                                       th:value="${#lists.isEmpty(setScores) ? defaultSetCount : #lists.size(setScores)}"/>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="button" class="btn btn-outline-primary btn-sm w-100" onclick="renderSetRowsH2h()">生成局数</button>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm align-middle">
+                                <thead class="table-light">
+                                <tr>
+                                    <th>局</th>
+                                    <th th:text="${player1 != null ? player1.username : '选手1'}">p1</th>
+                                    <th th:text="${player2 != null ? player2.username : '选手2'}">p2</th>
+                                </tr>
+                                </thead>
+                                <tbody id="setRowsBodyH2h">
+                                <tr th:each="ss : ${setScores}">
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" name="setNumbers" min="1"
+                                               th:value="${ss.setNumber}">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" name="player1Scores" min="0"
+                                               th:value="${ss.player1Score}">
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" name="player2Scores" min="0"
+                                               th:value="${ss.player2Score}">
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-2">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-check-circle"></i> 保存比分
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:unless="${h2hFrame}" th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script>
+    function renderSetRowsH2h() {
+        const body = document.getElementById('setRowsBodyH2h');
+        const n = Number(document.getElementById('setCountInput').value || 0);
+        if (!body || !Number.isInteger(n) || n < 1) return;
+        body.innerHTML = '';
+        for (let i = 1; i <= n; i++) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="number" class="form-control form-control-sm" name="setNumbers" min="1" value="${i}"></td>
+                <td><input type="number" class="form-control form-control-sm" name="player1Scores" min="0" value="0"></td>
+                <td><input type="number" class="form-control form-control-sm" name="player2Scores" min="0" value="0"></td>
+            `;
+            body.appendChild(tr);
+        }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+        const body = document.getElementById('setRowsBodyH2h');
+        if (body && body.children.length === 0) renderSetRowsH2h();
+    });
+</script>
+</body>
+</html>
