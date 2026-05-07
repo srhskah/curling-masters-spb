@@ -6,8 +6,10 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
 /**
- * 全局Controller增强：根据客户端IP类型注入背景CSS类
- * 无需用户登录，所有请求自动生效
+ * 全局Controller增强：根据客户端IP类型注入背景CSS类（{@code ipBgClass}）。
+ * 模板中 favicon 切换（fragments.html）与此字段保持一致：{@code bg-internal} 为 emoji，
+ * {@code bg-external} 为 {@code /favicon.ico}。
+ * 无需用户登录，所有请求自动生效。
  */
 @ControllerAdvice
 public class IpAddressAdvice {
