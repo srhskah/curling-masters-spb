@@ -62,6 +62,10 @@ class HeadToHeadQueryServiceTest {
 
         Assertions.assertNotNull(payload);
         Assertions.assertFalse(payload.seasons().isEmpty(), "选手一应在四槽位命中时返回场次");
+        Assertions.assertNotNull(payload.soloStats(), "单人查询应返回导出用聚合统计");
+        Assertions.assertNull(payload.h2hStatsUser1VsUser2());
+        Assertions.assertNotNull(payload.soloStats(), "单人查询应返回导出用聚合统计");
+        Assertions.assertNull(payload.h2hStatsUser1VsUser2());
     }
 
     @Test

@@ -1,9 +1,17 @@
 package com.example.controller;
 
 import com.example.dto.*;
+import com.example.dto.h2h.H2hLevelNode;
+import com.example.dto.h2h.H2hMatchRow;
+import com.example.dto.h2h.H2hPayload;
+import com.example.dto.h2h.H2hPlayerExportStats;
+import com.example.dto.h2h.H2hSeasonNode;
+import com.example.dto.h2h.H2hSeriesNode;
 import com.example.entity.Season;
 import com.example.entity.User;
+import com.example.service.HeadToHeadQueryService;
 import com.example.service.ITournamentCompetitionService;
+import com.example.service.MatchPerformancePdfAssembler;
 import com.example.service.RankingService;
 import com.example.service.SeasonService;
 import com.example.service.TournamentMedalStandingsService;
@@ -30,6 +38,8 @@ public class RankingExportPdfController {
     @Autowired private ITournamentCompetitionService tournamentCompetitionService;
     @Autowired private UserService userService;
     @Autowired private TournamentMedalStandingsService tournamentMedalStandingsService;
+    @Autowired private HeadToHeadQueryService headToHeadQueryService;
+    @Autowired private MatchPerformancePdfAssembler matchPerformancePdfAssembler;
 
     private static LinkedHashMap<String, Object> basePdfModel() {
         LinkedHashMap<String, Object> m = new LinkedHashMap<>();
@@ -215,6 +225,138 @@ public class RankingExportPdfController {
         String title = editionTitle + "-" + username + "-赛事战绩";
         byte[] pdfBytes = renderPerformancePdf(title, data.get("matchDetails"));
         return PdfExportSupport.attachmentPdf(pdfBytes, title + ".pdf");
+    }
+
+    /**
+     * H2H 页面导出：版式与单场战绩 PDF 一致（LOGO、字体、表头风格），A4 纵向，由模板 {@code pdf/pdf-h2h-export} 控制。
+     *
+     * @param statsPerspective 双方 H2H 时：1 = userId1 对 userId2 视角；2 = userId2 对 userId1（与页面「交换视角」一致）
+     */
+    @GetMapping(value = "/h2h", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportH2hPdf(
+            @RequestParam Long userId1,
+            @RequestParam(required = false) Long userId2,
+            @RequestParam(defaultValue = "1") int statsPerspective
+    ) {
+        if (userId2 != null && userId2.equals(userId1)) {
+            return ResponseEntity.badRequest().build();
+        }
+        int pv = statsPerspective == 2 ? 2 : 1;
+
+        H2hPayload payload = headToHeadQueryService.buildPayload(userId1, userId2);
+        User u1 = userService.getById(userId1);
+        User u2 = userId2 != null ? userService.getById(userId2) : null;
+        String name1 = u1 != null && u1.getUsername() != null && !u1.getUsername().isBlank()
+                ? u1.getUsername()
+                : ("用户" + userId1);
+        String name2 = u2 != null && u2.getUsername() != null && !u2.getUsername().isBlank()
+                ? u2.getUsername()
+                : (userId2 != null ? ("用户" + userId2) : null);
+
+        H2hPlayerExportStats stats = resolveH2hPdfStats(payload, userId2, pv);
+
+        String title;
+        String subtitle;
+        String statsIntro;
+        if (userId2 == null) {
+            title = "H2H 交手记录 - " + name1;
+            subtitle = "导出范围：该选手在系统中的全部历史场次（与 H2H 页面列表一致）";
+            statsIntro = "以下汇总为该选手在上述场次的合计统计。";
+        } else {
+            title = "H2H 交手记录 - " + name1 + " vs " + name2;
+            subtitle = "导出范围：双方直接交手场次（与 H2H 页面列表一致）";
+            if (pv == 1) {
+                statsIntro = "汇总视角：" + name1 + " 对 " + name2 + "（胜/平/负为前者相对后者）。";
+            } else {
+                statsIntro = "汇总视角：" + name2 + " 对 " + name1 + "（胜/平/负为前者相对后者）。";
+            }
+        }
+
+        LinkedHashMap<String, Object> model = basePdfModel();
+        model.put("title", title);
+        model.put("subtitle", subtitle);
+        model.put("statsIntro", statsIntro);
+        model.put("stats", stats);
+        model.put("matchDetails", buildH2hMatchDetailsForPdf(payload, matchPerformancePdfAssembler));
+
+        byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-h2h-export", model);
+        String filename = userId2 == null
+                ? ("H2H-" + sanitizePdfFilenameSegment(name1) + ".pdf")
+                : ("H2H-" + sanitizePdfFilenameSegment(name1) + "-vs-" + sanitizePdfFilenameSegment(name2 != null ? name2 : String.valueOf(userId2)) + ".pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, filename);
+    }
+
+    private static String sanitizePdfFilenameSegment(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "user";
+        }
+        String t = raw.replace('/', '_').replace('\\', '_').replace(':', '_').trim();
+        return t.isEmpty() ? "user" : t;
+    }
+
+    private static H2hPlayerExportStats resolveH2hPdfStats(H2hPayload payload, Long userId2, int perspective) {
+        if (payload == null) {
+            return H2hPlayerExportStats.empty();
+        }
+        if (userId2 == null) {
+            return payload.soloStats() != null ? payload.soloStats() : H2hPlayerExportStats.empty();
+        }
+        if (perspective == 2) {
+            return payload.h2hStatsUser2VsUser1() != null ? payload.h2hStatsUser2VsUser1() : H2hPlayerExportStats.empty();
+        }
+        return payload.h2hStatsUser1VsUser2() != null ? payload.h2hStatsUser1VsUser2() : H2hPlayerExportStats.empty();
+    }
+
+    private static List<LinkedHashMap<String, Object>> buildH2hMatchDetailsForPdf(
+            H2hPayload payload,
+            MatchPerformancePdfAssembler assembler) {
+        List<LinkedHashMap<String, Object>> out = new ArrayList<>();
+        if (payload == null || payload.seasons() == null) {
+            return out;
+        }
+        for (H2hSeasonNode season : payload.seasons()) {
+            if (season == null || season.series() == null) {
+                continue;
+            }
+            for (H2hSeriesNode ser : season.series()) {
+                if (ser == null || ser.levels() == null) {
+                    continue;
+                }
+                for (H2hLevelNode lvl : ser.levels()) {
+                    if (lvl == null || lvl.matches() == null) {
+                        continue;
+                    }
+                    for (H2hMatchRow row : lvl.matches()) {
+                        if (row == null) {
+                            continue;
+                        }
+                        LinkedHashMap<String, Object> detail = assembler.buildDetailMapForMatchId(row.matchId());
+                        if (detail == null) {
+                            continue;
+                        }
+                        detail.put("h2hPathLine", buildH2hPathLine(season, ser, lvl, row));
+                        out.add(detail);
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    private static String buildH2hPathLine(H2hSeasonNode season, H2hSeriesNode ser, H2hLevelNode lvl, H2hMatchRow row) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(nz(season.seasonLabel(), "—")).append(" · ");
+        sb.append(nz(ser.seriesLabel(), "—")).append(" · ");
+        sb.append(nz(lvl.levelName(), "—"));
+        if (row.tournamentTitle() != null && !row.tournamentTitle().isBlank()) {
+            sb.append(" | ").append(row.tournamentTitle());
+        }
+        sb.append(" | 场次 #").append(row.matchId());
+        return sb.toString();
+    }
+
+    private static String nz(String s, String d) {
+        return s != null && !s.isBlank() ? s : d;
     }
 
     @GetMapping(value = "/match/{matchId}/performance", produces = MediaType.APPLICATION_PDF_VALUE)

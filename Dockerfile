@@ -4,8 +4,8 @@ FROM mcr.microsoft.com/openjdk/jdk:21-ubuntu
 WORKDIR /app
 
 # 安装必要的工具和字体
-RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list && \
-    sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.aliyun.com/ubuntu/|g' /etc/apt/sources.list && \
+RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
+    sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
         curl \
@@ -24,14 +24,17 @@ RUN apt-get update && \
         fonts-noto-color-emoji \
         && rm -rf /var/lib/apt/lists/*
 
-# 安装单色 Noto Emoji（PDFBox 兼容；使用历史稳定版本链接）
-RUN mkdir -p /usr/share/fonts/truetype/noto && \
-    curl -fsSL -o /usr/share/fonts/truetype/noto/NotoEmoji-Regular.ttf \
-      https://raw.githubusercontent.com/googlefonts/noto-emoji/2f1ffdd6fbbd05d6f382138a3d3adcd89c5ce800/fonts/NotoEmoji-Regular.ttf && \
-    fc-cache -f
-
-# 复制WAR文件到容器
+# 复制字体安装脚本和构建产物
+COPY install-font.sh /tmp/install-font.sh
 COPY build/libs/demo-0.0.1-SNAPSHOT.war app.war
+
+# 复制整个构建上下文到临时目录（用于检测本地字体文件）
+COPY . /build-context/
+
+# 安装单色 Noto Emoji（优先使用本地文件，否则从网络下载）
+RUN chmod +x /tmp/install-font.sh && \
+    /tmp/install-font.sh && \
+    rm -rf /build-context /tmp/install-font.sh
 
 # 创建非root用户
 # RUN groupadd -r appuser && useradd -r -g appuser appuser && \

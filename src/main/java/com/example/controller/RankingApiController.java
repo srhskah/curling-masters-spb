@@ -37,6 +37,14 @@ public class RankingApiController {
     @Autowired private ITournamentCompetitionService tournamentCompetitionService;
     @Autowired private com.example.service.impl.TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired private GroupRankingCalculator groupRankingCalculator;
+    @Autowired private MatchPerformancePdfAssembler matchPerformancePdfAssembler;
+
+    /** 与赛事详情积分榜一致：存在生效取消资格时按积分降序重排并生成连续名次。 */
+    private Map<Long, Integer> sortUtpsForLeaderboard(List<UserTournamentPoints> utps, Long tournamentId) {
+        Map<Long, Integer> prog = tournamentCompetitionService.getProgressSettledPlacementRanks(tournamentId);
+        boolean dq = tournamentCompetitionService.hasEffectiveDisqualification(tournamentId);
+        return TournamentPlacementListOrder.sortAndResolveDisplayRanks(utps, prog, dq);
+    }
 
     @GetMapping("/total")
     public List<RankingListEntryDto> getTotalRanking(
@@ -156,8 +164,7 @@ public class RankingApiController {
                             .eq(UserTournamentPoints::getTournamentId, t.getId())
                             .orderByDesc(UserTournamentPoints::getPoints)
                             .list()));
-            Map<Long, Integer> placements = tournamentCompetitionService.getProgressSettledPlacementRanks(t.getId());
-            TournamentPlacementListOrder.sortUtpsByPlacementThenPoints(utps, placements);
+            Map<Long, Integer> placements = sortUtpsForLeaderboard(utps, t.getId());
 
             List<TournamentRankingItemDto> rankings = new ArrayList<>();
             for (int i = 0; i < utps.size(); i++) {
@@ -317,8 +324,7 @@ public class RankingApiController {
                             .eq(UserTournamentPoints::getTournamentId, t.getId())
                             .orderByDesc(UserTournamentPoints::getPoints)
                             .list()));
-            Map<Long, Integer> placements = tournamentCompetitionService.getProgressSettledPlacementRanks(t.getId());
-            TournamentPlacementListOrder.sortUtpsByPlacementThenPoints(utps, placements);
+            Map<Long, Integer> placements = sortUtpsForLeaderboard(utps, t.getId());
 
             for (UserTournamentPoints utp : utps) {
                 int rankInTournament = TournamentPlacementListOrder.rowRankForApi(utp, placements);
@@ -480,8 +486,7 @@ public class RankingApiController {
                         .eq(UserTournamentPoints::getTournamentId, tournamentId)
                         .orderByDesc(UserTournamentPoints::getPoints)
                         .list()));
-        Map<Long, Integer> placements = tournamentCompetitionService.getProgressSettledPlacementRanks(tournamentId);
-        TournamentPlacementListOrder.sortUtpsByPlacementThenPoints(utps, placements);
+        Map<Long, Integer> placements = sortUtpsForLeaderboard(utps, tournamentId);
 
         Map<Long, Integer> groupOverallRankByUserId = new HashMap<>();
         try {
@@ -575,7 +580,7 @@ public class RankingApiController {
                 String un = u != null ? u.getUsername() : "未知";
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("username", un);
-                row.put("signature", normalizeSignatureForPdf(a.getSignature()));
+                row.put("signature", MatchPerformancePdfAssembler.normalizeSignatureForPdf(a.getSignature()));
                 row.put("acceptedAt", a.getAcceptedAt());
                 return row;
             }).toList();
@@ -651,93 +656,14 @@ public class RankingApiController {
         if (m == null) {
             return Map.of("matchId", matchId, "title", "单场比赛战绩", "matchDetails", List.of());
         }
-        Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
-        List<SetScore> ss = setScoreService.lambdaQuery()
-                .eq(SetScore::getMatchId, matchId)
-                .orderByAsc(SetScore::getSetNumber)
-                .list();
-        int t1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
-        int t2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
-        String p1n = uname.getOrDefault(m.getPlayer1Id(), "待定");
-        String p2n = uname.getOrDefault(m.getPlayer2Id(), "待定");
-        List<Map<String, Object>> sets = ss.stream().map(s -> {
-            String p1 = Boolean.TRUE.equals(s.getPlayer1IsX()) ? "X" : String.valueOf(s.getPlayer1Score() == null ? 0 : s.getPlayer1Score());
-            String p2 = Boolean.TRUE.equals(s.getPlayer2IsX()) ? "X" : String.valueOf(s.getPlayer2Score() == null ? 0 : s.getPlayer2Score());
-            String hammer = Objects.equals(s.getHammerPlayerId(), m.getPlayer1Id()) ? p1n :
-                    (Objects.equals(s.getHammerPlayerId(), m.getPlayer2Id()) ? p2n : "-");
-            return Map.<String, Object>of(
-                    "setNumber", s.getSetNumber(),
-                    "player1ScoreText", p1,
-                    "player2ScoreText", p2,
-                    "hammer", hammer
-            );
-        }).toList();
-        List<Map<String, Object>> accepts = matchAcceptanceMapper.selectList(
-                com.baomidou.mybatisplus.core.toolkit.Wrappers.<MatchAcceptance>lambdaQuery()
-                        .eq(MatchAcceptance::getMatchId, matchId)
-                        .orderByAsc(MatchAcceptance::getAcceptedAt)
-        ).stream().map(a -> Map.<String, Object>of(
-                "username", uname.getOrDefault(a.getUserId(), "未知"),
-                "signature", normalizeSignatureForPdf(a.getSignature()),
-                "acceptedAt", a.getAcceptedAt()
-        )).toList();
-        List<Map<String, Object>> editLogs = matchScoreEditLogMapper.selectList(
-                com.baomidou.mybatisplus.core.toolkit.Wrappers.<MatchScoreEditLog>lambdaQuery()
-                        .eq(MatchScoreEditLog::getMatchId, matchId)
-                        .orderByDesc(MatchScoreEditLog::getEditedAt)
-        ).stream().map(l -> {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("setNumber", l.getSetNumber());
-            row.put("editorUsername", uname.getOrDefault(l.getEditorUserId(), "未知"));
-            row.put("oldScore", (Boolean.TRUE.equals(l.getOldPlayer1IsX()) ? "X" : String.valueOf(l.getOldPlayer1Score() == null ? 0 : l.getOldPlayer1Score()))
-                    + ":" +
-                    (Boolean.TRUE.equals(l.getOldPlayer2IsX()) ? "X" : String.valueOf(l.getOldPlayer2Score() == null ? 0 : l.getOldPlayer2Score())));
-            row.put("newScore", (Boolean.TRUE.equals(l.getNewPlayer1IsX()) ? "X" : String.valueOf(l.getNewPlayer1Score() == null ? 0 : l.getNewPlayer1Score()))
-                    + ":" +
-                    (Boolean.TRUE.equals(l.getNewPlayer2IsX()) ? "X" : String.valueOf(l.getNewPlayer2Score() == null ? 0 : l.getNewPlayer2Score())));
-            row.put("editedAt", l.getEditedAt());
-            return row;
-        }).toList();
+        LinkedHashMap<String, Object> matchDetail = matchPerformancePdfAssembler.buildDetailMap(m);
         String title = "单场比赛战绩（" + (m.getCategory() == null ? "-" : m.getCategory()) + "）";
-        Map<String, Object> matchDetail = new LinkedHashMap<>();
-        matchDetail.put("matchId", m.getId());
-        matchDetail.put("phaseCode", m.getPhaseCode());
-        matchDetail.put("category", m.getCategory());
-        matchDetail.put("round", m.getRound());
-        matchDetail.put("player1Id", m.getPlayer1Id());
-        matchDetail.put("player2Id", m.getPlayer2Id());
-        matchDetail.put("player1Name", p1n);
-        matchDetail.put("player2Name", p2n);
-        matchDetail.put("totalText", t1 + ":" + t2);
-        matchDetail.put("player1Total", t1);
-        matchDetail.put("player2Total", t2);
-        matchDetail.put("sets", sets);
-        matchDetail.put("acceptances", accepts);
-        matchDetail.put("editLogs", editLogs);
         return Map.of(
                 "matchId", matchId,
                 "tournamentId", m.getTournamentId(),
                 "title", title,
                 "matchDetails", List.of(matchDetail)
         );
-    }
-
-    private static String normalizeSignatureForPdf(String signature) {
-        if (signature == null) {
-            return "";
-        }
-        String raw = signature.trim();
-        if (raw.isEmpty()) {
-            return "";
-        }
-        if (raw.startsWith("data:image/")) {
-            return raw;
-        }
-        // 兼容历史数据：仅存了 base64 内容（未带 data:image 前缀），在 PDF 中按 png 签名渲染。
-        if (!raw.contains(":") && !raw.contains("/") && raw.length() > 80 && raw.matches("^[A-Za-z0-9+/=]+$")) {
-            return "data:image/png;base64," + raw;
-        }
-        return raw;
     }
 
     @GetMapping("/tournament/{tournamentId}/group-ranking")

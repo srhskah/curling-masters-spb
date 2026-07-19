@@ -1145,8 +1145,11 @@ public class TournamentController {
                         .eq(UserTournamentPoints::getTournamentId, id)
                         .orderByDesc(UserTournamentPoints::getPoints)
                         .list()));
-        Map<Long, Integer> placementRanks = tournamentCompetitionService.getProgressSettledPlacementRanks(id);
-        TournamentPlacementListOrder.sortUtpsByPlacementThenPoints(rankings, placementRanks);
+        Map<Long, Integer> progressPlacements = tournamentCompetitionService.getProgressSettledPlacementRanks(id);
+        Map<Long, Integer> placementRanks = TournamentPlacementListOrder.sortAndResolveDisplayRanks(
+                rankings,
+                progressPlacements,
+                tournamentCompetitionService.hasEffectiveDisqualification(id));
         List<Map<String, Object>> rankingInfoList = new ArrayList<>();
         for (UserTournamentPoints utp : rankings) {
             Map<String, Object> rankingInfo = new HashMap<>();
@@ -1511,6 +1514,22 @@ public class TournamentController {
             int latestQ = qualifierCardsByRound.isEmpty() ? 1 : qRounds.get(qRounds.size() - 1);
             for (Integer qr : qRounds) {
                 List<Map<String, Object>> qCards = qualifierCardsByRound.getOrDefault(qr, List.of());
+
+                // 提取本轮次的选手列表
+                Set<Long> playerIds = new HashSet<>();
+                for (Map<String, Object> card : qCards) {
+                    Match m = (Match) card.get("match");
+                    if (m != null) {
+                        if (m.getPlayer1Id() != null) playerIds.add(m.getPlayer1Id());
+                        if (m.getPlayer2Id() != null) playerIds.add(m.getPlayer2Id());
+                    }
+                }
+                List<User> roundPlayers = userService.list().stream()
+                        .filter(u -> playerIds.contains(u.getId()))
+                        .filter(u -> u.getUsername() != null && !u.getUsername().trim().isEmpty())
+                        .sorted(Comparator.comparing(User::getUsername, Comparator.nullsLast(String::compareToIgnoreCase)))
+                        .toList();
+
                 Map<String, Object> t = new LinkedHashMap<>();
                 t.put("kind", "ENTRY_QUALIFIER");
                 t.put("tabId", "match-tab-qualifier-" + qr);
@@ -1524,6 +1543,7 @@ public class TournamentController {
                     Match mm = (Match) c.get("match");
                     return mm != null && mm.getStatus() != null && mm.getStatus() == 1;
                 }));
+                t.put("roundPlayers", roundPlayers);
                 t.put("active", matchTabFirst);
                 matchTabFirst = false;
                 competitionMatchTabs.add(t);
@@ -1534,6 +1554,22 @@ public class TournamentController {
             koQualifierRounds.sort(Comparator.reverseOrder());
             for (Integer mountedKoRound : koQualifierRounds) {
                 List<Map<String, Object>> qCards = knockoutQualifierCardsByRound.getOrDefault(mountedKoRound, List.of());
+
+                // 提取本轮次的选手列表
+                Set<Long> playerIds = new HashSet<>();
+                for (Map<String, Object> card : qCards) {
+                    Match m = (Match) card.get("match");
+                    if (m != null) {
+                        if (m.getPlayer1Id() != null) playerIds.add(m.getPlayer1Id());
+                        if (m.getPlayer2Id() != null) playerIds.add(m.getPlayer2Id());
+                    }
+                }
+                List<User> roundPlayers = userService.list().stream()
+                        .filter(u -> playerIds.contains(u.getId()))
+                        .filter(u -> u.getUsername() != null && !u.getUsername().trim().isEmpty())
+                        .sorted(Comparator.comparing(User::getUsername, Comparator.nullsLast(String::compareToIgnoreCase)))
+                        .toList();
+
                 Map<String, Object> t = new LinkedHashMap<>();
                 t.put("kind", "KO_QUALIFIER");
                 t.put("tabId", "match-tab-ko-qualifier-" + mountedKoRound);
@@ -1545,6 +1581,7 @@ public class TournamentController {
                     Match mm = (Match) c.get("match");
                     return mm != null && mm.getStatus() != null && mm.getStatus() == 1;
                 }));
+                t.put("roundPlayers", roundPlayers);
                 t.put("active", matchTabFirst);
                 matchTabFirst = false;
                 competitionMatchTabs.add(t);
@@ -1559,12 +1596,29 @@ public class TournamentController {
         }
         for (Integer koRound : orderedKoRounds) {
             List<Map<String, Object>> koCards = knockoutCardsByRound.getOrDefault(koRound, List.of());
+
+            // 提取本轮次的选手列表
+            Set<Long> playerIds = new HashSet<>();
+            for (Map<String, Object> card : koCards) {
+                Match m = (Match) card.get("match");
+                if (m != null) {
+                    if (m.getPlayer1Id() != null) playerIds.add(m.getPlayer1Id());
+                    if (m.getPlayer2Id() != null) playerIds.add(m.getPlayer2Id());
+                }
+            }
+            List<User> roundPlayers = userService.list().stream()
+                    .filter(u -> playerIds.contains(u.getId()))
+                    .filter(u -> u.getUsername() != null && !u.getUsername().trim().isEmpty())
+                    .sorted(Comparator.comparing(User::getUsername, Comparator.nullsLast(String::compareToIgnoreCase)))
+                    .toList();
+
             Map<String, Object> t = new LinkedHashMap<>();
             t.put("kind", "KO");
             t.put("tabId", "match-tab-ko-" + koRound);
             t.put("label", knockoutRoundLabel(koRound));
             t.put("round", koRound);
             t.put("koCards", koCards);
+            t.put("roundPlayers", roundPlayers);
             t.put("active", matchTabFirst);
             matchTabFirst = false;
             competitionMatchTabs.add(t);
@@ -1839,6 +1893,14 @@ public class TournamentController {
             Set<Long> savedUserIds = new HashSet<>();
             int rankingRowsSaved = 0;
             int skippedNotOnRoster = 0;
+            Set<Long> effectiveDqUserIds = tournamentDisqualificationMapper.selectList(
+                            com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentDisqualification>lambdaQuery()
+                                    .eq(TournamentDisqualification::getTournamentId, tournamentId)
+                                    .eq(TournamentDisqualification::getEffective, true))
+                    .stream()
+                    .map(TournamentDisqualification::getUserId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
             for (String username : parsedNames) {
                 String name = username == null ? "" : username.trim();
                 int points = calculatePoints(rank, participantCount, basePoints, ratio);
@@ -1863,6 +1925,9 @@ public class TournamentController {
                             skippedNotOnRoster++;
                             rank++;
                             continue;
+                        }
+                        if (effectiveDqUserIds.contains(user.getId())) {
+                            points = 0;
                         }
                         UserTournamentPoints utp = new UserTournamentPoints();
                         utp.setUserId(user.getId());

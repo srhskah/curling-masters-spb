@@ -1082,13 +1082,67 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
     }
 
+    @Override
+    public boolean hasEffectiveDisqualification(Long tournamentId) {
+        if (tournamentId == null) {
+            return false;
+        }
+        Long n = tournamentDisqualificationMapper.selectCount(
+                Wrappers.<TournamentDisqualification>lambdaQuery()
+                        .eq(TournamentDisqualification::getTournamentId, tournamentId)
+                        .eq(TournamentDisqualification::getEffective, true));
+        return n != null && n > 0;
+    }
+
+    private Set<Long> loadEffectiveDisqualifiedUserIds(Long tournamentId) {
+        if (tournamentId == null) {
+            return Set.of();
+        }
+        List<TournamentDisqualification> rows = tournamentDisqualificationMapper.selectList(
+                Wrappers.<TournamentDisqualification>lambdaQuery()
+                        .eq(TournamentDisqualification::getTournamentId, tournamentId)
+                        .eq(TournamentDisqualification::getEffective, true));
+        if (rows == null || rows.isEmpty()) {
+            return Set.of();
+        }
+        return rows.stream()
+                .map(TournamentDisqualification::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /**
+     * 已生效取消资格选手在本赛事的最终积分榜分值一律为 0（不低于「垫底分」规则）。
+     */
+    private void upsertZeroPointsForDisqualifiedUsers(Long tournamentId, Set<Long> dqEffective) {
+        if (tournamentId == null || dqEffective == null || dqEffective.isEmpty()) {
+            return;
+        }
+        for (Long dqUid : dqEffective) {
+            upsertTournamentPoints(tournamentId, dqUid, 0);
+        }
+    }
+
     private void recomputeTournamentPointsByProgress(Long tournamentId, TournamentCompetitionConfig cfg) {
-        if (tournamentId == null || cfg == null || cfg.getKnockoutStartRound() == null) return;
+        if (tournamentId == null) {
+            return;
+        }
+        Set<Long> dqEffective = loadEffectiveDisqualifiedUserIds(tournamentId);
+        if (cfg == null || cfg.getKnockoutStartRound() == null) {
+            upsertZeroPointsForDisqualifiedUsers(tournamentId, dqEffective);
+            return;
+        }
         Tournament tournament = tournamentService.getById(tournamentId);
-        if (tournament == null) return;
+        if (tournament == null) {
+            upsertZeroPointsForDisqualifiedUsers(tournamentId, dqEffective);
+            return;
+        }
 
         List<Long> rankedIds = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
-        if (rankedIds.isEmpty()) return;
+        if (rankedIds.isEmpty()) {
+            upsertZeroPointsForDisqualifiedUsers(tournamentId, dqEffective);
+            return;
+        }
         Map<Long, Integer> overallIdx = new HashMap<>();
         for (int i = 0; i < rankedIds.size(); i++) {
             overallIdx.put(rankedIds.get(i), i);
@@ -1117,6 +1171,9 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         candidates.addAll(placements.keySet());
         for (Long uid : candidates) {
             if (uid == null) continue;
+            if (dqEffective.contains(uid)) {
+                continue;
+            }
             if (overallIdx.containsKey(uid) && !roster.isEmpty() && !roster.contains(uid)) {
                 continue;
             }
@@ -1124,6 +1181,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             Integer pts = rank != null ? calculatePoints(rank, participantCount, bottomPoints, ratio) : null;
             upsertTournamentPoints(tournamentId, uid, pts);
         }
+        upsertZeroPointsForDisqualifiedUsers(tournamentId, dqEffective);
     }
 
     @Override

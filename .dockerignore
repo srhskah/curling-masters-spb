@@ -46,6 +46,7 @@ src/test/
 application-local.properties
 .env
 *.sh
+!install-font.sh
 
 # Static resources that will be packaged in WAR
 # src/main/resources/static/
