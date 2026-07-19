@@ -84,10 +84,10 @@ public class HeadToHeadQueryService {
 
     public H2hPayload buildPayload(Long userId1, Long userId2) {
         if (userId1 == null) {
-            return new H2hPayload(List.of());
+            return H2hPayload.empty();
         }
         if (userId2 != null && Objects.equals(userId1, userId2)) {
-            return new H2hPayload(List.of());
+            return H2hPayload.empty();
         }
         List<Match> matches;
         if (userId2 == null) {
@@ -96,9 +96,9 @@ public class HeadToHeadQueryService {
             matches = listMatchesHeadToHead(userId1, userId2);
         }
         if (matches.isEmpty()) {
-            return new H2hPayload(List.of());
+            return H2hPayload.empty();
         }
-        return buildPayloadFromMatches(matches);
+        return buildPayloadFromMatches(matches, userId1, userId2);
     }
 
     /**
@@ -235,7 +235,7 @@ public class HeadToHeadQueryService {
         return n;
     }
 
-    private H2hPayload buildPayloadFromMatches(List<Match> matches) {
+    private H2hPayload buildPayloadFromMatches(List<Match> matches, Long queryUserId1, Long queryUserId2) {
         Set<Long> tournamentIds = matches.stream().map(Match::getTournamentId).filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, Tournament> tournaments = tournamentIds.isEmpty()
                 ? Map.of()
@@ -278,7 +278,9 @@ public class HeadToHeadQueryService {
                 ? Map.of()
                 : userService.listByIds(userIds).stream().collect(Collectors.toMap(User::getId, u -> u));
 
-        Map<Long, int[]> totalsByMatch = computeTotals(matches.stream().map(Match::getId).filter(Objects::nonNull).toList());
+        TotalsAndScores ts = computeTotalsAndScores(matches.stream().map(Match::getId).filter(Objects::nonNull).toList());
+        Map<Long, int[]> totalsByMatch = ts.totals();
+        Map<Long, List<SetScore>> scoresByMatch = ts.scoresByMatch();
 
         record BucketKey(long seasonId, long seriesId, String levelCode) {
         }
@@ -424,7 +426,155 @@ public class HeadToHeadQueryService {
             outSeasons.add(new H2hSeasonNode(sid.equals(MISSING_SEASON_ID) ? -1L : sid, seasonLabel, seriesNodes));
         }
 
-        return new H2hPayload(outSeasons);
+        String q1 = String.valueOf(queryUserId1);
+        String q2 = queryUserId2 == null ? null : String.valueOf(queryUserId2);
+        H2hPlayerExportStats solo = null;
+        H2hPlayerExportStats h12 = null;
+        H2hPlayerExportStats h21 = null;
+        if (queryUserId2 == null) {
+            solo = aggregatePlayerExportStats(matches, scoresByMatch, totalsByMatch, queryUserId1, null);
+        } else {
+            h12 = aggregatePlayerExportStats(matches, scoresByMatch, totalsByMatch, queryUserId1, queryUserId2);
+            h21 = aggregatePlayerExportStats(matches, scoresByMatch, totalsByMatch, queryUserId2, queryUserId1);
+        }
+        return new H2hPayload(outSeasons, q1, q2, solo, h12, h21);
+    }
+
+    private enum FocusOutcome {
+        WIN, LOSS, DRAW, NONE
+    }
+
+    private static Integer sideOnMatch(Match m, long uid) {
+        if (m.getPlayer1Id() != null && uid == m.getPlayer1Id()) {
+            return 1;
+        }
+        if (m.getPlayer2Id() != null && uid == m.getPlayer2Id()) {
+            return 2;
+        }
+        return null;
+    }
+
+    private static FocusOutcome outcomeForFocus(Match m, long focusUserId, int myTotal, int oppTotal) {
+        Long w = m.getWinnerId();
+        if (w != null && w > 0) {
+            if (Objects.equals(w, focusUserId)) {
+                return FocusOutcome.WIN;
+            }
+            Long opp = opponentUserId(m, focusUserId);
+            if (opp != null && Objects.equals(w, opp)) {
+                return FocusOutcome.LOSS;
+            }
+            return FocusOutcome.NONE;
+        }
+        Byte st = m.getStatus();
+        if (st != null && st == 2) {
+            if (myTotal > oppTotal) {
+                return FocusOutcome.WIN;
+            }
+            if (myTotal < oppTotal) {
+                return FocusOutcome.LOSS;
+            }
+            return FocusOutcome.DRAW;
+        }
+        return FocusOutcome.NONE;
+    }
+
+    /**
+     * 与小组赛排名统计一致：单局偷分 = 该局己方得分大于 0 且后手为对方（hammerPlayerId 指向对方）。
+     */
+    private H2hPlayerExportStats aggregatePlayerExportStats(
+            List<Match> matches,
+            Map<Long, List<SetScore>> scoresByMatch,
+            Map<Long, int[]> totalsByMatch,
+            long focusUserId,
+            Long restrictOpponentUserId) {
+        int wins = 0;
+        int draws = 0;
+        int losses = 0;
+        int totalFor = 0;
+        int totalAgainst = 0;
+        int maxSingleEnd = 0;
+        int stealEnds = 0;
+        int maxStealSingleEnd = 0;
+
+        for (Match m : matches) {
+            if (restrictOpponentUserId != null) {
+                Long opp = opponentUserId(m, focusUserId);
+                if (!Objects.equals(opp, restrictOpponentUserId)) {
+                    continue;
+                }
+            }
+            Integer side = sideOnMatch(m, focusUserId);
+            int[] tot = totalsByMatch.getOrDefault(m.getId(), new int[]{0, 0});
+            int myTotal;
+            int oppTotal;
+            if (side != null) {
+                myTotal = side == 1 ? tot[0] : tot[1];
+                oppTotal = side == 1 ? tot[1] : tot[0];
+            } else {
+                myTotal = 0;
+                oppTotal = 0;
+            }
+            totalFor += myTotal;
+            totalAgainst += oppTotal;
+
+            switch (outcomeForFocus(m, focusUserId, myTotal, oppTotal)) {
+                case WIN -> wins++;
+                case LOSS -> losses++;
+                case DRAW -> draws++;
+                default -> {
+                }
+            }
+
+            Long mP1 = m.getPlayer1Id();
+            Long mP2 = m.getPlayer2Id();
+            List<SetScore> ss = scoresByMatch.getOrDefault(m.getId(), List.of());
+            for (SetScore s : ss) {
+                int a = s.getPlayer1Score() != null ? s.getPlayer1Score() : 0;
+                int b = s.getPlayer2Score() != null ? s.getPlayer2Score() : 0;
+                if (Objects.equals(focusUserId, mP1)) {
+                    maxSingleEnd = Math.max(maxSingleEnd, a);
+                    if (a > 0 && Objects.equals(s.getHammerPlayerId(), mP2)) {
+                        stealEnds++;
+                        maxStealSingleEnd = Math.max(maxStealSingleEnd, a);
+                    }
+                } else if (Objects.equals(focusUserId, mP2)) {
+                    maxSingleEnd = Math.max(maxSingleEnd, b);
+                    if (b > 0 && Objects.equals(s.getHammerPlayerId(), mP1)) {
+                        stealEnds++;
+                        maxStealSingleEnd = Math.max(maxStealSingleEnd, b);
+                    }
+                }
+            }
+        }
+        return new H2hPlayerExportStats(wins, draws, losses, totalFor, totalAgainst, maxSingleEnd, stealEnds, maxStealSingleEnd);
+    }
+
+    private record TotalsAndScores(Map<Long, int[]> totals, Map<Long, List<SetScore>> scoresByMatch) {
+    }
+
+    private TotalsAndScores computeTotalsAndScores(List<Long> matchIds) {
+        if (matchIds.isEmpty()) {
+            return new TotalsAndScores(Map.of(), Map.of());
+        }
+        LambdaQueryWrapper<SetScore> w = new LambdaQueryWrapper<>();
+        w.in(SetScore::getMatchId, matchIds);
+        List<SetScore> all = setScoreService.list(w);
+        Map<Long, int[]> outTotals = new HashMap<>();
+        Map<Long, List<SetScore>> byMatch = new HashMap<>();
+        for (SetScore ss : all) {
+            if (ss.getMatchId() == null) {
+                continue;
+            }
+            int[] arr = outTotals.computeIfAbsent(ss.getMatchId(), k -> new int[]{0, 0});
+            arr[0] += ss.getPlayer1Score() != null ? ss.getPlayer1Score() : 0;
+            arr[1] += ss.getPlayer2Score() != null ? ss.getPlayer2Score() : 0;
+            byMatch.computeIfAbsent(ss.getMatchId(), k -> new ArrayList<>()).add(ss);
+        }
+        for (List<SetScore> list : byMatch.values()) {
+            list.sort(Comparator.comparing(SetScore::getSetNumber, Comparator.nullsLast(Comparator.naturalOrder())));
+        }
+        return new TotalsAndScores(outTotals, byMatch);
     }
 
     private int compareSeriesOrder(Long a, Long b, Map<Long, Series> seriesById) {
@@ -484,22 +634,6 @@ public class HeadToHeadQueryService {
             sb.append(level);
         }
         return sb.toString();
-    }
-
-    private Map<Long, int[]> computeTotals(List<Long> matchIds) {
-        if (matchIds.isEmpty()) {
-            return Map.of();
-        }
-        LambdaQueryWrapper<SetScore> w = new LambdaQueryWrapper<>();
-        w.in(SetScore::getMatchId, matchIds);
-        List<SetScore> all = setScoreService.list(w);
-        Map<Long, int[]> out = new HashMap<>();
-        for (SetScore ss : all) {
-            int[] arr = out.computeIfAbsent(ss.getMatchId(), k -> new int[]{0, 0});
-            arr[0] += ss.getPlayer1Score() != null ? ss.getPlayer1Score() : 0;
-            arr[1] += ss.getPlayer2Score() != null ? ss.getPlayer2Score() : 0;
-        }
-        return out;
     }
 
     private static void addUserRef(Set<Long> ids, Long uid) {

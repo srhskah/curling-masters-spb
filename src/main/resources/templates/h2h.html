@@ -7,7 +7,8 @@
 <div class="container mt-4 mb-5 h2h-page" id="h2hRoot"
      th:data-api-users="@{/h2h/api/users}"
      th:data-api-opponents="@{/h2h/api/opponents}"
-     th:data-api-matches="@{/h2h/api/matches}">
+     th:data-api-matches="@{/h2h/api/matches}"
+     th:data-pdf-h2h="@{/ranking/export/pdf/h2h}">
     <h1 class="h3 mb-2"><i class="bi bi-shuffle"></i> H2H 交手记录</h1>
     <p class="text-muted small mb-4">
         选择<strong>选手一</strong>并确定后，即列出该选手<strong>全部历史场次</strong>（赛季 → <strong>系列</strong>（可展开/收起）→ 等级；赛季与系列均为<strong>从新到旧</strong>）。<br>
@@ -70,6 +71,8 @@
 
     <div id="h2hLoading" class="alert alert-light d-none small">加载中…</div>
     <div id="h2hEmpty" class="alert alert-secondary d-none small"></div>
+    <div id="h2hExportToolbar" class="d-none mb-3 d-flex flex-wrap gap-2 align-items-center"></div>
+    <div id="h2hStatsBanner" class="d-none mb-3"></div>
     <div id="h2hResults"></div>
 </div>
 
@@ -84,6 +87,7 @@
     const H2H_API_USERS = root && root.dataset.apiUsers ? root.dataset.apiUsers : '/h2h/api/users';
     const H2H_API_OPPONENTS = root && root.dataset.apiOpponents ? root.dataset.apiOpponents : '/h2h/api/opponents';
     const H2H_API_MATCHES = root && root.dataset.apiMatches ? root.dataset.apiMatches : '/h2h/api/matches';
+    const H2H_PDF_EXPORT_BASE = root && root.dataset.pdfH2h ? root.dataset.pdfH2h : '/ranking/export/pdf/h2h';
 
     const btnA = document.getElementById('h2hBtnA');
     const btnB = document.getElementById('h2hBtnB');
@@ -99,9 +103,15 @@
     const resultsEl = document.getElementById('h2hResults');
     const loadingEl = document.getElementById('h2hLoading');
     const emptyEl = document.getElementById('h2hEmpty');
+    const exportToolbarEl = document.getElementById('h2hExportToolbar');
+    const statsBannerEl = document.getElementById('h2hStatsBanner');
 
     let allUsers = [];
     let opponentsOfA = [];
+    /** 最近一次成功查询的 JSON，用于交换视角不重拉接口 */
+    let lastH2hPayload = null;
+    /** 双方 H2H 时：false = 选手一→选手二视角；true = 选手二→选手一 */
+    let h2hDualPerspectiveSwapped = false;
 
     /** 后端对 H2H 的 id 使用 JSON 字符串；若仍为 number 且超出安全整数，无法还原，请勿依赖 number 路径。 */
     function uidOf(u) {
@@ -196,6 +206,7 @@
         applyFilterToList(listB, '');
         refreshPickerAOptions();
         updateQueryEnabled();
+        h2hDualPerspectiveSwapped = false;
         void runQuery();
     }
 
@@ -230,6 +241,7 @@
         applyFilterToList(listB, '');
         refreshPickerAOptions();
         updateQueryEnabled();
+        h2hDualPerspectiveSwapped = false;
         void runQuery();
     }
 
@@ -239,6 +251,7 @@
     }
 
     async function refreshAfterPlayerA() {
+        h2hDualPerspectiveSwapped = false;
         valB.value = '';
         labelB.textContent = valA.value ? '请选择选手' : '请先选择选手一';
         filterB.value = '';
@@ -377,6 +390,204 @@
         return [];
     }
 
+    function h2hStatZero() {
+        return { wins: 0, draws: 0, losses: 0, totalFor: 0, totalAgainst: 0, maxSingleEndScore: 0, stealEnds: 0, maxStealSingleEnd: 0 };
+    }
+
+    function h2hNormalizeStats(s) {
+        if (!s || typeof s !== 'object') return h2hStatZero();
+        return {
+            wins: Number(s.wins) || 0,
+            draws: Number(s.draws) || 0,
+            losses: Number(s.losses) || 0,
+            totalFor: Number(s.totalFor) || 0,
+            totalAgainst: Number(s.totalAgainst) || 0,
+            maxSingleEndScore: Number(s.maxSingleEndScore) || 0,
+            stealEnds: Number(s.stealEnds) || 0,
+            maxStealSingleEnd: Number(s.maxStealSingleEnd) || 0
+        };
+    }
+
+    function flattenH2hMatchRows(seasons) {
+        const out = [];
+        (seasons || []).forEach((season) => {
+            (season.series || []).forEach((ser) => {
+                (ser.levels || []).forEach((lvl) => {
+                    (lvl.matches || []).forEach((m) => {
+                        out.push({
+                            seasonLabel: season.seasonLabel,
+                            seriesLabel: ser.seriesLabel,
+                            levelName: lvl.levelName,
+                            m: m
+                        });
+                    });
+                });
+            });
+        });
+        return out;
+    }
+
+    function h2hFormatStatLines(stats, titleLine) {
+        const s = h2hNormalizeStats(stats);
+        const lines = [];
+        if (titleLine) lines.push(titleLine);
+        lines.push('胜/平/负：' + s.wins + ' / ' + s.draws + ' / ' + s.losses);
+        lines.push('总得分：' + s.totalFor);
+        lines.push('总失分：' + s.totalAgainst);
+        lines.push('历史单局最高分：' + s.maxSingleEndScore);
+        lines.push('偷分次数：' + s.stealEnds);
+        lines.push('历史单局（偷分）最高分：' + s.maxStealSingleEnd);
+        return lines;
+    }
+
+    function buildH2hExportPlainText(payload) {
+        const seasons = parseSeasons(payload);
+        const rows = flattenH2hMatchRows(seasons);
+        const dual = !!(valB && String(valB.value || '').trim());
+        const lines = [];
+        lines.push('H2H 交手记录导出');
+        lines.push('导出时间：' + new Date().toLocaleString('zh-CN', { hour12: false }));
+        lines.push('选手一：' + (labelA.textContent || '').trim());
+        lines.push('选手二：' + (dual ? (labelB.textContent || '').trim() : '（未限定 / 全部）'));
+        lines.push('');
+        if (dual) {
+            const st = h2hDualPerspectiveSwapped
+                ? h2hNormalizeStats(payload.h2hStatsUser2VsUser1)
+                : h2hNormalizeStats(payload.h2hStatsUser1VsUser2);
+            const left = h2hDualPerspectiveSwapped ? (labelB.textContent || '').trim() : (labelA.textContent || '').trim();
+            const right = h2hDualPerspectiveSwapped ? (labelA.textContent || '').trim() : (labelB.textContent || '').trim();
+            lines.push.apply(lines, h2hFormatStatLines(st, '【双方交手】' + left + ' → ' + right));
+        } else {
+            lines.push.apply(lines, h2hFormatStatLines(payload.soloStats, '【选手一在当前列表场次中】'));
+        }
+        lines.push('');
+        lines.push('—— 场次明细 ——');
+        rows.forEach((r) => {
+            const m = r.m;
+            const vs = (m.player1Name || '') + ' vs ' + (m.player2Name || '');
+            const tot = (m.totalPlayer1 != null ? m.totalPlayer1 : '') + ':' + (m.totalPlayer2 != null ? m.totalPlayer2 : '');
+            const win = m.winnerName || '—';
+            const cat = [m.category, m.phaseCode].filter(Boolean).join(' · ');
+            const rnd = m.round != null ? ' · 轮次 ' + m.round : '';
+            lines.push(
+                [r.seasonLabel, r.seriesLabel, r.levelName].filter(Boolean).join(' / ') +
+                    ' | ' + (m.tournamentTitle || '') +
+                    ' | ' + cat + rnd +
+                    ' | ' + vs +
+                    ' | 总分 ' + tot +
+                    ' | 胜者 ' + win +
+                    ' | 场次#' + m.matchId
+            );
+        });
+        return lines.join('\n');
+    }
+
+    function clearH2hExportUi() {
+        if (statsBannerEl) {
+            statsBannerEl.innerHTML = '';
+            statsBannerEl.classList.add('d-none');
+        }
+        if (exportToolbarEl) {
+            exportToolbarEl.innerHTML = '';
+            exportToolbarEl.classList.add('d-none');
+        }
+    }
+
+    function paintH2hStatsBanner(payload) {
+        if (!statsBannerEl) return;
+        const dual = !!(valB && String(valB.value || '').trim());
+        const st = dual
+            ? (h2hDualPerspectiveSwapped
+                ? h2hNormalizeStats(payload.h2hStatsUser2VsUser1)
+                : h2hNormalizeStats(payload.h2hStatsUser1VsUser2))
+            : h2hNormalizeStats(payload.soloStats);
+        const leftName = h2hDualPerspectiveSwapped ? (labelB.textContent || '').trim() : (labelA.textContent || '').trim();
+        const rightName = h2hDualPerspectiveSwapped ? (labelA.textContent || '').trim() : (labelB.textContent || '').trim();
+        const scopeTitle = dual
+            ? ('双方交手 · 视角：<span class="text-body">' + escapeHtml(leftName) + '</span> → <span class="text-body">' + escapeHtml(rightName) + '</span>')
+            : ('选手「<span class="text-body">' + escapeHtml((labelA.textContent || '').trim()) + '</span>」在当前导出场次中');
+        const swapBtn = dual
+            ? '<button type="button" class="btn btn-sm btn-outline-secondary" id="h2hSwapPerspectiveBtn" title="交换统计视角（不改变列表筛选）">' +
+              '<i class="bi bi-arrow-left-right"></i> 交换视角</button>'
+            : '';
+        const cells =
+            '<div class="col-6 col-md-4">' +
+            '<div class="h2h-stat-inline d-flex align-items-baseline flex-wrap gap-2">' +
+            '<span class="h2h-stat-label text-muted">胜 / 平 / 负</span>' +
+            '<span class="h2h-stat-value fw-bold text-body">' + st.wins + ' / ' + st.draws + ' / ' + st.losses + '</span></div></div>' +
+            '<div class="col-6 col-md-4">' +
+            '<div class="h2h-stat-inline d-flex align-items-baseline flex-wrap gap-2">' +
+            '<span class="h2h-stat-label text-muted">总得分</span>' +
+            '<span class="h2h-stat-value fw-bold text-body">' + st.totalFor + '</span></div></div>' +
+            '<div class="col-6 col-md-4">' +
+            '<div class="h2h-stat-inline d-flex align-items-baseline flex-wrap gap-2">' +
+            '<span class="h2h-stat-label text-muted">总失分</span>' +
+            '<span class="h2h-stat-value fw-bold text-body">' + st.totalAgainst + '</span></div></div>' +
+            '<div class="col-6 col-md-4">' +
+            '<div class="h2h-stat-inline d-flex align-items-baseline flex-wrap gap-2">' +
+            '<span class="h2h-stat-label text-muted">历史单局最高分</span>' +
+            '<span class="h2h-stat-value fw-bold text-body">' + st.maxSingleEndScore + '</span></div></div>' +
+            '<div class="col-6 col-md-4">' +
+            '<div class="h2h-stat-inline d-flex align-items-baseline flex-wrap gap-2">' +
+            '<span class="h2h-stat-label text-muted">偷分次数</span>' +
+            '<span class="h2h-stat-value fw-bold text-body">' + st.stealEnds + '</span></div></div>' +
+            '<div class="col-6 col-md-4">' +
+            '<div class="h2h-stat-inline d-flex align-items-baseline flex-wrap gap-2">' +
+            '<span class="h2h-stat-label text-muted">单局偷分最高</span>' +
+            '<span class="h2h-stat-value fw-bold text-body">' + st.maxStealSingleEnd + '</span></div></div>';
+        statsBannerEl.classList.remove('d-none');
+        statsBannerEl.innerHTML =
+            '<div class="card border-0 shadow-sm h2h-export-stats-card">' +
+            '<div class="card-body p-3">' +
+            '<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">' +
+            '<div class="small text-muted mb-0">' + scopeTitle + '</div>' +
+            swapBtn +
+            '</div>' +
+            '<div class="row row-cols-2 row-cols-md-3 g-3 h2h-export-stats-grid">' + cells + '</div>' +
+            '</div></div>';
+        const swapEl = document.getElementById('h2hSwapPerspectiveBtn');
+        if (swapEl) {
+            swapEl.addEventListener('click', () => {
+                h2hDualPerspectiveSwapped = !h2hDualPerspectiveSwapped;
+                if (lastH2hPayload) paintH2hStatsBanner(lastH2hPayload);
+            });
+        }
+    }
+
+    function mountH2hExportToolbar() {
+        if (!exportToolbarEl) return;
+        exportToolbarEl.classList.remove('d-none');
+        exportToolbarEl.innerHTML =
+            '<span class="small text-muted me-1">导出</span>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary" id="h2hCopyExportBtn"><i class="bi bi-clipboard"></i> 复制为文本</button>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary" id="h2hPdfExportBtn"><i class="bi bi-file-earmark-pdf"></i> 导出为 PDF</button>';
+            // + '<span class="small text-muted ms-md-2 d-block d-md-inline w-100 w-md-auto mt-1 mt-md-0">PDF：与单场战绩导出相同版式（含 LOGO、A4 纵向），将下载文件。</span>';
+        document.getElementById('h2hCopyExportBtn').addEventListener('click', () => {
+            if (!lastH2hPayload) return;
+            const text = buildH2hExportPlainText(lastH2hPayload);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                void navigator.clipboard.writeText(text).then(
+                    () => alert('已复制到剪贴板'),
+                    () => alert('复制失败，请改用浏览器允许剪贴板权限或手动全选复制。')
+                );
+            } else {
+                alert('当前环境不支持剪贴板 API');
+            }
+        });
+        document.getElementById('h2hPdfExportBtn').addEventListener('click', () => {
+            if (!lastH2hPayload) return;
+            const u1 = String(valA.value || '').trim();
+            if (!u1) return;
+            const u2 = String(valB.value || '').trim();
+            let url = H2H_PDF_EXPORT_BASE + '?userId1=' + encodeURIComponent(u1);
+            if (u2) {
+                url += '&userId2=' + encodeURIComponent(u2);
+                url += '&statsPerspective=' + (h2hDualPerspectiveSwapped ? '2' : '1');
+            }
+            window.open(url, '_blank');
+        });
+    }
+
     function renderH2hLevelsHtml(levels) {
         let html = '';
         (levels || []).forEach((lvl) => {
@@ -416,6 +627,8 @@
         resultsEl.innerHTML = '';
         const seasons = parseSeasons(payload);
         if (!seasons.length) {
+            clearH2hExportUi();
+            lastH2hPayload = null;
             emptyEl.textContent = valA.value
                 ? (valB.value
                     ? '未找到这两名选手之间的交手记录。可尝试只选选手一，查看其全部历史场次。'
@@ -480,6 +693,9 @@
                 }
             });
         });
+
+        paintH2hStatsBanner(payload);
+        mountH2hExportToolbar();
     }
 
     function openH2hMatchScoreModal(el) {
@@ -513,6 +729,7 @@
         loadingEl.classList.remove('d-none');
         emptyEl.classList.add('d-none');
         resultsEl.innerHTML = '';
+        clearH2hExportUi();
         try {
             let url = H2H_API_MATCHES + '?userId1=' + encodeURIComponent(u1);
             if (u2) {
@@ -529,8 +746,11 @@
             } catch (je) {
                 throw new Error('接口返回不是 JSON（可能是登录页或错误页）。请检查部署路径是否为：' + H2H_API_MATCHES);
             }
+            lastH2hPayload = payload;
             renderPayload(payload);
         } catch (e) {
+            lastH2hPayload = null;
+            clearH2hExportUi();
             alert(e.message || String(e));
         } finally {
             loadingEl.classList.add('d-none');

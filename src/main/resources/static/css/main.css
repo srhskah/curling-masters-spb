@@ -1341,6 +1341,26 @@ table.table-hover.align-middle tbody tr > td {
     z-index: 1919815 !important;
 }
 
+.h2h-page #h2hExportToolbar,
+.h2h-page #h2hStatsBanner {
+    position: relative;
+    z-index: 2;
+}
+.h2h-page .h2h-export-stats-card .h2h-export-stats-grid > [class*="col-"] {
+    min-height: 0;
+}
+.h2h-page .h2h-export-stats-card .h2h-stat-inline {
+    line-height: 1.35;
+}
+.h2h-page .h2h-export-stats-card .h2h-stat-label {
+    font-size: 0.9375rem;
+    flex-shrink: 0;
+}
+.h2h-page .h2h-export-stats-card .h2h-stat-value {
+    font-size: 1.125rem;
+    letter-spacing: 0.01em;
+}
+
 /* H2H：窄屏卡片列表（与赛事详情 match 卡片同款骨架：验收 + 双栏比分） */
 @media (max-width: 767.98px) {
     .h2h-page .h2h-match-cards-stack {
