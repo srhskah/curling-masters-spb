@@ -767,6 +767,104 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         if (tournamentId == null || k < 1) {
             return Set.of();
         }
+
+        // 使用"最终排名"逻辑：积分为0的选手按小组赛总排名相对顺序在前，有积分的选手按积分降序在后
+        List<Long> finalRankedUserIds = loadFinalRankedUserIds(tournamentId);
+        if (finalRankedUserIds.isEmpty()) {
+            return Set.of();
+        }
+
+        // 前k名禁止报名
+        Set<Long> banned = new LinkedHashSet<>();
+        int limit = Math.min(k, finalRankedUserIds.size());
+        for (int i = 0; i < limit; i++) {
+            banned.add(finalRankedUserIds.get(i));
+        }
+        return banned;
+    }
+
+    /**
+     * 获取某届赛事的"最终排名"用户ID列表（与赛事详情页的"最终排名"逻辑一致）。
+     * 规则：
+     * 1. 积分为0的选手按小组赛总排名相对顺序排在前面
+     * 2. 有积分的选手按积分降序排在后面
+     * 3. 返回的列表顺序就是最终排名顺序（第0个元素是第1名）
+     */
+    private List<Long> loadFinalRankedUserIds(Long tournamentId) {
+        if (tournamentId == null) {
+            return List.of();
+        }
+
+        TournamentCompetitionConfig cfg = competitionConfigMapper.selectById(tournamentId);
+        if (cfg == null || cfg.getKnockoutStartRound() == null) {
+            return List.of();
+        }
+
+        // 1. 获取小组赛总排名
+        List<Long> groupOverallRanked = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
+        if (groupOverallRanked.isEmpty()) {
+            return List.of();
+        }
+
+        // 2. 获取所有选手的积分
+        List<UserTournamentPoints> allPoints = userTournamentPointsService.lambdaQuery()
+                .eq(UserTournamentPoints::getTournamentId, tournamentId)
+                .list();
+
+        // 3. 构建userId -> points的映射
+        Map<Long, Integer> pointsByUserId = new HashMap<>();
+        for (UserTournamentPoints utp : allPoints) {
+            if (utp.getUserId() != null) {
+                pointsByUserId.put(utp.getUserId(), utp.getPoints() != null ? utp.getPoints() : 0);
+            }
+        }
+
+        // 4. 构建userId -> groupOverallRank的映射
+        Map<Long, Integer> groupRankByUserId = new HashMap<>();
+        for (int i = 0; i < groupOverallRanked.size(); i++) {
+            groupRankByUserId.put(groupOverallRanked.get(i), i + 1);
+        }
+
+        // 5. 将所有在小组赛总排名中的选手分为两组：积分为0的和有积分的
+        List<Long> zeroPointUsers = new ArrayList<>();
+        List<Long> hasPointUsers = new ArrayList<>();
+
+        for (Long userId : groupOverallRanked) {
+            Integer points = pointsByUserId.getOrDefault(userId, 0);
+            if (points == 0) {
+                zeroPointUsers.add(userId);
+            } else {
+                hasPointUsers.add(userId);
+            }
+        }
+
+        // 6. 有积分的选手按积分降序排序
+        hasPointUsers.sort((a, b) -> {
+            Integer pointsA = pointsByUserId.getOrDefault(a, 0);
+            Integer pointsB = pointsByUserId.getOrDefault(b, 0);
+            int cmp = Integer.compare(pointsB, pointsA); // 降序
+            if (cmp != 0) return cmp;
+            // 积分相同时，按小组赛总排名升序
+            Integer rankA = groupRankByUserId.getOrDefault(a, Integer.MAX_VALUE);
+            Integer rankB = groupRankByUserId.getOrDefault(b, Integer.MAX_VALUE);
+            return Integer.compare(rankA, rankB);
+        });
+
+        // 7. 组合最终排名：积分为0的在前（已按小组赛总排名相对顺序），有积分的在后
+        List<Long> finalRanked = new ArrayList<>();
+        finalRanked.addAll(zeroPointUsers);
+        finalRanked.addAll(hasPointUsers);
+
+        return finalRanked;
+    }
+
+    /**
+     * 旧方法：根据淘汰赛进度判断前x强（已弃用，改用loadFinalRankedUserIds）
+     */
+    private Set<Long> getBannedUsersByTournamentProgress_OLD(Long tournamentId, int k) {
+        if (tournamentId == null || k < 1) {
+            return Set.of();
+        }
         TournamentCompetitionConfig cfg = competitionConfigMapper.selectById(tournamentId);
         if (cfg == null || cfg.getKnockoutStartRound() == null) {
             return Set.of();
@@ -779,80 +877,8 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         for (int i = 0; i < overallRanked.size(); i++) {
             overallOrder.put(overallRanked.get(i), i);
         }
-
-        int startRound = cfg.getKnockoutStartRound();
-        Integer stageRound = resolveCurrentMainRound(tournamentId, startRound);
-        if (stageRound == null) {
-            return Set.of();
-        }
-        int l = stageRound;
-        if (l > k) {
-            return Set.of();
-        }
-
-        List<Match> roundMatches = matchService.lambdaQuery()
-                .eq(Match::getTournamentId, tournamentId)
-                .eq(Match::getPhaseCode, "MAIN")
-                .eq(Match::getRound, stageRound)
-                .orderByAsc(Match::getId)
-                .list();
-        if (roundMatches.isEmpty()) {
-            return Set.of();
-        }
-        boolean firstRound = stageRound == startRound;
-        List<Match> mountedQualifiers = listMountedKoQualifiers(tournamentId);
-        boolean firstRoundWithMountedQualifier = firstRound && !mountedQualifiers.isEmpty();
-
-        LinkedHashSet<Long> roundPlayers = collectRoundPlayers(roundMatches);
-        LinkedHashSet<Long> qualifierPlayers = firstRoundWithMountedQualifier
-                ? collectRoundPlayers(mountedQualifiers)
-                : new LinkedHashSet<>();
-        LinkedHashSet<Long> winners = collectLockedWinners(roundMatches);
-        LinkedHashSet<Long> losers = collectLockedLosers(roundMatches);
-        boolean allRoundLocked = roundMatches.stream()
-                .allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null);
-
-        LinkedHashSet<Long> banned = new LinkedHashSet<>();
-
-        if (2 * l < k) { // L < 0.5K
-            if (firstRoundWithMountedQualifier) {
-                banned.addAll(roundPlayers);
-                banned.addAll(qualifierPlayers);
-            } else {
-                banned.addAll(roundPlayers);
-                int extra = k - 2 * l;
-                if (extra > 0) {
-                    List<Long> notIntoThisRound = overallRanked.stream()
-                            .filter(uid -> uid != null && !roundPlayers.contains(uid) && !qualifierPlayers.contains(uid))
-                            .toList();
-                    banned.addAll(takeTopByOverallRank(notIntoThisRound, extra, overallOrder));
-                }
-            }
-            return banned;
-        }
-
-        if (2 * l == k) { // L = 0.5K
-            banned.addAll(roundPlayers);
-            if (firstRoundWithMountedQualifier) {
-                banned.addAll(qualifierPlayers);
-            }
-            return banned;
-        }
-
-        if (l < k) { // 0.5K < L < K
-            banned.addAll(winners);
-            if (allRoundLocked) {
-                int extra = k - l;
-                if (extra > 0) {
-                    banned.addAll(takeTopByOverallRank(new ArrayList<>(losers), extra, overallOrder));
-                }
-            }
-            return banned;
-        }
-
-        // L == K
-        banned.addAll(winners);
-        return banned;
+        // 旧代码已移除，不再根据淘汰赛进度判断
+        return Set.of();
     }
 
     private Integer resolveCurrentMainRound(Long tournamentId, int startRound) {

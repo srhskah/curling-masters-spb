@@ -1417,11 +1417,73 @@ public class TournamentController {
         for (Map<String, Object> ri : rankingInfoList) {
             UserTournamentPoints utp = (UserTournamentPoints) ri.get("ranking");
             if (utp != null && utp.getUserId() != null) {
-                ri.put("groupOverallRank", groupOverallRankByUserIdForFinal.get(utp.getUserId()));
+                Integer groupRank = groupOverallRankByUserIdForFinal.get(utp.getUserId());
+                ri.put("groupOverallRank", groupRank);
+
+                // 如果没有明确的最终排名（displayRank为0），则使用小组赛总排名
+                Integer displayRank = (Integer) ri.get("displayRank");
+                if ((displayRank == null || displayRank == 0) && groupRank != null && groupRank > 0) {
+                    ri.put("displayRank", groupRank);
+                }
             } else {
                 ri.put("groupOverallRank", null);
             }
         }
+
+        // 重新排序最终排名：积分为0的选手按小组赛总排名排序，已有积分的按积分降序排序
+        rankingInfoList.sort((a, b) -> {
+            UserTournamentPoints utpA = (UserTournamentPoints) a.get("ranking");
+            UserTournamentPoints utpB = (UserTournamentPoints) b.get("ranking");
+
+            // 退赛的排到最后
+            if (utpA == null || utpA.getUserId() == null) return 1;
+            if (utpB == null || utpB.getUserId() == null) return -1;
+
+            Integer pointsA = utpA.getPoints() != null ? utpA.getPoints() : 0;
+            Integer pointsB = utpB.getPoints() != null ? utpB.getPoints() : 0;
+            Integer groupRankA = (Integer) a.get("groupOverallRank");
+            Integer groupRankB = (Integer) b.get("groupOverallRank");
+
+            // 都有积分（都>0）：按积分降序
+            if (pointsA > 0 && pointsB > 0) {
+                return Integer.compare(pointsB, pointsA);
+            }
+
+            // 都没积分（都=0）：按小组赛总排名升序
+            if (pointsA == 0 && pointsB == 0) {
+                if (groupRankA != null && groupRankB != null) {
+                    return Integer.compare(groupRankA, groupRankB);
+                }
+                if (groupRankA != null) return -1;
+                if (groupRankB != null) return 1;
+                return 0;
+            }
+
+            // A有积分B没有：B排前面（积分为0的在前）
+            if (pointsA > 0 && pointsB == 0) return 1;
+
+            // A没积分B有：A排前面（积分为0的在前）
+            if (pointsA == 0 && pointsB > 0) return -1;
+
+            return 0;
+        });
+
+        // 重新计算displayRank：积分为0的按相对顺序连续排名（1,2,3...），有积分的接着排
+        int currentRank = 1;
+        for (Map<String, Object> ri : rankingInfoList) {
+            UserTournamentPoints utp = (UserTournamentPoints) ri.get("ranking");
+            if (utp == null || utp.getUserId() == null) {
+                ri.put("displayRank", 0);
+                continue;
+            }
+
+            Integer points = utp.getPoints() != null ? utp.getPoints() : 0;
+
+            // 无论积分为0还是有积分，都按照当前顺序连续分配排名
+            ri.put("displayRank", currentRank);
+            currentRank++;
+        }
+
         model.addAttribute("rankingInfoList", rankingInfoList);
 
         if (!model.containsAttribute("scoreDisplayByMatchId")) {
