@@ -58,6 +58,9 @@ public interface ITournamentCompetitionService {
 
     List<Map<String, Object>> listGroupDisqualifications(Long tournamentId);
 
+    /** 本赛事是否存在已生效的取消资格；为 true 时积分榜应按积分降序重排并生成连续名次（与自动挡/手动挡积分表一致）。 */
+    boolean hasEffectiveDisqualification(Long tournamentId);
+
     /**
      * 按当前赛况与分步赋分规则已锁定的「赛事名次」（1 为最好；仍在争冠流程或未结算者为 null）。
      * 与 {@link #recomputeTournamentRankingPoints} 所用名次区间一致：未进首轮主淘汰的后段名次、挂载资格赛落败、各轮 MAIN 淘汰、奖牌赛等。
