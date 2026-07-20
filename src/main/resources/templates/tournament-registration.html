@@ -36,6 +36,17 @@
                               th:text="${#temporals.format(setting.deadline, 'yyyy-MM-dd HH:mm')}">-</span>
                         <span th:if="${setting == null or setting.deadline == null}">未设置</span>
                     </p>
+
+                    <!-- 默认模式说明 -->
+                    <div th:if="${registrationEnabled and (setting == null or setting.mode == null or setting.mode != 1)}"
+                         class="alert alert-info py-2 px-3 mb-3 small">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>报名规则：</strong>默认模式下，报满
+                        <span th:if="${setting != null and setting.quotaN != null}" th:text="${setting.quotaN}">-</span>
+                        <span th:if="${setting == null or setting.quotaN == null}">指定</span>
+                        名正赛名额后，报名将<strong>立即截止</strong>。
+                    </div>
+
                     <div th:if="${!registrationEnabled}" class="text-muted">
                         报名尚未开启。请管理员或主办在本页下方「报名配置」中开启并设置截止时间。
                     </div>
@@ -175,7 +186,7 @@
                         </div>
                         <div class="col-12">
                             <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> 保存配置</button>
-                            <span class="text-muted small ms-2">截止后若有效通过人数 &lt; n，可延长截止或调整名额；未满额前不可在已满时收紧。</span>
+                            <span class="text-muted small ms-2">截止后若有效通过人数 &lt; n，可延长截止或调整名额；注意：报名进行中时，名额不能改小于当前已报名人数。</span>
                         </div>
                     </form>
                     <hr/>
