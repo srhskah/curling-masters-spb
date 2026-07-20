@@ -262,6 +262,36 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         r.setRegisteredAt(now);
         registrationMapper.insert(r);
         maybeSnapQualifierRegistrationWhenFull(tournamentId, now);
+        maybeCloseRegistrationWhenDefaultModeFull(tournamentId, now);
+    }
+
+    /**
+     * 判断是否为默认模式（非"正赛+资格赛"模式）
+     */
+    private boolean isDefaultMode(TournamentRegistrationSetting s) {
+        return s == null || s.getMode() == null || s.getMode() != 1;
+    }
+
+    /**
+     * 默认模式下，如果报满名额则立即截止报名
+     */
+    private void maybeCloseRegistrationWhenDefaultModeFull(Long tournamentId, LocalDateTime now) {
+        TournamentRegistrationSetting s = getSetting(tournamentId);
+        if (!isDefaultMode(s)) {
+            return; // 只在默认模式下生效
+        }
+        int quota = s.getQuotaN() != null ? s.getQuotaN() : 0;
+        if (quota < 1) {
+            return; // 没有设置名额限制
+        }
+        long currentCount = registrationMapper.selectCount(Wrappers.<TournamentRegistration>lambdaQuery()
+                .eq(TournamentRegistration::getTournamentId, tournamentId)
+                .in(TournamentRegistration::getStatus, List.of(0, 1))); // 待审核和已通过
+        if (currentCount >= quota) {
+            // 报满了，立即截止
+            s.setDeadline(now);
+            settingMapper.updateById(s);
+        }
     }
 
     private Integer qualifierQuotaFromCompetition(Long tournamentId) {
@@ -470,6 +500,20 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
                 && !qualifierRegistrationStillOpenDueToShortfall(tournamentId, s, now)) {
             return "报名已截止";
         }
+
+        // 默认模式：报满名额立即截止
+        if (isDefaultMode(s)) {
+            int quota = s.getQuotaN() != null ? s.getQuotaN() : 0;
+            if (quota > 0) {
+                long currentCount = registrationMapper.selectCount(Wrappers.<TournamentRegistration>lambdaQuery()
+                        .eq(TournamentRegistration::getTournamentId, tournamentId)
+                        .in(TournamentRegistration::getStatus, List.of(0, 1))); // 待审核和已通过
+                if (currentCount >= quota) {
+                    return "报名名额已满";
+                }
+            }
+        }
+
         long existing = registrationMapper.selectCount(Wrappers.<TournamentRegistration>lambdaQuery()
                 .eq(TournamentRegistration::getTournamentId, tournamentId)
                 .eq(TournamentRegistration::getUserId, userId));
