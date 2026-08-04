@@ -14,6 +14,38 @@
         .tournament-detail-section-tabs .nav-link {
             white-space: nowrap;
         }
+        /* 直接晋级首轮淘汰赛 - 较深的高亮 */
+        .qualify-to-knockout {
+            background-color: #a4e8ba !important;
+            border-left: 4px solid #28a745 !important;
+        }
+        /* 晋级首轮淘汰赛的资格赛 - 较浅的高亮 */
+        .qualify-to-ko-qualifier {
+            background-color: #e4f0e8 !important;
+            border-left: 4px solid #6c757d !important;
+        }
+        /* 小组赛未结束时的“暂定晋级” - 明显区分于最终晋级色 */
+        .qualify-to-knockout-pending {
+            background-color: #f6d9b5 !important;
+            border-left: 4px solid #ff8c00 !important;
+        }
+        .qualify-to-ko-qualifier-pending {
+            background-color: #f7f0d9 !important;
+            border-left: 4px solid #c58c00 !important;
+        }
+        /* hover效果 */
+        .qualify-to-knockout:hover {
+            background-color: #c3e6cb !important;
+        }
+        .qualify-to-ko-qualifier:hover {
+            background-color: #e9ecef !important;
+        }
+        .qualify-to-knockout-pending:hover {
+            background-color: #f8e5cf !important;
+        }
+        .qualify-to-ko-qualifier-pending:hover {
+            background-color: #fbf5e1 !important;
+        }
     </style>
 
     <!-- 消息提示 -->
@@ -968,6 +1000,8 @@
                                         <tbody>
                                         <tr th:each="r : ${groupRankingByGroupId[g.id]}"
                                             style="cursor:pointer;"
+                                            th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}, pl=${r.played != null ? r.played : 0}, groupStageComplete=${exp > 0 and pl == exp}"
+                                            th:classappend="${r.qualifyToKnockout == true ? (groupStageComplete ? 'qualify-to-knockout' : 'qualify-to-knockout-pending') : (r.qualifyToKoQualifier == true ? (groupStageComplete ? 'qualify-to-ko-qualifier' : 'qualify-to-ko-qualifier-pending') : '')}"
                                             th:attr="data-type='group',data-rank=${r.overallRank},data-group-rank=${r.groupRank},data-group-name=${g.groupName},data-user-id=${r.userId},data-username=${r.username},data-disqualified=${r['disqualified'] == true ? 1 : 0},data-points=${r.points},data-net=${r.net},data-total=${r.totalScore},data-wins=${r.wins},data-draws=${r.draws},data-losses=${r.losses},data-mge2=${r.matchGe2Count},data-mmax=${r.matchMaxScore},data-steal-c=${r.stealCount},data-steal-m=${r.stealMax},data-played=${r.played != null ? r.played : 0},data-exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}"
                                             onclick="openGroupRankDetailModal(this)">
                                             <td th:text="${r.overallRank}">1</td>
@@ -2096,43 +2130,53 @@
                 const matchDetails = (data && data.matchDetails) ? data.matchDetails : [];
                 const label = data && data.tournamentLabel ? data.tournamentLabel : '';
                 const includeMatches = mode !== 'rankingOnly';
-                const withdrawSuffix = username => `${username}（退赛（不计入排名））`;
-                const out = [`赛事排名（${label}）`];
+                const withdrawSuffix = username => `${username}（${siteText('withdrawn', 'withdrawn')}）`;
+                const out = [`${siteText('tournamentRankingTitle', 'Tournament ranking')}（${label}）`];
+                const groupOverallLabel = siteText('groupOverallRanking', 'Group overall ranking');
+                const pointsLabel = siteText('points', 'Points');
+                const matchDetailsLabel = siteText('matchDetail', 'Match detail');
+                const scoreLabel = siteText('score', 'Score');
+                const setNumberLabel = siteText('setNumber', 'Set number');
+                const editLogLabel = siteText('editLog', 'Edit log');
+                const noSignatureLabel = siteText('noSignature', 'No signature');
+                const handwrittenSignatureLabel = siteText('handwrittenSignature', 'Handwritten signature');
+                const acceptanceInfoLabel = siteText('acceptanceInfo', 'Acceptance info');
+                const noneLabel = siteText('none', 'None');
                 for (const r of rankings) {
                     const uname = r.withdrawn ? withdrawSuffix(r.username) : r.username;
                     const gor = (r.groupOverallRank != null && r.groupOverallRank !== '') ? String(r.groupOverallRank) : '-';
                     const rankLabel = (r.rank != null && r.rank > 0) ? String(r.rank) : '—';
-                    out.push(`${rankLabel}. ${uname} | 小组赛总排名: ${gor} | 积分: ${r.points}`);
+                    out.push(`${rankLabel}. ${uname} | ${groupOverallLabel}: ${gor} | ${pointsLabel}: ${r.points}`);
                 }
                 if (includeMatches && matchDetails.length > 0) {
                     out.push('');
-                    out.push('===== 比赛明细 =====');
+                    out.push(`===== ${matchDetailsLabel} =====`);
                     for (const m of matchDetails) {
-                        out.push(`${m.category || ''}（${m.phaseCode || ''}） ${m.player1Name} vs ${m.player2Name} 总比分：${m.totalText || '-'}`);
+                        out.push(`${m.category || ''}（${m.phaseCode || ''}） ${m.player1Name} vs ${m.player2Name} ${scoreLabel}：${m.totalText || '-'}`);
                         const sets = m.sets || [];
                         for (const s of sets) {
-                            out.push(`  第${s.setNumber}局 [后手:${s.hammer}] ${s.player1ScoreText}:${s.player2ScoreText}`);
+                            out.push(`  ${setNumberLabel}${s.setNumber} ${siteText('set', 'Set')} [${siteText('secondHand', 'Second hand')}:${s.hammer}] ${s.player1ScoreText}:${s.player2ScoreText}`);
                         }
                         const logs = m.editLogs || [];
-                        out.push('  修改记录：');
+                        out.push(`  ${editLogLabel}：`);
                         if (logs.length === 0) {
-                            out.push('    无');
+                            out.push(`    ${noneLabel}`);
                         } else {
                             for (const l of logs) {
-                                out.push(`    第${l.setNumber}局 ${l.editorUsername} ${l.oldScore} -> ${l.newScore} @ ${(l.editedAt || '').replace('T', ' ')}`);
+                                out.push(`    ${setNumberLabel}${l.setNumber} ${l.editorUsername} ${l.oldScore} -> ${l.newScore} @ ${(l.editedAt || '').replace('T', ' ')}`);
                             }
                         }
                         const acc = m.acceptances || [];
                         const sigForPlain = (sig) => {
                             const s = sig != null ? String(sig).trim() : '';
-                            if (!s) return '无签名';
-                            if (s.startsWith('data:image/')) return '[手写签名]';
+                            if (!s) return noSignatureLabel;
+                            if (s.startsWith('data:image/')) return `[${handwrittenSignatureLabel}]`;
                             return s.length > 60 ? s.slice(0, 60) + '…' : s;
                         };
                         const accLine = acc.length === 0
-                            ? '无'
+                            ? noneLabel
                             : acc.map(a => `${a.username}（${sigForPlain(a.signature)}）@${(a.acceptedAt || '').replace('T', ' ')}`).join('；');
-                        out.push(`  验收信息：${accLine}`);
+                        out.push(`  ${acceptanceInfoLabel}：${accLine}`);
                         out.push('');
                     }
                 }
@@ -2140,38 +2184,46 @@
             };
 
             const formatMatchDetailsPlain = (data) => {
-                const title = data && data.title ? data.title : '战绩明细';
+                const title = data && data.title ? data.title : siteText('performance', 'Performance');
                 const matchDetails = (data && data.matchDetails) ? data.matchDetails : [];
+                const matchDetailsLabel = siteText('matchDetail', 'Match detail');
+                const scoreLabel = siteText('score', 'Score');
+                const setNumberLabel = siteText('setNumber', 'Set number');
+                const editLogLabel = siteText('editLog', 'Edit log');
+                const noneLabel = siteText('none', 'None');
+                const acceptanceInfoLabel = siteText('acceptanceInfo', 'Acceptance info');
+                const noSignatureLabel = siteText('noSignature', 'No signature');
+                const handwrittenSignatureLabel = siteText('handwrittenSignature', 'Handwritten signature');
                 const out = [title];
                 if (matchDetails.length > 0) {
                     out.push('');
-                    out.push('===== 比赛明细 =====');
+                    out.push(`===== ${matchDetailsLabel} =====`);
                     for (const m of matchDetails) {
-                        out.push(`${m.category || ''}（${m.phaseCode || ''}） ${m.player1Name} vs ${m.player2Name} 总比分：${m.totalText || '-'}`);
+                        out.push(`${m.category || ''}（${m.phaseCode || ''}） ${m.player1Name} vs ${m.player2Name} ${scoreLabel}：${m.totalText || '-'}`);
                         const sets = m.sets || [];
                         for (const s of sets) {
-                            out.push(`  第${s.setNumber}局 [后手:${s.hammer}] ${s.player1ScoreText}:${s.player2ScoreText}`);
+                            out.push(`  ${setNumberLabel}${s.setNumber} ${siteText('set', 'Set')} [${siteText('secondHand', 'Second hand')}:${s.hammer}] ${s.player1ScoreText}:${s.player2ScoreText}`);
                         }
                         const logs = m.editLogs || [];
-                        out.push('  修改记录：');
+                        out.push(`  ${editLogLabel}：`);
                         if (logs.length === 0) {
-                            out.push('    无');
+                            out.push(`    ${noneLabel}`);
                         } else {
                             for (const l of logs) {
-                                out.push(`    第${l.setNumber}局 ${l.editorUsername} ${l.oldScore} -> ${l.newScore} @ ${(l.editedAt || '').replace('T', ' ')}`);
+                                out.push(`    ${setNumberLabel}${l.setNumber} ${l.editorUsername} ${l.oldScore} -> ${l.newScore} @ ${(l.editedAt || '').replace('T', ' ')}`);
                             }
                         }
                         const acc = m.acceptances || [];
                         const sigForPlain = (sig) => {
                             const s = sig != null ? String(sig).trim() : '';
-                            if (!s) return '无签名';
-                            if (s.startsWith('data:image/')) return '[手写签名]';
+                            if (!s) return noSignatureLabel;
+                            if (s.startsWith('data:image/')) return `[${handwrittenSignatureLabel}]`;
                             return s.length > 60 ? s.slice(0, 60) + '…' : s;
                         };
                         const accLine = acc.length === 0
-                            ? '无'
+                            ? noneLabel
                             : acc.map(a => `${a.username}（${sigForPlain(a.signature)}）@${(a.acceptedAt || '').replace('T', ' ')}`).join('；');
-                        out.push(`  验收信息：${accLine}`);
+                        out.push(`  ${acceptanceInfoLabel}：${accLine}`);
                         out.push('');
                     }
                 }
@@ -2251,49 +2303,49 @@
                 const groups = data && data.groups ? data.groups : [];
                 const pseudo = data && data.pseudoGroups ? data.pseudoGroups : [];
                 const matches = data && data.groupMatches ? data.groupMatches : [];
-                const out = ['小组赛排名与对阵明细'];
+                const out = [siteText('groupRankingAndMatchesTitle', 'Group ranking and match details')];
                 out.push('');
-                out.push('===== 小组排名 =====');
+                out.push(`===== ${siteText('groupRankingLabel', 'Group ranking')} =====`);
                 const matchesCol = (r) => {
                     const exp = r.expectedGroupMatches != null ? r.expectedGroupMatches : 0;
                     const pl = r.played != null ? r.played : 0;
-                    const full = exp > 0 && pl === exp ? '【已满】' : '';
-                    return `已赛${pl}/应赛${exp}${full}`;
+                    const full = exp > 0 && pl === exp ? `【${siteText('completed', 'Completed')}】` : '';
+                    return `${siteText('played', 'Played')}${pl}/${siteText('expected', 'Expected')}${exp}${full}`;
                 };
                 for (const g of groups) {
                     out.push(`${g.groupName}`);
                     const rs = g.ranking || [];
                     for (const r of rs) {
-                        out.push(`  总排${r.overallRank || '-'} 组排${r.groupRank}. ${r.username} ${matchesCol(r)} 胜${r.wins} 平${r.draws} 负${r.losses} 积分${r.points} 净胜分${r.net} 总得分${r.totalScore} ≥2局数总和${r.matchGe2Count} 单局最高${r.matchMaxScore} 偷分次数${r.stealCount} 偷分单次最高${r.stealMax}`);
+                        out.push(`  ${siteText('overallRank', 'Overall rank')}${r.overallRank || '-'} ${siteText('groupRank', 'Group rank')}${r.groupRank}. ${r.username} ${matchesCol(r)} ${siteText('wins', 'Wins')}${r.wins} ${siteText('draws', 'Draws')}${r.draws} ${siteText('losses', 'Losses')}${r.losses} ${siteText('points', 'Points')}${r.points} ${siteText('netScore', 'Net score')}${r.net} ${siteText('totalScore', 'Total score')}${r.totalScore} ${siteText('ge2Count', '≥2 set count')}${r.matchGe2Count} ${siteText('singleMatchMax', 'Single match max')}${r.matchMaxScore} ${siteText('stealCount', 'Steal count')}${r.stealCount} ${siteText('stealMax', 'Steal max')}${r.stealMax}`);
                     }
                     out.push('');
                 }
                 if (pseudo.length) {
-                    out.push('===== 伪小组 =====');
+                    out.push(`===== ${siteText('pseudoGroup', 'Pseudo group')} =====`);
                     for (const pg of pseudo) {
-                        out.push(`${pg.groupName}（来源${pg.fromGroup}，同积分${pg.points}）`);
+                        out.push(`${pg.groupName}（${siteText('source', 'Source')}${pg.fromGroup}，${siteText('samePoints', 'same points')}${pg.points}）`);
                         const rs = pg.ranking || [];
-                        for (const r of rs) out.push(`  ${r.groupRank}. ${r.username} 积分${r.points} 净胜分${r.net} 总得分${r.totalScore}`);
+                        for (const r of rs) out.push(`  ${r.groupRank}. ${r.username} ${siteText('points', 'Points')}${r.points} ${siteText('netScore', 'Net score')}${r.net} ${siteText('totalScore', 'Total score')}${r.totalScore}`);
                         const ms = pg.matches || [];
-                        out.push('  相关场次：');
-                        if (!ms.length) out.push('    无');
-                        for (const m of ms) out.push(`    ${m.category} ${m.player1Name} vs ${m.player2Name} 验收时间:${m.acceptedAt}`);
+                        out.push(`  ${siteText('relatedMatches', 'Related matches')}：`);
+                        if (!ms.length) out.push(`    ${siteText('none', 'None')}`);
+                        for (const m of ms) out.push(`    ${m.category} ${m.player1Name} vs ${m.player2Name} ${siteText('acceptanceTime', 'Acceptance time')}:${m.acceptedAt}`);
                         out.push('');
                     }
                 }
-                out.push('===== 小组赛对阵（含验收时间） =====');
-                for (const m of matches) out.push(`${m.groupName} ${m.category} ${m.player1Name} vs ${m.player2Name} 比分:${m.score} 验收时间:${m.acceptedAt}`);
+                out.push(`===== ${siteText('groupMatchesWithAcceptance', 'Group matches (with acceptance time)')} =====`);
+                for (const m of matches) out.push(`${m.groupName} ${m.category} ${m.player1Name} vs ${m.player2Name} ${siteText('score', 'Score')}:${m.score} ${siteText('acceptanceTime', 'Acceptance time')}:${m.acceptedAt}`);
                 return out.join('\n');
             };
 
             const formatGroupOverallPlain = (data) => {
                 const rows = data && data.overallRanking ? data.overallRanking : [];
-                const out = ['小组赛总排名', ''];
+                const out = [siteText('groupOverallRanking', 'Group overall ranking'), ''];
                 for (const r of rows) {
                     const exp = r.expectedGroupMatches != null ? r.expectedGroupMatches : 0;
                     const pl = r.played != null ? r.played : 0;
-                    const full = exp > 0 && pl === exp ? '【已满】' : '';
-                    out.push(`${r.overallRank}. [${r.groupName}] 组排${r.groupRank} ${r.username} 已赛${pl}/应赛${exp}${full} 胜${r.wins || 0} 平${r.draws || 0} 负${r.losses || 0} 积分${r.points} 净胜分${r.net} 总得分${r.totalScore} ≥2局数总和${r.matchGe2Count || 0} 单局最高${r.matchMaxScore || 0} 偷分次数${r.stealCount || 0} 偷分单次最高${r.stealMax || 0}`);
+                    const full = exp > 0 && pl === exp ? `【${siteText('completed', 'Completed')}】` : '';
+                    out.push(`${r.overallRank}. [${r.groupName}] ${siteText('groupRank', 'Group rank')}${r.groupRank} ${r.username} ${siteText('played', 'Played')}${pl}/${siteText('expected', 'Expected')}${exp}${full} ${siteText('wins', 'Wins')}${r.wins || 0} ${siteText('draws', 'Draws')}${r.draws || 0} ${siteText('losses', 'Losses')}${r.losses || 0} ${siteText('points', 'Points')}${r.points} ${siteText('netScore', 'Net score')}${r.net} ${siteText('totalScore', 'Total score')}${r.totalScore} ${siteText('ge2Count', '≥2 set count')}${r.matchGe2Count || 0} ${siteText('singleMatchMax', 'Single match max')}${r.matchMaxScore || 0} ${siteText('stealCount', 'Steal count')}${r.stealCount || 0} ${siteText('stealMax', 'Steal max')}${r.stealMax || 0}`);
                 }
                 return out.join('\n');
             };

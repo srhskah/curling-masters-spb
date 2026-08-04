@@ -17,11 +17,11 @@
             <div class="col-12 col-xl-10 col-xxl-9">
                 <div class="card shadow-sm mb-3">
                     <div class="card-header bg-primary text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
-                        <h4 class="mb-0" th:if="${isOwner}">个人中心</h4>
+                        <h4 class="mb-0" th:if="${isOwner}" data-i18n-key="page.userProfile.title">个人中心</h4>
                         <h4 class="mb-0" th:unless="${isOwner}" th:text="${user.username}">用户</h4>
                         <div class="d-flex flex-wrap gap-2">
-                            <button type="button" class="btn btn-light btn-sm" id="userProfileCopyBtn" title="复制各级别奖牌与历届名次（纯文本）">复制生涯文本</button>
-                            <a class="btn btn-light btn-sm" th:href="@{/ranking/export/pdf/user/{id}(id=${user.id})}">导出PDF</a>
+                            <button type="button" class="btn btn-light btn-sm" id="userProfileCopyBtn" title="复制各级别奖牌与历届名次（纯文本）" data-i18n-key="page.userProfile.copyText">复制生涯文本</button>
+                            <a class="btn btn-light btn-sm" th:href="@{/ranking/export/pdf/user/{id}(id=${user.id})}" data-i18n-key="page.userProfile.exportPdf">导出PDF</a>
                         </div>
                     </div>
                     <div class="card-body">

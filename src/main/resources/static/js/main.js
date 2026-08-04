@@ -1,9 +1,326 @@
 // Main JavaScript file for Curling Masters
 
+const SITE_LANGUAGE_LABELS = {
+    'zh-CN': '简体中文',
+    'zh-TW': '繁體中文',
+    'en': 'English',
+    'fr': 'Français',
+    'ru': 'Русский',
+    'es': 'Español',
+    'pt': 'Português',
+    'ja': '日本語',
+    'ko': '한국어'
+};
+
+const SITE_UI_TEXTS = window.SITE_UI_TEXTS || {};
+
+const SITE_EXPORT_TEXTS = {
+    'zh-CN': {
+        copied: '复制成功',
+        copyFailed: '复制失败',
+        download: '导出',
+        rank: '排名',
+        player: '选手',
+        points: '积分',
+        pointsSuffix: '分',
+        season: '赛季',
+        total: '总排名',
+        group: '小组赛',
+        opponent: '对手',
+        score: '比分',
+        title: '标题',
+        performance: '战绩',
+        regularSeries: '常规系列',
+        finals: '决赛/年终',
+        none: '无',
+        top10: 'Top10',
+        finalRank: '最终排名',
+        finalPoints: '最终积分',
+        seriesSummaryTitle: '系列积分汇总',
+        tournamentRankingTitle: '赛事排名',
+        withdrawn: '退赛（不计入排名）',
+    },
+    'zh-TW': {
+        copied: '複製成功',
+        copyFailed: '複製失敗',
+        download: '匯出',
+        rank: '排名',
+        player: '選手',
+        points: '積分',
+        pointsSuffix: '分',
+        season: '賽季',
+        total: '總排名',
+        group: '小組賽',
+        opponent: '對手',
+        score: '比分',
+        title: '標題',
+        performance: '戰績',
+        regularSeries: '常規系列',
+        finals: '決賽/年終',
+        none: '無',
+        top10: 'Top10',
+        finalRank: '最終排名',
+        finalPoints: '最終積分',
+        seriesSummaryTitle: '系列積分彙總',
+        tournamentRankingTitle: '賽事排名',
+        withdrawn: '退賽（不計入排名）',
+    },
+    'en': {
+        copied: 'Copied successfully',
+        copyFailed: 'Copy failed',
+        download: 'Export',
+        rank: 'Rank',
+        player: 'Player',
+        points: 'Points',
+        pointsSuffix: ' pts',
+        season: 'Season',
+        total: 'Overall ranking',
+        group: 'Group stage',
+        opponent: 'Opponent',
+        score: 'Score',
+        title: 'Title',
+        performance: 'Performance',
+        regularSeries: 'Regular series',
+        finals: 'Finals',
+        none: 'None',
+        top10: 'Top10',
+        finalRank: 'Final rank',
+        finalPoints: 'Final points',
+        seriesSummaryTitle: 'Series points summary',
+        tournamentRankingTitle: 'Tournament ranking',
+        withdrawn: 'Withdrawn (excluded from ranking)',
+    },
+    'fr': {
+        copied: 'Copié avec succès',
+        copyFailed: 'Échec de la copie',
+        download: 'Exporter',
+        rank: 'Classement',
+        player: 'Joueur',
+        points: 'Points',
+        pointsSuffix: ' pts',
+        season: 'Saison',
+        total: 'Classement général',
+        group: 'Phase de groupes',
+        opponent: 'Adversaire',
+        score: 'Score',
+        title: 'Titre',
+        performance: 'Performance',
+        regularSeries: 'Séries régulières',
+        finals: 'Finales',
+        none: 'Aucun',
+        top10: 'Top10',
+        finalRank: 'Classement final',
+        finalPoints: 'Points finaux',
+        seriesSummaryTitle: 'Résumé des points par série',
+        tournamentRankingTitle: 'Classement du tournoi',
+        withdrawn: 'Retiré (hors classement)',
+    },
+    'ru': {
+        copied: 'Успешно скопировано',
+        copyFailed: 'Не удалось скопировать',
+        download: 'Экспорт',
+        rank: 'Место',
+        player: 'Игрок',
+        points: 'Очки',
+        pointsSuffix: ' очк.',
+        season: 'Сезон',
+        total: 'Общий рейтинг',
+        group: 'Групповой этап',
+        opponent: 'Соперник',
+        score: 'Счёт',
+        title: 'Заголовок',
+        performance: 'Результат',
+        regularSeries: 'Регулярный сезон',
+        finals: 'Финалы',
+        none: 'Нет',
+        top10: 'Топ10',
+        finalRank: 'Финальное место',
+        finalPoints: 'Финальные очки',
+        seriesSummaryTitle: 'Сводка очков серии',
+        tournamentRankingTitle: 'Рейтинг турнира',
+        withdrawn: 'Снялся (не учитывается в рейтинге)',
+    },
+    'es': {
+        copied: 'Copiado correctamente',
+        copyFailed: 'Error al copiar',
+        download: 'Exportar',
+        rank: 'Clasificación',
+        player: 'Jugador',
+        points: 'Puntos',
+        pointsSuffix: ' pts',
+        season: 'Temporada',
+        total: 'Clasificación general',
+        group: 'Fase de grupos',
+        opponent: 'Rival',
+        score: 'Puntuación',
+        title: 'Título',
+        performance: 'Rendimiento',
+        regularSeries: 'Series regulares',
+        finals: 'Finales',
+        none: 'Ninguno',
+        top10: 'Top10',
+        finalRank: 'Clasificación final',
+        finalPoints: 'Puntos finales',
+        seriesSummaryTitle: 'Resumen de puntos por serie',
+        tournamentRankingTitle: 'Clasificación del torneo',
+        withdrawn: 'Retirado (sin contar en la clasificación)',
+    },
+    'pt': {
+        copied: 'Copiado com sucesso',
+        copyFailed: 'Falha ao copiar',
+        download: 'Exportar',
+        rank: 'Classificação',
+        player: 'Jogador',
+        points: 'Pontos',
+        pointsSuffix: ' pts',
+        season: 'Temporada',
+        total: 'Classificação geral',
+        group: 'Fase de grupos',
+        opponent: 'Adversário',
+        score: 'Pontuação',
+        title: 'Título',
+        performance: 'Desempenho',
+        regularSeries: 'Séries regulares',
+        finals: 'Finais',
+        none: 'Nenhum',
+        top10: 'Top10',
+        finalRank: 'Classificação final',
+        finalPoints: 'Pontos finais',
+        seriesSummaryTitle: 'Resumo dos pontos da série',
+        tournamentRankingTitle: 'Classificação do torneio',
+        withdrawn: 'Retirado (sem contar na classificação)',
+    },
+    'ja': {
+        copied: '正常にコピーされました',
+        copyFailed: 'コピーに失敗しました',
+        download: 'エクスポート',
+        rank: '順位',
+        player: '選手',
+        points: 'ポイント',
+        pointsSuffix: ' pts',
+        season: 'シーズン',
+        total: '総合ランキング',
+        group: 'グループステージ',
+        opponent: '対戦相手',
+        score: 'スコア',
+        title: 'タイトル',
+        performance: '成績',
+        regularSeries: '通常シリーズ',
+        finals: '決勝',
+        none: 'なし',
+        top10: 'Top10',
+        finalRank: '最終順位',
+        finalPoints: '最終ポイント',
+        seriesSummaryTitle: 'シリーズポイント概要',
+        tournamentRankingTitle: '大会ランキング',
+        withdrawn: '撤退（ランキング外）',
+    },
+    'ko': {
+        copied: '복사 완료',
+        copyFailed: '복사 실패',
+        download: '내보내기',
+        rank: '순위',
+        player: '선수',
+        points: '점수',
+        pointsSuffix: '점',
+        season: '시즌',
+        total: '종합 순위',
+        group: '조별 리그',
+        opponent: '상대',
+        score: '점수',
+        title: '제목',
+        performance: '성적',
+        regularSeries: '정규 시리즈',
+        finals: '결승',
+        none: '없음',
+        top10: 'Top10',
+        finalRank: '최종 순위',
+        finalPoints: '최종 점수',
+        seriesSummaryTitle: '시리즈 포인트 요약',
+        tournamentRankingTitle: '대회 순위',
+        withdrawn: '기권（순위에서 제외）',
+    }
+};
+
+function getCurrentSiteLanguage() {
+    const value = CookieManager && typeof CookieManager.getCookie === 'function'
+        ? CookieManager.getCookie('user_language')
+        : '';
+    if (value && SITE_LANGUAGE_LABELS[value]) return value;
+    const docLang = (document.documentElement && document.documentElement.lang) || 'zh-CN';
+    return SITE_LANGUAGE_LABELS[docLang] ? docLang : 'zh-CN';
+}
+
+function siteText(key, fallback = '') {
+    const lang = getCurrentSiteLanguage();
+    const table = SITE_EXPORT_TEXTS[lang] || SITE_EXPORT_TEXTS['zh-CN'];
+    return table[key] || fallback || (SITE_EXPORT_TEXTS['zh-CN'][key] || '');
+}
+
+function applySiteLanguageSelector() {
+    const lang = getCurrentSiteLanguage();
+    // 同时更新桌面端和移动端的语言选择器
+    const selects = document.querySelectorAll('#siteLanguageSelect, #siteLanguageSelectMobile');
+    if (!selects || selects.length === 0) return;
+    selects.forEach((select) => {
+        select.value = lang;
+    });
+    document.documentElement.lang = lang;
+    applySiteUiTranslations();
+}
+
+function applySiteUiTranslations() {
+    const lang = getCurrentSiteLanguage();
+    const table = SITE_UI_TEXTS[lang] || SITE_UI_TEXTS['zh-CN'];
+    document.querySelectorAll('[data-i18n-key]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-key');
+        if (!key) return;
+        const text = table[key];
+        if (text) {
+            el.textContent = text;
+        }
+    });
+    document.querySelectorAll('[data-i18n-attr]').forEach((el) => {
+        const raw = el.getAttribute('data-i18n-attr');
+        if (!raw) return;
+        const [attr, key] = raw.split(':');
+        const text = table[key];
+        if (attr && key && text) {
+            el.setAttribute(attr, text);
+        }
+    });
+}
+
+function saveSiteLanguage(lang) {
+    if (!lang || !SITE_LANGUAGE_LABELS[lang]) return;
+    if (typeof CookieManager !== 'undefined' && CookieManager.setCookie) {
+        CookieManager.setCookie('user_language', lang, 30);
+    }
+    document.documentElement.lang = lang;
+    applySiteLanguageSelector();
+}
+
 // Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Curling Masters - Main.js loaded');
-    
+
+    applySiteLanguageSelector();
+    // 同时绑定桌面端和移动端的语言选择器
+    document.querySelectorAll('#siteLanguageSelect, #siteLanguageSelectMobile').forEach((langSelect) => {
+        langSelect.addEventListener('change', (event) => {
+            saveSiteLanguage(event.target.value);
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        const anchor = event.target && event.target.closest ? event.target.closest('a[href*="/export/pdf"]') : null;
+        if (!anchor) return;
+        const href = anchor.getAttribute('href');
+        if (!href) return;
+        event.preventDefault();
+        downloadPdfFromUrl(href);
+    });
+
     // Initialize all functions
     initializeAnimations();
     initializeFormValidation();
@@ -53,7 +370,8 @@ async function copyPlainTextToClipboardWithButton(text, opts) {
     try {
         await copyPlainTextToClipboard(text);
         if (btn) {
-            btn.innerHTML = o.okHtml != null ? o.okHtml : '已复制';
+            const successText = siteText('copied', '已复制');
+            btn.innerHTML = o.okHtml != null ? o.okHtml : successText;
             const ms = o.resetMs != null ? o.resetMs : 1500;
             setTimeout(() => {
                 if (btn && oldHtml != null) btn.innerHTML = oldHtml;
@@ -90,10 +408,11 @@ function initializeGlobalCopyTextButtons() {
                     resetMs,
                 });
             } catch (err) {
+                const copyFailedText = siteText('copyFailed', '复制失败，请手动选择文本复制。');
                 if (typeof showAlert === 'function') {
-                    showAlert('复制失败，请手动选择文本复制。', 'danger');
+                    showAlert(copyFailedText, 'danger');
                 } else {
-                    alert('复制失败，请手动选择文本复制。');
+                    alert(copyFailedText);
                 }
             }
         });
@@ -103,6 +422,11 @@ function initializeGlobalCopyTextButtons() {
 /** 全站统一：通过当前窗口导航触发 PDF 下载（与 location.href 等价，便于集中维护/扩展） */
 function downloadPdfFromUrl(url) {
     if (!url) return;
+    const lang = getCurrentSiteLanguage();
+    if (!/([?&])lang=/.test(url)) {
+        const sep = url.includes('?') ? '&' : '?';
+        url = `${url}${sep}lang=${encodeURIComponent(lang)}`;
+    }
     window.location.href = url;
 }
 

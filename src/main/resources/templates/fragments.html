@@ -26,17 +26,17 @@
 <th:block th:fragment="navbarMainMenusInner">
     <ul class="navbar-nav me-auto mb-lg-0">
         <li class="nav-item">
-            <a class="nav-link text-dark" href="/">首页</a>
+            <a class="nav-link text-dark" href="/" data-i18n-key="nav.home">首页</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link text-dark" href="/ranking"><i class="bi bi-list-ol"></i> 排名</a>
+            <a class="nav-link text-dark" href="/ranking" data-i18n-key="nav.ranking"><i class="bi bi-list-ol"></i> 排名</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link text-dark" href="/h2h"><i class="bi bi-shuffle"></i> H2H</a>
+            <a class="nav-link text-dark" href="/h2h" data-i18n-key="nav.h2h"><i class="bi bi-shuffle"></i> H2H</a>
         </li>
         <li class="nav-item"
             th:if="${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}">
-            <a class="nav-link text-dark d-inline-flex align-items-center gap-1" href="/notification/list">
+            <a class="nav-link text-dark d-inline-flex align-items-center gap-1" href="/notification/list" data-i18n-key="nav.notifications">
                 <i class="bi bi-bell"></i> 消息通知
                 <span class="badge rounded-pill bg-danger"
                       th:if="${notificationUnreadCount != null and notificationUnreadCount > 0}"
@@ -46,29 +46,30 @@
         <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'') or hasRole(''ROLE_ADMIN'')')}" class="nav-item dropdown">
             <a class="nav-link dropdown-toggle text-dark" href="#"
                th:id="${'managementDropdown' + ms}"
-               role="button" data-bs-toggle="dropdown" aria-expanded="false">
+               role="button" data-bs-toggle="dropdown" aria-expanded="false"
+               data-i18n-key="nav.systemManagement">
                 <i class="bi bi-gear"></i> 系统管理
             </a>
             <ul class="dropdown-menu" th:attr="aria-labelledby=${'managementDropdown' + ms}">
-                <li><h6 class="dropdown-header">用户管理</h6></li>
-                <li><a class="dropdown-item" href="/user/manage">
+                <li><h6 class="dropdown-header" data-i18n-key="nav.userManagement">用户管理</h6></li>
+                <li><a class="dropdown-item" href="/user/manage" data-i18n-key="nav.userManagement">
                     <i class="bi bi-people"></i> 用户管理
                 </a></li>
                 <li><hr class="dropdown-divider"></li>
-                <li><h6 class="dropdown-header">赛事管理</h6></li>
-                <li><a class="dropdown-item" href="/season/management">
+                <li><h6 class="dropdown-header" data-i18n-key="nav.tournamentManagement">赛事管理</h6></li>
+                <li><a class="dropdown-item" href="/season/management" data-i18n-key="nav.seasonManagement">
                     <i class="bi bi-calendar3"></i> 赛季管理
                 </a></li>
-                <li><a class="dropdown-item" href="/tournamentLevel/list">
+                <li><a class="dropdown-item" href="/tournamentLevel/list" data-i18n-key="nav.tournamentLevelManagement">
                     <i class="bi bi-layers"></i> 赛事等级管理
                 </a></li>
-                <li><a class="dropdown-item" href="/series/list">
+                <li><a class="dropdown-item" href="/series/list" data-i18n-key="nav.seriesManagement">
                     <i class="bi bi-collection"></i> 赛事系列管理
                 </a></li>
-                <li><a class="dropdown-item" href="/tournament/list">
+                <li><a class="dropdown-item" href="/tournament/list" data-i18n-key="nav.tournamentManagement">
                     <i class="bi bi-trophy"></i> 赛事管理
                 </a></li>
-                <li><a class="dropdown-item" href="/match/list">
+                <li><a class="dropdown-item" href="/match/list" data-i18n-key="nav.matchManagement">
                     <i class="bi bi-controller"></i> 比赛管理
                 </a></li>
             </ul>
@@ -76,56 +77,57 @@
         <li th:if="${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}" class="nav-item dropdown">
             <a class="nav-link dropdown-toggle text-dark" href="#"
                th:id="${'tournamentDropdown' + ms}"
-               role="button" data-bs-toggle="dropdown" aria-expanded="false">
+               role="button" data-bs-toggle="dropdown" aria-expanded="false"
+               data-i18n-key="nav.tournamentManagement">
                 <i class="bi bi-trophy"></i> 赛事
             </a>
             <ul class="dropdown-menu" th:attr="aria-labelledby=${'tournamentDropdown' + ms}">
-                <li><a class="dropdown-item" href="/tournament/list">
+                <li><a class="dropdown-item" href="/tournament/list" data-i18n-key="nav.tournamentList">
                     <i class="bi bi-list"></i> 赛事列表
                 </a></li>
-                <li><a class="dropdown-item" href="/season/list">
+                <li><a class="dropdown-item" href="/season/list" data-i18n-key="nav.seasonList">
                     <i class="bi bi-calendar3"></i> 赛季列表
                 </a></li>
-                <li><a class="dropdown-item" href="/ranking">
+                <li><a class="dropdown-item" href="/ranking" data-i18n-key="nav.ranking">
                     <i class="bi bi-list-ol"></i> 排名
                 </a></li>
             </ul>
         </li>
     </ul>
-    <ul class="navbar-nav ms-lg-0">
+    <ul class="navbar-nav ms-lg-0 align-items-lg-center gap-2">
         <li class="nav-item dropdown"
             th:with="isLoggedIn=${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}">
             <a class="nav-link dropdown-toggle text-dark" href="#"
                th:id="${'userDropdown' + ms}"
                role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-person-circle me-1"></i>
-                <span th:text="${isLoggedIn ? (#authentication != null ? #authentication.name : '用户') : '未登录'}">未登录</span>
+                <span th:text="${isLoggedIn ? (#authentication != null ? #authentication.name : '用户') : '未登录'}" data-i18n-key="nav.notLoggedIn">未登录</span>
             </a>
             <ul class="dropdown-menu" th:attr="aria-labelledby=${'userDropdown' + ms}">
                 <li th:if="${isLoggedIn}">
-                    <a class="dropdown-item" href="/user/profile">
+                    <a class="dropdown-item" href="/user/profile" data-i18n-key="nav.userProfile">
                         <i class="bi bi-person"></i> 个人资料
                     </a>
                 </li>
                 <li th:if="${isLoggedIn}">
-                    <a class="dropdown-item" href="/user/reset-password">
+                    <a class="dropdown-item" href="/user/reset-password" data-i18n-key="nav.changePassword">
                         <i class="bi bi-key"></i> 修改密码
                     </a>
                 </li>
                 <li th:if="${isLoggedIn}"><hr class="dropdown-divider"></li>
                 <li th:if="${isLoggedIn}">
-                    <a class="dropdown-item" href="#" onclick="document.getElementById('logoutForm').submit();">
+                    <a class="dropdown-item" href="#" onclick="document.getElementById('logoutForm').submit();" data-i18n-key="nav.logout">
                         <i class="bi bi-box-arrow-right"></i> 退出登录
                     </a>
                 </li>
 
                 <li th:if="${!isLoggedIn}">
-                    <a class="dropdown-item" href="/user/login">
+                    <a class="dropdown-item" href="/user/login" data-i18n-key="nav.login">
                         <i class="bi bi-box-arrow-in-right"></i> 登录
                     </a>
                 </li>
                 <li th:if="${!isLoggedIn}">
-                    <a class="dropdown-item" href="/user/register">
+                    <a class="dropdown-item" href="/user/register" data-i18n-key="nav.register">
                         <i class="bi bi-person-plus"></i> 注册
                     </a>
                 </li>
@@ -141,6 +143,21 @@
             <a class="navbar-brand" href="/">
                 <img th:src="@{/images/Logo Trsp Stripe.png}" alt="Curling Masters Logo" style="height: 40px;">
             </a>
+            <!-- 桌面端语言选择（窄屏隐藏，放到侧边栏） -->
+            <div class="d-none d-lg-flex align-items-center gap-2 ms-auto me-3" style="flex-shrink: 0;">
+                <label class="small text-muted mb-0" for="siteLanguageSelect" data-i18n-key="site.language">语言</label>
+                <select id="siteLanguageSelect" class="form-select form-select-sm" style="min-width: 150px;">
+                    <option value="zh-CN">简体中文</option>
+                    <option value="zh-TW">繁體中文</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="ru">Русский</option>
+                    <option value="es">Español</option>
+                    <option value="pt">Português</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </div>
             <!-- 窄屏：侧栏 offcanvas（仅 Bootstrap 控制，避免与 main.js 二次切换冲突） -->
             <button class="navbar-toggler d-lg-none border-0 px-2" type="button"
                     data-bs-toggle="offcanvas" data-bs-target="#siteNavOffcanvas"
@@ -165,6 +182,21 @@
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="关闭"></button>
         </div> -->
         <div class="offcanvas-body pt-2">
+            <!-- 窄屏语言选择（放在侧边栏顶部） -->
+            <div class="mb-3 pb-2 border-bottom">
+                <label class="small text-muted mb-1" for="siteLanguageSelectMobile" data-i18n-key="site.language">语言</label>
+                <select id="siteLanguageSelectMobile" class="form-select form-select-sm">
+                    <option value="zh-CN">简体中文</option>
+                    <option value="zh-TW">繁體中文</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="ru">Русский</option>
+                    <option value="es">Español</option>
+                    <option value="pt">Português</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </div>
             <th:block th:with="ms='M'">
                 <th:block th:replace="~{fragments :: navbarMainMenusInner}"/>
             </th:block>
@@ -184,10 +216,10 @@
         <div class="collapse navbar-collapse" id="navbarNavLogin">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <a class="nav-link" href="/login">登录</a>
+                    <a class="nav-link" href="/login" data-i18n-key="nav.login">登录</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/user/register">注册</a>
+                    <a class="nav-link" href="/user/register" data-i18n-key="nav.register">注册</a>
                 </li>
             </ul>
         </div>
@@ -219,7 +251,8 @@
 <!-- 公共脚本片段 -->
 <th:block th:fragment="scripts">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script th:src="@{/js/main.js?v=1.3}"></script>
+    <script th:src="@{/js/site-i18n.js?v=1.0}"></script>
+    <script th:src="@{/js/main.js?v=1.4}"></script>
 </th:block>
 
 <!-- 消息提示片段 -->
