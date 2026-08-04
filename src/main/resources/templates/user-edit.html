@@ -38,7 +38,7 @@
 
     <div class="container mt-4">
         <div class="edit-container">
-            <h2 class="mb-4">编辑用户</h2>
+            <h2 class="mb-4" data-i18n-key="page.userEdit.title">编辑用户</h2>
 
             <form th:action="@{'/user/edit/' + ${user.id}}" method="post">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
@@ -88,6 +88,7 @@
     <div th:replace="~{fragments :: footer}"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script th:src="@{/js/main.js?v=1.1}"></script>
+    <script th:src="@{/js/site-i18n.js?v=1.0}"></script>
+    <script th:src="@{/js/main.js?v=1.4}"></script>
 </body>
 </html>

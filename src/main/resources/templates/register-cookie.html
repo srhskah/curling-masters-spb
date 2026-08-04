@@ -10,7 +10,7 @@
 
     <div class="container">
         <div class="register-container">
-            <h2 class="text-center mb-4">注册账号</h2>
+            <h2 class="text-center mb-4" data-i18n-key="page.register.title">注册账号</h2>
 
             <!-- 显示错误消息 -->
             <div th:replace="~{fragments :: error-alert}"></div>
@@ -21,36 +21,36 @@
             <form th:action="@{/user/register}" method="post" id="registerForm">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="mb-3">
-                    <label for="username" class="form-label">用户名 <small class="text-muted">(支持中文、emoji、Unicode字符)</small></label>
+                    <label for="username" class="form-label" data-i18n-key="page.register.usernameLabel">用户名 <small class="text-muted">(支持中文、emoji、Unicode字符)</small></label>
                     <input type="text" class="form-control" id="username" name="username" required
                            placeholder="例如：张三、Dragon、🎯玩家、ユーザー">
                     <div id="usernameValidation" class="form-text"></div>
                     <div id="usernameStats" class="form-text"></div>
                 </div>
                 <div class="mb-3">
-                    <label for="email" class="form-label">邮箱</label>
+                    <label for="email" class="form-label" data-i18n-key="page.register.email">邮箱</label>
                     <input type="email" class="form-control" id="email" name="email" required>
                 </div>
                 <div class="mb-3">
-                    <label for="password" class="form-label">密码</label>
+                    <label for="password" class="form-label" data-i18n-key="page.register.password">密码</label>
                     <input type="password" class="form-control" id="password" name="password" required>
                 </div>
                 <div class="mb-3">
-                    <label for="confirmPassword" class="form-label">确认密码</label>
+                    <label for="confirmPassword" class="form-label" data-i18n-key="page.register.confirmPassword">确认密码</label>
                     <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
                 </div>
 
                 <!-- 记住我选项 -->
                 <div class="mb-3 form-check">
                     <input type="checkbox" class="form-check-input" id="rememberMe" name="rememberMe">
-                    <label class="form-check-label" for="rememberMe">
+                    <label class="form-check-label" for="rememberMe" data-i18n-key="page.login.rememberMe">
                         记住我的用户名
                     </label>
                 </div>
 
                 <!-- 用户偏好设置 -->
                 <div class="mb-3">
-                    <label for="theme" class="form-label">主题偏好</label>
+                    <label for="theme" class="form-label" data-i18n-key="page.login.theme">主题偏好</label>
                     <select class="form-select" id="theme" name="theme">
                         <option value="">默认</option>
                         <option value="light">浅色主题</option>
@@ -60,36 +60,42 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="language" class="form-label">语言偏好</label>
+                    <label for="language" class="form-label" data-i18n-key="page.login.language">语言偏好</label>
                     <select class="form-select" id="language" name="language">
                         <option value="">默认</option>
                         <option value="zh-CN">简体中文</option>
-                        <option value="zh-TW">繁体中文</option>
+                        <option value="zh-TW">繁體中文</option>
                         <option value="en">English</option>
+                        <option value="fr">Français</option>
+                        <option value="ru">Русский</option>
+                        <option value="es">Español</option>
+                        <option value="pt">Português</option>
+                        <option value="ja">日本語</option>
+                        <option value="ko">한국어</option>
                     </select>
                 </div>
 
                 <div class="d-grid">
-                    <button type="submit" class="btn btn-primary">注册</button>
+                    <button type="submit" class="btn btn-primary" data-i18n-key="page.register.registerBtn">注册</button>
                 </div>
             </form>
 
             <div class="text-center mt-3">
-                <p>已有账号？<a href="/user/login">立即登录</a></p>
+                <p><span data-i18n-key="page.register.hasAccount">已有账号？</span><a href="/user/login" data-i18n-key="page.register.loginNow">立即登录</a></p>
             </div>
 
             <!-- Cookie说明 -->
             <div class="mt-4 p-3 bg-light rounded">
-                <h6>关于 Cookie</h6>
+                <h6 data-i18n-key="page.register.cookieTitle">关于 Cookie</h6>
                 <small class="text-muted">
-                    <p>我们使用 Cookie 来保存您的偏好设置，包括：</p>
+                    <p data-i18n-key="page.register.cookieIntro">我们使用 Cookie 来保存您的偏好设置，包括：</p>
                     <ul>
-                        <li>用户名（便于下次登录）</li>
-                        <li>主题偏好（浅色/深色主题）</li>
-                        <li>语言偏好（界面语言）</li>
-                        <li>登录状态（保持登录）</li>
+                        <li data-i18n-key="page.register.cookieUserName">用户名（便于下次登录）</li>
+                        <li data-i18n-key="page.register.cookieTheme">主题偏好（浅色/深色主题）</li>
+                        <li data-i18n-key="page.register.cookieLanguage">语言偏好（界面语言）</li>
+                        <li data-i18n-key="page.register.cookieRememberMe">登录状态（保持登录）</li>
                     </ul>
-                    <p>您的偏好设置将保存 7-30 天，您可以随时清除这些设置。</p>
+                    <p data-i18n-key="page.register.cookieNote">您的偏好设置将保存 7-30 天，您可以随时清除这些设置。</p>
                 </small>
             </div>
         </div>

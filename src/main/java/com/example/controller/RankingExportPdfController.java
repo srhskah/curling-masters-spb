@@ -49,25 +49,30 @@ public class RankingExportPdfController {
 
     @GetMapping(value = "/total", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportTotalPdf(
-            @RequestParam(required = false) String limit
+            @RequestParam(required = false) String limit,
+            @RequestParam(required = false) String lang
     ) {
+        String resolvedLang = normalizePdfLanguage(lang);
         Integer parsedLimit = parseLimit(limit);
         List<RankingEntry> entries = rankingService.getTotalRanking(parsedLimit);
         List<RankingListEntryDto> totalRanking = toRankedList(entries);
 
         LinkedHashMap<String, Object> model = basePdfModel();
-        model.put("title", "总排名");
+        model.put("lang", resolvedLang);
+        model.put("title", pdfText(resolvedLang, "overallRanking", "总排名"));
         model.put("totalRanking", totalRanking);
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-total-ranking", model);
 
-        return PdfExportSupport.attachmentPdf(pdfBytes, "总排名.pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, pdfText(resolvedLang, "overallRanking", "总排名") + ".pdf");
     }
 
     @GetMapping(value = "/season/{seasonId}", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportSeasonPdf(
             @PathVariable Long seasonId,
-            @RequestParam(required = false) String limit
+            @RequestParam(required = false) String limit,
+            @RequestParam(required = false) String lang
     ) {
+        String resolvedLang = normalizePdfLanguage(lang);
         Integer parsedLimit = parseLimit(limit);
         Season season = seasonService.getById(seasonId);
 
@@ -75,15 +80,16 @@ public class RankingExportPdfController {
         List<RankingListEntryDto> seasonRanking = toRankedList(entries);
 
         String seasonLabel = season == null
-                ? ("赛季 " + seasonId)
+                ? (pdfText(resolvedLang, "season", "赛季") + " " + seasonId)
                 : (season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年"));
 
         LinkedHashMap<String, Object> model = basePdfModel();
-        model.put("title", seasonLabel + " 赛季排名");
+        model.put("lang", resolvedLang);
+        model.put("title", seasonLabel + " " + pdfText(resolvedLang, "seasonRanking", "赛季排名"));
         model.put("seasonRanking", seasonRanking);
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-season-ranking", model);
 
-        return PdfExportSupport.attachmentPdf(pdfBytes, seasonLabel + "-赛季排名.pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, seasonLabel + "-" + pdfText(resolvedLang, "seasonRanking", "赛季排名") + ".pdf");
     }
 
     @GetMapping(value = "/multi", produces = MediaType.APPLICATION_PDF_VALUE)
@@ -91,8 +97,10 @@ public class RankingExportPdfController {
             @RequestParam Long seasonId,
             @RequestParam Long seriesId,
             @RequestParam String totalLimit,
-            @RequestParam String seasonLimit
+            @RequestParam String seasonLimit,
+            @RequestParam(required = false) String lang
     ) {
+        String resolvedLang = normalizePdfLanguage(lang);
         Integer parsedTotalLimit = parseLimit(totalLimit);
         Integer parsedSeasonLimit = parseLimit(seasonLimit);
 
@@ -105,20 +113,23 @@ public class RankingExportPdfController {
         SeriesTournamentRankingDto seriesTournamentRanking = rankingApiController.getSeriesTournamentRankings(seriesId);
 
         LinkedHashMap<String, Object> model = basePdfModel();
-        model.put("title", "排名导出");
+        model.put("lang", resolvedLang);
+        model.put("title", pdfText(resolvedLang, "rankingExport", "排名导出"));
         model.put("totalRanking", totalRanking);
         model.put("seasonRanking", seasonRanking);
         model.put("seriesTournamentRanking", seriesTournamentRanking);
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-multi-ranking", model);
 
-        return PdfExportSupport.attachmentPdf(pdfBytes, "排名-多合一.pdf");
+        return PdfExportSupport.attachmentPdf(pdfBytes, pdfText(resolvedLang, "rankingExport", "排名导出") + "-多合一.pdf");
     }
 
     /**
      * 系列多合一PDF（仅导出本系列数据，按指定表格格式）
      */
     @GetMapping(value = "/series/{seriesId}", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> exportSeriesSummaryPdf(@PathVariable Long seriesId) {
+    public ResponseEntity<byte[]> exportSeriesSummaryPdf(@PathVariable Long seriesId,
+                                                         @RequestParam(required = false) String lang) {
+        String resolvedLang = normalizePdfLanguage(lang);
         @SuppressWarnings("unchecked")
         java.util.Map<String, Object> summary = rankingApiController.getSeriesPointsSummary(seriesId);
         String seasonLabel = summary.get("seasonLabel") != null ? summary.get("seasonLabel").toString() : "";
@@ -126,15 +137,16 @@ public class RankingExportPdfController {
         String seriesLabel = summary.get("seriesLabel") != null ? summary.get("seriesLabel").toString() : "";
 
         LinkedHashMap<String, Object> model = basePdfModel();
-        model.put("title", "系列积分汇总 - " + seriesLabel);
+        model.put("lang", resolvedLang);
+        model.put("title", pdfText(resolvedLang, "seriesSummaryTitle", "系列积分汇总") + " - " + seriesLabel);
         model.put("showFinalRank", summary.get("showFinalRank"));
         model.put("columns", summary.get("columns"));
         model.put("rows", summary.get("rows"));
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-series-summary", model);
 
-        String filename = (seasonLabel.isEmpty() ? "赛季" : seasonLabel) + "-" +
-                (seriesName.isEmpty() ? "系列" : seriesName) +
-                "-积分汇总.pdf";
+        String filename = (seasonLabel.isEmpty() ? pdfText(resolvedLang, "season", "赛季") : seasonLabel) + "-" +
+                (seriesName.isEmpty() ? pdfText(resolvedLang, "series", "系列") : seriesName) +
+                "-" + pdfText(resolvedLang, "seriesSummaryTitle", "积分汇总") + ".pdf";
         return PdfExportSupport.attachmentPdf(pdfBytes, filename);
     }
 
@@ -431,6 +443,99 @@ public class RankingExportPdfController {
         } catch (Exception ignored) {
         }
         return seasonLabel + "-" + levelName + "-" + (edition == null ? "?" : edition);
+    }
+
+    private static String normalizePdfLanguage(String lang) {
+        if (lang == null || lang.isBlank()) return "zh-CN";
+        return switch (lang) {
+            case "zh-TW" -> "zh-TW";
+            case "en" -> "en";
+            case "fr" -> "fr";
+            case "ru" -> "ru";
+            case "es" -> "es";
+            case "pt" -> "pt";
+            case "ja" -> "ja";
+            case "ko" -> "ko";
+            default -> "zh-CN";
+        };
+    }
+
+    private static String pdfText(String lang, String key, String fallback) {
+        return switch (normalizePdfLanguage(lang)) {
+            case "zh-TW" -> switch (key) {
+                case "overallRanking" -> "總排名";
+                case "seasonRanking" -> "賽季排名";
+                case "rankingExport" -> "排名導出";
+                case "seriesSummaryTitle" -> "系列積分彙總";
+                case "season" -> "賽季";
+                case "series" -> "系列";
+                default -> fallback;
+            };
+            case "en" -> switch (key) {
+                case "overallRanking" -> "Overall ranking";
+                case "seasonRanking" -> "Season ranking";
+                case "rankingExport" -> "Ranking export";
+                case "seriesSummaryTitle" -> "Series points summary";
+                case "season" -> "Season";
+                case "series" -> "Series";
+                default -> fallback;
+            };
+            case "fr" -> switch (key) {
+                case "overallRanking" -> "Classement général";
+                case "seasonRanking" -> "Classement de la saison";
+                case "rankingExport" -> "Export du classement";
+                case "seriesSummaryTitle" -> "Résumé des points par série";
+                case "season" -> "Saison";
+                case "series" -> "Série";
+                default -> fallback;
+            };
+            case "ru" -> switch (key) {
+                case "overallRanking" -> "Общий рейтинг";
+                case "seasonRanking" -> "Рейтинг сезона";
+                case "rankingExport" -> "Экспорт рейтинга";
+                case "seriesSummaryTitle" -> "Сводка очков серии";
+                case "season" -> "Сезон";
+                case "series" -> "Серия";
+                default -> fallback;
+            };
+            case "es" -> switch (key) {
+                case "overallRanking" -> "Clasificación general";
+                case "seasonRanking" -> "Clasificación de temporada";
+                case "rankingExport" -> "Exportación de clasificación";
+                case "seriesSummaryTitle" -> "Resumen de puntos por serie";
+                case "season" -> "Temporada";
+                case "series" -> "Serie";
+                default -> fallback;
+            };
+            case "pt" -> switch (key) {
+                case "overallRanking" -> "Classificação geral";
+                case "seasonRanking" -> "Classificação da temporada";
+                case "rankingExport" -> "Exportação de classificação";
+                case "seriesSummaryTitle" -> "Resumo dos pontos da série";
+                case "season" -> "Temporada";
+                case "series" -> "Série";
+                default -> fallback;
+            };
+            case "ja" -> switch (key) {
+                case "overallRanking" -> "総合ランキング";
+                case "seasonRanking" -> "シーズンランキング";
+                case "rankingExport" -> "ランキングエクスポート";
+                case "seriesSummaryTitle" -> "シリーズポイント概要";
+                case "season" -> "シーズン";
+                case "series" -> "シリーズ";
+                default -> fallback;
+            };
+            case "ko" -> switch (key) {
+                case "overallRanking" -> "종합 순위";
+                case "seasonRanking" -> "시즌 순위";
+                case "rankingExport" -> "순위 내보내기";
+                case "seriesSummaryTitle" -> "시리즈 포인트 요약";
+                case "season" -> "시즌";
+                case "series" -> "시리즈";
+                default -> fallback;
+            };
+            default -> fallback;
+        };
     }
 
     private static Integer parseLimit(String limit) {
