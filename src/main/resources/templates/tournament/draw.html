@@ -139,11 +139,11 @@
                 <span th:if="${drawUserHints.seedLabel != null}" th:text="${drawUserHints.seedLabel}">种子</span>
             </div>
             <div th:if="${drawWindowOpen}" class="alert alert-light border small mb-3" th:switch="${draw.drawType}">
-                <span th:case="'TIERED'">请选择仍有空位的<strong>本档对应小组</strong>（各组每档人数上限相同）。</span>
+                <span th:case="'TIERED'">点击下方「随机抽签」，系统将在<strong>本档对应小组</strong>的空位中<strong>随机</strong>分配您。</span>
                 <span th:case="'SEED'">种子与非种子可同时抽签；请选择仍有对应空位的小组。</span>
                 <span th:case="'RANDOM'">点击下方「随机抽签」，系统将在尚有空位的小组中<strong>随机</strong>分配您，无需选择小组。</span>
             </div>
-            <div th:if="${drawWindowOpen and draw.drawType == 'RANDOM'}" class="mb-3">
+            <div th:if="${drawWindowOpen and (draw.drawType == 'RANDOM' or draw.drawType == 'TIERED')}" class="mb-3">
                 <div class="d-flex flex-wrap gap-2 justify-content-center mb-3">
                     <span th:each="group : ${groups}" class="badge rounded-pill bg-light text-dark border px-3 py-2" th:text="${group.groupName}">A</span>
                 </div>

@@ -10,7 +10,7 @@
 
     <div class="container mt-4">
         <div class="login-container">
-            <h2 class="text-center mb-4">登录 Curling Masters</h2>
+            <h2 class="text-center mb-4" data-i18n-key="page.login.title">登录 Curling Masters</h2>
 
             <!-- 显示错误消息 -->
             <div th:replace="~{fragments :: error-alert}"></div>
@@ -21,20 +21,20 @@
             <form th:action="@{/login}" method="post">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="mb-3">
-                    <label for="username" class="form-label">用户名</label>
+                    <label for="username" class="form-label" data-i18n-key="page.login.username">用户名</label>
                     <input type="text" class="form-control" id="username" name="username" required>
                 </div>
                 <div class="mb-3">
-                    <label for="password" class="form-label">密码</label>
+                    <label for="password" class="form-label" data-i18n-key="page.login.password">密码</label>
                     <input type="password" class="form-control" id="password" name="password" required>
                 </div>
                 <div class="d-grid">
-                    <button type="submit" class="btn btn-primary">登录</button>
+                    <button type="submit" class="btn btn-primary" data-i18n-key="page.login.loginBtn">登录</button>
                 </div>
             </form>
 
             <div class="text-center mt-3">
-                <p>还没有账号？<a href="/user/register">立即注册</a></p>
+                <p><span data-i18n-key="page.login.noAccount">还没有账号？</span><a href="/user/register" data-i18n-key="page.login.registerNow">立即注册</a></p>
             </div>
         </div>
     </div>

@@ -1377,6 +1377,10 @@ public class TournamentController {
                     r.put("overallRank", uid == null ? null : overallRankByUserId.get(uid));
                 }
             }
+
+            // 计算晋级状态标记：必须在 overallRank 设置完成后调用
+            applyKnockoutAdvancementMarkers(groupRankingByGroupId, competitionConfig, groups.size());
+
             model.addAttribute("groupOverallRanking", groupOverallRanking);
             model.addAttribute("disqualifiedReasonByUserId", dqReasonByUserId);
             model.addAttribute("disqualificationRows", tournamentCompetitionService.listGroupDisqualifications(id));
@@ -1763,6 +1767,120 @@ public class TournamentController {
         overallRows.addAll(dq);
         for (int i = 0; i < overallRows.size(); i++) {
             overallRows.get(i).put("overallRank", i + 1);
+        }
+    }
+
+    /**
+     * 为小组排名表格添加晋级标记：
+     * - qualifyToKnockout: true = 直接晋级首轮淘汰赛（较深高亮）
+     * - qualifyToKoQualifier: true = 晋级首轮淘汰赛的资格赛（较浅高亮）
+     */
+    private void applyKnockoutAdvancementMarkers(Map<Long, List<Map<String, Object>>> groupRankingByGroupId,
+                                                 TournamentCompetitionConfig competitionConfig,
+                                                 int groupCount) {
+        if (groupRankingByGroupId == null || groupRankingByGroupId.isEmpty() || competitionConfig == null) {
+            return;
+        }
+
+        Integer knockoutStartRound = competitionConfig.getKnockoutStartRound();
+        Integer qualifierRound = competitionConfig.getQualifierRound();
+
+        if (knockoutStartRound == null || groupCount <= 0) {
+            return;
+        }
+
+        int bracketPlayers = com.example.service.impl.KnockoutBracketService.playersInFirstKnockoutRound(knockoutStartRound);
+        if (bracketPlayers <= 0) {
+            return;
+        }
+
+        boolean hasMountedQualifier = qualifierRound != null && qualifierRound.equals(knockoutStartRound);
+
+        if (hasMountedQualifier) {
+            int directTopRankPerGroup;
+            int mountedRankPerGroup;
+            int challengerRankPerGroup;
+
+            if (knockoutStartRound == 2) {
+                if (groupCount == 1) {
+                    directTopRankPerGroup = 2;
+                    mountedRankPerGroup = 3;
+                    challengerRankPerGroup = 6;
+                } else if (groupCount == 2) {
+                    directTopRankPerGroup = 1;
+                    mountedRankPerGroup = 2;
+                    challengerRankPerGroup = 3;
+                } else {
+                    markAllByOverallRank(groupRankingByGroupId, bracketPlayers, 0);
+                    return;
+                }
+            } else if (groupCount * 2 == knockoutStartRound) {
+                directTopRankPerGroup = 3;
+                mountedRankPerGroup = 4;
+                challengerRankPerGroup = 5;
+            } else if (groupCount == knockoutStartRound) {
+                directTopRankPerGroup = 1;
+                mountedRankPerGroup = 2;
+                challengerRankPerGroup = 3;
+            } else {
+                markAllByOverallRank(groupRankingByGroupId, bracketPlayers, 0);
+                return;
+            }
+
+            for (List<Map<String, Object>> groupRanking : groupRankingByGroupId.values()) {
+                for (Map<String, Object> player : groupRanking) {
+                    Integer groupRank = (Integer) player.get("groupRank");
+                    if (groupRank == null) {
+                        player.put("qualifyToKnockout", false);
+                        player.put("qualifyToKoQualifier", false);
+                        continue;
+                    }
+
+                    if (groupRank <= directTopRankPerGroup) {
+                        player.put("qualifyToKnockout", true);
+                        player.put("qualifyToKoQualifier", false);
+                    } else if (groupRank == mountedRankPerGroup || groupRank == challengerRankPerGroup) {
+                        player.put("qualifyToKnockout", false);
+                        player.put("qualifyToKoQualifier", true);
+                    } else {
+                        player.put("qualifyToKnockout", false);
+                        player.put("qualifyToKoQualifier", false);
+                    }
+                }
+            }
+        } else {
+            markAllByOverallRank(groupRankingByGroupId, bracketPlayers, 0);
+        }
+    }
+
+    private void markAllByOverallRank(Map<Long, List<Map<String, Object>>> groupRankingByGroupId,
+                                     int directAdvanceCount, int qualifierAdvanceCount) {
+        List<Map<String, Object>> allPlayers = new ArrayList<>();
+        for (List<Map<String, Object>> groupRanking : groupRankingByGroupId.values()) {
+            allPlayers.addAll(groupRanking);
+        }
+
+        allPlayers.sort((a, b) -> {
+            Integer rankA = (Integer) a.get("overallRank");
+            Integer rankB = (Integer) b.get("overallRank");
+            if (rankA == null) return 1;
+            if (rankB == null) return -1;
+            return Integer.compare(rankA, rankB);
+        });
+
+        for (int i = 0; i < allPlayers.size(); i++) {
+            Map<String, Object> player = allPlayers.get(i);
+
+            if (i < directAdvanceCount) {
+                player.put("qualifyToKnockout", true);
+                player.put("qualifyToKoQualifier", false);
+            } else if (i < directAdvanceCount + qualifierAdvanceCount) {
+                player.put("qualifyToKnockout", false);
+                player.put("qualifyToKoQualifier", true);
+            } else {
+                player.put("qualifyToKnockout", false);
+                player.put("qualifyToKoQualifier", false);
+            }
         }
     }
 

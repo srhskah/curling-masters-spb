@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "kimi-agent": {
+      "command": "/home/srhskah/.nvm/versions/node/v24.12.0/bin/node",
+      "args": ["/home/srhskah/webapp/curling-masters/app/.cursor/node_modules/kimi-api-mcp/server.mjs"],
+      "env": {
+        "MOONSHOT_API_KEY": "sk-Ajs5o0DD4JajPpZVxQFvKqQD6xAxRD4IqQC99P6OJ8GsFFaw"
+      }
+    }
+  }
+}

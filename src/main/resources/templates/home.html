@@ -22,18 +22,18 @@
              th:with="isAdmin=${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'') or hasRole(''ROLE_ADMIN'')')},
                       isLoggedIn=${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}">
             <div class="text-center mb-5">
-                <h1 class="display-4 fw-bold text-dark">欢迎光临</h1>
-                <p th:if="${isLoggedIn}" class="lead text-muted">您已成功登录系统，开始管理您的冰壶赛事</p>
-                <p th:if="${!isLoggedIn}" class="lead text-muted">欢迎使用 Curling Masters。您可以先浏览赛事信息，或登录后进行管理。</p>
+                <h1 class="display-4 fw-bold text-dark" data-i18n-key="page.home.welcome">欢迎光临</h1>
+                <p th:if="${isLoggedIn}" class="lead text-muted" data-i18n-key="page.home.subtitle.loggedIn">您已成功登录系统，开始管理您的冰壶赛事</p>
+                <p th:if="${!isLoggedIn}" class="lead text-muted" data-i18n-key="page.home.subtitle.loggedOut">欢迎使用 Curling Masters。您可以先浏览赛事信息，或登录后进行管理。</p>
                 <div class="alert alert-light border d-inline-flex flex-column align-items-center gap-2 py-2 px-3 mt-2 mb-0">
-                    <div class="small text-muted">
+                    <div class="small text-muted" data-i18n-key="page.home.api.label">
                         <i class="bi bi-code-slash"></i> 开发者实时排名 API（公开只读）
                     </div>
                     <div class="d-flex flex-wrap justify-content-center gap-2">
-                        <a class="btn btn-sm btn-outline-primary" href="/ranking/api/public/total?topN=24" target="_blank" rel="noopener">
+                        <a class="btn btn-sm btn-outline-primary" href="/ranking/api/public/total?topN=24" target="_blank" rel="noopener" data-i18n-key="page.home.api.total">
                             总排名 API
                         </a>
-                        <a class="btn btn-sm btn-outline-success" href="/ranking/api/public/current-season?topN=24" target="_blank" rel="noopener">
+                        <a class="btn btn-sm btn-outline-success" href="/ranking/api/public/current-season?topN=24" target="_blank" rel="noopener" data-i18n-key="page.home.api.season">
                             当前赛季 API
                         </a>
                     </div>
@@ -44,14 +44,14 @@
                 <div class="col-12">
                     <div class="card border-0 shadow-sm">
                         <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="bi bi-award"></i> 奖牌榜</h5>
+                            <h5 class="mb-0" data-i18n-key="page.home.medal.total"><i class="bi bi-award"></i> 奖牌榜</h5>
                         </div>
                         <div class="card-body">
                             <div class="d-none d-lg-block">
                                 <div class="row g-3">
                                     <div class="col-lg-6">
                                         <div class="border rounded p-2 h-100">
-                                            <div class="fw-bold mb-2">总奖牌榜</div>
+                                            <div class="fw-bold mb-2" data-i18n-key="page.home.medal.total">总奖牌榜</div>
                                             <ul class="nav nav-pills nav-sm mb-2" role="tablist">
                                                 <li class="nav-item" role="presentation"
                                                     th:each="tab,st : ${homeTotalMedalBoard.tabs}">
@@ -98,7 +98,7 @@
                                     </div>
                                     <div class="col-lg-6">
                                         <div class="border rounded p-2 h-100">
-                                            <div class="fw-bold mb-2">当前赛季奖牌榜</div>
+                                            <div class="fw-bold mb-2" data-i18n-key="page.home.medal.season">当前赛季奖牌榜</div>
                                             <ul class="nav nav-pills nav-sm mb-2" role="tablist">
                                                 <li class="nav-item" role="presentation"
                                                     th:each="tab,st : ${homeSeasonMedalBoard.tabs}">
@@ -252,7 +252,7 @@
                         <div class="card-header bg-warning d-flex justify-content-between align-items-center">
                             <h5 class="mb-0"><i class="bi bi-bell"></i> 消息通知</h5>
                             <a class="btn btn-sm btn-outline-dark btn-mobile-compact" href="/notification/list">
-                                <span class="btn-label">查看全部</span><span class="btn-emoji" aria-hidden="true">查看</span>
+                                <span class="btn-label" data-i18n-key="page.home.viewAll">查看全部</span><span class="btn-emoji" aria-hidden="true" data-i18n-key="page.home.viewAll">查看</span>
                             </a>
                         </div>
                         <div class="card-body">

@@ -502,15 +502,19 @@
 
         const formatRanking = (entries, format, header) => {
             const list = (entries || []);
+            const rankLabel = siteText('rank', 'Rank');
+            const playerLabel = siteText('player', 'Player');
+            const pointsLabel = siteText('points', 'Points');
+            const pointsSuffix = siteText('pointsSuffix', 'pts');
             if (format === 'tsv') {
-                const lines = ['排名\t选手\t积分'];
+                const lines = [`${rankLabel}\t${playerLabel}\t${pointsLabel}`];
                 for (const e of list) {
                     lines.push(`${e.rank}\t${e.username}\t${e.points}`);
                 }
                 return [header, '', ...lines].join('\n');
             }
             if (format === 'markdown') {
-                const lines = ['|排名|选手|积分|', '|---|---|---|'];
+                const lines = [`|${rankLabel}|${playerLabel}|${pointsLabel}|`, '|---|---|---|'];
                 for (const e of list) {
                     lines.push(`|${e.rank}|${String(e.username).replaceAll('|', '\\\\|')}|${e.points}|`);
                 }
@@ -520,7 +524,7 @@
             // plain
             const lines = [];
             for (const e of list) {
-                lines.push(`${e.rank}. ${e.username} - ${e.points}分`);
+                lines.push(`${e.rank}. ${e.username} - ${e.points}${pointsSuffix}`);
             }
             return [header, ...lines].join('\n');
         };
@@ -696,40 +700,46 @@
         };
 
         const formatUserPerformancePlain = (data) => {
-            const title = data && data.title ? data.title : '战绩';
+            const title = data && data.title ? data.title : siteText('performance', 'Performance');
             const username = data && data.username ? data.username : '';
             const totalPoints = data && data.totalPoints != null ? data.totalPoints : '';
             const regularTop10Sum = data && data.regularTop10Sum != null ? data.regularTop10Sum : 0;
             const finalsSum = data && data.finalsSum != null ? data.finalsSum : 0;
+            const pointsSuffix = siteText('pointsSuffix', 'pts');
+            const playerLabel = siteText('player', 'Player');
+            const regularSeriesLabel = siteText('regularSeries', 'Regular series');
+            const finalsLabel = siteText('finals', 'Finals');
+            const noneLabel = siteText('none', 'None');
+            const totalLabel = siteText('total', 'Total');
 
             const lines = [];
             lines.push(`${title}`);
-            if (username) lines.push(`选手：${username}`);
-            lines.push(`常规Top10累计：${regularTop10Sum}分`);
-            lines.push(`决赛/年终累计：${finalsSum}分`);
-            lines.push(`合计：${totalPoints}分`);
+            if (username) lines.push(`${playerLabel}：${username}`);
+            lines.push(`${regularSeriesLabel} ${siteText('top10', 'Top10')}：${regularTop10Sum}${pointsSuffix}`);
+            lines.push(`${finalsLabel}：${finalsSum}${pointsSuffix}`);
+            lines.push(`${totalLabel}：${totalPoints}${pointsSuffix}`);
             lines.push('');
 
             const regular = (data && data.regularSeries) ? data.regularSeries : [];
-            lines.push('【常规系列（Top10已标记）】');
+            lines.push(`【${regularSeriesLabel}（${siteText('top10', 'Top10')}已标记）】`);
             for (const r of regular) {
                 const mark = r.countedInTop10 ? 'Top10' : '-';
                 const seasonLabel = r.seasonLabel || '';
                 const seriesName = r.seriesName || '';
-                lines.push(`${mark} | ${seasonLabel} | ${seriesName} | ${r.points ?? 0}分`);
+                lines.push(`${mark} | ${seasonLabel} | ${seriesName} | ${r.points ?? 0}${pointsSuffix}`);
             }
-            if (!regular.length) lines.push('（无）');
+            if (!regular.length) lines.push(`（${noneLabel}）`);
             lines.push('');
 
             const finals = (data && data.finals) ? data.finals : [];
-            lines.push('【赛季总决赛/年终总决赛】');
+            lines.push(`【${finalsLabel}】`);
             for (const f of finals) {
                 const seasonLabel = f.seasonLabel || '';
                 const seriesName = f.seriesName || '';
                 const levelName = f.levelName || '';
-                lines.push(`${seasonLabel} | ${seriesName} | ${levelName} | ${f.points ?? 0}分`);
+                lines.push(`${seasonLabel} | ${seriesName} | ${levelName} | ${f.points ?? 0}${pointsSuffix}`);
             }
-            if (!finals.length) lines.push('（无）');
+            if (!finals.length) lines.push(`（${noneLabel}）`);
 
             return lines.join('\n');
         };

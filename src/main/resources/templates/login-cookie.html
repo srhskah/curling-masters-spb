@@ -10,7 +10,7 @@
 
     <div class="container mt-4">
         <div class="login-container">
-            <h2 class="text-center mb-4">登录 Curling Masters</h2>
+            <h2 class="text-center mb-4" data-i18n-key="page.login.title">登录 Curling Masters</h2>
 
             <!-- 显示错误消息 -->
             <div th:replace="~{fragments :: error-alert}"></div>
@@ -21,12 +21,12 @@
             <form th:action="@{/login}" method="post" id="loginForm">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="mb-3">
-                    <label for="username" class="form-label">用户名</label>
+                    <label for="username" class="form-label" data-i18n-key="page.login.username">用户名</label>
                     <input type="text" class="form-control" id="username" name="username" 
                            th:value="${rememberedUsername}" required>
                 </div>
                 <div class="mb-3">
-                    <label for="password" class="form-label">密码</label>
+                    <label for="password" class="form-label" data-i18n-key="page.login.password">密码</label>
                     <input type="password" class="form-control" id="password" name="password" required>
                 </div>
                 
@@ -34,14 +34,14 @@
                 <div class="mb-3 form-check">
                     <input type="checkbox" class="form-check-input" id="rememberMe" name="rememberMe" 
                            th:checked="${rememberMe}">
-                    <label class="form-check-label" for="rememberMe">
+                    <label class="form-check-label" for="rememberMe" data-i18n-key="page.login.rememberMe">
                         记住我的用户名
                     </label>
                 </div>
 
                 <!-- 用户偏好设置 -->
                 <div class="mb-3">
-                    <label for="theme" class="form-label">主题偏好</label>
+                    <label for="theme" class="form-label" data-i18n-key="page.login.theme">主题偏好</label>
                     <select class="form-select" id="theme" name="theme">
                         <option value="">默认</option>
                         <option value="light" th:selected="${userTheme == 'light'}">浅色主题</option>
@@ -51,39 +51,45 @@
                 </div>
 
                 <div class="mb-3">
-                    <label for="language" class="form-label">语言偏好</label>
+                    <label for="language" class="form-label" data-i18n-key="page.login.language">语言偏好</label>
                     <select class="form-select" id="language" name="language">
                         <option value="">默认</option>
                         <option value="zh-CN" th:selected="${userLanguage == 'zh-CN'}">简体中文</option>
-                        <option value="zh-TW" th:selected="${userLanguage == 'zh-TW'}">繁体中文</option>
+                        <option value="zh-TW" th:selected="${userLanguage == 'zh-TW'}">繁體中文</option>
                         <option value="en" th:selected="${userLanguage == 'en'}">English</option>
+                        <option value="fr" th:selected="${userLanguage == 'fr'}">Français</option>
+                        <option value="ru" th:selected="${userLanguage == 'ru'}">Русский</option>
+                        <option value="es" th:selected="${userLanguage == 'es'}">Español</option>
+                        <option value="pt" th:selected="${userLanguage == 'pt'}">Português</option>
+                        <option value="ja" th:selected="${userLanguage == 'ja'}">日本語</option>
+                        <option value="ko" th:selected="${userLanguage == 'ko'}">한국어</option>
                     </select>
                 </div>
 
                 <div class="d-grid">
-                    <button type="submit" class="btn btn-primary">登录</button>
+                    <button type="submit" class="btn btn-primary" data-i18n-key="page.login.loginBtn">登录</button>
                 </div>
             </form>
 
             <div class="text-center mt-3">
-                <p>还没有账号？<a href="/user/register">立即注册</a></p>
+                <p><span data-i18n-key="page.login.noAccount">还没有账号？</span><a href="/user/register" data-i18n-key="page.login.registerNow">立即注册</a></p>
             </div>
 
             <!-- Cookie信息显示 -->
             <div class="mt-4 p-3 bg-light rounded">
-                <h6>Cookie 信息</h6>
+                <h6 data-i18n-key="page.login.cookieTitle">Cookie 信息</h6>
                 <small class="text-muted">
                     <div th:if="${rememberedUsername}">
-                        已记住用户名: <span th:text="${rememberedUsername}"></span>
+                        <span data-i18n-key="page.login.cookieRemembered">已记住用户名:</span> <span th:text="${rememberedUsername}"></span>
                     </div>
                     <div th:if="${userTheme}">
-                        当前主题: <span th:text="${userTheme}"></span>
+                        <span data-i18n-key="page.login.cookieTheme">当前主题:</span> <span th:text="${userTheme}"></span>
                     </div>
                     <div th:if="${userLanguage}">
-                        当前语言: <span th:text="${userLanguage}"></span>
+                        <span data-i18n-key="page.login.cookieLanguage">当前语言:</span> <span th:text="${userLanguage}"></span>
                     </div>
                     <div th:unless="${rememberedUsername}">
-                        暂无保存的用户信息
+                        <span data-i18n-key="page.login.cookieNoSaved">暂无保存的用户信息</span>
                     </div>
                 </small>
             </div>

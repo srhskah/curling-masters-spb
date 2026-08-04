@@ -526,12 +526,18 @@ public class DrawManagementService {
         int totalPlayers = drawParticipants.size();
         int playersPerGroup = totalPlayers / draw.getGroupCount();
 
-        if ("RANDOM".equals(draw.getDrawType())) {
+        if ("RANDOM".equals(draw.getDrawType()) || ("TIERED".equals(draw.getDrawType()) && groupId == null)) {
             List<TournamentGroup> randomGroups = groupMapper.selectList(
                     Wrappers.<TournamentGroup>lambdaQuery()
                             .eq(TournamentGroup::getTournamentId, tournamentId)
                             .orderByAsc(TournamentGroup::getGroupOrder));
-            groupId = pickRandomOpenGroupId(tournamentId, pool, playersPerGroup, randomGroups);
+            if ("TIERED".equals(draw.getDrawType())) {
+                // 分档抽签：在本档尚有空位的组中随机选择
+                groupId = pickRandomOpenGroupIdForTier(tournamentId, pool, userId, draw, playersPerGroup, randomGroups);
+            } else {
+                // 默认随机抽签
+                groupId = pickRandomOpenGroupId(tournamentId, pool, playersPerGroup, randomGroups);
+            }
         } else {
             if (groupId == null) {
                 throw new RuntimeException("请选择小组");
@@ -750,6 +756,42 @@ public class DrawManagementService {
         }
         if (open.isEmpty()) {
             throw new RuntimeException("没有仍有空位的小组");
+        }
+        Collections.shuffle(open, ThreadLocalRandom.current());
+        return open.get(0);
+    }
+
+    /** 分档随机抽签：在本档尚有空位的小组中随机选一个组。 */
+    private Long pickRandomOpenGroupIdForTier(Long tournamentId, DrawPool pool, Long userId,
+                                              TournamentDraw draw, int playersPerGroup,
+                                              List<TournamentGroup> groups) {
+        Integer tierNumber = calculateTierNumber(userId, tournamentId, draw, pool);
+        int tierCount = draw.getTierCount() != null ? draw.getTierCount() : 1;
+        int playersPerTier = tierCount > 0 ? playersPerGroup / tierCount : playersPerGroup;
+
+        List<Long> open = new ArrayList<>();
+        for (TournamentGroup g : groups) {
+            long currentCount = drawResultMapper.selectCount(
+                    Wrappers.<TournamentDrawResult>lambdaQuery()
+                            .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                            .eq(TournamentDrawResult::getDrawPool, pool.name())
+                            .eq(TournamentDrawResult::getGroupId, g.getId()));
+            if (currentCount >= playersPerGroup) {
+                continue;
+            }
+
+            long tierInGroup = drawResultMapper.selectCount(
+                    Wrappers.<TournamentDrawResult>lambdaQuery()
+                            .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                            .eq(TournamentDrawResult::getDrawPool, pool.name())
+                            .eq(TournamentDrawResult::getGroupId, g.getId())
+                            .eq(TournamentDrawResult::getTierNumber, tierNumber));
+            if (tierInGroup < playersPerTier) {
+                open.add(g.getId());
+            }
+        }
+        if (open.isEmpty()) {
+            throw new RuntimeException("第" + tierNumber + "档没有仍有空位的小组");
         }
         Collections.shuffle(open, ThreadLocalRandom.current());
         return open.get(0);

@@ -898,12 +898,14 @@
                 const seriesLabel = data && data.seriesLabel ? data.seriesLabel : '';
                 const columns = (data && data.columns) ? data.columns : [];
                 const showFinalRank = !!(data && data.showFinalRank);
-
-                const withdrawSuffix = username => `${username}（退赛（不计入排名））`;
+                const playerLabel = siteText('player', 'Player');
+                const finalRankLabel = siteText('finalRank', 'Final rank');
+                const finalPointsLabel = siteText('finalPoints', 'Final points');
+                const withdrawSuffix = username => `${username}（${siteText('withdrawn', 'withdrawn')}）`;
 
                 const headers = showFinalRank
-                    ? ['选手', '最终排名', '最终积分']
-                    : ['选手', '最终积分'];
+                    ? [playerLabel, finalRankLabel, finalPointsLabel]
+                    : [playerLabel, finalPointsLabel];
                 if (columns && columns.length) {
                     for (const c of columns) headers.push(c.label || '');
                 }
@@ -926,7 +928,7 @@
                 if (format === 'tsv') {
                     const lines = [headers.join('\t')];
                     for (const r of rows) lines.push(toCells(r).join('\t'));
-                    return [`系列积分汇总（${seriesLabel}）`, '', ...lines].join('\n');
+                    return [`${siteText('seriesSummaryTitle', 'Series summary')}（${seriesLabel}）`, '', ...lines].join('\n');
                 }
 
                 if (format === 'markdown') {
@@ -938,11 +940,11 @@
                         const cells = toCells(r).map(v => String(v).replaceAll('|', '\\|'));
                         lines.push(`|${cells.join('|')}|`);
                     }
-                    return [`系列积分汇总（${seriesLabel}）`, '', ...lines].join('\n');
+                    return [`${siteText('seriesSummaryTitle', 'Series summary')}（${seriesLabel}）`, '', ...lines].join('\n');
                 }
 
                 // plain
-                const out = [`系列积分汇总（${seriesLabel}）`];
+                const out = [`${siteText('seriesSummaryTitle', 'Series summary')}（${seriesLabel}）`];
                 out.push(headers.join(' | '));
                 for (const r of rows) out.push(toCells(r).join(' | '));
                 return out.join('\n');
