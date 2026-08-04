@@ -81,3 +81,5 @@ application-prod.yml
 application-*.properties
 mybatis-generator.xml
 
+.cursor/
+docs/
