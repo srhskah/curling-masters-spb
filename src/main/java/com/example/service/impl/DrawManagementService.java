@@ -526,7 +526,7 @@ public class DrawManagementService {
         int totalPlayers = drawParticipants.size();
         int playersPerGroup = totalPlayers / draw.getGroupCount();
 
-        if ("RANDOM".equals(draw.getDrawType()) || ("TIERED".equals(draw.getDrawType()) && groupId == null)) {
+        if ("RANDOM".equals(draw.getDrawType()) || "TIERED".equals(draw.getDrawType()) || "SEED".equals(draw.getDrawType())) {
             List<TournamentGroup> randomGroups = groupMapper.selectList(
                     Wrappers.<TournamentGroup>lambdaQuery()
                             .eq(TournamentGroup::getTournamentId, tournamentId)
@@ -534,6 +534,9 @@ public class DrawManagementService {
             if ("TIERED".equals(draw.getDrawType())) {
                 // 分档抽签：在本档尚有空位的组中随机选择
                 groupId = pickRandomOpenGroupIdForTier(tournamentId, pool, userId, draw, playersPerGroup, randomGroups);
+            } else if ("SEED".equals(draw.getDrawType())) {
+                // 种子抽签：在种子/非种子位尚有空位的组中随机选择
+                groupId = pickRandomOpenGroupIdForSeed(tournamentId, pool, userId, draw, playersPerGroup, randomGroups, drawParticipants);
             } else {
                 // 默认随机抽签
                 groupId = pickRandomOpenGroupId(tournamentId, pool, playersPerGroup, randomGroups);
