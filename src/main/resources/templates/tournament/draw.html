@@ -140,10 +140,10 @@
             </div>
             <div th:if="${drawWindowOpen}" class="alert alert-light border small mb-3" th:switch="${draw.drawType}">
                 <span th:case="'TIERED'">点击下方「随机抽签」，系统将在<strong>本档对应小组</strong>的空位中<strong>随机</strong>分配您。</span>
-                <span th:case="'SEED'">种子与非种子可同时抽签；请选择仍有对应空位的小组。</span>
-                <span th:case="'RANDOM'">点击下方「随机抽签」，系统将在尚有空位的小组中<strong>随机</strong>分配您，无需选择小组。</span>
+                <span th:case="'SEED'">点击下方「随机抽签」，系统将根据您的身份（<strong>种子/非种子</strong>）在对应空位中<strong>随机</strong>分配您。</span>
+                <span th:case="'RANDOM'">点击下方「随机抽签」，系统将在尚有空位的小组中<strong>随机</strong>分配您。</span>
             </div>
-            <div th:if="${drawWindowOpen and (draw.drawType == 'RANDOM' or draw.drawType == 'TIERED')}" class="mb-3">
+            <div th:if="${drawWindowOpen}" class="mb-3">
                 <div class="d-flex flex-wrap gap-2 justify-content-center mb-3">
                     <span th:each="group : ${groups}" class="badge rounded-pill bg-light text-dark border px-3 py-2" th:text="${group.groupName}">A</span>
                 </div>
@@ -153,7 +153,7 @@
                     </button>
                 </div>
             </div>
-            <div th:if="${drawWindowOpen and draw.drawType != 'RANDOM'}" class="row g-2" id="groupSelection">
+            <div th:if="${drawWindowOpen and draw.drawType != 'RANDOM' and false}" class="row g-2" id="groupSelection" style="display: none;">
                 <div class="col-6 col-md-4 col-lg-3" th:each="group : ${groups}">
                     <div class="draw-group-card card h-100"
                          th:classappend="${drawWindowOpen and isRegistered and #sets.contains(eligibleGroupIdSet, group.id)} ? ' draw-group-card--eligible' : ' draw-group-card--inactive'"
@@ -166,10 +166,20 @@
                     </div>
                 </div>
             </div>
-            <div class="text-center mt-3" th:if="${drawWindowOpen and draw.drawType != 'RANDOM'}">
-                <button type="button" id="confirmDrawBtn" class="btn btn-success" disabled onclick="confirmDraw()">
+            <div class="text-center mt-3" th:if="${drawWindowOpen and draw.drawType != 'RANDOM'}" style="display: none;">
+                <button type="button" id="confirmDrawBtn" class="btn btn-success btn-lg" disabled onclick="confirmDraw()">
                     <i class="bi bi-check2-circle"></i> 确认抽入所选小组
                 </button>
+            </div>
+            <div class="text-center mt-3" th:if="${drawWindowOpen and draw.drawType != 'RANDOM'}">
+                <div class="small text-muted">
+                    <span th:if="${draw.drawType == 'TIERED'}">
+                        您所在档位：<strong>第<span th:text="${drawUserHints.tierNumber != null ? drawUserHints.tierNumber : '?'}">1</span>档</strong>
+                    </span>
+                    <span th:if="${draw.drawType == 'SEED'}">
+                        <span th:if="${drawUserHints.seedLabel != null}" th:text="${drawUserHints.seedLabel}">种子选手</span>
+                    </span>
+                </div>
             </div>
         </div>
     </div>

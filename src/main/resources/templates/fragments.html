@@ -235,8 +235,8 @@
                 <a href="/">
                     <img th:src="@{/images/Logo W2.png}" alt="Curling Masters Logo" style="height: 4.5em;">
                 </a>
-                <p>冰壶大师赛 统一赛事管理系统</p>
-                <p>&copy; 2026 Curling Masters. All rights reserved.</p>
+                <p data-i18n-key="footer.description">冰壶大师赛 统一赛事管理系统</p>
+                <p data-i18n-key="footer.copyright">&copy; 2026 Curling Masters. All rights reserved.</p>
             </div>
             <div class="col-md-6 text-end">
                 <!-- <p>&copy; 2026 Curling Masters. All rights reserved.</p> -->
@@ -282,18 +282,18 @@
 <!-- Cookie 同意横幅 -->
 <div th:fragment="cookie-banner" id="cookieBanner" class="cookie-banner" style="display: none;">
     <div class="container">
-        <p class="mb-0">
+        <p class="mb-0" data-i18n-key="cookie.bannerText">
             我们使用 Cookie 来改善您的浏览体验、分析网站使用情况并提供个性化内容。
             继续使用本网站即表示您同意我们的 Cookie 政策。
         </p>
         <div class="btn-group">
-            <button type="button" class="btn btn-outline-light btn-sm" onclick="acceptAllCookies()">
+            <button type="button" class="btn btn-outline-light btn-sm" onclick="acceptAllCookies()" data-i18n-key="cookie.acceptAll">
                 接受全部
             </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="acceptEssentialCookies()">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="acceptEssentialCookies()" data-i18n-key="cookie.acceptEssential">
                 仅必需
             </button>
-            <button type="button" class="btn btn-outline-info btn-sm" onclick="showCookieSettings()">
+            <button type="button" class="btn btn-outline-info btn-sm" onclick="showCookieSettings()" data-i18n-key="cookie.settings">
                 设置
             </button>
         </div>
@@ -305,7 +305,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Cookie 设置</h5>
+                <h5 class="modal-title" data-i18n-key="cookie.modalTitle">Cookie 设置</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -313,7 +313,7 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="essentialCookies" checked disabled>
                         <label class="form-check-label" for="essentialCookies">
-                            <strong>必需 Cookie</strong> - 网站正常运行所必需
+                            <strong data-i18n-key="cookie.essential">必需 Cookie</strong> - <span data-i18n-key="cookie.essentialDesc">网站正常运行所必需</span>
                         </label>
                     </div>
                 </div>
@@ -321,7 +321,7 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="preferenceCookies">
                         <label class="form-check-label" for="preferenceCookies">
-                            <strong>偏好设置 Cookie</strong> - 记住您的设置（主题、语言等）
+                            <strong data-i18n-key="cookie.preference">偏好设置 Cookie</strong> - <span data-i18n-key="cookie.preferenceDesc">记住您的设置（主题、语言等）</span>
                         </label>
                     </div>
                 </div>
@@ -329,7 +329,7 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="analyticsCookies">
                         <label class="form-check-label" for="analyticsCookies">
-                            <strong>分析 Cookie</strong> - 帮助我们改进网站
+                            <strong data-i18n-key="cookie.analytics">分析 Cookie</strong> - <span data-i18n-key="cookie.analyticsDesc">帮助我们改进网站</span>
                         </label>
                     </div>
                 </div>
@@ -337,14 +337,14 @@
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="marketingCookies">
                         <label class="form-check-label" for="marketingCookies">
-                            <strong>营销 Cookie</strong> - 用于个性化广告
+                            <strong data-i18n-key="cookie.marketing">营销 Cookie</strong> - <span data-i18n-key="cookie.marketingDesc">用于个性化广告</span>
                         </label>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="saveCookieSettings()">保存设置</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n-key="common.cancel">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveCookieSettings()" data-i18n-key="cookie.saveSettings">保存设置</button>
             </div>
         </div>
     </div>

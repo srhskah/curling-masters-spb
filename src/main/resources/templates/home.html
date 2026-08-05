@@ -72,7 +72,7 @@
                                                     <div class="table-responsive">
                                                         <table class="table table-sm table-hover mb-0">
                                                             <thead class="table-light">
-                                                            <tr><th style="width:56px;">排名</th><th>选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
+                                                            <tr><th style="width:56px;" data-i18n-key="common.rank">排名</th><th data-i18n-key="common.player">选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
                                                             </thead>
                                                             <tbody>
                                                             <tr th:each="r,s : ${tab.rows}"
@@ -86,13 +86,13 @@
                                                                 <td th:text="${r.bronze}">0</td>
                                                             </tr>
                                                             <tr th:if="${#lists.isEmpty(tab.rows)}">
-                                                                <td colspan="5" class="text-center text-muted">暂无数据</td>
+                                                                <td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td>
                                                             </tr>
                                                             </tbody>
                                                         </table>
                                                     </div>
                                                 </div>
-                                                <div th:if="${#lists.isEmpty(homeTotalMedalBoard.tabs)}" class="text-muted small">暂无总奖牌榜数据</div>
+                                                <div th:if="${#lists.isEmpty(homeTotalMedalBoard.tabs)}" class="text-muted small" data-i18n-key="page.home.noRankData">暂无总奖牌榜数据</div>
                                             </div>
                                         </div>
                                     </div>
@@ -119,7 +119,7 @@
                                                     <div class="table-responsive">
                                                         <table class="table table-sm table-hover mb-0">
                                                             <thead class="table-light">
-                                                            <tr><th style="width:56px;">排名</th><th>选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
+                                                            <tr><th style="width:56px;" data-i18n-key="common.rank">排名</th><th data-i18n-key="common.player">选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
                                                             </thead>
                                                             <tbody>
                                                             <tr th:each="r,s : ${tab.rows}"
@@ -133,13 +133,13 @@
                                                                 <td th:text="${r.bronze}">0</td>
                                                             </tr>
                                                             <tr th:if="${#lists.isEmpty(tab.rows)}">
-                                                                <td colspan="5" class="text-center text-muted">暂无数据</td>
+                                                                <td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td>
                                                             </tr>
                                                             </tbody>
                                                         </table>
                                                     </div>
                                                 </div>
-                                                <div th:if="${#lists.isEmpty(homeSeasonMedalBoard.tabs)}" class="text-muted small">暂无赛季奖牌榜数据</div>
+                                                <div th:if="${#lists.isEmpty(homeSeasonMedalBoard.tabs)}" class="text-muted small" data-i18n-key="page.home.noSeasonData">暂无赛季奖牌榜数据</div>
                                             </div>
                                         </div>
                                     </div>
@@ -174,7 +174,7 @@
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-hover mb-0">
                                                         <thead class="table-light">
-                                                        <tr><th style="width:56px;">排名</th><th>选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
+                                                        <tr><th style="width:56px;" data-i18n-key="common.rank">排名</th><th data-i18n-key="common.player">选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
                                                         </thead>
                                                         <tbody>
                                                         <tr th:each="r,s : ${tab.rows}"
@@ -188,13 +188,13 @@
                                                             <td th:text="${r.bronze}">0</td>
                                                         </tr>
                                                         <tr th:if="${#lists.isEmpty(tab.rows)}">
-                                                            <td colspan="5" class="text-center text-muted">暂无数据</td>
+                                                            <td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td>
                                                         </tr>
                                                         </tbody>
                                                     </table>
                                                 </div>
                                             </div>
-                                            <div th:if="${#lists.isEmpty(homeTotalMedalBoard.tabs)}" class="text-muted small">暂无总奖牌榜数据</div>
+                                            <div th:if="${#lists.isEmpty(homeTotalMedalBoard.tabs)}" class="text-muted small" data-i18n-key="page.home.noRankData">暂无总奖牌榜数据</div>
                                         </div>
                                     </div>
                                     <div class="tab-pane fade" id="homeMedalMobileSeason" role="tabpanel">
@@ -216,7 +216,7 @@
                                                 <div class="table-responsive">
                                                     <table class="table table-sm table-hover mb-0">
                                                         <thead class="table-light">
-                                                        <tr><th style="width:56px;">排名</th><th>选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
+                                                        <tr><th style="width:56px;" data-i18n-key="common.rank">排名</th><th data-i18n-key="common.player">选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
                                                         </thead>
                                                         <tbody>
                                                         <tr th:each="r,s : ${tab.rows}"
@@ -230,13 +230,13 @@
                                                             <td th:text="${r.bronze}">0</td>
                                                         </tr>
                                                         <tr th:if="${#lists.isEmpty(tab.rows)}">
-                                                            <td colspan="5" class="text-center text-muted">暂无数据</td>
+                                                            <td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td>
                                                         </tr>
                                                         </tbody>
                                                     </table>
                                                 </div>
                                             </div>
-                                            <div th:if="${#lists.isEmpty(homeSeasonMedalBoard.tabs)}" class="text-muted small">暂无赛季奖牌榜数据</div>
+                                            <div th:if="${#lists.isEmpty(homeSeasonMedalBoard.tabs)}" class="text-muted small" data-i18n-key="page.home.noSeasonData">暂无赛季奖牌榜数据</div>
                                         </div>
                                     </div>
                                 </div>
@@ -662,7 +662,7 @@
                             </tr>
                             </thead>
                             <tbody id="homeMedalDetailRows">
-                            <tr><td colspan="5" class="text-center text-muted">暂无数据</td></tr>
+                            <tr><td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -718,7 +718,7 @@
                     if (hintEl()) hintEl().textContent = rows.length ? `共 ${rows.length} 场计入` : '该选手在当前榜单/等级暂无计入赛事';
                     if (!rowsEl()) return;
                     if (!rows.length) {
-                        rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted">暂无数据</td></tr>';
+                        rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td></tr>';
                         return;
                     }
                     rowsEl().innerHTML = rows.map(r => `
