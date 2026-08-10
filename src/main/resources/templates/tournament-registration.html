@@ -52,7 +52,13 @@
                     </div>
                     <div th:if="${registrationEnabled}">
                         <div th:if="${registrationOpen}">
-                            <p th:if="${registerBlockReason != null}" class="text-danger" th:text="${registerBlockReason}"></p>
+                            <div th:if="${registerBlockReason != null}" class="alert alert-danger">
+                                <p class="mb-2" th:text="${registerBlockReason}"></p>
+                                <a th:if="${registerBlockReason != null and registerBlockReason.contains('消息通知')}" 
+                                   href="/notification/list" class="btn btn-sm btn-outline-danger mt-2">
+                                    <i class="bi bi-bell"></i> 查看消息通知
+                                </a>
+                            </div>
                             <form th:if="${registerBlockReason == null and !alreadyRegistered}"
                                   th:action="@{/tournament/registration/{id}/register(id=${tournament.id})}" method="post">
                                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
