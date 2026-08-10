@@ -40,12 +40,15 @@ public class UserController {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final TournamentMedalStandingsService tournamentMedalStandingsService;
+    private final com.example.service.INotificationService notificationService;
 
     public UserController(UserService userService, PasswordEncoder passwordEncoder,
-                          TournamentMedalStandingsService tournamentMedalStandingsService) {
+                          TournamentMedalStandingsService tournamentMedalStandingsService,
+                          com.example.service.INotificationService notificationService) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.tournamentMedalStandingsService = tournamentMedalStandingsService;
+        this.notificationService = notificationService;
     }
 
     @GetMapping("/test")
@@ -113,6 +116,40 @@ public class UserController {
         } catch (RuntimeException e) {
             redirectAttributes.addFlashAttribute("error", e.getMessage());
             return "redirect:/user/register";
+        }
+    }
+
+    // 显示忘记密码页面
+    @GetMapping("/forgot-password")
+    public String forgotPasswordPage() {
+        return "forgot-password";
+    }
+
+    // 处理忘记密码请求
+    @PostMapping("/forgot-password")
+    public String forgotPassword(@RequestParam String username,
+                                 RedirectAttributes redirectAttributes) {
+        try {
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("username", username);
+            User user = userService.getOne(queryWrapper);
+            
+            if (user == null) {
+                redirectAttributes.addFlashAttribute("error", "用户不存在");
+                return "redirect:/user/forgot-password";
+            }
+            
+            // 发送忘记密码通知给所有管理员
+            notificationService.sendForgotPasswordNotification(user.getId());
+            
+            redirectAttributes.addFlashAttribute("success", "忘记密码请求已提交，请等待管理员处理");
+            return "redirect:/user/login";
+        } catch (IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/user/forgot-password";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "提交失败：" + e.getMessage());
+            return "redirect:/user/forgot-password";
         }
     }
 

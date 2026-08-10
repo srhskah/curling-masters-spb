@@ -1,6 +1,7 @@
 package com.example.service;
 
 import com.example.entity.NotificationMessage;
+import com.example.entity.NotificationRecipient;
 import com.example.entity.User;
 
 import java.util.List;
@@ -27,4 +28,24 @@ public interface INotificationService {
      */
     void sendNotificationToUserIds(String title, String markdown, String sourceType, Long sourceRefId,
                                    java.util.Collection<Long> recipientUserIds);
+
+    /**
+     * 发送忘记密码请求通知给所有管理员
+     */
+    void sendForgotPasswordNotification(Long requesterUserId);
+
+    /**
+     * 管理员重置用户密码
+     */
+    void resetUserPassword(Long messageId, Long adminUserId, Long targetUserId);
+
+    /**
+     * 获取消息通知的重置密码相关 recipient 信息
+     */
+    List<NotificationRecipient> getResetPasswordRecipients(Long messageId);
+
+    /**
+     * 获取当前用户在指定消息中的重置密码状态
+     */
+    Optional<NotificationRecipient> getResetPasswordRecipientStatus(Long messageId, Long userId);
 }

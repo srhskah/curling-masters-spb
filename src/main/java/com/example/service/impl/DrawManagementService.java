@@ -261,9 +261,6 @@ public class DrawManagementService {
         }
         int maxSeeds = Math.min(totalPlayers - 1, (playersPerGroup - 1) * groupCount);
         for (int k = groupCount; k <= maxSeeds; k += groupCount) {
-            if (k % groupCount != 0) {
-                continue;
-            }
             int seedsPerGroup = k / groupCount;
             if (seedsPerGroup >= playersPerGroup) {
                 continue;
@@ -550,6 +547,8 @@ public class DrawManagementService {
         return insertDrawResultRow(tournamentId, pool, userId, groupId, now, false);
     }
 
+    
+
     /**
      * 写入一条抽签结果（选手点签与「导入前仅一组未满」自动补录共用）。
      */
@@ -607,6 +606,10 @@ public class DrawManagementService {
             int playersPerTier = playersPerGroup / draw.getTierCount();
             if (tierCount >= playersPerTier) {
                 throw new RuntimeException("该小组的第" + tierNumber + "档位已满");
+            }
+            groupSlotIndex = (tierNumber - 1) * playersPerTier + (int) tierCount + 1;
+            if (mainSlotOffset > 0 && groupSlotIndex != null) {
+                groupSlotIndex = mainSlotOffset + groupSlotIndex;
             }
         } else if ("SEED".equals(draw.getDrawType())) {
             int sc = draw.getSeedCount() != null ? draw.getSeedCount() : 0;
@@ -795,6 +798,58 @@ public class DrawManagementService {
         }
         if (open.isEmpty()) {
             throw new RuntimeException("第" + tierNumber + "档没有仍有空位的小组");
+        }
+        Collections.shuffle(open, ThreadLocalRandom.current());
+        return open.get(0);
+    }
+
+    
+    private Long pickRandomOpenGroupIdForSeed(Long tournamentId, DrawPool pool, Long userId, TournamentDraw draw,
+            int playersPerGroup, List<TournamentGroup> groups, List<Long> drawParticipants) {
+        int sc = draw.getSeedCount() != null ? draw.getSeedCount() : 0;
+        int gc = draw.getGroupCount() != null ? draw.getGroupCount() : 1;
+        int seedsPerGroup = sc / gc;
+        int nonSeedCap = playersPerGroup - seedsPerGroup;
+        int pos = drawParticipants.indexOf(userId);
+        boolean userIsSeed = pos >= 0 && pos < sc;
+
+        List<Long> open = new ArrayList<>();
+        for (TournamentGroup g : groups) {
+            long currentCount = drawResultMapper.selectCount(
+                    Wrappers.<TournamentDrawResult>lambdaQuery()
+                            .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                            .eq(TournamentDrawResult::getDrawPool, pool.name())
+                            .eq(TournamentDrawResult::getGroupId, g.getId()));
+            if (currentCount >= playersPerGroup) {
+                continue;
+            }
+
+            if (userIsSeed) {
+                long seedsInGroup = drawResultMapper.selectCount(
+                        Wrappers.<TournamentDrawResult>lambdaQuery()
+                                .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                                .eq(TournamentDrawResult::getDrawPool, pool.name())
+                                .eq(TournamentDrawResult::getGroupId, g.getId())
+                                .eq(TournamentDrawResult::getIsSeed, true));
+                if (seedsInGroup < seedsPerGroup) {
+                    open.add(g.getId());
+                }
+            } else {
+                long nonSeedsInGroup = drawResultMapper.selectCount(
+                        Wrappers.<TournamentDrawResult>lambdaQuery()
+                                .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                                .eq(TournamentDrawResult::getDrawPool, pool.name())
+                                .eq(TournamentDrawResult::getGroupId, g.getId())
+                                .eq(TournamentDrawResult::getIsSeed, false));
+                if (nonSeedsInGroup < nonSeedCap) {
+                    open.add(g.getId());
+                }
+            }
+        }
+        if (open.isEmpty()) {
+            throw new RuntimeException(userIsSeed
+                    ? "没有仍有空位的小组（种子位已满）"
+                    : "没有仍有空位的小组（非种子位已满）");
         }
         Collections.shuffle(open, ThreadLocalRandom.current());
         return open.get(0);

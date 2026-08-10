@@ -37,6 +37,16 @@
             · <a th:href="${message.tournamentDetailUrl}">前往赛事详情</a>
         </span>
     </div>
+    
+    <!-- 忘记密码重置密码操作区域 -->
+    <div th:if="${message.sourceType == 'FORGOT_PASSWORD' and isManager}" class="card border-primary mb-3">
+        <div class="card-body">
+            <h5 class="card-title">重置密码操作</h5>
+            <div id="resetPasswordSection">
+                <!-- 动态加载重置密码状态 -->
+            </div>
+        </div>
+    </div>
     <article class="card border-0 shadow-sm">
         <div class="card-body markdown-body" th:utext="${message.contentHtml}"></div>
     </article>
@@ -47,5 +57,71 @@
 <textarea id="copyText" class="d-none" th:text="${copyText}"></textarea>
 <div th:replace="~{fragments :: footer}"></div>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:if="${message.sourceType == 'FORGOT_PASSWORD' and isManager}">
+    // 加载重置密码状态
+    function loadResetPasswordStatus() {
+        fetch('/notification/reset-password-status/' + [[${message.id}]])
+            .then(response => response.json())
+            .then(data => {
+                const section = document.getElementById('resetPasswordSection');
+                if (data.status === 'PENDING') {
+                    section.innerHTML = `
+                        <p class="text-muted">该用户的密码尚未重置</p>
+                        <button class="btn btn-warning" onclick="resetPassword()">重置密码</button>
+                    `;
+                } else if (data.status === 'RESET_BY_ME') {
+                    section.innerHTML = `
+                        <p class="text-success">您已于 ${data.resetTime} 重置了该用户的密码</p>
+                        <p class="text-muted">新密码：123456</p>
+                    `;
+                } else if (data.status === 'RESET_BY_OTHER') {
+                    section.innerHTML = `
+                        <p class="text-warning">密码已由管理员 <strong>${data.resetBy}</strong> 于 ${data.resetTime} 重置</p>
+                        <p class="text-muted">新密码：123456</p>
+                    `;
+                } else {
+                    section.innerHTML = '<p class="text-muted">无法获取重置密码状态</p>';
+                }
+            })
+            .catch(error => {
+                console.error('加载重置密码状态失败:', error);
+                document.getElementById('resetPasswordSection').innerHTML = '<p class="text-danger">加载状态失败</p>';
+            });
+    }
+
+    // 重置密码
+    function resetPassword() {
+        if (!confirm('确定要重置该用户的密码为 123456 吗？')) {
+            return;
+        }
+        
+        const csrfToken = document.querySelector('input[name="_csrf"]')?.value;
+        
+        fetch('/notification/reset-password/' + [[${message.id}]], {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: '_csrf=' + encodeURIComponent(csrfToken)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('密码重置成功！新密码：123456');
+                loadResetPasswordStatus();
+            } else {
+                alert('重置失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('重置密码失败:', error);
+            alert('重置失败，请稍后重试');
+        });
+    }
+
+    // 页面加载时获取状态
+    document.addEventListener('DOMContentLoaded', loadResetPasswordStatus);
+</script>
 </body>
 </html>

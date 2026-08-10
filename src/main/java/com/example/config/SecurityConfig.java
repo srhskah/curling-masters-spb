@@ -78,11 +78,13 @@ public class SecurityConfig {
                         "/h2h", "/h2h/**",
                         "/season/list", "/season/detail/**",
                         "/tournament/list", "/tournament/detail/**",
-                        "/user/login", "/user/register", "/user/change-password",
+                        "/user/login", "/user/register", "/user/change-password", "/user/forgot-password",
                         "/css/**", "/js/**", "/images/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/tournament/competition/match/detail/**").permitAll()
                 .requestMatchers("/user/manage/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers("/user/registration-bans").hasAnyRole("SUPER_ADMIN", "ADMIN")
+                .requestMatchers("/user/registration-ban/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form

@@ -47,6 +47,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
     private final SeriesService seriesService;
     private final SeasonService seasonService;
     private final ITournamentLevelService tournamentLevelService;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public NotificationMessageServiceImpl(NotificationMessageMapper messageMapper,
                                           NotificationRecipientMapper recipientMapper,
@@ -54,7 +55,8 @@ public class NotificationMessageServiceImpl implements INotificationService {
                                           TournamentService tournamentService,
                                           SeriesService seriesService,
                                           SeasonService seasonService,
-                                          ITournamentLevelService tournamentLevelService) {
+                                          ITournamentLevelService tournamentLevelService,
+                                          org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.messageMapper = messageMapper;
         this.recipientMapper = recipientMapper;
         this.userService = userService;
@@ -62,6 +64,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
         this.seriesService = seriesService;
         this.seasonService = seasonService;
         this.tournamentLevelService = tournamentLevelService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -476,5 +479,181 @@ public class NotificationMessageServiceImpl implements INotificationService {
         if (series == null) return false;
         String name = series.getName();
         return name != null && name.contains("测试");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void sendForgotPasswordNotification(Long requesterUserId) {
+        if (requesterUserId == null) {
+            throw new IllegalArgumentException("用户ID不能为空");
+        }
+
+        User requester = userService.getById(requesterUserId);
+        if (requester == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+
+        // 检查是否已存在未处理的忘记密码请求
+        NotificationMessage exists = messageMapper.selectOne(Wrappers.<NotificationMessage>lambdaQuery()
+                .eq(NotificationMessage::getSourceType, "FORGOT_PASSWORD")
+                .eq(NotificationMessage::getSourceRefId, requesterUserId)
+                .eq(NotificationMessage::getPublished, true)
+                .last("LIMIT 1"));
+        
+        if (exists != null) {
+            // 检查是否还有待处理的管理员
+            List<NotificationRecipient> pendingRecipients = recipientMapper.selectList(Wrappers.<NotificationRecipient>lambdaQuery()
+                    .eq(NotificationRecipient::getMessageId, exists.getId())
+                    .eq(NotificationRecipient::getResetPasswordStatus, "PENDING"));
+            
+            if (!pendingRecipients.isEmpty()) {
+                throw new IllegalStateException("您已提交过忘记密码请求，请等待管理员处理");
+            }
+        }
+
+        // 获取所有管理员
+        List<User> admins = userService.lambdaQuery()
+                .in(User::getRole, ROLE_SUPER_ADMIN, ROLE_ADMIN)
+                .list();
+
+        if (admins.isEmpty()) {
+            throw new IllegalStateException("系统中没有管理员，请联系系统负责人");
+        }
+
+        // 创建通知消息
+        NotificationMessage message = new NotificationMessage();
+        message.setTitle("忘记密码请求");
+        message.setContentMarkdown(String.format(
+                "用户 **%s** 发起了忘记密码请求，请为其重置密码。\n\n发起时间：%s",
+                requester.getUsername(),
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        ));
+        message.setContentHtml(renderHtml(message.getContentMarkdown()));
+        message.setPublished(true);
+        message.setPublishToHome(false);
+        message.setAuthorUserId(requesterUserId);
+        message.setSourceType("FORGOT_PASSWORD");
+        message.setSourceRefId(requesterUserId);
+        message.setPublishedAt(LocalDateTime.now());
+        messageMapper.insert(message);
+
+        // 为每个管理员创建接收记录，初始状态为 PENDING
+        for (User admin : admins) {
+            NotificationRecipient recipient = new NotificationRecipient();
+            recipient.setMessageId(message.getId());
+            recipient.setUserId(admin.getId());
+            recipient.setResetPasswordStatus("PENDING");
+            recipientMapper.insert(recipient);
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void resetUserPassword(Long messageId, Long adminUserId, Long targetUserId) {
+        if (messageId == null || adminUserId == null || targetUserId == null) {
+            throw new IllegalArgumentException("参数不能为空");
+        }
+
+        // 验证管理员权限
+        User admin = userService.getById(adminUserId);
+        if (admin == null || (admin.getRole() != ROLE_SUPER_ADMIN && admin.getRole() != ROLE_ADMIN)) {
+            throw new IllegalStateException("无权限执行此操作");
+        }
+
+        // 验证目标用户
+        User targetUser = userService.getById(targetUserId);
+        if (targetUser == null) {
+            throw new IllegalArgumentException("目标用户不存在");
+        }
+
+        // 验证消息
+        NotificationMessage message = messageMapper.selectById(messageId);
+        if (message == null || !"FORGOT_PASSWORD".equals(message.getSourceType()) || 
+            !targetUserId.equals(message.getSourceRefId())) {
+            throw new IllegalStateException("无效的忘记密码请求");
+        }
+
+        // 检查该管理员是否已经处理过此请求
+        NotificationRecipient myRecipient = recipientMapper.selectOne(Wrappers.<NotificationRecipient>lambdaQuery()
+                .eq(NotificationRecipient::getMessageId, messageId)
+                .eq(NotificationRecipient::getUserId, adminUserId)
+                .last("LIMIT 1"));
+        
+        if (myRecipient != null && "RESET_BY_ME".equals(myRecipient.getResetPasswordStatus())) {
+            throw new IllegalStateException("您已经重置过该用户的密码");
+        }
+
+        // 重置密码为默认密码 123456
+        String defaultPassword = "123456";
+        targetUser.setPassword(passwordEncoder.encode(defaultPassword));
+        targetUser.setPasswordChanged(true); // 设置为需要修改密码
+        targetUser.setUpdatedAt(LocalDateTime.now());
+        userService.updateById(targetUser);
+
+        // 更新所有管理员的状态
+        List<NotificationRecipient> allRecipients = recipientMapper.selectList(Wrappers.<NotificationRecipient>lambdaQuery()
+                .eq(NotificationRecipient::getMessageId, messageId));
+
+        for (NotificationRecipient recipient : allRecipients) {
+            if (recipient.getUserId().equals(adminUserId)) {
+                // 执行操作的管理员
+                recipient.setResetPasswordStatus("RESET_BY_ME");
+                recipient.setResetPasswordByUserId(adminUserId);
+                recipient.setResetPasswordAt(LocalDateTime.now());
+            } else {
+                // 其他管理员
+                recipient.setResetPasswordStatus("RESET_BY_OTHER");
+                recipient.setResetPasswordByUserId(adminUserId);
+                recipient.setResetPasswordAt(LocalDateTime.now());
+            }
+            recipientMapper.updateById(recipient);
+        }
+    }
+
+    @Override
+    public List<NotificationRecipient> getResetPasswordRecipients(Long messageId) {
+        if (messageId == null) return List.of();
+        
+        List<NotificationRecipient> recipients = recipientMapper.selectList(Wrappers.<NotificationRecipient>lambdaQuery()
+                .eq(NotificationRecipient::getMessageId, messageId));
+        
+        // 填充管理员用户名
+        Set<Long> adminIds = recipients.stream()
+                .map(NotificationRecipient::getResetPasswordByUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        
+        if (!adminIds.isEmpty()) {
+            Map<Long, String> adminNames = userService.listByIds(adminIds).stream()
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+            
+            for (NotificationRecipient recipient : recipients) {
+                if (recipient.getResetPasswordByUserId() != null) {
+                    recipient.setResetPasswordByUsername(adminNames.get(recipient.getResetPasswordByUserId()));
+                }
+            }
+        }
+        
+        return recipients;
+    }
+
+    @Override
+    public Optional<NotificationRecipient> getResetPasswordRecipientStatus(Long messageId, Long userId) {
+        if (messageId == null || userId == null) return Optional.empty();
+        
+        NotificationRecipient recipient = recipientMapper.selectOne(Wrappers.<NotificationRecipient>lambdaQuery()
+                .eq(NotificationRecipient::getMessageId, messageId)
+                .eq(NotificationRecipient::getUserId, userId)
+                .last("LIMIT 1"));
+        
+        if (recipient != null && recipient.getResetPasswordByUserId() != null) {
+            User admin = userService.getById(recipient.getResetPasswordByUserId());
+            if (admin != null) {
+                recipient.setResetPasswordByUsername(admin.getUsername());
+            }
+        }
+        
+        return Optional.ofNullable(recipient);
     }
 }
