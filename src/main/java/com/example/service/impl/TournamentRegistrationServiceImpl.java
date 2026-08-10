@@ -61,6 +61,8 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     @Autowired
     @Lazy
     private ITournamentCompetitionService tournamentCompetitionService;
+    @Autowired
+    private UserRegistrationBanService userRegistrationBanService;
 
     @Override
     public TournamentRegistrationSetting getSetting(Long tournamentId) {
@@ -518,6 +520,12 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
                 .eq(TournamentRegistration::getTournamentId, tournamentId)
                 .eq(TournamentRegistration::getUserId, userId));
         if (existing > 0) return "您已报名";
+        
+        // 检查用户级别的禁止报名
+        if (userRegistrationBanService.isUserBannedForTournament(userId, tournamentId)) {
+            return "您已被禁止报名该赛事，详情请查看消息通知";
+        }
+        
         if (appliesBanRules(t.getLevelCode())) {
             Integer banTop = s.getBanTotalRankTop();
             if (banTop != null && banTop > 0) {

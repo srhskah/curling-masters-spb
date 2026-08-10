@@ -101,7 +101,8 @@
                th:id="${'userDropdown' + ms}"
                role="button" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-person-circle me-1"></i>
-                <span th:text="${isLoggedIn ? (#authentication != null ? #authentication.name : '用户') : '未登录'}" data-i18n-key="nav.notLoggedIn">未登录</span>
+                <span th:if="${isLoggedIn}" th:text="${#authentication != null ? #authentication.name : '用户'}">用户</span>
+                <span th:unless="${isLoggedIn}" data-i18n-key="nav.notLoggedIn">未登录</span>
             </a>
             <ul class="dropdown-menu" th:attr="aria-labelledby=${'userDropdown' + ms}">
                 <li th:if="${isLoggedIn}">

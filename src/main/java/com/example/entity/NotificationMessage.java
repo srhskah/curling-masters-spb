@@ -50,6 +50,10 @@ public class NotificationMessage {
     @TableField("source_ref_id")
     private Long sourceRefId;
 
+    /** 关联用户（source_ref_id对应的用户，查询时填充，不落库） */
+    @TableField(exist = false)
+    private User relatedUser;
+
     @TableField("published_at")
     private LocalDateTime publishedAt;
 

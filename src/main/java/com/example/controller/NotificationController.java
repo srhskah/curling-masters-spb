@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.security.Principal;
@@ -124,6 +125,87 @@ public class NotificationController {
             ra.addFlashAttribute("error", "操作失败：" + e.getMessage());
         }
         return "redirect:/notification/detail/" + id;
+    }
+
+    @GetMapping("/reset-password-status/{id}")
+    @ResponseBody
+    public java.util.Map<String, Object> getResetPasswordStatus(@PathVariable Long id, Principal principal) {
+        User me = currentUser(principal);
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        
+        if (me == null) {
+            result.put("success", false);
+            result.put("message", "请先登录");
+            return result;
+        }
+        
+        try {
+            var status = notificationService.getResetPasswordRecipientStatus(id, me.getId());
+            if (status.isEmpty()) {
+                result.put("success", false);
+                result.put("message", "无权限或状态不存在");
+                return result;
+            }
+            
+            var recipient = status.get();
+            result.put("success", true);
+            result.put("status", recipient.getResetPasswordStatus());
+            
+            if (recipient.getResetPasswordAt() != null) {
+                result.put("resetTime", recipient.getResetPasswordAt().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            }
+            
+            if (recipient.getResetPasswordByUsername() != null) {
+                result.put("resetBy", recipient.getResetPasswordByUsername());
+            }
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        
+        return result;
+    }
+
+    @PostMapping("/reset-password/{id}")
+    @ResponseBody
+    public java.util.Map<String, Object> resetPassword(@PathVariable Long id, Principal principal) {
+        User me = currentUser(principal);
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        
+        if (me == null) {
+            result.put("success", false);
+            result.put("message", "请先登录");
+            return result;
+        }
+        
+        try {
+            // 获取消息详情以确定目标用户
+            var message = notificationService.getReadableDetail(id, me.getId());
+            if (message.isEmpty()) {
+                result.put("success", false);
+                result.put("message", "消息不存在");
+                return result;
+            }
+            
+            var msg = message.get();
+            if (!"FORGOT_PASSWORD".equals(msg.getSourceType()) || msg.getSourceRefId() == null) {
+                result.put("success", false);
+                result.put("message", "无效的忘记密码请求");
+                return result;
+            }
+            
+            // 执行重置密码
+            notificationService.resetUserPassword(id, me.getId(), msg.getSourceRefId());
+            
+            result.put("success", true);
+            result.put("message", "密码重置成功");
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", e.getMessage());
+        }
+        
+        return result;
     }
 
     private User currentUser(Principal principal) {

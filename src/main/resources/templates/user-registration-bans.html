@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>禁止报名记录 - Curling Masters</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link th:href="@{/css/main.css?v=1.1}" rel="stylesheet">
+</head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">禁止报名记录</h2>
+        <a class="btn btn-secondary" href="/user/manage">
+            <i class="bi bi-arrow-left"></i> 返回用户管理
+        </a>
+    </div>
+
+    <!-- 显示消息 -->
+    <div th:if="${success}" class="alert alert-success" role="alert">
+        <span th:text="${success}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-danger" role="alert">
+        <span th:text="${error}"></span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>用户</th>
+                    <th>禁止类型</th>
+                    <th>目标参数</th>
+                    <th>禁止数量</th>
+                    <th>禁止总决赛</th>
+                    <th>理由</th>
+                    <th>操作人</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="ban : ${bans}">
+                    <td th:text="${ban.id}"></td>
+                    <td th:text="${ban.username}"></td>
+                    <td>
+                        <span th:if="${ban.banType == 'FUTURE_TOURNAMENTS_BY_LEVEL'}" class="badge bg-info">往后N届特定等级赛事</span>
+                        <span th:if="${ban.banType == 'FUTURE_SERIES_ALL'}" class="badge bg-info">往后N个系列所有赛事</span>
+                        <span th:if="${ban.banType == 'SEASON_ALL_BY_LEVEL'}" class="badge bg-warning">本赛季特定等级所有赛事</span>
+                        <span th:if="${ban.banType == 'SEASON_ALL'}" class="badge bg-warning">本赛季所有赛事</span>
+                        <span th:if="${ban.banType == 'YEAR_ALL'}" class="badge bg-danger">本年度所有赛事</span>
+                    </td>
+                    <td>
+                        <div th:if="${ban.targetLevelCode != null}">
+                            <small>赛事等级：<span th:text="${ban.targetLevelCode}"></span></small>
+                        </div>
+                        <div th:if="${ban.targetSeasonId != null}">
+                            <small>赛季ID：<span th:text="${ban.targetSeasonId}"></span></small>
+                        </div>
+                        <div th:if="${ban.targetYear != null}">
+                            <small>年份：<span th:text="${ban.targetYear}"></span></small>
+                        </div>
+                    </td>
+                    <td th:text="${ban.banCount}"></td>
+                    <td>
+                        <span th:if="${ban.banFinalTournament}" class="badge bg-danger">是</span>
+                        <span th:if="${!ban.banFinalTournament}" class="badge bg-secondary">否</span>
+                    </td>
+                    <td>
+                        <small th:text="${ban.reason}" class="text-muted"></small>
+                    </td>
+                    <td th:text="${ban.createdByUsername}"></td>
+                    <td th:text="${#temporals.format(ban.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" th:onclick="'removeBan(' + ${ban.id} + ')'">
+                            <i class="bi bi-trash"></i> 解除
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:if="${bans == null or #lists.isEmpty(bans)}" class="text-center text-muted mt-4">
+        暂无禁止报名记录
+    </div>
+</div>
+
+<div th:replace="~{fragments :: footer}"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function removeBan(banId) {
+        if (!confirm('确定要解除该禁止报名记录吗？')) {
+            return;
+        }
+
+        const getCookie = (name) => {
+            const match = document.cookie.match(new RegExp('(^|; )' + name + '=([^;]*)'));
+            return match ? decodeURIComponent(match[2]) : null;
+        };
+        const csrfToken = getCookie('XSRF-TOKEN');
+
+        fetch('/user/registration-ban/remove/' + banId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: '_csrf=' + encodeURIComponent(csrfToken)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('解除失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('解除失败：' + error.message);
+        });
+    }
+</script>
+</body>
+</html>
