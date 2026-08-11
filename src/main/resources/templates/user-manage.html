@@ -787,7 +787,7 @@
             // 动态加载比赛级别
             async function loadTournamentLevels() {
                 try {
-                    const response = await fetch('/user-registration-ban/tournament-levels');
+                    const response = await fetch('/user/tournament-levels');
                     if (!response.ok) {
                         console.error('加载比赛级别失败');
                         return;
