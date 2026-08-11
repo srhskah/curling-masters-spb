@@ -345,7 +345,7 @@
                 <div class="card border-0 shadow-sm tournament-detail-section-tabs">
                     <div class="card-body d-flex align-items-center justify-content-center py-3">
                         <ul class="nav nav-pills flex-nowrap overflow-auto justify-content-center w-100 gap-2" role="tablist">
-                            <li class="nav-item text-nowrap" role="presentation" th:if="${isSuperAdmin or isAdmin or isHost}">
+                            <li class="nav-item text-nowrap" role="presentation">
                                 <button class="nav-link active"
                                         id="detail-main-tab"
                                         data-bs-toggle="pill"
@@ -359,14 +359,13 @@
                             </li>
                             <li class="nav-item text-nowrap" role="presentation">
                                 <button class="nav-link"
-                                        th:classappend="${!(isSuperAdmin or isAdmin or isHost)} ? ' active' : ''"
                                         id="detail-final-ranking-tab"
                                         data-bs-toggle="pill"
                                         data-bs-target="#detail-final-ranking-pane"
                                         type="button"
                                         role="tab"
                                         aria-controls="detail-final-ranking-pane"
-                                        th:attr="aria-selected=${!(isSuperAdmin or isAdmin or isHost)}">
+                                        aria-selected="false">
                                     最终排名
                                 </button>
                             </li>
@@ -401,16 +400,14 @@
 
             <div class="col-12 mt-3">
                 <div class="tab-content">
-                    <div class="tab-pane fade"
-                         th:if="${isSuperAdmin or isAdmin or isHost}"
+                    <div class="tab-pane fade show active"
                          id="detail-main-pane"
                          role="tabpanel"
-                         aria-labelledby="detail-main-tab"
-                         th:classappend="${isSuperAdmin or isAdmin or isHost} ? ' show active' : ''">
+                         aria-labelledby="detail-main-tab">
                         <div class="row g-4">
                             <!-- 筹备中/进行中：手动赛制配置与小组赛 -->
                             <div class="col-12"
-                                 th:if="${(tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1 or tournamentInfo.tournament.status == 2) and (isSuperAdmin or isAdmin or isHost)}">
+                                 th:if="${tournamentInfo.tournament.status == 0 or tournamentInfo.tournament.status == 1 or tournamentInfo.tournament.status == 2}">
                                 <div class="card border-0 shadow-sm">
                                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h5 class="mb-0 text-start"><i class="bi bi-sliders"></i> 赛事配置 </h5>
@@ -420,14 +417,16 @@
                                                     data-bs-toggle="collapse"
                                                     data-bs-target="#competitionConfigCollapse"
                                                     aria-expanded="true"
-                                                    aria-controls="competitionConfigCollapse">
+                                                    aria-controls="competitionConfigCollapse"
+                                                    th:if="${isSuperAdmin or isAdmin or isHost}">
                                                 展开/收起
                                             </button>
                                         </div>
                                     </div>
                                     <div id="competitionConfigCollapse"
                                          class="card-body collapse"
-                                         th:classappend="${tournamentInfo.tournament.status == 1 and hasGroupStageMatches} ? '' : ' show'">
+                                         th:classappend="${(tournamentInfo.tournament.status == 1 and hasGroupStageMatches) ? '' : ' show'}"
+                                         th:if="${isSuperAdmin or isAdmin or isHost}">
                                         <form th:action="@{/tournament/competition/config/{id}(id=${tournamentInfo.tournament.id})}"
                                               method="post" class="row g-3">
                                             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
@@ -554,6 +553,74 @@
                                                 <span class="small text-muted ms-2">筹备中或进行中均可保存；进行中且报名为空时，可先配置并手动录入分组名单。</span>
                                             </div>
                                         </form>
+                                    </div>
+                                    <!-- 普通用户：只读文本 -->
+                                    <div class="card-body" th:if="${!(isSuperAdmin or isAdmin or isHost)}">
+                                        <div class="row g-3">
+                                            <div class="col-md-3">
+                                                <strong>参赛人数：</strong>
+                                                <span th:text="${competitionConfig != null ? competitionConfig.participantCount : 8}"></span>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>报名模式：</strong>
+                                                <span th:text="${competitionConfig != null and competitionConfig.entryMode == 1 ? '正赛+资格赛' : '默认模式'}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.entryMode == 1}">
+                                                <strong>正赛资格赛晋级名额：</strong>
+                                                <span th:text="${competitionConfig.knockoutQualifyCount}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.entryMode == 1}">
+                                                <strong>正赛资格赛局数：</strong>
+                                                <span th:text="${competitionConfig.qualifierSets != null ? competitionConfig.qualifierSets : 8}"></span>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <strong>赛事模式：</strong>
+                                                <span th:text="${competitionConfig != null ? (competitionConfig.matchMode == 1 ? '单败淘汰赛' : competitionConfig.matchMode == 2 ? '双败淘汰赛' : '小组赛') : '小组赛'}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutStartRound != null}">
+                                                <strong>淘汰赛首轮：</strong>
+                                                <span th:text="${competitionConfig.knockoutStartRound}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.groupMode != null}">
+                                                <strong>小组赛模式：</strong>
+                                                <span th:text="${competitionConfig.groupMode == 1 ? '单循环（不分主客）' : competitionConfig.groupMode == 2 ? '单循环（主客场）' : '双循环（主客场）'}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.groupSize != null}">
+                                                <strong>每组人数：</strong>
+                                                <span th:text="${competitionConfig.groupSize}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null}">
+                                                <strong>小组赛允许平局：</strong>
+                                                <span th:text="${competitionConfig.groupAllowDraw != null and competitionConfig.groupAllowDraw ? '是' : '否'}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.groupStageSets != null}">
+                                                <strong>小组赛局数：</strong>
+                                                <span th:text="${competitionConfig.groupStageSets}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.groupStageDeadline != null}">
+                                                <strong>小组赛截止时间：</strong>
+                                                <span th:text="${#temporals.format(competitionConfig.groupStageDeadline, 'yyyy-MM-dd HH:mm')}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutStageSets != null}">
+                                                <strong>淘汰赛局数：</strong>
+                                                <span th:text="${competitionConfig.knockoutStageSets}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.finalStageSets != null}">
+                                                <strong>决赛局数：</strong>
+                                                <span th:text="${competitionConfig.finalStageSets}"></span>
+                                            </div>
+                                            <div class="col-md-4" th:if="${competitionConfig != null and competitionConfig.knockoutBracketMode != null}">
+                                                <strong>淘汰赛对阵模式：</strong>
+                                                <span th:text="${competitionConfig.knockoutBracketMode == 0 ? '按小组赛总排名经典种子交叉' : competitionConfig.knockoutBracketMode == 1 ? '上下半区：相邻两组名次交叉' : '上下半区：世界杯式'}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null}">
+                                                <strong>自动生成淘汰赛首轮：</strong>
+                                                <span th:text="${competitionConfig.knockoutAutoFromGroup != null and competitionConfig.knockoutAutoFromGroup ? '是' : '否'}"></span>
+                                            </div>
+                                            <div class="col-12" th:if="${competitionConfig == null}">
+                                                <span class="text-muted">暂无配置信息</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
