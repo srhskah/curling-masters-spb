@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('排行榜')}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <link rel="shortcut icon"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+</head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0"><i class="bi bi-trophy"></i> 各项数据排行榜</h2>
+        <div class="d-flex align-items-center gap-3">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="seasonToggle">
+                <label class="form-check-label" id="seasonLabel" for="seasonToggle">历史数据</label>
+            </div>
+            <select class="form-select" id="seasonSelect" style="width: 200px; display: none;">
+                <option value="">全部赛季</option>
+                <option th:each="season : ${seasons}" th:value="${season.id}" th:text="${season.year} + '年' + (${season.half} == 1 ? '上半年' : '下半年')"></option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 当前用户数据展示区域 -->
+    <div id="currentUserSection" class="alert alert-info d-none" style="display: none;">
+        <h6 class="alert-heading"><i class="bi bi-person"></i> 你的排名</h6>
+        <div class="row">
+            <div class="col-6 col-md-3">
+                <strong>胜率:</strong> <span id="currentUserWinRate">-</span>
+            </div>
+            <div class="col-6 col-md-3">
+                <strong>单局最高分:</strong> <span id="currentUserHighestSetScore">-</span>
+            </div>
+            <div class="col-6 col-md-3">
+                <strong>偷分次数:</strong> <span id="currentUserStealCount">-</span>
+            </div>
+            <div class="col-6 col-md-3">
+                <strong>偷分最高分:</strong> <span id="currentUserHighestStealScore">-</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- 胜率排行榜 -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100" id="winRateCard">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> 胜率最高</h5>
+                    <div class="d-flex gap-2">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" title="工具菜单">
+                                <!-- <i class="bi bi-three-dots-vertical"></i> -->
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" onclick="copyToClipboard('winRateTable')"><i class="bi bi-clipboard me-2"></i>复制为文本</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="exportToPDF('winRateCard', '胜率排行榜')"><i class="bi bi-file-earmark-pdf me-2"></i>导出PDF</a></li>
+                            </ul>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="winRateLimitToggle" checked>
+                            <label class="form-check-label mb-0" for="winRateLimitToggle">前10</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">排名</th>
+                                    <th>用户</th>
+                                    <th>胜率</th>
+                                </tr>
+                            </thead>
+                            <tbody id="winRateTable">
+                                <tr><td colspan="3" class="text-center text-muted">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 单局最高分排行榜 -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100" id="highestSetScoreCard">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-graph-up-arrow"></i> 单局最高分</h5>
+                    <div class="d-flex gap-2">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" title="工具菜单">
+                                <!-- <i class="bi bi-three-dots-vertical"></i> -->
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" onclick="copyToClipboard('highestSetScoreTable')"><i class="bi bi-clipboard me-2"></i>复制为文本</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="exportToPDF('highestSetScoreCard', '单局最高分排行榜')"><i class="bi bi-file-earmark-pdf me-2"></i>导出PDF</a></li>
+                            </ul>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="highestSetScoreLimitToggle" checked>
+                            <label class="form-check-label mb-0" for="highestSetScoreLimitToggle">前10</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">排名</th>
+                                    <th>用户</th>
+                                    <th>分数</th>
+                                </tr>
+                            </thead>
+                            <tbody id="highestSetScoreTable">
+                                <tr><td colspan="3" class="text-center text-muted">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 偷分次数排行榜 -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100" id="stealCountCard">
+                <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-lightning"></i> 偷分次数最多</h5>
+                    <div class="d-flex gap-2">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" title="工具菜单">
+                                <!-- <i class="bi bi-three-dots-vertical"></i> -->
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" onclick="copyToClipboard('stealCountTable')"><i class="bi bi-clipboard me-2"></i>复制为文本</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="exportToPDF('stealCountCard', '偷分次数排行榜')"><i class="bi bi-file-earmark-pdf me-2"></i>导出PDF</a></li>
+                            </ul>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="stealCountLimitToggle" checked>
+                            <label class="form-check-label mb-0" for="stealCountLimitToggle">前10</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">排名</th>
+                                    <th>用户</th>
+                                    <th>次数</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stealCountTable">
+                                <tr><td colspan="3" class="text-center text-muted">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 偷分最高分排行榜 -->
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border-0 shadow-sm h-100" id="highestStealScoreCard">
+                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-fire"></i> 偷分最高分</h5>
+                    <div class="d-flex gap-2">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" title="工具菜单">
+                                <!-- <i class="bi bi-three-dots-vertical"></i> -->
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" onclick="copyToClipboard('highestStealScoreTable')"><i class="bi bi-clipboard me-2"></i>复制为文本</a></li>
+                                <li><a class="dropdown-item" href="#" onclick="exportToPDF('highestStealScoreCard', '偷分最高分排行榜')"><i class="bi bi-file-earmark-pdf me-2"></i>导出PDF</a></li>
+                            </ul>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="highestStealScoreLimitToggle" checked>
+                            <label class="form-check-label mb-0" for="highestStealScoreLimitToggle">前10</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 50px;">排名</th>
+                                    <th>用户</th>
+                                    <th>分数</th>
+                                </tr>
+                            </thead>
+                            <tbody id="highestStealScoreTable">
+                                <tr><td colspan="3" class="text-center text-muted">加载中...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const seasonToggle = document.getElementById('seasonToggle');
+        const seasonLabel = document.getElementById('seasonLabel');
+        const seasonSelect = document.getElementById('seasonSelect');
+        
+        let currentSeasonId = null;
+        let cachedData = null; // 缓存全量数据
+
+        // 各榜单的limit切换开关
+        const limitToggles = {
+            winRate: document.getElementById('winRateLimitToggle'),
+            highestSetScore: document.getElementById('highestSetScoreLimitToggle'),
+            stealCount: document.getElementById('stealCountLimitToggle'),
+            highestStealScore: document.getElementById('highestStealScoreLimitToggle')
+        };
+
+        function loadLeaderboardData(seasonId) {
+            console.log('加载排行榜数据，seasonId:', seasonId);
+            
+            // 构建URL参数
+            let url = '/leaderboard/api?limit=10000';
+            if (seasonId !== null && seasonId !== '') {
+                url += '&seasonId=' + seasonId;
+            }
+            
+            // 每次都获取全量数据（limit=10000），然后在客户端根据开关显示
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('排行榜数据:', data);
+                    cachedData = data; // 缓存数据
+                    
+                    // 根据各榜单的limit设置来渲染
+                    renderTable('winRateTable', data.winRate, 'displayValue', limitToggles.winRate.checked ? 10 : null);
+                    renderTable('highestSetScoreTable', data.highestSetScore, 'displayValue', limitToggles.highestSetScore.checked ? 10 : null);
+                    renderTable('stealCountTable', data.stealCount, 'displayValue', limitToggles.stealCount.checked ? 10 : null);
+                    renderTable('highestStealScoreTable', data.highestStealScore, 'displayValue', limitToggles.highestStealScore.checked ? 10 : null);
+                    
+                    // 显示当前用户排名
+                    displayCurrentUserRanking(data.currentUserRanking);
+                })
+                .catch(error => {
+                    console.error('加载排行榜数据失败:', error);
+                });
+        }
+
+        function renderTable(tableId, data, valueField, limit) {
+            const tbody = document.getElementById(tableId);
+            tbody.innerHTML = '';
+            
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">暂无数据</td></tr>';
+                return;
+            }
+
+            // 根据 limit 切片数据
+            const displayData = limit ? data.slice(0, limit) : data;
+
+            displayData.forEach(entry => {
+                const row = document.createElement('tr');
+                const rankClass = entry.rank === 1 ? 'text-warning' : entry.rank === 2 ? 'text-secondary' : entry.rank === 3 ? 'text-danger' : '';
+                row.innerHTML = `
+                    <td class="${rankClass}"><strong>${entry.rank}</strong></td>
+                    <td>${entry.username}</td>
+                    <td>${entry[valueField]}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function displayCurrentUserRanking(currentUserRanking) {
+            const section = document.getElementById('currentUserSection');
+            if (!currentUserRanking) {
+                section.style.display = 'none';
+                return;
+            }
+            
+            section.style.display = 'block';
+            
+            const formatRanking = (entry) => {
+                if (!entry) return '未上榜';
+                return `第${entry.rank}名 (${entry.displayValue})`;
+            };
+            
+            document.getElementById('currentUserWinRate').textContent = formatRanking(currentUserRanking.winRate);
+            document.getElementById('currentUserHighestSetScore').textContent = formatRanking(currentUserRanking.highestSetScore);
+            document.getElementById('currentUserStealCount').textContent = formatRanking(currentUserRanking.stealCount);
+            document.getElementById('currentUserHighestStealScore').textContent = formatRanking(currentUserRanking.highestStealScore);
+        }
+
+        seasonToggle.addEventListener('change', function() {
+            if (this.checked) {
+                seasonLabel.textContent = '赛季';
+                seasonSelect.style.display = 'block';
+                if (seasonSelect.value) {
+                    currentSeasonId = parseInt(seasonSelect.value);
+                    loadLeaderboardData(currentSeasonId);
+                }
+            } else {
+                seasonLabel.textContent = '历史数据';
+                seasonSelect.style.display = 'none';
+                currentSeasonId = null;
+                loadLeaderboardData(currentSeasonId);
+            }
+        });
+
+        seasonSelect.addEventListener('change', function() {
+            if (seasonToggle.checked) {
+                currentSeasonId = this.value ? parseInt(this.value) : null;
+                loadLeaderboardData(currentSeasonId);
+            }
+        });
+
+        // 绑定各榜单的limit切换事件
+        Object.keys(limitToggles).forEach(key => {
+            limitToggles[key].addEventListener('change', function() {
+                const label = this.nextElementSibling;
+                label.textContent = this.checked ? '前10' : '全量';
+                // 使用缓存的数据重新渲染
+                if (cachedData) {
+                    const tableIdMap = {
+                        winRate: 'winRateTable',
+                        highestSetScore: 'highestSetScoreTable',
+                        stealCount: 'stealCountTable',
+                        highestStealScore: 'highestStealScoreTable'
+                    };
+                    const dataKeyMap = {
+                        winRate: 'winRate',
+                        highestSetScore: 'highestSetScore',
+                        stealCount: 'stealCount',
+                        highestStealScore: 'highestStealScore'
+                    };
+                    renderTable(tableIdMap[key], cachedData[dataKeyMap[key]], 'displayValue', this.checked ? 10 : null);
+                }
+            });
+        });
+
+        // 初始加载
+        loadLeaderboardData(null);
+    });
+
+    // 复制为文本
+    function copyToClipboard(tableId) {
+        const table = document.getElementById(tableId);
+        let text = '';
+        
+        // 复制表头
+        const headers = table.querySelectorAll('thead th');
+        headers.forEach(th => text += th.textContent + '\t');
+        text += '\n';
+        
+        // 复制数据行
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            cells.forEach(cell => text += cell.textContent + '\t');
+            text += '\n';
+        });
+        
+        navigator.clipboard.writeText(text).then(() => {
+            alert('已复制到剪贴板');
+        }).catch(err => {
+            console.error('复制失败:', err);
+        });
+    }
+
+    // 导出为PDF（带logo和样式）
+    function exportToPDF(cardId, filename) {
+        const element = document.getElementById(cardId);
+        
+        // 创建临时包装器用于PDF导出
+        const wrapper = document.createElement('div');
+        wrapper.style.padding = '20px';
+        wrapper.style.fontFamily = '"WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif';
+        
+        // 添加logo
+        const logoImg = document.createElement('img');
+        logoImg.src = '/images/Logo Trsp Stripe.png';
+        logoImg.style.maxWidth = '200px';
+        logoImg.style.height = 'auto';
+        logoImg.style.marginBottom = '15px';
+        wrapper.appendChild(logoImg);
+        
+        // 添加标题
+        const title = document.createElement('h2');
+        title.textContent = filename;
+        title.style.margin = '0 0 15px 0';
+        title.style.fontSize = '18px';
+        title.style.fontWeight = 'bold';
+        wrapper.appendChild(title);
+        
+        // 添加导出时间
+        const timeLabel = document.createElement('div');
+        timeLabel.textContent = '导出时间：' + new Date().toLocaleString('zh-CN');
+        timeLabel.style.color = '#666';
+        timeLabel.style.marginBottom = '15px';
+        timeLabel.style.fontSize = '12px';
+        wrapper.appendChild(timeLabel);
+        
+        // 克隆表格内容
+        const clonedElement = element.cloneNode(true);
+        
+        // 移除下拉菜单等不需要的元素
+        const dropdowns = clonedElement.querySelectorAll('.dropdown');
+        dropdowns.forEach(dropdown => dropdown.remove());
+        
+        // 样式化表格
+        const table = clonedElement.querySelector('table');
+        if (table) {
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            table.style.marginBottom = '0';
+            
+            const cells = table.querySelectorAll('th, td');
+            cells.forEach(cell => {
+                cell.style.border = '1px solid #ddd';
+                cell.style.padding = '8px';
+                cell.style.textAlign = 'center';
+            });
+            
+            const headers = table.querySelectorAll('th');
+            headers.forEach(th => {
+                th.style.backgroundColor = '#f3f3f3';
+                th.style.fontWeight = 'bold';
+            });
+        }
+        
+        wrapper.appendChild(clonedElement);
+        
+        // 临时添加到DOM
+        document.body.appendChild(wrapper);
+        
+        const opt = {
+            margin: 10,
+            filename: filename + '.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        
+        html2pdf().set(opt).from(wrapper).save().then(() => {
+            // 移除临时元素
+            document.body.removeChild(wrapper);
+        }).catch(err => {
+            console.error('PDF导出失败:', err);
+            document.body.removeChild(wrapper);
+        });
+    }
+</script>
+</body>
+</html>
