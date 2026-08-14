@@ -241,6 +241,10 @@ body.bg-external {
     background: linear-gradient(90deg, #ddd6 30%, rgba(13,202,240,0.6666) 90%) !important;
 }
 
+.card-header.bg-danger{
+    background: linear-gradient(90deg, #ddd6 30%, #dc3545 90%) !important;
+}
+
 .card-header.bg-dark{
     background: linear-gradient(90deg, #ddd6 30%, rgba(33,37,41,0.6666) 90%) !important;
 }
