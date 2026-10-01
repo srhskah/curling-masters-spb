@@ -10,6 +10,7 @@ import com.example.entity.TournamentLevel;
 import com.example.entity.User;
 import com.example.mapper.NotificationMessageMapper;
 import com.example.mapper.NotificationRecipientMapper;
+import com.example.service.TournamentUrlService;
 import com.example.service.INotificationService;
 import com.example.service.ITournamentLevelService;
 import com.example.service.SeasonService;
@@ -47,6 +48,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
     private final SeriesService seriesService;
     private final SeasonService seasonService;
     private final ITournamentLevelService tournamentLevelService;
+    private final TournamentUrlService tournamentUrlService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public NotificationMessageServiceImpl(NotificationMessageMapper messageMapper,
@@ -56,6 +58,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
                                           SeriesService seriesService,
                                           SeasonService seasonService,
                                           ITournamentLevelService tournamentLevelService,
+                                          TournamentUrlService tournamentUrlService,
                                           org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.messageMapper = messageMapper;
         this.recipientMapper = recipientMapper;
@@ -64,6 +67,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
         this.seriesService = seriesService;
         this.seasonService = seasonService;
         this.tournamentLevelService = tournamentLevelService;
+        this.tournamentUrlService = tournamentUrlService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -471,7 +475,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
                 edition = byTid.get(t.getId());
             }
             m.setTournamentEditionLabel(seasonLabel + "-" + level + "-" + (edition == null ? "?" : edition));
-            m.setTournamentDetailUrl("/tournament/detail/" + t.getId());
+            m.setTournamentDetailUrl(tournamentUrlService.detailUrl(t));
         }
     }
 
