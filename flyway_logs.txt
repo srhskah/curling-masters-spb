@@ -1,0 +1,743 @@
+app-1  | 2026-08-25 22:45:30.273{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 9.16.3 by Redgate
+app-1  | 2026-08-25 22:45:30.275{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - See release notes here: https://rd.gt/416ObMi
+app-1  | 2026-08-25 22:45:30.276{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - 
+app-1  | 2026-08-25 22:45:30.304{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+app-1  | 2026-08-25 22:45:30.603{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@51ec2df1
+app-1  | 2026-08-25 22:45:30.607{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+app-1  | 2026-08-25 22:45:30.687{Asia/Shanghai} [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://mysql:3306/curling_masters (MySQL 8.0)
+app-1  | 2026-08-25 22:45:30.865{Asia/Shanghai} [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 2026-08-25 22:45:30.866{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+app-1  | 2026-08-25 22:45:30.880{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+app-1  | 2026-08-25 22:45:30.885{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+app-1  | 2026-08-25 22:45:30.915{Asia/Shanghai} [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+app-1  | 
+app-1  | Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+app-1  | 2026-08-25 22:45:30.992{Asia/Shanghai} [main] ERROR o.s.boot.SpringApplication - Application run failed
+app-1  | org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:973)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+app-1  | 	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+app-1  | 	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:738)
+app-1  | 	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:440)
+--
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 26 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1511)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1405)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 40 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1768)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:596)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:313)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1496)
+app-1  | 	... 51 common frames omitted
+app-1  | Caused by: org.flywaydb.core.api.exception.FlywayValidateException: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.flywaydb.core.Flyway.lambda$migrate$0(Flyway.java:146)
+app-1  | 	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:196)
+app-1  | 	at org.flywaydb.core.Flyway.migrate(Flyway.java:140)
+app-1  | 	at org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:66)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1815)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1764)
+app-1  | 	... 63 common frames omitted
+app-1  | 22:45:33.298 [main] INFO com.example.util.TimezoneUtil -- === 时区配置信息 ===
+app-1  | 22:45:33.311 [main] INFO com.example.util.TimezoneUtil -- 系统默认时区: Asia/Shanghai
+app-1  | 22:45:33.358 [main] INFO com.example.util.TimezoneUtil -- 时区显示名称: China Standard Time
+app-1  | 22:45:33.359 [main] INFO com.example.util.TimezoneUtil -- 时区偏移量: 8 小时
+app-1  | 22:45:33.359 [main] INFO com.example.util.TimezoneUtil -- ZoneId系统默认: Asia/Shanghai
+app-1  | 22:45:33.367 [main] INFO com.example.util.TimezoneUtil -- 当前Date对象时间: Tue Aug 25 22:45:33 CST 2026
+app-1  | 22:45:33.368 [main] INFO com.example.util.TimezoneUtil -- 当前LocalDateTime: 2026-08-25T22:45:33.365522393
+app-1  | 22:45:33.368 [main] INFO com.example.util.TimezoneUtil -- 当前ZonedDateTime: 2026-08-25T22:45:33.367804388+08:00[Asia/Shanghai]
+app-1  | 22:45:33.369 [main] INFO com.example.util.TimezoneUtil -- 上海时区当前时间: 2026-08-25T22:45:33.369131802+08:00[Asia/Shanghai]
+app-1  | 22:45:33.369 [main] INFO com.example.util.TimezoneUtil -- UTC时区当前时间: 2026-08-25T14:45:33.369142503Z[UTC]
+app-1  | 22:45:33.424 [main] INFO com.example.util.TimezoneUtil -- Calendar时区: Asia/Shanghai
+app-1  | 22:45:33.425 [main] INFO com.example.util.TimezoneUtil -- Calendar当前时间: Tue Aug 25 22:45:33 CST 2026
+app-1  | 22:45:33.425 [main] INFO com.example.util.TimezoneUtil -- 系统属性user.timezone: Asia/Shanghai
+app-1  | 22:45:33.425 [main] INFO com.example.util.TimezoneUtil -- 系统属性file.encoding: UTF-8
+app-1  | 22:45:33.425 [main] INFO com.example.util.TimezoneUtil -- === 时区配置验证完成 ===
+app-1  | 
+app-1  |   .   ____          _            __ _ _
+--
+app-1  | 2026-08-25 22:45:39.780{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 9.16.3 by Redgate
+app-1  | 2026-08-25 22:45:39.781{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - See release notes here: https://rd.gt/416ObMi
+app-1  | 2026-08-25 22:45:39.781{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - 
+app-1  | 2026-08-25 22:45:39.802{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+app-1  | 2026-08-25 22:45:40.059{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@51ec2df1
+app-1  | 2026-08-25 22:45:40.063{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+app-1  | 2026-08-25 22:45:40.127{Asia/Shanghai} [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://mysql:3306/curling_masters (MySQL 8.0)
+app-1  | 2026-08-25 22:45:40.301{Asia/Shanghai} [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 2026-08-25 22:45:40.302{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+app-1  | 2026-08-25 22:45:40.318{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+app-1  | 2026-08-25 22:45:40.323{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+app-1  | 2026-08-25 22:45:40.344{Asia/Shanghai} [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+app-1  | 
+app-1  | Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+app-1  | 2026-08-25 22:45:40.372{Asia/Shanghai} [main] ERROR o.s.boot.SpringApplication - Application run failed
+app-1  | org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:973)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+app-1  | 	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+app-1  | 	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:738)
+app-1  | 	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:440)
+--
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 26 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1511)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1405)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 40 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1768)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:596)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:313)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1496)
+app-1  | 	... 51 common frames omitted
+app-1  | Caused by: org.flywaydb.core.api.exception.FlywayValidateException: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.flywaydb.core.Flyway.lambda$migrate$0(Flyway.java:146)
+app-1  | 	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:196)
+app-1  | 	at org.flywaydb.core.Flyway.migrate(Flyway.java:140)
+app-1  | 	at org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:66)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1815)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1764)
+app-1  | 	... 63 common frames omitted
+app-1  | 22:45:42.907 [main] INFO com.example.util.TimezoneUtil -- === 时区配置信息 ===
+app-1  | 22:45:42.913 [main] INFO com.example.util.TimezoneUtil -- 系统默认时区: Asia/Shanghai
+app-1  | 22:45:42.953 [main] INFO com.example.util.TimezoneUtil -- 时区显示名称: China Standard Time
+app-1  | 22:45:42.954 [main] INFO com.example.util.TimezoneUtil -- 时区偏移量: 8 小时
+app-1  | 22:45:42.954 [main] INFO com.example.util.TimezoneUtil -- ZoneId系统默认: Asia/Shanghai
+app-1  | 22:45:42.956 [main] INFO com.example.util.TimezoneUtil -- 当前Date对象时间: Tue Aug 25 22:45:42 CST 2026
+app-1  | 22:45:42.957 [main] INFO com.example.util.TimezoneUtil -- 当前LocalDateTime: 2026-08-25T22:45:42.956231714
+app-1  | 22:45:42.957 [main] INFO com.example.util.TimezoneUtil -- 当前ZonedDateTime: 2026-08-25T22:45:42.956790161+08:00[Asia/Shanghai]
+app-1  | 22:45:42.957 [main] INFO com.example.util.TimezoneUtil -- 上海时区当前时间: 2026-08-25T22:45:42.957721942+08:00[Asia/Shanghai]
+app-1  | 22:45:42.957 [main] INFO com.example.util.TimezoneUtil -- UTC时区当前时间: 2026-08-25T14:45:42.957731742Z[UTC]
+app-1  | 22:45:42.999 [main] INFO com.example.util.TimezoneUtil -- Calendar时区: Asia/Shanghai
+app-1  | 22:45:43.000 [main] INFO com.example.util.TimezoneUtil -- Calendar当前时间: Tue Aug 25 22:45:42 CST 2026
+app-1  | 22:45:43.000 [main] INFO com.example.util.TimezoneUtil -- 系统属性user.timezone: Asia/Shanghai
+app-1  | 22:45:43.000 [main] INFO com.example.util.TimezoneUtil -- 系统属性file.encoding: UTF-8
+app-1  | 22:45:43.000 [main] INFO com.example.util.TimezoneUtil -- === 时区配置验证完成 ===
+app-1  | 
+app-1  |   .   ____          _            __ _ _
+--
+app-1  | 2026-08-25 22:45:50.480{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 9.16.3 by Redgate
+app-1  | 2026-08-25 22:45:50.480{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - See release notes here: https://rd.gt/416ObMi
+app-1  | 2026-08-25 22:45:50.481{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - 
+app-1  | 2026-08-25 22:45:50.504{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+app-1  | 2026-08-25 22:45:50.772{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@a64e035
+app-1  | 2026-08-25 22:45:50.777{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+app-1  | 2026-08-25 22:45:50.954{Asia/Shanghai} [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://mysql:3306/curling_masters (MySQL 8.0)
+app-1  | 2026-08-25 22:45:51.276{Asia/Shanghai} [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 2026-08-25 22:45:51.276{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+app-1  | 2026-08-25 22:45:51.304{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+app-1  | 2026-08-25 22:45:51.308{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+app-1  | 2026-08-25 22:45:51.340{Asia/Shanghai} [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+app-1  | 
+app-1  | Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+app-1  | 2026-08-25 22:45:51.375{Asia/Shanghai} [main] ERROR o.s.boot.SpringApplication - Application run failed
+app-1  | org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:973)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+app-1  | 	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+app-1  | 	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:738)
+app-1  | 	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:440)
+--
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 26 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1511)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1405)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 40 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1768)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:596)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:313)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1496)
+app-1  | 	... 51 common frames omitted
+app-1  | Caused by: org.flywaydb.core.api.exception.FlywayValidateException: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.flywaydb.core.Flyway.lambda$migrate$0(Flyway.java:146)
+app-1  | 	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:196)
+app-1  | 	at org.flywaydb.core.Flyway.migrate(Flyway.java:140)
+app-1  | 	at org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:66)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1815)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1764)
+app-1  | 	... 63 common frames omitted
+app-1  | 22:45:53.334 [main] INFO com.example.util.TimezoneUtil -- === 时区配置信息 ===
+app-1  | 22:45:53.339 [main] INFO com.example.util.TimezoneUtil -- 系统默认时区: Asia/Shanghai
+app-1  | 22:45:53.407 [main] INFO com.example.util.TimezoneUtil -- 时区显示名称: China Standard Time
+app-1  | 22:45:53.408 [main] INFO com.example.util.TimezoneUtil -- 时区偏移量: 8 小时
+app-1  | 22:45:53.408 [main] INFO com.example.util.TimezoneUtil -- ZoneId系统默认: Asia/Shanghai
+app-1  | 22:45:53.410 [main] INFO com.example.util.TimezoneUtil -- 当前Date对象时间: Tue Aug 25 22:45:53 CST 2026
+app-1  | 22:45:53.410 [main] INFO com.example.util.TimezoneUtil -- 当前LocalDateTime: 2026-08-25T22:45:53.409583004
+app-1  | 22:45:53.411 [main] INFO com.example.util.TimezoneUtil -- 当前ZonedDateTime: 2026-08-25T22:45:53.409999139+08:00[Asia/Shanghai]
+app-1  | 22:45:53.411 [main] INFO com.example.util.TimezoneUtil -- 上海时区当前时间: 2026-08-25T22:45:53.411325652+08:00[Asia/Shanghai]
+app-1  | 22:45:53.411 [main] INFO com.example.util.TimezoneUtil -- UTC时区当前时间: 2026-08-25T14:45:53.411336453Z[UTC]
+app-1  | 22:45:53.495 [main] INFO com.example.util.TimezoneUtil -- Calendar时区: Asia/Shanghai
+app-1  | 22:45:53.495 [main] INFO com.example.util.TimezoneUtil -- Calendar当前时间: Tue Aug 25 22:45:53 CST 2026
+app-1  | 22:45:53.496 [main] INFO com.example.util.TimezoneUtil -- 系统属性user.timezone: Asia/Shanghai
+app-1  | 22:45:53.499 [main] INFO com.example.util.TimezoneUtil -- 系统属性file.encoding: UTF-8
+app-1  | 22:45:53.499 [main] INFO com.example.util.TimezoneUtil -- === 时区配置验证完成 ===
+app-1  | 
+app-1  |   .   ____          _            __ _ _
+--
+app-1  | 2026-08-25 22:46:00.022{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 9.16.3 by Redgate
+app-1  | 2026-08-25 22:46:00.022{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - See release notes here: https://rd.gt/416ObMi
+app-1  | 2026-08-25 22:46:00.022{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - 
+app-1  | 2026-08-25 22:46:00.041{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+app-1  | 2026-08-25 22:46:00.284{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@51ec2df1
+app-1  | 2026-08-25 22:46:00.289{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+app-1  | 2026-08-25 22:46:00.345{Asia/Shanghai} [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://mysql:3306/curling_masters (MySQL 8.0)
+app-1  | 2026-08-25 22:46:00.501{Asia/Shanghai} [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 2026-08-25 22:46:00.502{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+app-1  | 2026-08-25 22:46:00.513{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+app-1  | 2026-08-25 22:46:00.517{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+app-1  | 2026-08-25 22:46:00.538{Asia/Shanghai} [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+app-1  | 
+app-1  | Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+app-1  | 2026-08-25 22:46:00.571{Asia/Shanghai} [main] ERROR o.s.boot.SpringApplication - Application run failed
+app-1  | org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:973)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+app-1  | 	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+app-1  | 	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:738)
+app-1  | 	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:440)
+--
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 26 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1511)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1405)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 40 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1768)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:596)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:313)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1496)
+app-1  | 	... 51 common frames omitted
+app-1  | Caused by: org.flywaydb.core.api.exception.FlywayValidateException: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.flywaydb.core.Flyway.lambda$migrate$0(Flyway.java:146)
+app-1  | 	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:196)
+app-1  | 	at org.flywaydb.core.Flyway.migrate(Flyway.java:140)
+app-1  | 	at org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:66)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1815)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1764)
+app-1  | 	... 63 common frames omitted
+app-1  | 22:46:03.198 [main] INFO com.example.util.TimezoneUtil -- === 时区配置信息 ===
+app-1  | 22:46:03.205 [main] INFO com.example.util.TimezoneUtil -- 系统默认时区: Asia/Shanghai
+app-1  | 22:46:03.242 [main] INFO com.example.util.TimezoneUtil -- 时区显示名称: China Standard Time
+app-1  | 22:46:03.243 [main] INFO com.example.util.TimezoneUtil -- 时区偏移量: 8 小时
+app-1  | 22:46:03.243 [main] INFO com.example.util.TimezoneUtil -- ZoneId系统默认: Asia/Shanghai
+app-1  | 22:46:03.245 [main] INFO com.example.util.TimezoneUtil -- 当前Date对象时间: Tue Aug 25 22:46:03 CST 2026
+app-1  | 22:46:03.245 [main] INFO com.example.util.TimezoneUtil -- 当前LocalDateTime: 2026-08-25T22:46:03.244715014
+app-1  | 22:46:03.245 [main] INFO com.example.util.TimezoneUtil -- 当前ZonedDateTime: 2026-08-25T22:46:03.245176354+08:00[Asia/Shanghai]
+app-1  | 22:46:03.246 [main] INFO com.example.util.TimezoneUtil -- 上海时区当前时间: 2026-08-25T22:46:03.246061330+08:00[Asia/Shanghai]
+app-1  | 22:46:03.246 [main] INFO com.example.util.TimezoneUtil -- UTC时区当前时间: 2026-08-25T14:46:03.246073131Z[UTC]
+app-1  | 22:46:03.309 [main] INFO com.example.util.TimezoneUtil -- Calendar时区: Asia/Shanghai
+app-1  | 22:46:03.320 [main] INFO com.example.util.TimezoneUtil -- Calendar当前时间: Tue Aug 25 22:46:03 CST 2026
+app-1  | 22:46:03.320 [main] INFO com.example.util.TimezoneUtil -- 系统属性user.timezone: Asia/Shanghai
+app-1  | 22:46:03.320 [main] INFO com.example.util.TimezoneUtil -- 系统属性file.encoding: UTF-8
+app-1  | 22:46:03.320 [main] INFO com.example.util.TimezoneUtil -- === 时区配置验证完成 ===
+app-1  | 
+app-1  |   .   ____          _            __ _ _
+--
+app-1  | 2026-08-25 22:46:10.616{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 9.16.3 by Redgate
+app-1  | 2026-08-25 22:46:10.617{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - See release notes here: https://rd.gt/416ObMi
+app-1  | 2026-08-25 22:46:10.617{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - 
+app-1  | 2026-08-25 22:46:10.638{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+app-1  | 2026-08-25 22:46:11.173{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@49dbaaf3
+app-1  | 2026-08-25 22:46:11.178{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+app-1  | 2026-08-25 22:46:11.274{Asia/Shanghai} [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://mysql:3306/curling_masters (MySQL 8.0)
+app-1  | 2026-08-25 22:46:11.464{Asia/Shanghai} [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 2026-08-25 22:46:11.464{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+app-1  | 2026-08-25 22:46:11.480{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+app-1  | 2026-08-25 22:46:11.484{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+app-1  | 2026-08-25 22:46:11.509{Asia/Shanghai} [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+app-1  | 
+app-1  | Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+app-1  | 2026-08-25 22:46:11.558{Asia/Shanghai} [main] ERROR o.s.boot.SpringApplication - Application run failed
+app-1  | org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:973)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+app-1  | 	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+app-1  | 	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:738)
+app-1  | 	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:440)
+--
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 26 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1511)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1405)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 40 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1768)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:596)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:313)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1496)
+app-1  | 	... 51 common frames omitted
+app-1  | Caused by: org.flywaydb.core.api.exception.FlywayValidateException: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.flywaydb.core.Flyway.lambda$migrate$0(Flyway.java:146)
+app-1  | 	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:196)
+app-1  | 	at org.flywaydb.core.Flyway.migrate(Flyway.java:140)
+app-1  | 	at org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:66)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1815)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1764)
+app-1  | 	... 63 common frames omitted
+app-1  | 22:46:13.629 [main] INFO com.example.util.TimezoneUtil -- === 时区配置信息 ===
+app-1  | 22:46:13.637 [main] INFO com.example.util.TimezoneUtil -- 系统默认时区: Asia/Shanghai
+app-1  | 22:46:13.672 [main] INFO com.example.util.TimezoneUtil -- 时区显示名称: China Standard Time
+app-1  | 22:46:13.674 [main] INFO com.example.util.TimezoneUtil -- 时区偏移量: 8 小时
+app-1  | 22:46:13.674 [main] INFO com.example.util.TimezoneUtil -- ZoneId系统默认: Asia/Shanghai
+app-1  | 22:46:13.676 [main] INFO com.example.util.TimezoneUtil -- 当前Date对象时间: Tue Aug 25 22:46:13 CST 2026
+app-1  | 22:46:13.676 [main] INFO com.example.util.TimezoneUtil -- 当前LocalDateTime: 2026-08-25T22:46:13.676022651
+app-1  | 22:46:13.677 [main] INFO com.example.util.TimezoneUtil -- 当前ZonedDateTime: 2026-08-25T22:46:13.676376882+08:00[Asia/Shanghai]
+app-1  | 22:46:13.678 [main] INFO com.example.util.TimezoneUtil -- 上海时区当前时间: 2026-08-25T22:46:13.677992323+08:00[Asia/Shanghai]
+app-1  | 22:46:13.678 [main] INFO com.example.util.TimezoneUtil -- UTC时区当前时间: 2026-08-25T14:46:13.678117634Z[UTC]
+app-1  | 22:46:13.720 [main] INFO com.example.util.TimezoneUtil -- Calendar时区: Asia/Shanghai
+app-1  | 22:46:13.721 [main] INFO com.example.util.TimezoneUtil -- Calendar当前时间: Tue Aug 25 22:46:13 CST 2026
+app-1  | 22:46:13.721 [main] INFO com.example.util.TimezoneUtil -- 系统属性user.timezone: Asia/Shanghai
+app-1  | 22:46:13.721 [main] INFO com.example.util.TimezoneUtil -- 系统属性file.encoding: UTF-8
+app-1  | 22:46:13.722 [main] INFO com.example.util.TimezoneUtil -- === 时区配置验证完成 ===
+app-1  | 
+app-1  |   .   ____          _            __ _ _
+--
+app-1  | 2026-08-25 22:46:20.501{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 9.16.3 by Redgate
+app-1  | 2026-08-25 22:46:20.501{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - See release notes here: https://rd.gt/416ObMi
+app-1  | 2026-08-25 22:46:20.502{Asia/Shanghai} [main] INFO  o.f.c.i.license.VersionPrinter - 
+app-1  | 2026-08-25 22:46:20.520{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+app-1  | 2026-08-25 22:46:20.948{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@41c204a0
+app-1  | 2026-08-25 22:46:20.952{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+app-1  | 2026-08-25 22:46:21.003{Asia/Shanghai} [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://mysql:3306/curling_masters (MySQL 8.0)
+app-1  | 2026-08-25 22:46:21.196{Asia/Shanghai} [main] WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 2026-08-25 22:46:21.197{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+app-1  | 2026-08-25 22:46:21.210{Asia/Shanghai} [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+app-1  | 2026-08-25 22:46:21.214{Asia/Shanghai} [main] INFO  o.a.catalina.core.StandardService - Stopping service [Tomcat]
+app-1  | 2026-08-25 22:46:21.232{Asia/Shanghai} [main] INFO  o.s.b.a.l.ConditionEvaluationReportLogger - 
+app-1  | 
+app-1  | Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+app-1  | 2026-08-25 22:46:21.261{Asia/Shanghai} [main] ERROR o.s.boot.SpringApplication - Application run failed
+app-1  | org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentRegistrationExportAssembler': Unsatisfied dependency expressed through field 'tournamentService': Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.preInstantiateSingletons(DefaultListableBeanFactory.java:973)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:952)
+app-1  | 	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+app-1  | 	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146)
+app-1  | 	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:738)
+app-1  | 	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:440)
+--
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentServiceImpl': Unsatisfied dependency expressed through field 'baseMapper': Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:776)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.inject(AutowiredAnnotationBeanPostProcessor.java:756)
+app-1  | 	at org.springframework.beans.factory.annotation.InjectionMetadata.inject(InjectionMetadata.java:145)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor.postProcessProperties(AutowiredAnnotationBeanPostProcessor.java:497)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1414)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 26 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'tournamentMapper' defined in URL [jar:file:/app/app.war!/WEB-INF/classes!/com/example/mapper/TournamentMapper.class]: Unsatisfied dependency expressed through bean property 'sqlSessionTemplate': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1511)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1405)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:595)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.annotation.AutowiredAnnotationBeanPostProcessor$AutowiredFieldElement.resolveFieldValue(AutowiredAnnotationBeanPostProcessor.java:773)
+app-1  | 	... 40 common frames omitted
+app-1  | Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1768)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:596)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:518)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:326)
+app-1  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:324)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:313)
+app-1  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:200)
+app-1  | 	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:254)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1417)
+app-1  | 	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1337)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.autowireByType(AbstractAutowireCapableBeanFactory.java:1496)
+app-1  | 	... 51 common frames omitted
+app-1  | Caused by: org.flywaydb.core.api.exception.FlywayValidateException: Validate failed: Migrations have failed validation
+app-1  | Detected failed migration to version 20260825.1 (add competition rule fields).
+app-1  | Please remove any half-completed changes then run repair to fix the schema history.
+app-1  | Need more flexibility with validation rules? Learn more: https://rd.gt/3AbJUZE
+app-1  | 	at org.flywaydb.core.Flyway.lambda$migrate$0(Flyway.java:146)
+app-1  | 	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:196)
+app-1  | 	at org.flywaydb.core.Flyway.migrate(Flyway.java:140)
+app-1  | 	at org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:66)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1815)
+app-1  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1764)
+app-1  | 	... 63 common frames omitted
+app-1  | 22:46:23.056 [main] INFO com.example.util.TimezoneUtil -- === 时区配置信息 ===
+app-1  | 22:46:23.061 [main] INFO com.example.util.TimezoneUtil -- 系统默认时区: Asia/Shanghai
+app-1  | 22:46:23.085 [main] INFO com.example.util.TimezoneUtil -- 时区显示名称: China Standard Time
+app-1  | 22:46:23.086 [main] INFO com.example.util.TimezoneUtil -- 时区偏移量: 8 小时
+app-1  | 22:46:23.086 [main] INFO com.example.util.TimezoneUtil -- ZoneId系统默认: Asia/Shanghai
+app-1  | 22:46:23.088 [main] INFO com.example.util.TimezoneUtil -- 当前Date对象时间: Tue Aug 25 22:46:23 CST 2026
+app-1  | 22:46:23.088 [main] INFO com.example.util.TimezoneUtil -- 当前LocalDateTime: 2026-08-25T22:46:23.087720274
+app-1  | 22:46:23.089 [main] INFO com.example.util.TimezoneUtil -- 当前ZonedDateTime: 2026-08-25T22:46:23.088136111+08:00[Asia/Shanghai]
+app-1  | 22:46:23.090 [main] INFO com.example.util.TimezoneUtil -- 上海时区当前时间: 2026-08-25T22:46:23.089946872+08:00[Asia/Shanghai]
+app-1  | 22:46:23.090 [main] INFO com.example.util.TimezoneUtil -- UTC时区当前时间: 2026-08-25T14:46:23.090264700Z[UTC]
+app-1  | 22:46:23.137 [main] INFO com.example.util.TimezoneUtil -- Calendar时区: Asia/Shanghai
+app-1  | 22:46:23.138 [main] INFO com.example.util.TimezoneUtil -- Calendar当前时间: Tue Aug 25 22:46:23 CST 2026
+app-1  | 22:46:23.138 [main] INFO com.example.util.TimezoneUtil -- 系统属性user.timezone: Asia/Shanghai
+app-1  | 22:46:23.138 [main] INFO com.example.util.TimezoneUtil -- 系统属性file.encoding: UTF-8
+app-1  | 22:46:23.138 [main] INFO com.example.util.TimezoneUtil -- === 时区配置验证完成 ===
+app-1  | 
+app-1  |   .   ____          _            __ _ _

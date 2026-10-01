@@ -122,9 +122,9 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
         validateConfig(db);
         if (Objects.equals(db.getMatchMode(), 3) && db.getParticipantCount() != null && db.getGroupSize() != null && db.getGroupSize() > 0) {
-            int groupCount = db.getParticipantCount() / db.getGroupSize();
-            if (groupCount > 0) {
-                ensureGroups(tid, groupCount);
+            GroupSizeLayout.Layout layout = GroupSizeLayout.resolve(db.getParticipantCount(), db.getGroupSize());
+            if (layout != null && layout.groupCount() > 0) {
+                ensureGroups(tid, layout.groupCount());
             }
         }
         db.setUpdatedAt(now);
@@ -226,7 +226,13 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
         if (Objects.equals(c.getMatchMode(), 3)) {
             if (c.getGroupMode() == null || c.getGroupMode() < 1 || c.getGroupMode() > 3) throw new IllegalArgumentException("请选择小组赛模式");
-            if (c.getGroupSize() == null || c.getGroupSize() < 2 || c.getParticipantCount() % c.getGroupSize() != 0) throw new IllegalArgumentException("每组人数必须是参赛人数的因数");
+            if (c.getGroupSize() == null || c.getGroupSize() < 2) {
+                throw new IllegalArgumentException("每组人数至少为 2");
+            }
+            if (GroupSizeLayout.resolve(c.getParticipantCount(), c.getGroupSize()) == null) {
+                throw new IllegalArgumentException(
+                        "每组人数无效：须为参赛人数的因数；质数 m(>2) 时可为 m±n 布局，且每组 ∈ [3,(m+1)/2]、末组与其他组相差 ≤1");
+            }
             if (Objects.equals(c.getGroupMode(), 2) && c.getGroupSize() % 2 == 0) throw new IllegalArgumentException("单循环主客场要求每组人数为奇数");
             if (c.getGroupAllowDraw() == null) c.setGroupAllowDraw(true);
         }
@@ -234,10 +240,12 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
 
     @Override
     public List<Integer> calcGroupSizeOptions(Integer participantCount) {
-        if (participantCount == null || participantCount < 2) return List.of();
-        List<Integer> options = new ArrayList<>();
-        for (int i = 2; i <= participantCount; i++) if (participantCount % i == 0) options.add(i);
-        return options;
+        return GroupSizeLayout.calcGroupSizeOptions(participantCount);
+    }
+
+    @Override
+    public GroupSizeLayout.Layout resolveGroupLayout(Integer participantCount, Integer groupSize) {
+        return GroupSizeLayout.resolve(participantCount, groupSize);
     }
 
     @Override
@@ -248,22 +256,29 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (!Objects.equals(cfg.getMatchMode(), 3)) throw new IllegalStateException("仅小组赛可自动分组");
         int m = cfg.getParticipantCount();
         int groupSize = cfg.getGroupSize();
-        int groupCount = m / groupSize;
+        GroupSizeLayout.Layout layout = GroupSizeLayout.resolve(m, groupSize);
+        if (layout == null) {
+            throw new IllegalStateException("当前参赛人数与每组人数无法组成合法分组");
+        }
+        int groupCount = layout.groupCount();
         List<TournamentRegistrationRowDto> rows = registrationService.listRows(tournamentId, LocalDateTime.now());
         List<Long> userIds = rows.stream().filter(TournamentRegistrationRowDto::isEffectiveApproved).map(TournamentRegistrationRowDto::getUserId).filter(Objects::nonNull).distinct().limit(m).toList();
         if (userIds.isEmpty()) throw new IllegalStateException("报名接龙暂无可用名单，请手动录入");
         List<TournamentGroup> groups = ensureGroups(tournamentId, groupCount);
         groupMemberMapper.delete(Wrappers.<TournamentGroupMember>lambdaQuery().eq(TournamentGroupMember::getTournamentId, tournamentId));
         int idx = 0;
-        for (Long uid : userIds) {
-            TournamentGroupMember gm = new TournamentGroupMember();
-            gm.setTournamentId(tournamentId);
-            gm.setGroupId(groups.get(idx % groupCount).getId());
-            gm.setUserId(uid);
-            gm.setSeedNo(idx + 1);
-            gm.setCreatedAt(LocalDateTime.now());
-            groupMemberMapper.insert(gm);
-            idx++;
+        for (int gi = 0; gi < groupCount; gi++) {
+            int cap = layout.capacityAt(gi);
+            for (int s = 0; s < cap && idx < userIds.size(); s++) {
+                TournamentGroupMember gm = new TournamentGroupMember();
+                gm.setTournamentId(tournamentId);
+                gm.setGroupId(groups.get(gi).getId());
+                gm.setUserId(userIds.get(idx));
+                gm.setSeedNo(idx + 1);
+                gm.setCreatedAt(LocalDateTime.now());
+                groupMemberMapper.insert(gm);
+                idx++;
+            }
         }
     }
 
@@ -344,9 +359,12 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 if (uid != null) dedup.add(uid);
             }
         }
-        int groupSizeCap = cfg.getGroupSize() != null && cfg.getGroupSize() > 0 ? cfg.getGroupSize() : Integer.MAX_VALUE;
+        List<TournamentGroup> orderedGroups = groupMapper.selectList(Wrappers.<TournamentGroup>lambdaQuery()
+                .eq(TournamentGroup::getTournamentId, tournamentId)
+                .orderByAsc(TournamentGroup::getGroupOrder));
+        int groupSizeCap = capacityForGroup(cfg, g, orderedGroups);
         if (dedup.size() > groupSizeCap) {
-            throw new IllegalArgumentException("本组人数不能超过每组人数（" + groupSizeCap + "）");
+            throw new IllegalArgumentException("本组人数不能超过本组容量（" + groupSizeCap + "）");
         }
         List<TournamentGroupMember> others = groupMemberMapper.selectList(Wrappers.<TournamentGroupMember>lambdaQuery()
                 .eq(TournamentGroupMember::getTournamentId, tournamentId)
@@ -387,6 +405,23 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
     }
 
+    /**
+     * 按布局解析某组容量；质数参赛人数时末组可能与「每组人数」不同。
+     */
+    private int capacityForGroup(TournamentCompetitionConfig cfg, TournamentGroup g, List<TournamentGroup> orderedGroups) {
+        int fallback = cfg.getGroupSize() != null && cfg.getGroupSize() > 0 ? cfg.getGroupSize() : Integer.MAX_VALUE;
+        GroupSizeLayout.Layout layout = GroupSizeLayout.resolve(cfg.getParticipantCount(), cfg.getGroupSize());
+        if (layout == null || g == null || orderedGroups == null || orderedGroups.isEmpty()) {
+            return fallback;
+        }
+        for (int i = 0; i < orderedGroups.size(); i++) {
+            if (Objects.equals(orderedGroups.get(i).getId(), g.getId())) {
+                return layout.capacityAt(i);
+            }
+        }
+        return fallback;
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveAllGroupsRosterAndGenerateMatches(User operator, Long tournamentId, Map<Long, String> groupIdToRawText) {
@@ -399,14 +434,17 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         Map<Long, String> raw = groupIdToRawText != null ? groupIdToRawText : Map.of();
         Map<Long, List<Long>> map = new LinkedHashMap<>();
         LinkedHashSet<String> unknown = new LinkedHashSet<>();
-        int groupSizeCap = cfg.getGroupSize() != null && cfg.getGroupSize() > 0 ? cfg.getGroupSize() : Integer.MAX_VALUE;
-        for (TournamentGroup g : groups) {
+        GroupSizeLayout.Layout layout = GroupSizeLayout.resolve(cfg.getParticipantCount(), cfg.getGroupSize());
+        int fallbackCap = cfg.getGroupSize() != null && cfg.getGroupSize() > 0 ? cfg.getGroupSize() : Integer.MAX_VALUE;
+        for (int i = 0; i < groups.size(); i++) {
+            TournamentGroup g = groups.get(i);
             String text = raw.getOrDefault(g.getId(), "");
             GroupImportResult parsed = userService.resolveGroupImport(text);
             unknown.addAll(parsed.getUnknownUsernames());
             List<Long> ids = parsed.getUserIds();
-            if (ids.size() > groupSizeCap) {
-                throw new IllegalArgumentException(g.getGroupName() + " 人数超过每组人数上限（" + groupSizeCap + "）");
+            int cap = layout != null ? layout.capacityAt(i) : fallbackCap;
+            if (ids.size() > cap) {
+                throw new IllegalArgumentException(g.getGroupName() + " 人数超过本组容量（" + cap + "）");
             }
             map.put(g.getId(), ids);
         }
@@ -1814,5 +1852,246 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         log.setNewPlayer2IsX(Boolean.TRUE.equals(newScore.getPlayer2IsX()));
         log.setEditedAt(LocalDateTime.now());
         matchScoreEditLogMapper.insert(log);
+    }
+
+    @Override
+    public com.example.dto.KnockoutBracketData buildKnockoutBracketData(Long tournamentId) {
+        com.example.dto.KnockoutBracketData data = new com.example.dto.KnockoutBracketData();
+        
+        // 获取赛事配置
+        TournamentCompetitionConfig config = configMapper.selectById(tournamentId);
+        if (config == null) {
+            return data;
+        }
+        
+        Integer startRound = config.getKnockoutStartRound();
+        if (startRound == null) {
+            return data;
+        }
+        
+        // 获取所有淘汰赛相关比赛
+        List<Match> allMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .in(Match::getPhaseCode, "MAIN", "FINAL", "QUALIFIER")
+                .orderByAsc(Match::getRound)
+                .orderByAsc(Match::getKnockoutHalf)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        
+        if (allMatches.isEmpty()) {
+            return data;
+        }
+        
+        // 获取用户名映射
+        Set<Long> userIds = new HashSet<>();
+        for (Match m : allMatches) {
+            if (m.getPlayer1Id() != null) userIds.add(m.getPlayer1Id());
+            if (m.getPlayer2Id() != null) userIds.add(m.getPlayer2Id());
+            if (m.getWinnerId() != null) userIds.add(m.getWinnerId());
+        }
+        
+        Map<Long, String> userNameMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<User> users = userService.lambdaQuery().in(User::getId, userIds).list();
+            userNameMap = users.stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        }
+        
+        // 根据首轮轮次计算各轮次的显示层级
+        // 例如：首轮16强 -> round16; 首轮8强 -> round8; 首轮4强 -> round4
+        List<com.example.dto.KnockoutBracketData.MatchSlot> qualifiers = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> qualifiersUpper = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> qualifiersLower = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> firstRound = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> firstRoundUpper = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> firstRoundLower = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> secondRound = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> secondRoundUpper = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> secondRoundLower = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> thirdRound = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> thirdRoundUpper = new ArrayList<>();
+        List<com.example.dto.KnockoutBracketData.MatchSlot> thirdRoundLower = new ArrayList<>();
+        com.example.dto.KnockoutBracketData.MatchSlot goldMatch = null;
+        com.example.dto.KnockoutBracketData.MatchSlot bronzeMatch = null;
+        
+        Integer currentRound = null;
+        String currentRoundLabel = null;
+        
+        for (Match m : allMatches) {
+            com.example.dto.KnockoutBracketData.MatchSlot slot = new com.example.dto.KnockoutBracketData.MatchSlot();
+            slot.setId(m.getId());
+            slot.setPlayer1Id(m.getPlayer1Id());
+            slot.setPlayer2Id(m.getPlayer2Id());
+            slot.setPlayer1Name(userNameMap.get(m.getPlayer1Id()));
+            slot.setPlayer2Name(userNameMap.get(m.getPlayer2Id()));
+            slot.setWinnerId(m.getWinnerId());
+            slot.setRound(m.getRound());
+            slot.setKnockoutBracketSlot(m.getKnockoutBracketSlot());
+            slot.setKnockoutHalf(m.getKnockoutHalf());
+            slot.setCategory(m.getCategory());
+            
+            String phaseCode = m.getPhaseCode();
+            Integer round = m.getRound();
+            
+            if ("QUALIFIER".equals(phaseCode)) {
+                qualifiers.add(slot);
+                if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                    qualifiersUpper.add(slot);
+                } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                    qualifiersLower.add(slot);
+                }
+                data.setHasQualifiers(true);
+            } else if ("FINAL".equals(phaseCode)) {
+                if (m.getCategory() != null && m.getCategory().contains("金牌")) {
+                    goldMatch = slot;
+                } else if (m.getCategory() != null && m.getCategory().contains("铜牌")) {
+                    bronzeMatch = slot;
+                }
+                data.setHasFinal(true);
+            } else if ("MAIN".equals(phaseCode)) {
+                // 根据首轮轮次和当前轮次计算显示层级
+                int relativeRound = getRelativeRound(startRound, round);
+                
+                switch (relativeRound) {
+                    case 1 -> {
+                        firstRound.add(slot);
+                        if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                            firstRoundUpper.add(slot);
+                        } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                            firstRoundLower.add(slot);
+                        }
+                        data.setHasRound16(true);
+                    }
+                    case 2 -> {
+                        secondRound.add(slot);
+                        if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                            secondRoundUpper.add(slot);
+                        } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                            secondRoundLower.add(slot);
+                        }
+                        data.setHasRound8(true);
+                    }
+                    case 3 -> {
+                        thirdRound.add(slot);
+                        if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                            thirdRoundUpper.add(slot);
+                        } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                            thirdRoundLower.add(slot);
+                        }
+                        data.setHasRound4(true);
+                    }
+                    case 4 -> {
+                        thirdRound.add(slot);
+                        if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                            thirdRoundUpper.add(slot);
+                        } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                            thirdRoundLower.add(slot);
+                        }
+                        data.setHasRound4(true);
+                    }
+                }
+                
+                // 确定当前轮次
+                if (m.getWinnerId() == null && currentRound == null) {
+                    currentRound = round;
+                    currentRoundLabel = getRoundLabel(round, startRound);
+                }
+            }
+        }
+        
+        // 如果所有比赛都有结果，则当前轮次为决赛
+        if (currentRound == null && goldMatch != null && goldMatch.getWinnerId() == null) {
+            currentRound = 1;
+            currentRoundLabel = "决赛";
+        }
+        
+        // 根据首轮轮次分配到对应字段
+        if (startRound == 16) {
+            data.setRound16Matches(firstRound);
+            data.setRound16MatchesUpper(firstRoundUpper);
+            data.setRound16MatchesLower(firstRoundLower);
+            data.setRound8Matches(secondRound);
+            data.setRound8MatchesUpper(secondRoundUpper);
+            data.setRound8MatchesLower(secondRoundLower);
+            data.setRound4Matches(thirdRound);
+            data.setRound4MatchesUpper(thirdRoundUpper);
+            data.setRound4MatchesLower(thirdRoundLower);
+        } else if (startRound == 8) {
+            data.setRound16Matches(new ArrayList<>());
+            data.setRound16MatchesUpper(new ArrayList<>());
+            data.setRound16MatchesLower(new ArrayList<>());
+            data.setRound8Matches(firstRound);
+            data.setRound8MatchesUpper(firstRoundUpper);
+            data.setRound8MatchesLower(firstRoundLower);
+            data.setRound4Matches(secondRound);
+            data.setRound4MatchesUpper(secondRoundUpper);
+            data.setRound4MatchesLower(secondRoundLower);
+        } else if (startRound == 4) {
+            data.setRound16Matches(new ArrayList<>());
+            data.setRound16MatchesUpper(new ArrayList<>());
+            data.setRound16MatchesLower(new ArrayList<>());
+            data.setRound8Matches(new ArrayList<>());
+            data.setRound8MatchesUpper(new ArrayList<>());
+            data.setRound8MatchesLower(new ArrayList<>());
+            data.setRound4Matches(firstRound);
+            data.setRound4MatchesUpper(firstRoundUpper);
+            data.setRound4MatchesLower(firstRoundLower);
+        }
+        
+        data.setQualifierMatches(qualifiers);
+        data.setQualifierMatchesUpper(qualifiersUpper);
+        data.setQualifierMatchesLower(qualifiersLower);
+        data.setGoldMatch(goldMatch);
+        data.setBronzeMatch(bronzeMatch);
+        data.setCurrentRound(currentRound);
+        data.setCurrentRoundLabel(currentRoundLabel);
+        
+        return data;
+    }
+    
+    /**
+     * 根据首轮轮次和当前轮次计算相对层级
+     * 例如：首轮16强，当前8强 -> 返回2
+     */
+    private int getRelativeRound(Integer startRound, Integer currentRound) {
+        if (startRound == null || currentRound == null) return 1;
+        if (currentRound > startRound) return 1;
+        if (currentRound == startRound) return 1;
+        if (currentRound == startRound / 2) return 2;
+        if (currentRound == startRound / 4) return 3;
+        if (currentRound == startRound / 8) return 4;
+        return 1;
+    }
+    
+    /**
+     * 根据首轮轮次获取轮次标签
+     */
+    private String getRoundLabel(Integer round, Integer startRound) {
+        if (round == null) return "未知";
+        if (startRound == null) return "淘汰赛";
+        
+        // 根据首轮轮次动态计算标签
+        if (round == startRound) {
+            return switch (startRound) {
+                case 16 -> "1/8决赛";
+                case 8 -> "1/4决赛";
+                case 4 -> "半决赛";
+                default -> "首轮";
+            };
+        }
+        if (round == startRound / 2) {
+            return switch (startRound) {
+                case 16 -> "1/4决赛";
+                case 8 -> "半决赛";
+                default -> "次轮";
+            };
+        }
+        if (round == startRound / 4) {
+            return switch (startRound) {
+                case 16 -> "半决赛";
+                default -> "第三轮";
+            };
+        }
+        if (round == 1) return "决赛";
+        return "淘汰赛";
     }
 }

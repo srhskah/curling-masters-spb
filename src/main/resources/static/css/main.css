@@ -1402,3 +1402,190 @@ table.table-hover.align-middle tbody tr > td {
 .h2h-page .h2h-series-accordion > .accordion-item > .accordion-header .accordion-button {
     background-color: rgba(13, 110, 253, 0.06);
 }
+
+/* 淘汰赛对阵图样式 */
+.knockout-bracket-container {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    overflow-x: auto;
+}
+
+.knockout-bracket {
+    display: flex;
+    gap: 2rem;
+    min-width: fit-content;
+    padding: 1rem 0;
+}
+
+.bracket-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+}
+
+.bracket-column-header {
+    text-align: center;
+    font-weight: 600;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, rgba(13, 110, 253, 0.1), rgba(13, 110, 253, 0.05));
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    color: #0d6efd;
+    border: 1px solid rgba(13, 110, 253, 0.2);
+}
+
+.bracket-column-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    flex: 1;
+}
+
+.bracket-match {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 0.5rem;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.bracket-match:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.bracket-match-qualifier {
+    border-left: 3px solid #ffc107;
+}
+
+.bracket-match-final {
+    border: 2px solid #0d6efd;
+    background: linear-gradient(135deg, rgba(13, 110, 253, 0.05), rgba(13, 110, 253, 0.02));
+}
+
+.bracket-match-bronze {
+    border: 2px solid #6c757d;
+    background: linear-gradient(135deg, rgba(108, 117, 125, 0.05), rgba(108, 117, 125, 0.02));
+}
+
+.bracket-slot {
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    background: #f8f9fa;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.bracket-slot:empty {
+    background: transparent;
+    border: 1px dashed #dee2e6;
+}
+
+.bracket-slot-winner {
+    /* 左上角高亮样式 - 蓝色渐变背景 */
+    background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(13, 110, 253, 0.3);
+    border: none;
+    position: relative;
+}
+
+.bracket-slot-winner::before {
+    /* 左上角装饰 */
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-top: 8px solid #ffc107;
+    border-right: 8px solid transparent;
+}
+
+.bracket-slot-gold {
+    /* 右上角高亮样式 - 金色渐变 */
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    color: #000;
+    font-weight: 700;
+    border: 2px solid #e0a800;
+}
+
+.bracket-slot-gold.bracket-slot-winner {
+    background: linear-gradient(135deg, #ffd700 0%, #ffb300 100%);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+}
+
+.bracket-slot-gold.bracket-slot-winner::before {
+    border-top-color: #fff;
+    border-right-color: transparent;
+}
+
+.bracket-slot-bronze {
+    /* 铜牌样式 */
+    background: linear-gradient(135deg, #cd7f32 0%, #a0522d 100%);
+    color: white;
+    font-weight: 600;
+    border: 2px solid #8b4513;
+}
+
+.bracket-slot-bronze.bracket-slot-winner {
+    background: linear-gradient(135deg, #cd7f32 0%, #8b4513 100%);
+    box-shadow: 0 4px 12px rgba(205, 127, 50, 0.4);
+}
+
+.bracket-slot-bronze.bracket-slot-winner::before {
+    border-top-color: #fff;
+    border-right-color: transparent;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .knockout-bracket-container {
+        padding: 1rem;
+    }
+    
+    .knockout-bracket {
+        gap: 1rem;
+    }
+    
+    .bracket-column {
+        min-width: 140px;
+    }
+    
+    .bracket-column-header {
+        font-size: 0.85rem;
+        padding: 0.5rem;
+    }
+    
+    .bracket-slot {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.4rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .bracket-column {
+        min-width: 120px;
+    }
+    
+    .bracket-slot {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.35rem;
+    }
+}
+    box-shadow: none;
+}
+.h2h-page .h2h-series-accordion > .accordion-item > .accordion-header .accordion-button {
+    background-color: rgba(13, 110, 253, 0.06);
+}

@@ -18,6 +18,9 @@ public class Tournament {
     private Integer status; // 0-筹备中,1-进行中,2-已结束
     private LocalDate startDate;
     private LocalDate endDate;
+    private String competitionRuleType; // 赛制规则类型：NORMAL-正常5壶保护制，CUSTOM-自定义
+    private Integer customCenterLineLimit; // 自定义不允许磕中线壶的数量（0-16）
+    private Integer customDeadStoneLimit; // 自定义不允许打成死壶的数量（0-16）
     
     @TableField("created_at")
     private LocalDateTime createdAt;

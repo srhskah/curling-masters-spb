@@ -136,14 +136,14 @@
                                             <div th:if="${hasActions}" class="mt-3 d-flex flex-wrap gap-2 generic-list-actions">
                                                 <th:block th:each="action : ${actions}">
                                                     <a th:if="${(action['method'] == null or action['method'] == 'get') and (isAdmin or action['public'] == true) and (action['requireRegistrationOpen'] == null or action['requireRegistrationOpen'] == false or item['registrationOpen'] == true) and (action['requireRegistrationNavVisible'] == null or action['requireRegistrationNavVisible'] == false or item['registrationNavVisible'] == true)}"
-                                                       th:href="${action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : '')}"
+                                                       th:href="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
                                                        th:class="${action['btnClass']}"
                                                        th:attr="data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
                                                        onclick="return !this.dataset.confirm || confirm(this.dataset.confirm)">
                                                         <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
                                                     </a>
                                                     <form th:if="${action['method'] == 'post' and isAdmin}"
-                                                          th:action="${action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : '')}"
+                                                          th:action="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
                                                           method="post"
                                                           style="display: inline;"
                                                           th:attr="data-confirm=${action['confirm']}"
@@ -204,14 +204,14 @@
                                             <div class="btn-group generic-list-actions" role="group">
                                                 <th:block th:each="action : ${actions}">
                                                     <a th:if="${(action['method'] == null or action['method'] == 'get') and (isAdmin or action['public'] == true) and (action['requireRegistrationOpen'] == null or action['requireRegistrationOpen'] == false or item['registrationOpen'] == true) and (action['requireRegistrationNavVisible'] == null or action['requireRegistrationNavVisible'] == false or item['registrationNavVisible'] == true)}"
-                                                       th:href="${action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : '')}"
+                                                       th:href="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
                                                        th:class="${action['btnClass']}"
                                                        th:attr="data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
                                                        onclick="return !this.dataset.confirm || confirm(this.dataset.confirm)">
                                                         <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
                                                     </a>
                                                     <form th:if="${action['method'] == 'post' and isAdmin}"
-                                                          th:action="${action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : '')}"
+                                                          th:action="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
                                                           method="post"
                                                           style="display: inline;"
                                                           th:attr="data-confirm=${action['confirm']}"

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">赛事配置</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        h2 { margin: 0; font-size: 16px; }
+        .muted { color: #666; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        .section { margin: 14px 0 8px; font-weight: bold; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+        .row { display: flex; margin: 6px 0; }
+        .label { width: 120px; flex-shrink: 0; font-weight: 500; }
+        .value { flex: 1; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">赛事配置</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<div class="section">赛事基本信息</div>
+<div class="row">
+    <div class="label">赛事ID：</div>
+    <div class="value" th:text="${tournamentId}">-</div>
+    <div class="label" style="margin-left: 20px;">等级代码：</div>
+    <div class="value" th:text="${levelCode}">-</div>
+</div>
+<div class="row">
+    <div class="label">赛季期数：</div>
+    <div class="value" th:text="${tournamentEditionTitle}">-</div>
+    <div class="label" style="margin-left: 20px;">赛事状态：</div>
+    <div class="value">
+        <span th:if="${tournamentStatus == 0}">筹备中</span>
+        <span th:if="${tournamentStatus == 1}">进行中</span>
+        <span th:if="${tournamentStatus == 2}">已结束</span>
+        <span th:if="${tournamentStatus == null or tournamentStatus > 2}">-</span>
+    </div>
+</div>
+<div class="row">
+    <div class="label">时间：</div>
+    <div class="value">
+        <span th:text="${startDate}">-</span>
+        <span th:if="${startDate != null and endDate != null}"> ~ </span>
+        <span th:text="${endDate}">-</span>
+    </div>
+</div>
+
+<div class="section">赛制规则</div>
+<div class="row">
+    <div class="label">赛制规则：</div>
+    <div class="value">
+        <span th:if="${competitionRuleType == 'NORMAL'}">正常5壶保护制</span>
+        <span th:if="${competitionRuleType == 'CUSTOM'}">自定义</span>
+        <span th:if="${competitionRuleType == null}">-</span>
+    </div>
+    <div class="label" style="margin-left: 20px;" th:if="${competitionRuleType == 'CUSTOM'}">中线壶限制：</div>
+    <div class="value" th:if="${competitionRuleType == 'CUSTOM'}" th:text="${customCenterLineLimit != null ? customCenterLineLimit : '默认5'}">-</div>
+    <div class="label" style="margin-left: 20px;" th:if="${competitionRuleType == 'CUSTOM'}">死壶限制：</div>
+    <div class="value" th:if="${competitionRuleType == 'CUSTOM'}" th:text="${customDeadStoneLimit != null ? customDeadStoneLimit : '默认5'}">-</div>
+</div>
+
+<div class="section">比赛配置</div>
+<div class="row">
+    <div class="label">参赛人数：</div>
+    <div class="value" th:text="${participantCount}">-</div>
+    <div class="label" style="margin-left: 20px;">报名模式：</div>
+    <div class="value" th:text="${entryModeText}">-</div>
+</div>
+<div class="row">
+    <div class="label">赛事模式：</div>
+    <div class="value" th:text="${matchModeText}">-</div>
+    <div class="label" style="margin-left: 20px;">淘汰赛首轮：</div>
+    <div class="value" th:text="${knockoutStartRoundText}">-</div>
+</div>
+<div class="row">
+    <div class="label">淘汰赛种子模式：</div>
+    <div class="value" th:text="${knockoutBracketModeText}">-</div>
+    <div class="label" style="margin-left: 20px;">小组赛自动生成淘汰赛：</div>
+    <div class="value" th:text="${knockoutAutoFromGroup != null and knockoutAutoFromGroup ? '是' : '否'}">-</div>
+</div>
+<div class="row">
+    <div class="label">首轮淘汰赛附加资格赛：</div>
+    <div class="value" th:text="${qualifierRoundText}">-</div>
+    <div class="label" style="margin-left: 20px;" th:if="${entryModeText != null and entryModeText.contains('资格赛')}">正赛资格赛晋级名额：</div>
+    <div class="value" th:if="${entryModeText != null and entryModeText.contains('资格赛')}" th:text="${knockoutQualifyCount}">-</div>
+</div>
+<div class="row">
+    <div class="label">小组赛模式：</div>
+    <div class="value" th:text="${groupModeText}">-</div>
+    <div class="label" style="margin-left: 20px;">每组人数：</div>
+    <div class="value" th:text="${groupSize != null ? groupSize : '-'}">-</div>
+</div>
+<div class="row">
+    <div class="label">小组赛允许平局：</div>
+    <div class="value" th:text="${groupAllowDraw != null and groupAllowDraw ? '是' : '否'}">-</div>
+    <div class="label" style="margin-left: 20px;">小组赛截止时间：</div>
+    <div class="value" th:text="${groupStageDeadline}">-</div>
+</div>
+<div class="row">
+    <div class="label">小组赛局数：</div>
+    <div class="value" th:text="${groupStageSets}">-</div>
+    <div class="label" style="margin-left: 20px;">淘汰赛局数：</div>
+    <div class="value" th:text="${knockoutStageSets != null ? knockoutStageSets : '-'}">-</div>
+</div>
+<div class="row">
+    <div class="label">决赛局数：</div>
+    <div class="value" th:text="${finalStageSets != null ? finalStageSets : '-'}">-</div>
+    <div class="label" style="margin-left: 20px;">资格赛局数：</div>
+    <div class="value" th:text="${qualifierSets}">-</div>
+</div>
+<div class="row">
+    <div class="label">手动锁定：</div>
+    <div class="value" th:text="${manualLocked != null and manualLocked ? '是' : '否'}">-</div>
+</div>
+</body>
+</html>

@@ -56,16 +56,27 @@ public class DrawManagementService {
     }
 
     /**
-     * 获取小组数的有效因数（排除1和本身）
+     * 获取小组数的有效选项（整除；质数 m 时含 m±n 布局对应的小组数）。
      */
     public List<Integer> getValidGroupCounts(int totalPlayers) {
-        List<Integer> factors = new ArrayList<>();
-        for (int i = 2; i < totalPlayers; i++) {
-            if (totalPlayers % i == 0) {
-                factors.add(i);
+        return GroupSizeLayout.calcGroupCountOptions(totalPlayers);
+    }
+
+    /** 按参赛人数与小组数解析布局；非法返回 null。 */
+    public GroupSizeLayout.Layout resolveDrawLayout(int totalPlayers, Integer groupCount) {
+        return GroupSizeLayout.resolveByGroupCount(totalPlayers, groupCount);
+    }
+
+    private int capacityOfGroup(GroupSizeLayout.Layout layout, List<TournamentGroup> groups, Long groupId) {
+        if (layout == null || groups == null || groupId == null) {
+            return layout != null ? layout.groupSize() : 0;
+        }
+        for (int i = 0; i < groups.size(); i++) {
+            if (Objects.equals(groups.get(i).getId(), groupId)) {
+                return layout.capacityAt(i);
             }
         }
-        return factors;
+        return layout.groupSize();
     }
 
     /**
@@ -223,9 +234,20 @@ public class DrawManagementService {
         if (competitionConfig != null && competitionConfig.getParticipantCount() != null) {
             config.put("recommendedTotalPlayers", competitionConfig.getParticipantCount());
             if (competitionConfig.getGroupSize() != null) {
-                int groupCount = competitionConfig.getParticipantCount() / competitionConfig.getGroupSize();
-                config.put("recommendedGroupCount", groupCount);
-                config.put("recommendedGroupSize", competitionConfig.getGroupSize());
+                GroupSizeLayout.Layout layout = GroupSizeLayout.resolve(
+                        competitionConfig.getParticipantCount(), competitionConfig.getGroupSize());
+                if (layout != null) {
+                    config.put("recommendedGroupCount", layout.groupCount());
+                    config.put("recommendedGroupSize", layout.groupSize());
+                    if (layout.adjustN() > 0) {
+                        config.put("recommendedLastGroupSize", layout.lastGroupSize());
+                        config.put("recommendedAdjustN", layout.adjustN());
+                    }
+                } else {
+                    int groupCount = competitionConfig.getParticipantCount() / competitionConfig.getGroupSize();
+                    config.put("recommendedGroupCount", groupCount);
+                    config.put("recommendedGroupSize", competitionConfig.getGroupSize());
+                }
             }
         }
     }
@@ -292,10 +314,11 @@ public class DrawManagementService {
             return List.of();
         }
         int totalPlayers = drawParticipants.size();
-        if (draw.getGroupCount() == null || draw.getGroupCount() < 1 || totalPlayers % draw.getGroupCount() != 0) {
+        GroupSizeLayout.Layout layout = resolveDrawLayout(totalPlayers, draw.getGroupCount());
+        if (layout == null) {
             return List.of();
         }
-        int playersPerGroup = totalPlayers / draw.getGroupCount();
+        int playersPerGroup = layout.groupSize();
 
         List<TournamentGroup> groups = groupMapper.selectList(
                 Wrappers.<TournamentGroup>lambdaQuery()
@@ -304,12 +327,13 @@ public class DrawManagementService {
 
         List<Long> eligible = new ArrayList<>();
         for (TournamentGroup g : groups) {
+            int cap = capacityOfGroup(layout, groups, g.getId());
             long currentCount = drawResultMapper.selectCount(
                     Wrappers.<TournamentDrawResult>lambdaQuery()
                             .eq(TournamentDrawResult::getTournamentId, tournamentId)
                             .eq(TournamentDrawResult::getDrawPool, pool.name())
                             .eq(TournamentDrawResult::getGroupId, g.getId()));
-            if (currentCount >= playersPerGroup) {
+            if (currentCount >= cap) {
                 continue;
             }
 
@@ -326,14 +350,15 @@ public class DrawManagementService {
                                 .eq(TournamentDrawResult::getGroupId, g.getId())
                                 .eq(TournamentDrawResult::getTierNumber, tierNumber));
                 int playersPerTier = tc > 0 ? playersPerGroup / tc : playersPerGroup;
-                if (tierInGroup < playersPerTier) {
+                if (tierInGroup < playersPerTier && currentCount < cap) {
                     eligible.add(g.getId());
                 }
             } else if ("SEED".equals(dt)) {
                 int sc = draw.getSeedCount() != null ? draw.getSeedCount() : 0;
                 int gc = draw.getGroupCount() != null ? draw.getGroupCount() : 1;
                 int seedsPerGroup = sc / gc;
-                int nonSeedCap = playersPerGroup - seedsPerGroup;
+                int seedsCap = Math.min(seedsPerGroup, cap);
+                int nonSeedCap = Math.max(0, cap - seedsCap);
                 int pos = drawParticipants.indexOf(userId);
                 boolean userIsSeed = pos >= 0 && pos < sc;
                 long seedsInGroup = drawResultMapper.selectCount(
@@ -349,7 +374,7 @@ public class DrawManagementService {
                                 .eq(TournamentDrawResult::getGroupId, g.getId())
                                 .eq(TournamentDrawResult::getIsSeed, false));
                 if (userIsSeed) {
-                    if (seedsInGroup < seedsPerGroup) {
+                    if (seedsInGroup < seedsCap) {
                         eligible.add(g.getId());
                     }
                 } else {
@@ -402,10 +427,12 @@ public class DrawManagementService {
         if (totalPlayers <= 0) {
             throw new IllegalStateException("暂无符合规则的名单，无法初始化抽签");
         }
-        if (groupCount == null || groupCount < 1 || totalPlayers % groupCount != 0) {
-            throw new IllegalStateException("小组数无效或不能整除参赛人数");
+        GroupSizeLayout.Layout layout = resolveDrawLayout(totalPlayers, groupCount);
+        if (layout == null) {
+            throw new IllegalStateException(
+                    "小组数无效：须整除参赛人数；质数 m(>2) 时可为 m±n 布局对应小组数，且每组 ∈ [3,(m+1)/2]、末组与其他组相差 ≤1");
         }
-        int playersPerGroup = totalPlayers / groupCount;
+        int playersPerGroup = layout.groupSize();
 
         if ("TIERED".equals(drawType)) {
             if (tierCount == null || tierCount < 2 || playersPerGroup % tierCount != 0) {
@@ -421,6 +448,10 @@ public class DrawManagementService {
             int spg = seedCount / groupCount;
             if (spg >= playersPerGroup) {
                 throw new IllegalStateException("每组种子位数须小于每组人数");
+            }
+            // 末组容量可能小于基准每组人数：须仍能容纳该组种子位
+            if (layout.lastGroupSize() < spg) {
+                throw new IllegalStateException("末组容量（" + layout.lastGroupSize() + "）不足以容纳每组种子位数（" + spg + "）");
             }
         } else if (!"RANDOM".equals(drawType)) {
             throw new IllegalStateException("不支持的抽签类型");
@@ -521,7 +552,11 @@ public class DrawManagementService {
         }
 
         int totalPlayers = drawParticipants.size();
-        int playersPerGroup = totalPlayers / draw.getGroupCount();
+        GroupSizeLayout.Layout layout = resolveDrawLayout(totalPlayers, draw.getGroupCount());
+        if (layout == null) {
+            throw new RuntimeException("抽签人数与小组数不匹配，无法落位");
+        }
+        int playersPerGroup = layout.groupSize();
 
         if ("RANDOM".equals(draw.getDrawType()) || "TIERED".equals(draw.getDrawType()) || "SEED".equals(draw.getDrawType())) {
             List<TournamentGroup> randomGroups = groupMapper.selectList(
@@ -529,14 +564,11 @@ public class DrawManagementService {
                             .eq(TournamentGroup::getTournamentId, tournamentId)
                             .orderByAsc(TournamentGroup::getGroupOrder));
             if ("TIERED".equals(draw.getDrawType())) {
-                // 分档抽签：在本档尚有空位的组中随机选择
-                groupId = pickRandomOpenGroupIdForTier(tournamentId, pool, userId, draw, playersPerGroup, randomGroups);
+                groupId = pickRandomOpenGroupIdForTier(tournamentId, pool, userId, draw, layout, randomGroups);
             } else if ("SEED".equals(draw.getDrawType())) {
-                // 种子抽签：在种子/非种子位尚有空位的组中随机选择
-                groupId = pickRandomOpenGroupIdForSeed(tournamentId, pool, userId, draw, playersPerGroup, randomGroups, drawParticipants);
+                groupId = pickRandomOpenGroupIdForSeed(tournamentId, pool, userId, draw, layout, randomGroups, drawParticipants);
             } else {
-                // 默认随机抽签
-                groupId = pickRandomOpenGroupId(tournamentId, pool, playersPerGroup, randomGroups);
+                groupId = pickRandomOpenGroupId(tournamentId, pool, layout, randomGroups);
             }
         } else {
             if (groupId == null) {
@@ -544,16 +576,23 @@ public class DrawManagementService {
             }
         }
 
-        return insertDrawResultRow(tournamentId, pool, userId, groupId, now, false);
+        return insertDrawResultRow(tournamentId, pool, userId, groupId, now, false, null);
     }
 
     
 
     /**
-     * 写入一条抽签结果（选手点签与「导入前仅一组未满」自动补录共用）。
+     * 写入一条抽签结果（选手点签与自动补录共用）。
+     * @param forcedTierNumber 非空时写入该档位（自动补录填档位空缺时用，可与当前重算档位不同）
      */
     private TournamentDrawResult insertDrawResultRow(Long tournamentId, DrawPool pool, Long userId, Long groupId,
                                                      LocalDateTime now, boolean autoAssigned) {
+        return insertDrawResultRow(tournamentId, pool, userId, groupId, now, autoAssigned, null);
+    }
+
+    private TournamentDrawResult insertDrawResultRow(Long tournamentId, DrawPool pool, Long userId, Long groupId,
+                                                     LocalDateTime now, boolean autoAssigned,
+                                                     Integer forcedTierNumber) {
         TournamentDraw draw = loadDraw(tournamentId, pool);
         if (draw == null) {
             throw new RuntimeException("抽签配置不存在");
@@ -573,11 +612,17 @@ public class DrawManagementService {
             throw new RuntimeException("该选手已完成抽签");
         }
         int totalPlayers = drawParticipants.size();
-        Integer gcObj = draw.getGroupCount();
-        if (gcObj == null || gcObj < 1 || totalPlayers % gcObj != 0) {
+        GroupSizeLayout.Layout layout = resolveDrawLayout(totalPlayers, draw.getGroupCount());
+        if (layout == null) {
             throw new RuntimeException("抽签人数与小组数不匹配，无法落位");
         }
-        int playersPerGroup = totalPlayers / gcObj;
+        int playersPerGroup = layout.groupSize();
+
+        List<TournamentGroup> orderedGroups = groupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tournamentId)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        int groupCap = capacityOfGroup(layout, orderedGroups, groupId);
 
         long currentCount = drawResultMapper.selectCount(
                 Wrappers.<TournamentDrawResult>lambdaQuery()
@@ -585,7 +630,7 @@ public class DrawManagementService {
                         .eq(TournamentDrawResult::getDrawPool, pool.name())
                         .eq(TournamentDrawResult::getGroupId, groupId));
 
-        if (currentCount >= playersPerGroup) {
+        if (currentCount >= groupCap) {
             throw new RuntimeException("该小组已满");
         }
 
@@ -596,18 +641,20 @@ public class DrawManagementService {
         Integer groupSlotIndex = null;
 
         if ("TIERED".equals(draw.getDrawType())) {
-            tierNumber = calculateTierNumber(userId, tournamentId, draw, pool);
-            long tierCount = drawResultMapper.selectCount(
+            tierNumber = forcedTierNumber != null
+                    ? forcedTierNumber
+                    : calculateTierNumber(userId, tournamentId, draw, pool);
+            long tierFilled = drawResultMapper.selectCount(
                     Wrappers.<TournamentDrawResult>lambdaQuery()
                             .eq(TournamentDrawResult::getTournamentId, tournamentId)
                             .eq(TournamentDrawResult::getDrawPool, pool.name())
                             .eq(TournamentDrawResult::getGroupId, groupId)
                             .eq(TournamentDrawResult::getTierNumber, tierNumber));
             int playersPerTier = playersPerGroup / draw.getTierCount();
-            if (tierCount >= playersPerTier) {
+            if (tierFilled >= playersPerTier) {
                 throw new RuntimeException("该小组的第" + tierNumber + "档位已满");
             }
-            groupSlotIndex = (tierNumber - 1) * playersPerTier + (int) tierCount + 1;
+            groupSlotIndex = (tierNumber - 1) * playersPerTier + (int) tierFilled + 1;
             if (mainSlotOffset > 0 && groupSlotIndex != null) {
                 groupSlotIndex = mainSlotOffset + groupSlotIndex;
             }
@@ -615,6 +662,7 @@ public class DrawManagementService {
             int sc = draw.getSeedCount() != null ? draw.getSeedCount() : 0;
             int gc = draw.getGroupCount() != null ? draw.getGroupCount() : 1;
             int seedsPerGroup = sc / gc;
+            int seedsCap = Math.min(seedsPerGroup, groupCap);
             int pos = drawParticipants.indexOf(userId);
             boolean userIsSeed = pos >= 0 && pos < sc;
             isSeed = userIsSeed;
@@ -631,16 +679,16 @@ public class DrawManagementService {
                             .eq(TournamentDrawResult::getGroupId, groupId)
                             .eq(TournamentDrawResult::getIsSeed, false));
             if (userIsSeed) {
-                if (seedsInGroup >= seedsPerGroup) {
+                if (seedsInGroup >= seedsCap) {
                     throw new RuntimeException("该小组种子位已满");
                 }
                 groupSlotIndex = (int) seedsInGroup + 1;
             } else {
-                int nonSeedCap = playersPerGroup - seedsPerGroup;
+                int nonSeedCap = Math.max(0, groupCap - seedsCap);
                 if (nonSeedsInGroup >= nonSeedCap) {
                     throw new RuntimeException("该小组非种子位已满");
                 }
-                groupSlotIndex = seedsPerGroup + (int) nonSeedsInGroup + 1;
+                groupSlotIndex = seedsCap + (int) nonSeedsInGroup + 1;
             }
             if (mainSlotOffset > 0 && groupSlotIndex != null) {
                 groupSlotIndex = mainSlotOffset + groupSlotIndex;
@@ -686,7 +734,209 @@ public class DrawManagementService {
             checkAndCompleteDraw(tournamentId, fresh, totalPlayers);
         }
 
+        // 选手手动抽签后：若剩余局面已确定（如各未完成档位仅剩 1 人），自动补录
+        if (!autoAssigned) {
+            tryAutoFillRemainingDrawSlots(tournamentId, pool, fresh != null ? fresh : draw,
+                    drawParticipants, totalPlayers, false);
+        }
+
         return result;
+    }
+
+    /**
+     * 抽签接近尾声时的自动补录：
+     * <ul>
+     *   <li>分档：尚未完成的档位都分别只剩 1 名未抽签选手 → 全部自动落位</li>
+     *   <li>任意类型：仅剩 1 个组未满且空位与未抽签人数吻合 → 自动写入该组</li>
+     * </ul>
+     * @param strict 为 true 时（导入前）落位失败抛出明确异常，避免静默跳过
+     */
+    private void tryAutoFillRemainingDrawSlots(Long tournamentId, DrawPool pool, TournamentDraw draw,
+                                               List<Long> drawParticipants, int expected, boolean strict) {
+        if (draw == null || drawParticipants == null || drawParticipants.isEmpty() || expected <= 0) {
+            return;
+        }
+        List<TournamentDrawResult> drawResults = drawResultMapper.selectList(
+                Wrappers.<TournamentDrawResult>lambdaQuery()
+                        .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                        .eq(TournamentDrawResult::getDrawPool, pool.name()));
+        if (drawResults.size() >= expected) {
+            return;
+        }
+        if ("TIERED".equals(draw.getDrawType())) {
+            autoFillUndrawnWhenEachIncompleteTierHasOneLeft(
+                    tournamentId, pool, draw, drawParticipants, expected, drawResults, strict);
+            drawResults = drawResultMapper.selectList(
+                    Wrappers.<TournamentDrawResult>lambdaQuery()
+                            .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                            .eq(TournamentDrawResult::getDrawPool, pool.name()));
+            if (drawResults.size() >= expected) {
+                return;
+            }
+        }
+        autoFillUndrawnIntoSingleOpenGroupIfApplicable(
+                tournamentId, pool, draw, drawParticipants, expected, drawResults);
+    }
+
+    /**
+     * 分档抽签自动补录：以「各组档位空缺席」为准（不是按未抽签者当前重算档位）。
+     * <p>
+     * 条件：每个仍有空缺的档位恰好空 1 席，且未抽签人数 = 空缺席位数。
+     * 例：C 组缺第 2 档、D 组缺第 1 档，未抽签 2 人 → 自动补入（即使二人按报名序都算第 4 档）。
+     * 分配时优先按选手计算档位匹配空缺；匹配不上则兜底填入剩余空缺。
+     */
+    private void autoFillUndrawnWhenEachIncompleteTierHasOneLeft(Long tournamentId, DrawPool pool,
+                                                                 TournamentDraw draw,
+                                                                 List<Long> drawParticipants, int expected,
+                                                                 List<TournamentDrawResult> drawResults,
+                                                                 boolean strict) {
+        if (draw == null || !"TIERED".equals(draw.getDrawType())
+                || drawParticipants == null || drawParticipants.isEmpty() || expected <= 0) {
+            return;
+        }
+        if (drawParticipants.size() != expected || drawResults.size() >= expected) {
+            return;
+        }
+        GroupSizeLayout.Layout layout = resolveDrawLayout(expected, draw.getGroupCount());
+        if (layout == null) {
+            if (strict) {
+                throw new IllegalStateException("无法解析小组布局，自动补录失败");
+            }
+            return;
+        }
+        int tierCount = draw.getTierCount() != null ? draw.getTierCount() : 1;
+        if (tierCount < 2) {
+            return;
+        }
+        int playersPerGroup = layout.groupSize();
+        if (playersPerGroup % tierCount != 0) {
+            if (strict) {
+                throw new IllegalStateException("每组人数无法被档数整除，无法按档位空缺自动补录");
+            }
+            return;
+        }
+        int playersPerTier = playersPerGroup / tierCount;
+
+        List<TournamentGroup> groups = groupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tournamentId)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+
+        // 每个空缺席一条：(档位, groupId)
+        List<AbstractMap.SimpleEntry<Integer, Long>> vacancies = new ArrayList<>();
+        for (TournamentGroup g : groups) {
+            int cap = capacityOfGroup(layout, groups, g.getId());
+            long currentCount = drawResultMapper.selectCount(
+                    Wrappers.<TournamentDrawResult>lambdaQuery()
+                            .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                            .eq(TournamentDrawResult::getDrawPool, pool.name())
+                            .eq(TournamentDrawResult::getGroupId, g.getId()));
+            int remainingCap = cap - (int) currentCount;
+            if (remainingCap <= 0) {
+                continue;
+            }
+            for (int tier = 1; tier <= tierCount; tier++) {
+                long tierInGroup = drawResultMapper.selectCount(
+                        Wrappers.<TournamentDrawResult>lambdaQuery()
+                                .eq(TournamentDrawResult::getTournamentId, tournamentId)
+                                .eq(TournamentDrawResult::getDrawPool, pool.name())
+                                .eq(TournamentDrawResult::getGroupId, g.getId())
+                                .eq(TournamentDrawResult::getTierNumber, tier));
+                int need = playersPerTier - (int) tierInGroup;
+                for (int i = 0; i < need && remainingCap > 0; i++) {
+                    vacancies.add(new AbstractMap.SimpleEntry<>(tier, g.getId()));
+                    remainingCap--;
+                }
+            }
+        }
+        if (vacancies.isEmpty()) {
+            if (strict) {
+                throw new IllegalStateException("各组档位均无空缺，但抽签未完成，无法自动补录");
+            }
+            return;
+        }
+
+        Map<Integer, Integer> vacancyCountByTier = new TreeMap<>();
+        for (AbstractMap.SimpleEntry<Integer, Long> vac : vacancies) {
+            vacancyCountByTier.merge(vac.getKey(), 1, Integer::sum);
+        }
+        for (Map.Entry<Integer, Integer> e : vacancyCountByTier.entrySet()) {
+            if (e.getValue() != 1) {
+                if (strict) {
+                    throw new IllegalStateException(
+                            "第" + e.getKey() + "档仍有 " + e.getValue()
+                                    + " 个空缺（须每个未完成档位恰好空 1 席才能自动补录）");
+                }
+                return;
+            }
+        }
+
+        Set<Long> drawn = drawResults.stream()
+                .map(TournamentDrawResult::getUserId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        List<Long> undrawn = new ArrayList<>();
+        for (Long uid : drawParticipants) {
+            if (uid != null && !drawn.contains(uid)) {
+                undrawn.add(uid);
+            }
+        }
+        if (undrawn.size() != vacancies.size()) {
+            if (strict) {
+                throw new IllegalStateException(
+                        "档位空缺 " + vacancies.size() + " 席，未抽签 " + undrawn.size()
+                                + " 人，数量不一致，无法自动补录");
+            }
+            return;
+        }
+
+        List<Long> remainingUndrawn = new ArrayList<>(undrawn);
+        List<AbstractMap.SimpleEntry<Integer, Long>> remainingVacancies = new ArrayList<>(vacancies);
+        List<AbstractMap.SimpleEntry<Long, AbstractMap.SimpleEntry<Integer, Long>>> assignments = new ArrayList<>();
+
+        // 优先：计算档位与空缺档位一致
+        for (AbstractMap.SimpleEntry<Integer, Long> vac : new ArrayList<>(remainingVacancies)) {
+            Integer needTier = vac.getKey();
+            Long match = null;
+            for (Long uid : remainingUndrawn) {
+                Integer calc = calculateTierNumber(uid, tournamentId, draw, pool);
+                if (Objects.equals(calc, needTier)) {
+                    match = uid;
+                    break;
+                }
+            }
+            if (match != null) {
+                remainingUndrawn.remove(match);
+                remainingVacancies.remove(vac);
+                assignments.add(new AbstractMap.SimpleEntry<>(match, vac));
+            }
+        }
+        // 剩余空缺：任意未抽签者填入（报名序档位与空缺档位不一致时的兜底，本例即此）
+        if (remainingUndrawn.size() != remainingVacancies.size()) {
+            if (strict) {
+                throw new IllegalStateException("自动补录匹配失败：剩余未抽签与空缺数量不一致");
+            }
+            return;
+        }
+        for (int i = 0; i < remainingVacancies.size(); i++) {
+            assignments.add(new AbstractMap.SimpleEntry<>(remainingUndrawn.get(i), remainingVacancies.get(i)));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (AbstractMap.SimpleEntry<Long, AbstractMap.SimpleEntry<Integer, Long>> a : assignments) {
+            Long uid = a.getKey();
+            Integer forcedTier = a.getValue().getKey();
+            Long groupId = a.getValue().getValue();
+            try {
+                insertDrawResultRow(tournamentId, pool, uid, groupId, now, true, forcedTier);
+            } catch (RuntimeException ex) {
+                if (strict) {
+                    throw new IllegalStateException(
+                            "自动补录第" + forcedTier + "档空缺失败：" + ex.getMessage(), ex);
+                }
+                return;
+            }
+        }
     }
 
     /**
@@ -702,13 +952,13 @@ public class DrawManagementService {
             return;
         }
         Integer gc = draw.getGroupCount();
-        if (gc == null || gc < 1 || expected % gc != 0) {
+        GroupSizeLayout.Layout layout = resolveDrawLayout(expected, gc);
+        if (layout == null) {
             return;
         }
         if (drawParticipants.size() != expected) {
             return;
         }
-        int playersPerGroup = expected / gc;
         List<TournamentGroup> groups = groupMapper.selectList(
                 Wrappers.<TournamentGroup>lambdaQuery()
                         .eq(TournamentGroup::getTournamentId, tournamentId)
@@ -717,8 +967,9 @@ public class DrawManagementService {
                 .collect(Collectors.groupingBy(TournamentDrawResult::getGroupId, Collectors.counting()));
         List<Long> underfilled = new ArrayList<>();
         for (TournamentGroup g : groups) {
+            int cap = capacityOfGroup(layout, groups, g.getId());
             long c = countByGroup.getOrDefault(g.getId(), 0L);
-            if (c < playersPerGroup) {
+            if (c < cap) {
                 underfilled.add(g.getId());
             }
         }
@@ -726,7 +977,8 @@ public class DrawManagementService {
             return;
         }
         Long targetGroupId = underfilled.get(0);
-        int slots = playersPerGroup - countByGroup.getOrDefault(targetGroupId, 0L).intValue();
+        int slots = capacityOfGroup(layout, groups, targetGroupId)
+                - countByGroup.getOrDefault(targetGroupId, 0L).intValue();
         if (slots <= 0) {
             return;
         }
@@ -747,16 +999,17 @@ public class DrawManagementService {
     }
 
     /** 默认随机抽签：在未满的小组中随机选一个组（选手端不选具体小组）。 */
-    private Long pickRandomOpenGroupId(Long tournamentId, DrawPool pool, int playersPerGroup,
+    private Long pickRandomOpenGroupId(Long tournamentId, DrawPool pool, GroupSizeLayout.Layout layout,
                                        List<TournamentGroup> groups) {
         List<Long> open = new ArrayList<>();
         for (TournamentGroup g : groups) {
+            int cap = capacityOfGroup(layout, groups, g.getId());
             long currentCount = drawResultMapper.selectCount(
                     Wrappers.<TournamentDrawResult>lambdaQuery()
                             .eq(TournamentDrawResult::getTournamentId, tournamentId)
                             .eq(TournamentDrawResult::getDrawPool, pool.name())
                             .eq(TournamentDrawResult::getGroupId, g.getId()));
-            if (currentCount < playersPerGroup) {
+            if (currentCount < cap) {
                 open.add(g.getId());
             }
         }
@@ -769,20 +1022,22 @@ public class DrawManagementService {
 
     /** 分档随机抽签：在本档尚有空位的小组中随机选一个组。 */
     private Long pickRandomOpenGroupIdForTier(Long tournamentId, DrawPool pool, Long userId,
-                                              TournamentDraw draw, int playersPerGroup,
+                                              TournamentDraw draw, GroupSizeLayout.Layout layout,
                                               List<TournamentGroup> groups) {
         Integer tierNumber = calculateTierNumber(userId, tournamentId, draw, pool);
         int tierCount = draw.getTierCount() != null ? draw.getTierCount() : 1;
+        int playersPerGroup = layout.groupSize();
         int playersPerTier = tierCount > 0 ? playersPerGroup / tierCount : playersPerGroup;
 
         List<Long> open = new ArrayList<>();
         for (TournamentGroup g : groups) {
+            int cap = capacityOfGroup(layout, groups, g.getId());
             long currentCount = drawResultMapper.selectCount(
                     Wrappers.<TournamentDrawResult>lambdaQuery()
                             .eq(TournamentDrawResult::getTournamentId, tournamentId)
                             .eq(TournamentDrawResult::getDrawPool, pool.name())
                             .eq(TournamentDrawResult::getGroupId, g.getId()));
-            if (currentCount >= playersPerGroup) {
+            if (currentCount >= cap) {
                 continue;
             }
 
@@ -805,22 +1060,24 @@ public class DrawManagementService {
 
     
     private Long pickRandomOpenGroupIdForSeed(Long tournamentId, DrawPool pool, Long userId, TournamentDraw draw,
-            int playersPerGroup, List<TournamentGroup> groups, List<Long> drawParticipants) {
+            GroupSizeLayout.Layout layout, List<TournamentGroup> groups, List<Long> drawParticipants) {
         int sc = draw.getSeedCount() != null ? draw.getSeedCount() : 0;
         int gc = draw.getGroupCount() != null ? draw.getGroupCount() : 1;
         int seedsPerGroup = sc / gc;
-        int nonSeedCap = playersPerGroup - seedsPerGroup;
         int pos = drawParticipants.indexOf(userId);
         boolean userIsSeed = pos >= 0 && pos < sc;
 
         List<Long> open = new ArrayList<>();
         for (TournamentGroup g : groups) {
+            int cap = capacityOfGroup(layout, groups, g.getId());
+            int seedsCap = Math.min(seedsPerGroup, cap);
+            int nonSeedCap = Math.max(0, cap - seedsCap);
             long currentCount = drawResultMapper.selectCount(
                     Wrappers.<TournamentDrawResult>lambdaQuery()
                             .eq(TournamentDrawResult::getTournamentId, tournamentId)
                             .eq(TournamentDrawResult::getDrawPool, pool.name())
                             .eq(TournamentDrawResult::getGroupId, g.getId()));
-            if (currentCount >= playersPerGroup) {
+            if (currentCount >= cap) {
                 continue;
             }
 
@@ -831,7 +1088,7 @@ public class DrawManagementService {
                                 .eq(TournamentDrawResult::getDrawPool, pool.name())
                                 .eq(TournamentDrawResult::getGroupId, g.getId())
                                 .eq(TournamentDrawResult::getIsSeed, true));
-                if (seedsInGroup < seedsPerGroup) {
+                if (seedsInGroup < seedsCap) {
                     open.add(g.getId());
                 }
             } else {
@@ -1129,14 +1386,9 @@ public class DrawManagementService {
             throw new IllegalStateException("抽签配置不存在");
         }
 
+        tryAutoFillRemainingDrawSlots(tournamentId, pool, draw, drawParticipants, expected, true);
+
         List<TournamentDrawResult> drawResults = drawResultMapper.selectList(
-                Wrappers.<TournamentDrawResult>lambdaQuery()
-                        .eq(TournamentDrawResult::getTournamentId, tournamentId)
-                        .eq(TournamentDrawResult::getDrawPool, pool.name()));
-
-        autoFillUndrawnIntoSingleOpenGroupIfApplicable(tournamentId, pool, draw, drawParticipants, expected, drawResults);
-
-        drawResults = drawResultMapper.selectList(
                 Wrappers.<TournamentDrawResult>lambdaQuery()
                         .eq(TournamentDrawResult::getTournamentId, tournamentId)
                         .eq(TournamentDrawResult::getDrawPool, pool.name()));
@@ -1145,7 +1397,9 @@ public class DrawManagementService {
             throw new IllegalStateException("没有抽签结果可导入");
         }
         if (expected > 0 && drawResults.size() < expected) {
-            throw new IllegalStateException("抽签尚未全部完成，无法导入");
+            throw new IllegalStateException(
+                    "抽签尚未全部完成（已抽 " + drawResults.size() + "/" + expected
+                            + "；分档时各未完成档位均只剩 1 人、或仅剩一组空位时会自动补录），无法导入");
         }
 
         List<TournamentGroup> groups = groupMapper.selectList(

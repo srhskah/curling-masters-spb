@@ -313,11 +313,11 @@
                                         <span class="d-inline-flex gap-2">
                                             <a class="btn btn-sm btn-success btn-mobile-compact"
                                                th:if="${openRegistrationTournamentIds != null and #sets.contains(openRegistrationTournamentIds, t.id)}"
-                                               th:href="@{/tournament/registration/{id}(id=${t.id})}">
+                                               th:href="${@tournamentUrls.registrationUrl(t)}">
                                                 <span class="btn-label">报名接龙</span><span class="btn-emoji" aria-hidden="true">📝</span>
                                             </a>
                                             <a class="btn btn-sm btn-outline-primary btn-mobile-compact"
-                                               th:href="@{/tournament/detail/{id}(id=${t.id})}">
+                                               th:href="${@tournamentUrls.detailUrl(t)}">
                                                 <span class="btn-label">赛事详情</span><span class="btn-emoji" aria-hidden="true">详情</span>
                                             </a>
                                         </span>
@@ -359,7 +359,7 @@
                                             <span class="text-muted small" th:if="${rt.startDate != null}"
                                                   th:text="${#temporals.format(rt.startDate, 'yyyy-MM-dd')}">日期</span>
                                         </span>
-                                        <a class="btn btn-sm btn-success btn-mobile-compact" th:href="@{/tournament/registration/{id}(id=${rt.id})}">
+                                        <a class="btn btn-sm btn-success btn-mobile-compact" th:href="${@tournamentUrls.registrationUrl(rt)}">
                                             <span class="btn-label">报名接龙</span><span class="btn-emoji" aria-hidden="true">📝</span>
                                         </a>
                                     </li>
@@ -379,7 +379,7 @@
                                             <span class="text-muted small" th:if="${ot.startDate != null}"
                                                   th:text="${#temporals.format(ot.startDate, 'yyyy-MM-dd')}">日期</span>
                                         </span>
-                                        <a class="btn btn-sm btn-primary btn-mobile-compact" th:href="@{/tournament/detail/{id}(id=${ot.id})}">
+                                        <a class="btn btn-sm btn-primary btn-mobile-compact" th:href="${@tournamentUrls.detailUrl(ot)}">
                                             <span class="btn-label">赛事详情</span><span class="btn-emoji" aria-hidden="true">详情</span>
                                         </a>
                                     </li>
@@ -466,7 +466,7 @@
                                         <span class="text-muted small" th:if="${ot.startDate != null}"
                                               th:text="${#temporals.format(ot.startDate, 'yyyy-MM-dd')}">日期</span>
                                     </span>
-                                    <a class="btn btn-sm btn-success btn-mobile-compact" th:href="@{/tournament/registration/{id}(id=${ot.id})}">
+                                    <a class="btn btn-sm btn-success btn-mobile-compact" th:href="${@tournamentUrls.registrationUrl(ot)}">
                                         <span class="btn-label">报名接龙</span><span class="btn-emoji" aria-hidden="true">📝</span>
                                     </a>
                                 </li>
