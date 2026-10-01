@@ -10,6 +10,7 @@ import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.mapper.TournamentRegistrationMapper;
 import com.example.mapper.TournamentRegistrationSettingMapper;
+import com.example.mapper.TournamentRegistrationBanRefMapper;
 import com.example.service.*;
 import com.example.service.impl.KnockoutBracketService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,11 +64,59 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     private ITournamentCompetitionService tournamentCompetitionService;
     @Autowired
     private UserRegistrationBanService userRegistrationBanService;
+    @Autowired
+    private TournamentRegistrationBanRefMapper banRefMapper;
 
     @Override
     public TournamentRegistrationSetting getSetting(Long tournamentId) {
         if (tournamentId == null) return null;
         return settingMapper.selectById(tournamentId);
+    }
+
+    @Override
+    public List<TournamentRegistrationBanRef> getBanRefs(Long tournamentId) {
+        if (tournamentId == null) return List.of();
+        return banRefMapper.selectList(Wrappers.<TournamentRegistrationBanRef>lambdaQuery()
+                .eq(TournamentRegistrationBanRef::getTournamentId, tournamentId));
+    }
+
+    @Override
+    public Map<String, Integer> getBanRefTopMap(Long tournamentId) {
+        List<TournamentRegistrationBanRef> refs = getBanRefs(tournamentId);
+        return refs.stream()
+                .collect(Collectors.toMap(
+                        ref -> String.valueOf(ref.getRefTournamentId()),
+                        TournamentRegistrationBanRef::getBanTop,
+                        (a, b) -> a
+                ));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveBanRefs(Long tournamentId, Map<Long, Integer> refTournamentIdToTop) {
+        if (tournamentId == null) return;
+        
+        // 删除旧的参照配置
+        banRefMapper.delete(Wrappers.<TournamentRegistrationBanRef>lambdaQuery()
+                .eq(TournamentRegistrationBanRef::getTournamentId, tournamentId));
+        
+        // 插入新的参照配置
+        if (refTournamentIdToTop != null && !refTournamentIdToTop.isEmpty()) {
+            LocalDateTime now = LocalDateTime.now();
+            for (Map.Entry<Long, Integer> entry : refTournamentIdToTop.entrySet()) {
+                Long refTournamentId = entry.getKey();
+                Integer banTop = entry.getValue();
+                if (refTournamentId != null && banTop != null && banTop >= 1) {
+                    TournamentRegistrationBanRef ref = new TournamentRegistrationBanRef();
+                    ref.setTournamentId(tournamentId);
+                    ref.setRefTournamentId(refTournamentId);
+                    ref.setBanTop(banTop);
+                    ref.setCreatedAt(now);
+                    ref.setUpdatedAt(now);
+                    banRefMapper.insert(ref);
+                }
+            }
+        }
     }
 
     @Override
@@ -220,8 +269,15 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         }
         if (appliesBanRules(t.getLevelCode())) {
             List<Long> refIds = resolveBanOtherTournamentRefIds(s);
-            if (!refIds.isEmpty() && (s.getBanOtherTournamentTop() == null || s.getBanOtherTournamentTop() < 1)) {
-                throw new IllegalArgumentException("指定禁报参照赛事时须填写该赛事排名前 K（K≥1）");
+            // 使用独立K值机制验证：检查每个勾选的参照赛事是否都有对应的K值
+            if (!refIds.isEmpty()) {
+                Map<String, Integer> refTournamentIdToTop = getBanRefTopMap(s.getTournamentId());
+                for (Long refId : refIds) {
+                    Integer banTop = refTournamentIdToTop.get(String.valueOf(refId));
+                    if (banTop == null || banTop < 1) {
+                        throw new IllegalArgumentException("指定禁报参照赛事时须填写该赛事排名前 K（K≥1）");
+                    }
+                }
             }
             Long selfId = s.getTournamentId();
             if (t.getSeriesId() == null && !refIds.isEmpty()) {
@@ -534,12 +590,17 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
                     return "您在总排名前 " + banTop + " 名，本赛事禁止报名";
                 }
             }
-            Integer otherTop = s.getBanOtherTournamentTop();
-            if (otherTop != null && otherTop > 0) {
-                for (Long otherTid : resolveBanOtherTournamentRefIds(s)) {
-                    Set<Long> bannedByOtherTournament = getBannedUsersByTournamentProgress(otherTid, otherTop);
-                    if (bannedByOtherTournament.contains(userId)) {
-                        return "您在所配置的任一参照赛事中达到前 " + otherTop + " 强进度，禁止报名";
+            // 使用独立K值机制：每个参照赛事有自己的K值
+            Map<String, Integer> refTournamentIdToTop = getBanRefTopMap(tournamentId);
+            if (!refTournamentIdToTop.isEmpty()) {
+                for (Map.Entry<String, Integer> entry : refTournamentIdToTop.entrySet()) {
+                    Long otherTid = Long.parseLong(entry.getKey());
+                    Integer otherTop = entry.getValue();
+                    if (otherTop != null && otherTop > 0) {
+                        Set<Long> bannedByOtherTournament = getBannedUsersByTournamentProgress(otherTid, otherTop);
+                        if (bannedByOtherTournament.contains(userId)) {
+                            return "您在所配置的参照赛事中达到前 " + otherTop + " 强进度，禁止报名";
+                        }
                     }
                 }
             }

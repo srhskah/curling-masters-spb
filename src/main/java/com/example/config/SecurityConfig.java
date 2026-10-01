@@ -20,8 +20,15 @@ import org.springframework.security.web.authentication.AuthenticationSuccessHand
 import org.springframework.security.web.firewall.RequestRejectedException;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.util.function.Supplier;
 
 @Configuration
 @EnableWebSecurity
@@ -118,9 +125,9 @@ public class SecurityConfig {
                 .permitAll()
             )
             .csrf(csrf -> csrf
-                // 用 Cookie 承载 CSRF token，前端 fetch 可以从 cookie 里读取并带到请求头
-                // （同时表单会使用 thymeleaf 的 _csrf hidden input）
+                // Cookie 承载 CSRF；兼容「请求头带 Cookie 原值」与「表单带页面渲染 token」两种前端写法
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             )
             // 允许同源页面在 iframe 中打开（赛事详情页弹窗内嵌 match 详情/录分）
             .headers(headers -> headers
@@ -143,6 +150,31 @@ public class SecurityConfig {
             }
         } catch (Exception ignored) {
             // 这里不再向外抛，避免污染日志
+        }
+    }
+
+    /**
+     * 浏览器 fetch：用 Cookie 中的原始 token 填 X-XSRF-TOKEN；
+     * 传统表单：继续使用页面渲染出的 XOR token。
+     */
+    private static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
+        private final CsrfTokenRequestHandler plain = new CsrfTokenRequestAttributeHandler();
+        private final CsrfTokenRequestHandler xor = new XorCsrfTokenRequestAttributeHandler();
+
+        @Override
+        public void handle(HttpServletRequest request, HttpServletResponse response,
+                           Supplier<CsrfToken> csrfToken) {
+            this.xor.handle(request, response, csrfToken);
+            // 强制写出 Cookie，避免 Deferred CSRF 导致首屏 token 为空
+            csrfToken.get();
+        }
+
+        @Override
+        public String resolveCsrfTokenValue(HttpServletRequest request, CsrfToken csrfToken) {
+            String headerValue = request.getHeader(csrfToken.getHeaderName());
+            return (headerValue != null && !headerValue.isBlank())
+                    ? this.plain.resolveCsrfTokenValue(request, csrfToken)
+                    : this.xor.resolveCsrfTokenValue(request, csrfToken);
         }
     }
 }

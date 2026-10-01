@@ -243,44 +243,46 @@ public class GroupRankingCalculator {
                         pseudoGroup, pseudoMember, usernameById, tieMatches, setByMatch, allowDraw, regularSets
                 ).getOrDefault(g.getId(), List.of());
 
-                boolean chainTie = pseudoRanking.size() >= 3;
-                if (chainTie) {
-                    int w0 = (int) pseudoRanking.get(0).getOrDefault("wins", 0);
-                    int d0 = (int) pseudoRanking.get(0).getOrDefault("draws", 0);
-                    int l0 = (int) pseudoRanking.get(0).getOrDefault("losses", 0);
-                    for (Map<String, Object> row : pseudoRanking) {
-                        int w = (int) row.getOrDefault("wins", 0);
-                        int d = (int) row.getOrDefault("draws", 0);
-                        int l = (int) row.getOrDefault("losses", 0);
-                        if (w != w0 || d != d0 || l != l0) {
-                            chainTie = false;
-                            break;
-                        }
+                // 检查是否有2名或以上选手同"胜-平-负"
+                Map<String, List<Map<String, Object>>> byRecord = new LinkedHashMap<>();
+                for (Map<String, Object> row : pseudoRanking) {
+                    int w = (int) row.getOrDefault("wins", 0);
+                    int d = (int) row.getOrDefault("draws", 0);
+                    int l = (int) row.getOrDefault("losses", 0);
+                    String key = w + "-" + d + "-" + l;
+                    byRecord.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
+                }
+
+                // 对同"胜-平-负"的选手按优先级排序
+                for (List<Map<String, Object>> group : byRecord.values()) {
+                    if (group.size() >= 2) {
+                        group.sort((aa, bb) -> {
+                            int an = (int) aa.getOrDefault("net", 0), bn = (int) bb.getOrDefault("net", 0);
+                            if (an != bn) return Integer.compare(bn, an);
+                            int at = (int) aa.getOrDefault("totalScore", 0), bt = (int) bb.getOrDefault("totalScore", 0);
+                            if (at != bt) return Integer.compare(bt, at);
+                            int a2 = (int) aa.getOrDefault("matchGe2Count", 0), b2 = (int) bb.getOrDefault("matchGe2Count", 0);
+                            if (a2 != b2) return Integer.compare(b2, a2);
+                            int am = (int) aa.getOrDefault("matchMaxScore", 0), bm = (int) bb.getOrDefault("matchMaxScore", 0);
+                            if (am != bm) return Integer.compare(bm, am);
+                            int as = (int) aa.getOrDefault("stealCount", 0), bs = (int) bb.getOrDefault("stealCount", 0);
+                            if (as != bs) return Integer.compare(bs, as);
+                            int ax = (int) aa.getOrDefault("stealMax", 0), bx = (int) bb.getOrDefault("stealMax", 0);
+                            if (ax != bx) return Integer.compare(bx, ax);
+                            return String.valueOf(aa.getOrDefault("username", "")).compareTo(String.valueOf(bb.getOrDefault("username", "")));
+                        });
                     }
                 }
 
-                if (chainTie) {
-                    List<Map<String, Object>> reordered = new ArrayList<>(pseudoRanking);
-                    reordered.sort((aa, bb) -> {
-                        int an = (int) aa.getOrDefault("net", 0), bn = (int) bb.getOrDefault("net", 0);
-                        if (an != bn) return Integer.compare(bn, an);
-                        int at = (int) aa.getOrDefault("totalScore", 0), bt = (int) bb.getOrDefault("totalScore", 0);
-                        if (at != bt) return Integer.compare(bt, at);
-                        int a2 = (int) aa.getOrDefault("matchGe2Count", 0), b2 = (int) bb.getOrDefault("matchGe2Count", 0);
-                        if (a2 != b2) return Integer.compare(b2, a2);
-                        int am = (int) aa.getOrDefault("matchMaxScore", 0), bm = (int) bb.getOrDefault("matchMaxScore", 0);
-                        if (am != bm) return Integer.compare(bm, am);
-                        int as = (int) aa.getOrDefault("stealCount", 0), bs = (int) bb.getOrDefault("stealCount", 0);
-                        if (as != bs) return Integer.compare(bs, as);
-                        int ax = (int) aa.getOrDefault("stealMax", 0), bx = (int) bb.getOrDefault("stealMax", 0);
-                        if (ax != bx) return Integer.compare(bx, ax);
-                        return String.valueOf(aa.getOrDefault("username", "")).compareTo(String.valueOf(bb.getOrDefault("username", "")));
-                    });
-                    for (int i = 0; i < reordered.size(); i++) {
-                        reordered.get(i).put("groupRank", i + 1);
-                    }
-                    pseudoRanking = reordered;
+                // 按顺序重新赋值 groupRank
+                List<Map<String, Object>> reordered = new ArrayList<>();
+                for (List<Map<String, Object>> group : byRecord.values()) {
+                    reordered.addAll(group);
                 }
+                for (int i = 0; i < reordered.size(); i++) {
+                    reordered.get(i).put("groupRank", i + 1);
+                }
+                pseudoRanking = reordered;
 
                 remapMainGroupRanksFromPseudoOrder(tie, pseudoRanking);
 

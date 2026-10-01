@@ -17,6 +17,7 @@ import com.example.service.TournamentService;
 import com.example.service.UserService;
 import com.example.service.UserTournamentPointsService;
 import com.example.service.ITournamentLevelService;
+import com.example.service.TournamentUrlService;
 import com.example.entity.Tournament;
 import com.example.entity.Series;
 import com.example.service.impl.TournamentRankingRosterService;
@@ -59,6 +60,7 @@ public class HomeController {
     @Autowired private TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired private INotificationService notificationService;
     @Autowired private TournamentMedalStandingsService tournamentMedalStandingsService;
+    @Autowired private TournamentUrlService tournamentUrlService;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model, HttpServletRequest request) {
@@ -342,7 +344,7 @@ public class HomeController {
                 one.put("seriesLabel", seriesLabel);
                 one.put("levelLabel", levelLabel);
                 one.put("rankLabel", rankLabel);
-                one.put("detailUrl", "/tournament/detail/" + t.getId());
+                one.put("detailUrl", tournamentUrlService.detailUrl(t));
                 rows.add(one);
             }
             rows.sort((a, b) -> String.valueOf(b.getOrDefault("seasonLabel", "")).compareTo(String.valueOf(a.getOrDefault("seasonLabel", ""))));

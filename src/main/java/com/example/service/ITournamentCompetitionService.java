@@ -9,6 +9,9 @@ public interface ITournamentCompetitionService {
     TournamentCompetitionConfig getConfig(Long tournamentId);
     TournamentCompetitionConfig saveConfig(User operator, TournamentCompetitionConfig form);
     List<Integer> calcGroupSizeOptions(Integer participantCount);
+
+    /** 按参赛人数与每组人数解析小组布局（含质数 m 时末组酌情调整）；非法时返回 null。 */
+    GroupSizeLayout.Layout resolveGroupLayout(Integer participantCount, Integer groupSize);
     void autoFillGroupMembersFromRegistration(User operator, Long tournamentId);
     void saveGroupMembers(User operator, Long tournamentId, Map<Long, List<Long>> groupUserMap);
     /** 仅保存一个小组的成员名单（不影响其他组），并校验与他人小组不重复 */
@@ -71,4 +74,9 @@ public interface ITournamentCompetitionService {
      * 与 {@link #getProgressSettledPlacementRank} 相同规则，一次返回全量已定名次（不含未淘汰/未结算者）。
      */
     Map<Long, Integer> getProgressSettledPlacementRanks(Long tournamentId);
+
+    /**
+     * 构建淘汰赛对阵图数据
+     */
+    com.example.dto.KnockoutBracketData buildKnockoutBracketData(Long tournamentId);
 }

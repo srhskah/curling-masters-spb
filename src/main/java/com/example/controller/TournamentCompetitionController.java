@@ -24,6 +24,7 @@ public class TournamentCompetitionController {
     @Autowired private com.example.service.impl.QualifierScheduleService qualifierScheduleService;
     @Autowired private com.example.service.impl.KnockoutBracketService knockoutBracketService;
     @Autowired private TournamentService tournamentService;
+    @Autowired private TournamentUrlService tournamentUrlService;
 
     private User currentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -52,8 +53,33 @@ public class TournamentCompetitionController {
                              @RequestParam(required = false) Integer qualifierSets,
                              @RequestParam(required = false, defaultValue = "0") Integer knockoutBracketMode,
                              @RequestParam(required = false, defaultValue = "true") String knockoutAutoFromGroup,
+                             @RequestParam(required = false) String competitionRuleType,
+                             @RequestParam(required = false) Integer customCenterLineLimit,
+                             @RequestParam(required = false) Integer customDeadStoneLimit,
                              RedirectAttributes ra) {
         try {
+            // 处理赛制规则
+            Tournament tournament = tournamentService.getById(tournamentId);
+            if (tournament != null) {
+                if (competitionRuleType != null) {
+                    tournament.setCompetitionRuleType(competitionRuleType);
+                    if ("CUSTOM".equals(competitionRuleType)) {
+                        // 如果选择自定义，设置自定义值
+                        if (customCenterLineLimit != null) {
+                            tournament.setCustomCenterLineLimit(customCenterLineLimit);
+                        }
+                        if (customDeadStoneLimit != null) {
+                            tournament.setCustomDeadStoneLimit(customDeadStoneLimit);
+                        }
+                    } else {
+                        // 如果选择正常5壶保护制，清空自定义值
+                        tournament.setCustomCenterLineLimit(null);
+                        tournament.setCustomDeadStoneLimit(null);
+                    }
+                    tournamentService.updateById(tournament);
+                }
+            }
+
             TournamentCompetitionConfig c = new TournamentCompetitionConfig();
             c.setTournamentId(tournamentId);
             c.setParticipantCount(participantCount);
@@ -84,7 +110,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/knockout/generate/{tournamentId}")
@@ -96,7 +122,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/knockout/generate-next/{tournamentId}")
@@ -108,7 +134,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/knockout/clear/{tournamentId}")
@@ -120,7 +146,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/knockout/recompute-acceptance/{tournamentId}")
@@ -132,7 +158,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @GetMapping("/knockout/manual/{tournamentId}")
@@ -166,7 +192,7 @@ public class TournamentCompetitionController {
             return "tournament/knockout-manual-first-round";
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
-            return "redirect:/tournament/detail/" + tournamentId;
+            return tournamentUrlService.redirectDetail(tournamentId);
         }
     }
 
@@ -224,12 +250,12 @@ public class TournamentCompetitionController {
                 pairs.add(new com.example.service.impl.KnockoutBracketService.ManualPairInput(p1, p2));
             }
             int n = knockoutBracketService.generateFirstKnockoutRoundManual(currentUser(), tournamentId, pairs);
-            ra.addFlashAttribute("message", "已按手动排签生成淘汰赛首轮，共 " + n + " 场");
+            ra.addFlashAttribute("message", "已按手动排签更新淘汰赛首轮，共更新 " + n + " 场");
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
             return "redirect:/tournament/competition/knockout/manual/" + tournamentId;
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/qualifier/generate-first-round/{tournamentId}")
@@ -241,7 +267,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/groups/auto-fill/{tournamentId}")
@@ -253,7 +279,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/groups/save/{tournamentId}")
@@ -279,7 +305,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/groups/save-group/{tournamentId}")
@@ -299,7 +325,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/groups/sync-matches/{tournamentId}")
@@ -313,7 +339,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/groups/save-all-and-generate/{tournamentId}")
@@ -334,7 +360,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/groups/generate/{tournamentId}")
@@ -346,7 +372,7 @@ public class TournamentCompetitionController {
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PostMapping("/match/save/{matchId}")

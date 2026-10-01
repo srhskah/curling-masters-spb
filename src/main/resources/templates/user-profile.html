@@ -94,7 +94,7 @@
                                             <td th:text="${e.levelLabel}"></td>
                                             <td>
                                                 <span class="d-block small text-muted" th:text="${e.seasonSeriesLine()}">赛季 · 系列</span>
-                                                <a th:href="@{/tournament/detail/{tid}(tid=${e.tournamentId})}" class="text-decoration-none" th:text="${e.tournamentName}">赛事</a>
+                                                <a th:href="${@tournamentUrls.detailUrl(e.tournamentId)}" class="text-decoration-none" th:text="${e.tournamentName}">赛事</a>
                                             </td>
                                         </tr>
                                         <tr th:if="${userMedalEvents == null or #lists.isEmpty(userMedalEvents)}">
@@ -120,9 +120,9 @@
                                         <tbody>
                                         <tr th:each="h : ${userTournamentHistory}">
                                             <td>
-                                                <a th:href="@{/tournament/detail/{tid}(tid=${h.tournamentId})}" class="text-decoration-none" th:text="${h.seasonSeriesLine() + ' · ' + h.levelLabel}">赛事</a>
+                                                <a th:href="${@tournamentUrls.detailUrl(h.tournamentId)}" class="text-decoration-none" th:text="${h.seasonSeriesLine() + ' · ' + h.levelLabel}">赛事</a>
                                                 <!-- <span class="small text-muted d-block" th:text="${h.levelLabel + ' · ' + h.seasonSeriesLine()}"></span> -->
-                                                <!-- <a th:href="@{/tournament/detail/{tid}(tid=${h.tournamentId})}" class="text-decoration-none" th:text="${h.tournamentName}">赛事</a> -->
+                                                <!-- <a th:href="${@tournamentUrls.detailUrl(h.tournamentId)}" class="text-decoration-none" th:text="${h.tournamentName}">赛事</a> -->
                                             </td>
                                             <td class="text-center" th:text="${h.finalRank != null ? h.finalRank : '—'}">—</td>
                                             <td class="text-center" th:text="${h.points != null ? h.points : '—'}">—</td>

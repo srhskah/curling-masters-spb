@@ -2,7 +2,8 @@
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments :: head(${pageTitle})}">
 </head>
-<body th:classappend="${ipBgClass}" th:attr="data-tournament-id=${tournament.id}">
+<body th:classappend="${ipBgClass}"
+      th:attr="data-tournament-id=${tournament.id},data-tournament-detail-url=${@tournamentUrls.detailUrl(tournament)}">
 <div th:replace="~{fragments :: navbar}"></div>
 <div th:replace="~{fragments :: success-alert}"></div>
 <div th:replace="~{fragments :: error-alert}"></div>
@@ -19,12 +20,12 @@
         </h4>
         <div class="d-flex flex-wrap gap-2">
             <a th:if="${drawPool == 'MAIN' and allowQualifierDrawPage}"
-               th:href="@{/tournament/{id}/draw(id=${tournament.id},pool='QUALIFIER')}"
+               th:href="${@tournamentUrls.drawUrl(tournament) + '?pool=QUALIFIER'}"
                class="btn btn-outline-primary btn-sm">资格赛抽签</a>
             <a th:if="${drawPool == 'QUALIFIER'}"
-               th:href="@{/tournament/{id}/draw(id=${tournament.id})}"
+               th:href="${@tournamentUrls.drawUrl(tournament)}"
                class="btn btn-outline-secondary btn-sm">直通车抽签</a>
-            <a th:href="@{/tournament/detail/{id}(id=${tournament.id})}" class="btn btn-outline-secondary btn-sm">
+            <a th:href="${@tournamentUrls.detailUrl(tournament)}" class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-arrow-left"></i> 返回赛事详情
                 </a>
         </div>
@@ -43,6 +44,9 @@
             <strong>推荐分组：</strong>
             <span th:text="${drawConfig['recommendedGroupCount']}">?</span> 组 ×
             <span th:text="${drawConfig['recommendedGroupSize']}">?</span> 人/组
+            <span th:if="${drawConfig['recommendedLastGroupSize'] != null}" class="text-muted">
+                （末组 <span th:text="${drawConfig['recommendedLastGroupSize']}">?</span> 人）
+            </span>
         </div>
     </div>
 
@@ -88,6 +92,10 @@
                                 th:selected="${draw != null && draw.groupCount == count}"
                                 th:text="${count + ' 组'}">4组</option>
                         </select>
+                        <div class="form-text">
+                            须整除本池人数；质数 m 时可按 m±n 布局选小组数，且每组 ∈ [3,(m+1)/2]、末组与其他组相差 ≤1。
+                        </div>
+                        <div class="form-text text-primary" th:if="${groupLayoutHint != null}" th:text="${groupLayoutHint}"></div>
                     </div>
                     <div class="col-md-3" id="tierCountDiv" style="display: none;">
                         <label class="form-label">档数</label>
@@ -139,7 +147,7 @@
                 <span th:if="${drawUserHints['seedLabel'] != null}" th:text="${drawUserHints['seedLabel']}">种子</span>
             </div>
             <div th:if="${drawWindowOpen}" class="alert alert-light border small mb-3" th:switch="${draw.drawType}">
-                <span th:case="'TIERED'">点击下方「随机抽签」，系统将在<strong>本档对应小组</strong>的空位中<strong>随机</strong>分配您。</span>
+                <span th:case="'TIERED'">点击下方「随机抽签」，系统将在<strong>本档对应小组</strong>的空位中<strong>随机</strong>分配您。办赛端：当各未完成档位都只剩 1 人时会自动补录，并可一键导入小组名单。</span>
                 <span th:case="'SEED'">点击下方「随机抽签」，系统将根据您的身份（<strong>种子/非种子</strong>）在对应空位中<strong>随机</strong>分配您。</span>
                 <span th:case="'RANDOM'">点击下方「随机抽签」，系统将在尚有空位的小组中<strong>随机</strong>分配您。</span>
             </div>
@@ -179,7 +187,7 @@
                 </button>
                 <button type="button" class="btn btn-sm btn-warning" onclick="importToGroups()" th:if="${canManageDraw}">
                     <i class="bi bi-download"></i>
-                    <span th:text="${drawPool == 'QUALIFIER'} ? '导入资格赛席' : '导入到小组名单'">导入到小组名单</span>
+                    <span th:text="${drawPool == 'QUALIFIER'} ? '一键导入资格赛席' : '一键导入小组名单'">一键导入小组名单</span>
                 </button>
             </div>
         </div>
@@ -197,33 +205,61 @@
 <script th:inline="javascript">
     /** 服务端渲染的赛事 ID（字符串，避免大整数在 JS 中精度丢失） */
     const DRAW_TOURNAMENT_ID = /*[[${tournament.id != null ? #strings.toString(tournament.id) : ''}]]*/ '';
-    function getDrawTournamentIdForFetch() {
-        if (DRAW_TOURNAMENT_ID && /^\d+$/.test(DRAW_TOURNAMENT_ID)) {
-            return DRAW_TOURNAMENT_ID;
-        }
-        const el = document.getElementById('drawPageTournamentId');
-        if (el && el.value != null && String(el.value).trim() !== '') {
-            const v = String(el.value).trim();
-            if (/^\d+$/.test(v)) return v;
-        }
-        const m = window.location.pathname.match(/\/tournament\/(\d+)\/draw(?:\/|$|\?)/);
-        return m && m[1] ? m[1] : '';
-    }
-    const tournamentId = getDrawTournamentIdForFetch();
+    const tournamentId = DRAW_TOURNAMENT_ID;
     const drawPool = /*[[${drawPool}]]*/ 'MAIN';
     let selectedGroupId = null;
     let lastResultsJson = null;
 
-    function csrfPair() {
-        const el = document.getElementById('csrfMeta');
-        if (!el || !el.dataset.token) return null;
-        return { name: el.dataset.param || '_csrf', value: el.dataset.token };
+    function getCookie(name) {
+        const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : null;
     }
 
     function appendCsrf(params) {
-        const c = csrfPair();
-        if (c) params.append(c.name, c.value);
+        // 有 XSRF-TOKEN Cookie 时靠请求头校验；否则回退页面 XOR token（表单字段）
+        if (getCookie('XSRF-TOKEN')) return params;
+        const el = document.getElementById('csrfMeta');
+        if (el && el.dataset.token) {
+            params.append(el.dataset.param || '_csrf', el.dataset.token);
+        }
         return params;
+    }
+
+    function csrfHeaders() {
+        // SpaCsrfTokenRequestHandler：请求头必须是 Cookie 中的原始 token（不是页面 XOR 值）
+        const h = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        const cookieToken = getCookie('XSRF-TOKEN');
+        if (cookieToken) {
+            h['X-XSRF-TOKEN'] = cookieToken;
+        }
+        return h;
+    }
+
+    async function postForm(url, params) {
+        appendCsrf(params);
+        const r = await fetch(url, {
+            method: 'POST',
+            headers: csrfHeaders(),
+            body: params.toString(),
+            credentials: 'same-origin'
+        });
+        const text = await r.text();
+        let result;
+        try {
+            result = text ? JSON.parse(text) : {};
+        } catch (e) {
+            if (r.status === 403) {
+                throw new Error('请求被拒绝（CSRF 校验失败），请刷新页面后重试');
+            }
+            throw new Error(r.ok ? '响应不是 JSON' : ('HTTP ' + r.status + (text ? (': ' + text.slice(0, 120)) : '')));
+        }
+        if (!r.ok && result.message == null) {
+            if (r.status === 403) {
+                throw new Error('请求被拒绝（CSRF 校验失败），请刷新页面后重试');
+            }
+            throw new Error('HTTP ' + r.status);
+        }
+        return result;
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -274,12 +310,7 @@
             params.append('seedCount', document.getElementById('seedCount').value);
         }
         params.append('pool', drawPool);
-        appendCsrf(params);
-        fetch(`/tournament/${tournamentId}/draw/init`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString()
-        }).then(r => r.json()).then(result => {
+        postForm(`/tournament/${tournamentId}/draw/init`, params).then(result => {
             if (result.success) {
                 alert('配置已保存');
                 location.reload();
@@ -305,12 +336,7 @@
         if (!selectedGroupId) return;
         if (!confirm('确认抽入所选小组？提交后不可撤销（除非管理员重置配置）。')) return;
         const params = new URLSearchParams({ groupId: selectedGroupId, pool: drawPool });
-        appendCsrf(params);
-        fetch(`/tournament/${tournamentId}/draw/perform`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString()
-        }).then(r => r.json()).then(result => {
+        postForm(`/tournament/${tournamentId}/draw/perform`, params).then(result => {
             if (result.success) {
                 alert('抽签成功');
                 location.reload();
@@ -327,12 +353,7 @@
         }
         if (!confirm('确认随机抽签？提交后不可撤销（除非管理员重置配置）。')) return;
         const params = new URLSearchParams({ pool: drawPool });
-        appendCsrf(params);
-        fetch(`/tournament/${tournamentId}/draw/perform`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString()
-        }).then(r => r.json()).then(result => {
+        postForm(`/tournament/${tournamentId}/draw/perform`, params).then(result => {
             if (result.success) {
                 alert('抽签成功');
                 location.reload();
@@ -496,18 +517,16 @@
     }
 
     function importToGroups() {
-        if (!confirm('将按抽签结果写入小组名单，并把赛事设为「进行中」。确定？')) return;
+        const tip = drawPool === 'QUALIFIER'
+            ? '将按资格赛抽签结果写入资格赛席；若各未完成档位只剩 1 人或仅剩一组空位，会先自动补录。确定？'
+            : '将按抽签结果一键写入小组名单，并把赛事设为「进行中」。分档抽签时：若各未完成档位都只剩 1 人，或仅剩一组空位，会先自动补录未抽签选手。确定？';
+        if (!confirm(tip)) return;
         const params = new URLSearchParams();
         params.append('pool', drawPool);
-        appendCsrf(params);
-        fetch(`/tournament/${tournamentId}/draw/import-to-groups`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString()
-        }).then(r => r.json()).then(result => {
+        postForm(`/tournament/${tournamentId}/draw/import-to-groups`, params).then(result => {
             if (result.success) {
                 alert(result.message || '导入成功');
-                window.location.href = '/tournament/detail/' + tournamentId;
+                window.location.href = document.body.dataset.tournamentDetailUrl || ('/tournament/detail/' + tournamentId);
             } else {
                 alert(result.message || '导入失败');
             }

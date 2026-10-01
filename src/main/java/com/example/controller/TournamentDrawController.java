@@ -26,7 +26,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Controller
-@RequestMapping("/tournament/{tournamentId}/draw")
 public class TournamentDrawController {
 
     @Autowired private TournamentService tournamentService;
@@ -39,11 +38,12 @@ public class TournamentDrawController {
     @Autowired private TournamentDrawAuthHelper tournamentDrawAuthHelper;
     @Autowired private RankingExportPdfService rankingExportPdfService;
     @Autowired private RankingApiController rankingApiController;
+    @Autowired private TournamentUrlService tournamentUrlService;
 
     /**
      * 获取抽签配置（用于对话框）
      */
-    @GetMapping("/config")
+    @GetMapping("/tournament/{tournamentId}/draw/config")
     @ResponseBody
     public Map<String, Object> getDrawConfig(@PathVariable Long tournamentId,
             @RequestParam(required = false) Integer groupCount,
@@ -63,12 +63,19 @@ public class TournamentDrawController {
         Object recGc = config.get("recommendedGroupCount");
         int gcForTier = groupCount != null && groupCount > 0 ? groupCount
                 : (recGc instanceof Number ? ((Number) recGc).intValue() : 0);
-        if (gcForTier > 1 && totalPlayers > 0 && totalPlayers % gcForTier == 0) {
-            int ppg = totalPlayers / gcForTier;
+        var layoutForTier = gcForTier > 1 && totalPlayers > 0
+                ? drawManagementService.resolveDrawLayout(totalPlayers, gcForTier) : null;
+        if (layoutForTier != null) {
+            int ppg = layoutForTier.groupSize();
             config.put("validTieredTierCounts",
                     drawManagementService.getValidTieredDrawTierCounts(gcForTier, ppg));
             config.put("validSeedCountOptions",
                     drawManagementService.getValidSeedCountOptions(gcForTier, ppg, totalPlayers));
+            if (layoutForTier.adjustN() > 0) {
+                config.put("groupLayoutHint",
+                        layoutForTier.groupCount() + " 组，基准每组 " + layoutForTier.groupSize()
+                                + " 人，末组 " + layoutForTier.lastGroupSize() + " 人");
+            }
         } else {
             config.put("validTieredTierCounts", List.of());
             config.put("validSeedCountOptions", List.of());
@@ -78,10 +85,35 @@ public class TournamentDrawController {
     }
 
     /**
-     * 抽签页面
+     * 抽签页面（友好 URL）
      */
-    @GetMapping
-    public String drawPage(@PathVariable Long tournamentId, Model model, Authentication auth,
+    @GetMapping("/tournament/{year:\\d{4}}/{half:[12]}/{series:\\d+}/{level}/draw")
+    public String drawPageByKey(@PathVariable int year,
+                                @PathVariable int half,
+                                @PathVariable("series") int seriesSequence,
+                                @PathVariable String level,
+                                Model model, Authentication auth,
+                                HttpServletRequest request) {
+        Tournament tournament = tournamentUrlService.resolve(year, half, seriesSequence, level);
+        if (tournament == null) {
+            return "redirect:/";
+        }
+        return renderDrawPage(tournament.getId(), model, auth, request);
+    }
+
+    /** 兼容旧链接 /tournament/{id}/draw */
+    @GetMapping("/tournament/{tournamentId}/draw")
+    public String drawPageById(@PathVariable Long tournamentId, Model model, Authentication auth,
+            HttpServletRequest request) {
+        String redirect = tournamentUrlService.redirectToPrettyOrNull(
+                tournamentId, tournamentUrlService.drawUrl(tournamentId), request);
+        if (redirect != null) {
+            return redirect;
+        }
+        return renderDrawPage(tournamentId, model, auth, request);
+    }
+
+    private String renderDrawPage(Long tournamentId, Model model, Authentication auth,
             HttpServletRequest request) {
         Tournament tournament = tournamentService.getById(tournamentId);
         if (tournament == null) {
@@ -89,12 +121,12 @@ public class TournamentDrawController {
         }
         
         if (tournament.getStatus() == null || (tournament.getStatus() != 0 && tournament.getStatus() != 1)) {
-            return "redirect:/tournament/detail/" + tournamentId + "?error=draw_status";
+            return tournamentUrlService.redirectDetail(tournamentId, "error=draw_status");
         }
         DrawPool drawPool = DrawPool.fromParam(request.getParameter("pool"));
         if (drawManagementService.countGroupMembers(tournamentId) > 0
                 && !drawManagementService.allowDrawPageWhenGroupMembersPresent(tournamentId)) {
-            return "redirect:/tournament/detail/" + tournamentId + "?error=draw_group_saved";
+            return tournamentUrlService.redirectDetail(tournamentId, "error=draw_group_saved");
         }
 
         CustomUserDetails userDetails = (CustomUserDetails) auth.getPrincipal();
@@ -127,10 +159,18 @@ public class TournamentDrawController {
         List<Integer> validGroupCounts = totalPlayers > 0 ? drawManagementService.getValidGroupCounts(totalPlayers) : new ArrayList<>();
         List<Integer> validTieredTierCounts = new ArrayList<>();
         List<Integer> validSeedCountOptions = new ArrayList<>();
-        if (draw != null && draw.getGroupCount() != null && totalPlayers > 0 && totalPlayers % draw.getGroupCount() == 0) {
-            int playersPerGroup = totalPlayers / draw.getGroupCount();
-            validTieredTierCounts = drawManagementService.getValidTieredDrawTierCounts(draw.getGroupCount(), playersPerGroup);
-            validSeedCountOptions = drawManagementService.getValidSeedCountOptions(draw.getGroupCount(), playersPerGroup, totalPlayers);
+        String groupLayoutHint = null;
+        if (draw != null && draw.getGroupCount() != null && totalPlayers > 0) {
+            var layout = drawManagementService.resolveDrawLayout(totalPlayers, draw.getGroupCount());
+            if (layout != null) {
+                int playersPerGroup = layout.groupSize();
+                validTieredTierCounts = drawManagementService.getValidTieredDrawTierCounts(draw.getGroupCount(), playersPerGroup);
+                validSeedCountOptions = drawManagementService.getValidSeedCountOptions(draw.getGroupCount(), playersPerGroup, totalPlayers);
+                if (layout.adjustN() > 0) {
+                    groupLayoutHint = layout.groupCount() + " 组，基准每组 " + layout.groupSize()
+                            + " 人，末组调整为 " + layout.lastGroupSize() + " 人";
+                }
+            }
         }
 
         Set<Long> eligibleGroupIdSet = new HashSet<>(drawManagementService.getEligibleGroupIds(tournamentId, currentUserId, drawPool));
@@ -163,6 +203,7 @@ public class TournamentDrawController {
         model.addAttribute("validTieredTierCounts", validTieredTierCounts);
         model.addAttribute("validTierCounts", validTieredTierCounts);
         model.addAttribute("validSeedCountOptions", validSeedCountOptions);
+        model.addAttribute("groupLayoutHint", groupLayoutHint);
         model.addAttribute("drawStatus", drawStatus);
         model.addAttribute("drawConfig", drawConfig);
         model.addAttribute("canManageDraw", canManageDraw);
@@ -183,7 +224,7 @@ public class TournamentDrawController {
     /**
      * 初始化抽签配置（管理员）
      */
-    @PostMapping("/init")
+    @PostMapping("/tournament/{tournamentId}/draw/init")
     @Transactional(rollbackFor = Exception.class)
     @ResponseBody
     public Map<String, Object> initDraw(@PathVariable Long tournamentId,
@@ -228,7 +269,7 @@ public class TournamentDrawController {
     /**
      * 执行抽签
      */
-    @PostMapping("/perform")
+    @PostMapping("/tournament/{tournamentId}/draw/perform")
     @ResponseBody
     public Map<String, Object> performDraw(@PathVariable Long tournamentId,
                                            @RequestParam(required = false) Long groupId,
@@ -248,7 +289,7 @@ public class TournamentDrawController {
     /**
      * 获取抽签结果
      */
-    @GetMapping("/results")
+    @GetMapping("/tournament/{tournamentId}/draw/results")
     @ResponseBody
     public Map<String, Object> getDrawResults(@PathVariable Long tournamentId,
                                               @RequestParam(required = false, defaultValue = "MAIN") String pool) {
@@ -326,7 +367,7 @@ public class TournamentDrawController {
     /**
      * 抽签结果 PDF（标题含赛季-级别-本届届次；仅办赛权限）
      */
-    @GetMapping(value = "/export/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @GetMapping(value = "/tournament/{tournamentId}/draw/export/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportDrawResultsPdf(@PathVariable Long tournamentId,
                                                        @RequestParam(required = false, defaultValue = "MAIN") String pool,
                                                        Authentication auth) {
@@ -411,7 +452,7 @@ public class TournamentDrawController {
     /**
      * 导入抽签结果到小组成员表（管理员）
      */
-    @PostMapping("/import-to-groups")
+    @PostMapping("/tournament/{tournamentId}/draw/import-to-groups")
     @ResponseBody
     public Map<String, Object> importToGroups(@PathVariable Long tournamentId,
                                               @RequestParam(required = false, defaultValue = "MAIN") String pool,
@@ -422,7 +463,10 @@ public class TournamentDrawController {
                 return Map.of("success", false, "message", "仅超级管理员、管理员或本届主办可导入小组");
             }
             int n = drawManagementService.importDrawResultsToGroups(tournamentId, DrawPool.fromParam(pool));
-            return Map.of("success", true, "message", "成功导入 " + n + " 名选手到小组，赛事已进入进行中");
+            String okMsg = pool != null && "QUALIFIER".equalsIgnoreCase(pool)
+                    ? ("成功导入 " + n + " 名选手到资格赛席")
+                    : ("成功一键导入 " + n + " 名选手到小组名单，赛事已进入进行中");
+            return Map.of("success", true, "message", okMsg);
         } catch (Exception e) {
             return Map.of("success", false, "message", e.getMessage());
         }

@@ -7,13 +7,15 @@
 <div th:replace="~{fragments :: success-alert}"></div>
 <div th:replace="~{fragments :: error-alert}"></div>
 
+<input type="hidden" id="registrationPageTournamentId" th:value="${tournament.id}"/>
+
 <div class="container mt-4 mb-5">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h4 class="mb-0">
             <i class="bi bi-journal-text"></i> 报名接龙
             <span class="text-muted small" th:if="${tournament.levelCode != null}" th:text="${' — ' + tournament.levelCode}"></span>
         </h4>
-        <a class="btn btn-outline-secondary btn-sm" th:href="@{/tournament/detail/{id}(id=${tournament.id})}">
+        <a class="btn btn-outline-secondary btn-sm" th:href="${@tournamentUrls.detailUrl(tournament)}">
             <i class="bi bi-arrow-left"></i> 返回赛事详情
         </a>
     </div>
@@ -45,6 +47,7 @@
                         <span th:if="${setting != null and setting.quotaN != null}" th:text="${setting.quotaN}">-</span>
                         <span th:if="${setting == null or setting.quotaN == null}">指定</span>
                         名正赛名额后，报名将<strong>立即截止</strong>。
+                        <span th:if="${banRuleDescription != null}" th:text="${'；' + banRuleDescription}"></span>
                     </div>
 
                     <div th:if="${!registrationEnabled}" class="text-muted">
@@ -62,7 +65,9 @@
                             <form th:if="${registerBlockReason == null and !alreadyRegistered}"
                                   th:action="@{/tournament/registration/{id}/register(id=${tournament.id})}" method="post">
                                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                                <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg"></i> 报名</button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-plus-lg"></i> 报名
+                                </button>
                             </form>
                             <form th:if="${alreadyRegistered}" th:action="@{/tournament/registration/{id}/withdraw(id=${tournament.id})}" method="post">
                                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
@@ -121,24 +126,24 @@
                             <label class="form-label">是否开启</label><br/>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="enabled" id="en1" value="true"
-                                       th:checked="${setting != null and setting.enabled == true}">
+                                       th:checked="${setting != null and setting.enabled == true}"/>
                                 <label class="form-check-label" for="en1">开启</label>
                             </div>
                             <div class="form-check form-check-inline">
                                 <input class="form-check-input" type="radio" name="enabled" id="en0" value="false"
-                                       th:checked="${setting == null or setting.enabled != true}">
+                                       th:checked="${setting == null or setting.enabled != true}"/>
                                 <label class="form-check-label" for="en0">关闭</label>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">报名截止时间</label>
                             <input type="datetime-local" class="form-control" name="deadline" required
-                                   th:value="${setting != null and setting.deadline != null} ? ${#temporals.format(setting.deadline, 'yyyy-MM-dd') + 'T' + #temporals.format(setting.deadline, 'HH:mm')} : ''">
+                                   th:value="${setting != null and setting.deadline != null} ? ${#temporals.format(setting.deadline, 'yyyy-MM-dd') + 'T' + #temporals.format(setting.deadline, 'HH:mm')} : ''"/>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">正赛名额 n</label>
                             <input type="number" class="form-control" name="quotaN" min="1"
-                                   th:value="${setting != null and setting.quotaN != null} ? ${setting.quotaN} : 32">
+                                   th:value="${setting != null and setting.quotaN != null} ? ${setting.quotaN} : 32"/>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">模式</label>
@@ -151,7 +156,7 @@
                             <label class="form-label">直通车人数 m（资格赛模式）</label>
                             <input type="number" class="form-control" name="mainDirectM" min="0"
                                    th:value="${setting != null ? setting.mainDirectM : ''}"
-                                   placeholder="0 ≤ m &lt; n">
+                                   placeholder="0 ≤ m < n">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">资格赛种子位数</label>
@@ -179,27 +184,56 @@
                                 </div>
                             </div>
                             <div class="form-text text-muted small" th:if="${siblingTournaments != null and !#lists.isEmpty(siblingTournaments)}">
-                                勾选多个时，选手在<strong>任一</strong>所选赛事中达到下方 K 的淘汰赛进度即禁报。
+                                勾选多个时，选手在<strong>任一</strong>所选赛事中达到各自的 K 值即禁报。
                             </div>
                             <div class="form-text" th:if="${siblingTournaments == null or #lists.isEmpty(siblingTournaments)}">
                                 当前系列暂无可参照的其他赛事
                             </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">所选赛事前 K 名禁报（共用 K）</label>
-                            <input type="number" class="form-control" name="banOtherTournamentTop" min="1"
-                                   th:value="${setting != null ? setting.banOtherTournamentTop : ''}" placeholder="与上项配合">
+                        
+                        <div class="col-md-8">
+                            <label class="form-label">各参照赛事独立K值设置</label>
+                            <div class="border rounded p-2 bg-light" style="max-height: 11rem; overflow-y: auto;"
+                                 th:if="${siblingTournaments != null and !#lists.isEmpty(siblingTournaments)}">
+                                <div class="row g-2" th:each="ot : ${siblingTournaments}">
+                                    <div class="col-7">
+                                        <label class="small form-label mb-0" th:for="${'banOtTop' + ot.id}"
+                                               th:text="${(ot.levelCode != null ? ot.levelCode : '赛事') + (ot.startDate != null ? ('（' + #temporals.format(ot.startDate, 'yyyy-MM-dd') + '）') : ('（ID:' + ot.id + '）'))}">
+                                        </label>
+                                    </div>
+                                    <div class="col-5">
+                                        <input type="number" class="form-control form-control-sm" 
+                                               th:name="${'banRefTournamentTopMap[' + ot.id + ']'}"
+                                               th:id="${'banOtTop' + ot.id}" min="1" 
+                                               th:value="${banRefTournamentTopMap != null ? banRefTournamentTopMap[#strings.toString(ot.id)] : ''}"
+                                               placeholder="K值"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-text text-muted small" th:if="${siblingTournaments != null and !#lists.isEmpty(siblingTournaments)}">
+                                为每个参照赛事独立设置前K名禁报。勾选了赛事但未填写K值时，该赛事禁报规则不生效。
+                            </div>
+                            <div class="form-text" th:if="${siblingTournaments == null or #lists.isEmpty(siblingTournaments)}">
+                                当前系列暂无可参照的其他赛事
+                            </div>
                         </div>
+                        
                         <div class="col-12">
-                            <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> 保存配置</button>
-                            <span class="text-muted small ms-2">截止后若有效通过人数 &lt; n，可延长截止或调整名额；注意：报名进行中时，名额不能改小于当前已报名人数。</span>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> 保存配置
+                            </button>
+                            <span class="text-muted small ms-2">
+                                截止后若有效通过人数 < n，可延长截止或调整名额；注意：报名进行中时，名额不能改小于当前已报名人数。
+                            </span>
                         </div>
                     </form>
                     <hr/>
                     <form th:action="@{/tournament/registration/{id}/materialize(id=${tournament.id})}" method="post" class="d-inline"
                           onsubmit="return confirm('将正赛直通车选手写入「正赛入选」列表（跳过已存在），确定？');">
                         <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-                        <button type="submit" class="btn btn-outline-primary"><i class="bi bi-box-arrow-in-right"></i> 写入正赛直通车入选</button>
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="bi bi-box-arrow-in-right"></i> 写入正赛直通车入选
+                        </button>
                     </form>
                 </div>
             </div>
@@ -209,8 +243,13 @@
         <div class="col-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <span class="mb-0"><i class="bi bi-people"></i> 报名列表（总排名优先，无名者按报名时间）</span>
+                    <span class="mb-0">
+                        <i class="bi bi-people"></i> 报名列表（总排名优先，无名者按报名时间） <span class="small opacity-75">（约每 5 秒自动刷新）</span>
+                    </span>
                     <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-light btn-sm" onclick="loadRegistrationResults()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
                         <button type="button" class="btn btn-outline-light btn-sm" id="registrationListCopyBtn"
                                 th:disabled="${registrationExportB64 == null or registrationExportB64.isEmpty()}">
                             <i class="bi bi-clipboard"></i> 复制为文本
@@ -413,6 +452,125 @@
         } catch (err) {
             alert('复制失败，请手动选择文本复制。');
         }
+    });
+})();
+
+(function () {
+    function getRegistrationTournamentId() {
+        const el = document.getElementById('registrationPageTournamentId');
+        if (el && el.value != null && String(el.value).trim() !== '') {
+            const v = String(el.value).trim();
+            if (/^\d+$/.test(v)) return v;
+        }
+        const m = window.location.pathname.match(/\/tournament\/registration\/(\d+)(?:\/|$|\?)/);
+        return m && m[1] ? m[1] : '';
+    }
+
+    function escapeHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    window.loadRegistrationResults = function() {
+        const tournamentId = getRegistrationTournamentId();
+        if (!tournamentId) return;
+        fetch('/tournament/registration/' + tournamentId + '/results')
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('加载报名列表失败:', data.error);
+                    return;
+                }
+                updateRegistrationResults(data);
+            })
+            .catch(err => console.error('加载报名列表失败:', err));
+    };
+
+    function updateRegistrationResults(data) {
+        const rows = data.rows || [];
+        const preview = data.preview || {};
+        
+        // 更新预览区域
+        const mainDirectList = document.querySelector('.col-md-6 ol');
+        if (mainDirectList && preview.mainDirectUsernames) {
+            mainDirectList.innerHTML = preview.mainDirectUsernames.map(u => '<li>' + escapeHtml(u) + '</li>').join('');
+            if (preview.mainDirectUsernames.length === 0) {
+                mainDirectList.innerHTML = '<li class="text-muted list-unstyled">（暂无）</li>';
+            }
+        }
+
+        // 更新报名列表 - 窄屏卡片
+        const narrowContainer = document.querySelector('.d-md-none.p-3 .generic-cards-grid');
+        if (narrowContainer) {
+            narrowContainer.innerHTML = rows.map((row, i) => {
+                const totalRankBadge = row.totalRankPosition != null 
+                    ? '<span class="badge bg-primary registration-total-rank-badge">' + row.totalRankPosition + '</span>'
+                    : '<span class="text-muted small">-</span>';
+                const statusBadge = row.status === 1 
+                    ? '<span class="badge bg-success">已通过</span>'
+                    : (row.effectiveApproved ? '<span class="badge bg-success">待审（视同同意）</span>' : '<span class="badge bg-warning text-dark">待审</span>');
+                const registeredAt = row.registeredAt ? new Date(row.registeredAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+                const seriesCrossNote = row.seriesCrossNote || '—';
+                
+                return '<div class="col-12"><div class="card border-0 shadow-sm h-100"><div class="card-body">' +
+                    '<div class="d-flex justify-content-between align-items-start mb-2">' +
+                    '<span class="badge bg-secondary">#' + (i + 1) + '</span></div>' +
+                    '<div class="generic-card-row">' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                    '<span class="generic-card-label text-muted me-2">用户</span>' +
+                    '<span class="text-end fw-medium">' + escapeHtml(row.username) + '</span></div>' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                    '<span class="generic-card-label text-muted me-2">总排名</span>' +
+                    '<span class="text-end">' + totalRankBadge + '</span></div>' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                    '<span class="generic-card-label text-muted me-2">报名时间</span>' +
+                    '<span class="text-end small">' + registeredAt + '</span></div>' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                    '<span class="generic-card-label text-muted me-2">状态</span>' +
+                    '<span class="text-end">' + statusBadge + '</span></div>' +
+                    '<div class="d-flex justify-content-between align-items-start mb-0">' +
+                    '<span class="generic-card-label text-muted me-2">系列内其他赛事</span>' +
+                    '<span class="text-end small text-muted flex-grow-1">' + escapeHtml(seriesCrossNote) + '</span></div>' +
+                    '</div></div></div></div>';
+            }).join('');
+            
+            if (rows.length === 0) {
+                narrowContainer.parentElement.innerHTML = '<div class="p-4 text-center text-muted">暂无报名</div>';
+            }
+        }
+
+        // 更新报名列表 - 宽屏表格
+        const tableBody = document.querySelector('.d-none.d-md-block tbody');
+        if (tableBody) {
+            tableBody.innerHTML = rows.map((row, i) => {
+                const totalRankBadge = row.totalRankPosition != null 
+                    ? '<span class="badge bg-primary registration-total-rank-badge">' + row.totalRankPosition + '</span>'
+                    : '<span class="text-muted small">-</span>';
+                const statusBadge = row.status === 1 
+                    ? '<span class="badge bg-success">已通过</span>'
+                    : (row.effectiveApproved ? '<span class="badge bg-success">待审（已截止视同同意）</span>' : '<span class="badge bg-warning text-dark">待审</span>');
+                const registeredAt = row.registeredAt ? new Date(row.registeredAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+                const seriesCrossNote = row.seriesCrossNote || '—';
+                
+                return '<tr>' +
+                    '<td>' + (i + 1) + '</td>' +
+                    '<td>' + escapeHtml(row.username) + '</td>' +
+                    '<td>' + totalRankBadge + '</td>' +
+                    '<td class="small">' + registeredAt + '</td>' +
+                    '<td>' + statusBadge + '</td>' +
+                    '<td class="small text-muted">' + escapeHtml(seriesCrossNote) + '</td>' +
+                    '</tr>';
+            }).join('');
+            
+            if (rows.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">暂无报名</td></tr>';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadRegistrationResults();
+        setInterval(loadRegistrationResults, 5000);
     });
 })();
 </script>

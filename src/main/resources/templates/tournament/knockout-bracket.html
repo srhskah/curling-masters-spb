@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${pageTitle})}"></head>
+<body th:classappend="${ipBgClass}" th:attr="data-tournament-id=${tournament.id}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: success-alert}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+
+<div class="container mt-4 mb-5">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h4 class="mb-0">
+            <i class="bi bi-trophy"></i>
+            <span th:text="${tournament.levelCode}">赛事</span> — 淘汰赛对阵图
+        </h4>
+        <div class="d-flex flex-wrap gap-2">
+            <a th:href="${@tournamentUrls.detailUrl(tournament)}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> 返回赛事详情
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-info small">
+        <div th:if="${bracketData != null && (bracketData.hasQualifiers || bracketData.hasRound16 || bracketData.hasRound8 || bracketData.hasRound4 || bracketData.hasFinal)}">
+            <strong>当前阶段：</strong>
+            <span th:if="${bracketData.currentRound != null}" th:text="${bracketData.currentRoundLabel}">-</span>
+            <span th:if="${bracketData.currentRound == null}">尚未开始</span>
+        </div>
+        <div th:if="${bracketData == null || (!bracketData.hasQualifiers && !bracketData.hasRound16 && !bracketData.hasRound8 && !bracketData.hasRound4 && !bracketData.hasFinal)}" class="mb-0">
+            暂无淘汰赛对阵数据，请先生成淘汰赛。
+        </div>
+    </div>
+
+    <!-- 淘汰赛对阵图容器 -->
+    <div class="knockout-bracket-container" th:if="${bracketData != null && (bracketData.hasQualifiers || bracketData.hasRound16 || bracketData.hasRound8 || bracketData.hasRound4 || bracketData.hasFinal)}">
+        <div class="knockout-bracket">
+            <!-- 资格赛列 -->
+            <div class="bracket-column bracket-column-qualifier" th:if="${bracketData.hasQualifiers}">
+                <div class="bracket-column-header">资格赛</div>
+                <div class="bracket-column-content">
+                    <div th:each="match : ${bracketData.qualifierMatches}" 
+                         class="bracket-match bracket-match-qualifier"
+                         th:classappend="${match.winnerId != null ? 'bracket-match-winner' : ''}">
+                        <div class="bracket-slot"
+                             th:classappend="${match.winnerId != null && match.winnerId == match.player1Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${match.player1Name != null ? match.player1Name : ''}"></span>
+                        </div>
+                        <div class="bracket-slot"
+                             th:classappend="${match.winnerId != null && match.winnerId == match.player2Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${match.player2Name != null ? match.player2Name : ''}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1/8决赛列 -->
+            <div class="bracket-column bracket-column-16" th:if="${bracketData.hasRound16}">
+                <div class="bracket-column-header">1/8决赛</div>
+                <div class="bracket-column-content">
+                    <div th:each="match : ${bracketData.round16Matches}" 
+                         class="bracket-match"
+                         th:classappend="${match.winnerId != null ? 'bracket-match-winner' : ''}">
+                        <div class="bracket-slot"
+                             th:classappend="${match.winnerId != null && match.winnerId == match.player1Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${match.player1Name != null ? match.player1Name : ''}"></span>
+                        </div>
+                        <div class="bracket-slot"
+                             th:classappend="${match.winnerId != null && match.winnerId == match.player2Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${match.player2Name != null ? match.player2Name : ''}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1/4决赛列 -->
+            <div class="bracket-column bracket-column-8" th:if="${bracketData.hasRound8}">
+                <div class="bracket-column-header">1/4决赛</div>
+                <div class="bracket-column-content">
+                    <div th:each="match : ${bracketData.round8Matches}" 
+                         class="bracket-match"
+                         th:classappend="${match.winnerId != null ? 'bracket-match-winner' : ''}">
+                        <div class="bracket-slot"
+                             th:classappend="${match.winnerId != null && match.winnerId == match.player1Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${match.player1Name != null ? match.player1Name : ''}"></span>
+                        </div>
+                        <div class="bracket-slot"
+                             th:classappend="${match.winnerId != null && match.winnerId == match.player2Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${match.player2Name != null ? match.player2Name : ''}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 半决赛列 -->
+            <div class="bracket-column bracket-column-4" th:if="${bracketData.hasRound4}">
+                <div class="bracket-column-header">半决赛</div>
+                <div class="bracket-column-content">
+                    <div th:each="match : ${bracketData.round4Matches}" 
+                         class="bracket-match"
+                         th:classappend="${match.winnerId != null ? 'bracket-match-winner' : ''}">
+                        <div class="bracket-slot"
+                             th:classappend="${match.winnerId != null && match.winnerId == match.player1Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${match.player1Name != null ? match.player1Name : ''}"></span>
+                        </div>
+                        <div class="bracket-slot"
+                             th:classappend="${match.winnerId != null && match.winnerId == match.player2Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${match.player2Name != null ? match.player2Name : ''}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 决赛列 -->
+            <div class="bracket-column bracket-column-final" th:if="${bracketData.hasFinal}">
+                <div class="bracket-column-header">决赛</div>
+                <div class="bracket-column-content">
+                    <!-- 金牌赛 -->
+                    <div th:if="${bracketData.goldMatch != null}" 
+                         class="bracket-match bracket-match-final"
+                         th:classappend="${bracketData.goldMatch.winnerId != null ? 'bracket-match-winner' : ''}">
+                        <div class="bracket-slot bracket-slot-gold"
+                             th:classappend="${bracketData.goldMatch.winnerId != null && bracketData.goldMatch.winnerId == bracketData.goldMatch.player1Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${bracketData.goldMatch.player1Name != null ? bracketData.goldMatch.player1Name : ''}"></span>
+                        </div>
+                        <div class="bracket-slot bracket-slot-gold"
+                             th:classappend="${bracketData.goldMatch.winnerId != null && bracketData.goldMatch.winnerId == bracketData.goldMatch.player2Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${bracketData.goldMatch.player2Name != null ? bracketData.goldMatch.player2Name : ''}"></span>
+                        </div>
+                    </div>
+                    <!-- 铜牌赛 -->
+                    <div th:if="${bracketData.bronzeMatch != null}" 
+                         class="bracket-match bracket-match-bronze"
+                         th:classappend="${bracketData.bronzeMatch.winnerId != null ? 'bracket-match-winner' : ''}">
+                        <div class="bracket-slot bracket-slot-bronze"
+                             th:classappend="${bracketData.bronzeMatch.winnerId != null && bracketData.bronzeMatch.winnerId == bracketData.bronzeMatch.player1Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${bracketData.bronzeMatch.player1Name != null ? bracketData.bronzeMatch.player1Name : ''}"></span>
+                        </div>
+                        <div class="bracket-slot bracket-slot-bronze"
+                             th:classappend="${bracketData.bronzeMatch.winnerId != null && bracketData.bronzeMatch.winnerId == bracketData.bronzeMatch.player2Id ? 'bracket-slot-winner' : ''}">
+                            <span th:text="${bracketData.bronzeMatch.player2Name != null ? bracketData.bronzeMatch.player2Name : ''}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments :: footer}"></div>
+</body>
+</html>

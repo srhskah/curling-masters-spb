@@ -34,7 +34,7 @@
                         </div>
                     </div>
                     <div class="mt-2" th:if="${tournament != null}">
-                        <a class="btn btn-sm btn-outline-secondary" th:href="@{/tournament/detail/{id}(id=${match.tournamentId})}" target="_blank">
+                        <a class="btn btn-sm btn-outline-secondary" th:href="${@tournamentUrls.detailUrl(match.tournamentId)}" target="_blank">
                             <i class="bi bi-box-arrow-up-right"></i> 打开赛事详情
                         </a>
                         <a class="btn btn-sm btn-outline-secondary" th:if="${backUrl != null}" th:href="${backUrl}">返回 H2H</a>

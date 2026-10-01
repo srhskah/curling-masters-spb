@@ -3,11 +3,13 @@ package com.example.service;
 import com.example.dto.TournamentRegistrationPreviewDto;
 import com.example.dto.TournamentRegistrationRowDto;
 import com.example.entity.Tournament;
+import com.example.entity.TournamentRegistrationBanRef;
 import com.example.entity.TournamentRegistrationSetting;
 import com.example.entity.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public interface ITournamentRegistrationService {
@@ -23,6 +25,21 @@ public interface ITournamentRegistrationService {
     default Set<Long> resolveBanOtherTournamentRefIdSet(TournamentRegistrationSetting setting) {
         return Set.copyOf(resolveBanOtherTournamentRefIds(setting));
     }
+
+    /**
+     * 获取当前赛事的禁报参照配置（每个参照赛事的独立K值）
+     */
+    List<TournamentRegistrationBanRef> getBanRefs(Long tournamentId);
+
+    /**
+     * 获取参照赛事ID到K值的映射（key为String以便前端Thymeleaf访问）
+     */
+    Map<String, Integer> getBanRefTopMap(Long tournamentId);
+
+    /**
+     * 保存禁报参照配置（每个参照赛事的独立K值）
+     */
+    void saveBanRefs(Long tournamentId, Map<Long, Integer> refTournamentIdToTop);
 
     /**
      * 创建或更新报名配置（仅筹备中赛事；管理员或主办）

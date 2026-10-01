@@ -49,6 +49,8 @@ public class TournamentController {
     @Autowired private com.example.service.TournamentDrawAuthHelper tournamentDrawAuthHelper;
     @Autowired private com.example.service.impl.TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired private com.example.mapper.TournamentDisqualificationMapper tournamentDisqualificationMapper;
+    @Autowired private SystemConfigService systemConfigService;
+    @Autowired private TournamentUrlService tournamentUrlService;
 
     private boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -272,6 +274,8 @@ public class TournamentController {
             ));
             item.put("filters", Map.of("status", tournament.getStatus()));
             item.put("id", tournament.getId());
+            item.put("detailUrl", tournamentUrlService.detailUrl(tournament));
+            item.put("registrationUrl", tournamentUrlService.registrationUrl(tournament));
             java.time.LocalDateTime nowReg = java.time.LocalDateTime.now();
             item.put("registrationOpen", tournamentRegistrationService.isRegistrationOpen(tournament, nowReg));
             item.put("registrationNavVisible", tournament.getStatus() != null && tournament.getStatus() == 0);
@@ -292,9 +296,9 @@ public class TournamentController {
         
         // 构建操作按钮
         List<Map<String, Object>> actions = new ArrayList<>();
-        actions.add(Map.of("urlPrefix", "/tournament/detail/", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情", "public", true));
+        actions.add(Map.of("urlField", "detailUrl", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情", "public", true));
         actions.add(new HashMap<>(Map.of(
-                "urlPrefix", "/tournament/registration/",
+                "urlField", "registrationUrl",
                 "btnClass", "btn btn-sm btn-outline-success",
                 "icon", "bi bi-journal-plus",
                 "text", "报名接龙",
@@ -638,6 +642,37 @@ public class TournamentController {
             "help", "含义：冠军积分 = 参赛人数 × 比率。选择赛事等级后将自动填充默认值，仍可手动修改。"
         ));
         
+        // 赛制规则字段
+        String currentRuleType = tournament.getCompetitionRuleType() != null ? tournament.getCompetitionRuleType() : "NORMAL";
+        fields.add(Map.of(
+            "type", "select",
+            "id", "competitionRuleType",
+            "name", "competitionRuleType",
+            "label", "赛制规则",
+            "placeholder", "请选择赛制规则",
+            "required", true,
+            "help", "选择赛事的赛制规则",
+            "options", Arrays.asList(
+                Map.of("value", "NORMAL", "text", "正常5壶保护制", "selected", "NORMAL".equals(currentRuleType)),
+                Map.of("value", "CUSTOM", "text", "自定义", "selected", "CUSTOM".equals(currentRuleType))
+            )
+        ));
+        
+        // 隐藏的自定义规则字段，用于存储值
+        fields.add(Map.of(
+            "type", "hidden",
+            "id", "customCenterLineLimit",
+            "name", "customCenterLineLimit",
+            "value", tournament.getCustomCenterLineLimit() != null ? tournament.getCustomCenterLineLimit() : ""
+        ));
+        
+        fields.add(Map.of(
+            "type", "hidden",
+            "id", "customDeadStoneLimit",
+            "name", "customDeadStoneLimit",
+            "value", tournament.getCustomDeadStoneLimit() != null ? tournament.getCustomDeadStoneLimit() : ""
+        ));
+        
         fields.add(Map.of(
             "type", "select",
             "id", "status",
@@ -702,6 +737,52 @@ public class TournamentController {
   };
 
   levelSelect.addEventListener('change', applyDefault);
+  
+  // 赛制规则自定义对话框逻辑
+  const competitionRuleSelect = document.getElementById('competitionRuleType');
+  const customCenterLineInput = document.getElementById('customCenterLineLimit');
+  const customDeadStoneInput = document.getElementById('customDeadStoneLimit');
+  
+  if (competitionRuleSelect) {
+    competitionRuleSelect.addEventListener('change', function() {
+      if (this.value === 'CUSTOM') {
+        // 显示自定义对话框
+        const currentCenterLine = customCenterLineInput.value || '5';
+        const currentDeadStone = customDeadStoneInput.value || '5';
+        
+        const centerLine = prompt('请输入不允许磕中线壶的数量（0-16）：', currentCenterLine);
+        if (centerLine !== null) {
+          const centerLineNum = parseInt(centerLine);
+          if (isNaN(centerLineNum) || centerLineNum < 0 || centerLineNum > 16) {
+            alert('请输入0-16之间的整数');
+            this.value = 'NORMAL';
+            return;
+          }
+          
+          const deadStone = prompt('请输入不允许打成死壶的数量（0-16）：', currentDeadStone);
+          if (deadStone !== null) {
+            const deadStoneNum = parseInt(deadStone);
+            if (isNaN(deadStoneNum) || deadStoneNum < 0 || deadStoneNum > 16) {
+              alert('请输入0-16之间的整数');
+              this.value = 'NORMAL';
+              return;
+            }
+            
+            customCenterLineInput.value = centerLineNum;
+            customDeadStoneInput.value = deadStoneNum;
+          } else {
+            this.value = 'NORMAL';
+          }
+        } else {
+          this.value = 'NORMAL';
+        }
+      } else {
+        // 如果选择正常5壶保护制，清空自定义值
+        customCenterLineInput.value = '';
+        customDeadStoneInput.value = '';
+      }
+    });
+  }
 })();
 """);
         
@@ -712,6 +793,9 @@ public class TournamentController {
     @PostMapping("/save")
     public String saveTournament(@ModelAttribute Tournament tournament,
                                   @RequestParam(required = false) BigDecimal championPointsRatio,
+                                  @RequestParam(required = false) String competitionRuleType,
+                                  @RequestParam(required = false) Integer customCenterLineLimit,
+                                  @RequestParam(required = false) Integer customDeadStoneLimit,
                                   @RequestParam(required = false) Long returnSeasonId,
                                   RedirectAttributes redirectAttributes) {
         try {
@@ -733,6 +817,31 @@ public class TournamentController {
                 tournament.setChampionPointsRatio(championPointsRatio);
             } else if (level != null && tournament.getId() == null) {
                 tournament.setChampionPointsRatio(level.getDefaultChampionRatio());
+            }
+            
+            // 处理赛制规则
+            if (competitionRuleType != null) {
+                tournament.setCompetitionRuleType(competitionRuleType);
+                if ("CUSTOM".equals(competitionRuleType)) {
+                    // 如果选择自定义，设置自定义值，如果没有提供则使用默认值
+                    if (customCenterLineLimit == null) {
+                        customCenterLineLimit = systemConfigService.getDefaultCenterLineLimit();
+                    }
+                    if (customDeadStoneLimit == null) {
+                        customDeadStoneLimit = systemConfigService.getDefaultDeadStoneLimit();
+                    }
+                    tournament.setCustomCenterLineLimit(customCenterLineLimit);
+                    tournament.setCustomDeadStoneLimit(customDeadStoneLimit);
+                } else {
+                    // 如果选择正常5壶保护制，清空自定义值
+                    tournament.setCustomCenterLineLimit(null);
+                    tournament.setCustomDeadStoneLimit(null);
+                }
+            } else {
+                // 默认设置为正常5壶保护制
+                tournament.setCompetitionRuleType("NORMAL");
+                tournament.setCustomCenterLineLimit(null);
+                tournament.setCustomDeadStoneLimit(null);
             }
             
             if (tournament.getId() == null) {
@@ -782,8 +891,31 @@ public class TournamentController {
         return "redirect:/tournament/list";
     }
     
+    @GetMapping("/detail/{year:\\d{4}}/{half:[12]}/{series:\\d+}/{level}")
+    public String tournamentDetailByKey(@PathVariable int year,
+                                        @PathVariable int half,
+                                        @PathVariable("series") int seriesSequence,
+                                        @PathVariable String level,
+                                        Model model,
+                                        HttpServletRequest request) {
+        Tournament tournament = tournamentUrlService.resolve(year, half, seriesSequence, level);
+        if (tournament == null) {
+            return "redirect:/tournament/list";
+        }
+        return renderTournamentDetail(tournament.getId(), model, request);
+    }
+
+    /** 兼容旧链接 /tournament/detail/{id} → 友好 URL */
     @GetMapping("/detail/{id}")
-    public String tournamentDetail(@PathVariable Long id, Model model, HttpServletRequest request) {
+    public String tournamentDetailById(@PathVariable Long id, Model model, HttpServletRequest request) {
+        String redirect = tournamentUrlService.redirectToPrettyOrNull(id, tournamentUrlService.detailUrl(id), request);
+        if (redirect != null) {
+            return redirect;
+        }
+        return renderTournamentDetail(id, model, request);
+    }
+
+    private String renderTournamentDetail(Long id, Model model, HttpServletRequest request) {
         String clientIp = IpAddressUtil.getClientIpAddress(request);
         String ipType = IpAddressUtil.classifyIpAddress(clientIp);
         model.addAttribute("clientIp", clientIp);
@@ -809,6 +941,15 @@ public class TournamentController {
         tournamentInfo.put("seriesName", series != null ? buildSeriesDisplayName(series) : "");
         tournamentInfo.put("levelName", level != null ? level.getName() : tournament.getLevelCode());
         tournamentInfo.put("hostUserName", hostUser != null ? hostUser.getUsername() : "未知");
+        
+        // 赛制规则显示信息
+        String competitionRuleDisplay = "正常5壶保护制";
+        if ("CUSTOM".equals(tournament.getCompetitionRuleType())) {
+            int centerLine = tournament.getCustomCenterLineLimit() != null ? tournament.getCustomCenterLineLimit() : systemConfigService.getDefaultCenterLineLimit();
+            int deadStone = tournament.getCustomDeadStoneLimit() != null ? tournament.getCustomDeadStoneLimit() : systemConfigService.getDefaultDeadStoneLimit();
+            competitionRuleDisplay = "自定义（" + centerLine + "壶中线+" + deadStone + "壶保护）";
+        }
+        tournamentInfo.put("competitionRuleDisplay", competitionRuleDisplay);
 
         // 计算届次：同赛季 + 同赛事等级内，第 N 届（按创建时间升序）
         Integer edition = null;
@@ -1229,12 +1370,28 @@ public class TournamentController {
                     .sorted(Comparator.comparing(User::getUsername, Comparator.nullsLast(String::compareToIgnoreCase)))
                     .toList();
             model.addAttribute("allUsersForGroupPick", allUsersForGroupPick);
+            GroupSizeLayout.Layout groupLayout = tournamentCompetitionService.resolveGroupLayout(
+                    competitionConfig.getParticipantCount(), competitionConfig.getGroupSize());
             int groupSize = competitionConfig.getGroupSize() != null && competitionConfig.getGroupSize() > 0
                     ? competitionConfig.getGroupSize() : 0;
-            int groupCount = (competitionConfig.getParticipantCount() != null && groupSize > 0)
-                    ? (competitionConfig.getParticipantCount() / groupSize) : 0;
+            int groupCount = groupLayout != null ? groupLayout.groupCount()
+                    : ((competitionConfig.getParticipantCount() != null && groupSize > 0)
+                    ? (competitionConfig.getParticipantCount() / groupSize) : 0);
+            Map<Long, List<Integer>> groupMemberSlotIndexesByGroupId = new LinkedHashMap<>();
+            for (int gi = 0; gi < groups.size(); gi++) {
+                int cap = groupLayout != null ? groupLayout.capacityAt(gi) : groupSize;
+                List<Integer> slots = new ArrayList<>();
+                for (int i = 0; i < Math.max(cap, 0); i++) {
+                    slots.add(i);
+                }
+                groupMemberSlotIndexesByGroupId.put(groups.get(gi).getId(), slots);
+            }
+            model.addAttribute("groupMemberSlotIndexesByGroupId", groupMemberSlotIndexesByGroupId);
+            model.addAttribute("groupLayout", groupLayout);
+            // 兼容旧模板引用：取最大席位数
+            int maxSlots = groupMemberSlotIndexesByGroupId.values().stream().mapToInt(List::size).max().orElse(groupSize);
             List<Integer> groupMemberSlotIndexes = new ArrayList<>();
-            for (int i = 0; i < groupSize; i++) {
+            for (int i = 0; i < maxSlots; i++) {
                 groupMemberSlotIndexes.add(i);
             }
             model.addAttribute("groupMemberSlotIndexes", groupMemberSlotIndexes);
@@ -1394,6 +1551,8 @@ public class TournamentController {
             model.addAttribute("groupMemberImportTextByGroupId", Map.of());
             model.addAttribute("allUsersForGroupPick", List.of());
             model.addAttribute("groupMemberSlotIndexes", List.of());
+            model.addAttribute("groupMemberSlotIndexesByGroupId", Map.of());
+            model.addAttribute("groupLayout", null);
             model.addAttribute("groupMatchCards", Map.of());
             model.addAttribute("groupRankingByGroupId", Map.of());
             model.addAttribute("groupOverallRanking", List.of());
@@ -2037,7 +2196,7 @@ public class TournamentController {
             
             if (!admin && !isHost) {
                 redirectAttributes.addFlashAttribute("error", "您没有权限录入排名");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
 
             Tournament tournament = tournamentService.getById(tournamentId);
@@ -2053,7 +2212,7 @@ public class TournamentController {
             List<String> parsedNames = parseRankingData(rankingData, tournament, level);
             if (parsedNames.isEmpty()) {
                 redirectAttributes.addFlashAttribute("error", "未解析到任何选手名称，请检查输入格式");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
 
             // 删除旧的排名数据
@@ -2130,7 +2289,7 @@ public class TournamentController {
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "录入失败：" + e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
@@ -2141,7 +2300,7 @@ public class TournamentController {
             boolean isHost = isHostUser(tournamentId);
             if (!admin && !isHost) {
                 redirectAttributes.addFlashAttribute("error", "您没有权限清空排名");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
 
             userTournamentPointsService.lambdaUpdate()
@@ -2152,7 +2311,7 @@ public class TournamentController {
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "清空失败：" + e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
@@ -2163,7 +2322,7 @@ public class TournamentController {
             boolean isHost = isHostUser(tournamentId);
             if (!admin && !isHost) {
                 redirectAttributes.addFlashAttribute("error", "您没有权限刷新排名");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
             Tournament tournament = tournamentService.getById(tournamentId);
             if (tournament == null) {
@@ -2173,7 +2332,7 @@ public class TournamentController {
             TournamentCompetitionConfig cfg = tournamentCompetitionService.getConfig(tournamentId);
             if (cfg == null || cfg.getMatchMode() == null || cfg.getMatchMode() != 3) {
                 redirectAttributes.addFlashAttribute("error", "当前仅支持小组赛模式一键刷新排名");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
 
             tournamentCompetitionService.recomputeTournamentRankingPoints(tournamentId);
@@ -2194,7 +2353,7 @@ public class TournamentController {
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "刷新排名失败：" + e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
 
     /**
@@ -2209,21 +2368,21 @@ public class TournamentController {
         try {
             if (points == null) {
                 redirectAttributes.addFlashAttribute("error", "积分不能为空");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
             if (points < 0) {
                 redirectAttributes.addFlashAttribute("error", "积分不能为负数");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
 
             UserTournamentPoints utp = userTournamentPointsService.getById(utpId);
             if (utp == null) {
                 redirectAttributes.addFlashAttribute("error", "该排名记录不存在");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
             if (utp.getTournamentId() == null || !utp.getTournamentId().equals(tournamentId)) {
                 redirectAttributes.addFlashAttribute("error", "该排名记录不属于当前赛事");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
 
             utp.setPoints(points);
@@ -2232,7 +2391,7 @@ public class TournamentController {
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "修改失败：" + e.getMessage());
         }
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
     }
     
     /**
@@ -2511,7 +2670,7 @@ public class TournamentController {
         boolean isHost = isHostUser(tournamentId);
 
         if (!admin && !isHost) {
-            return "redirect:/tournament/detail/" + tournamentId;
+            return tournamentUrlService.redirectDetail(tournamentId);
         }
 
         List<Match> matches = matchService.lambdaQuery()
@@ -2577,7 +2736,7 @@ public class TournamentController {
 
             if (!admin && !isHost) {
                 redirectAttributes.addFlashAttribute("error", "您没有权限设置比赛局数");
-                return "redirect:/tournament/detail/" + tournamentId;
+                return tournamentUrlService.redirectDetail(tournamentId);
             }
 
             if (numberOfSets == null || numberOfSets < 1 || numberOfSets > 20) {
@@ -2623,6 +2782,56 @@ public class TournamentController {
             redirectAttributes.addFlashAttribute("error", "设置失败：" + e.getMessage());
         }
 
-        return "redirect:/tournament/detail/" + tournamentId;
+        return tournamentUrlService.redirectDetail(tournamentId);
+    }
+
+    /**
+     * 淘汰赛对阵图页面（友好 URL）
+     */
+    @GetMapping("/{year:\\d{4}}/{half:[12]}/{series:\\d+}/{level}/knockout-bracket")
+    public String knockoutBracketByKey(@PathVariable int year,
+                                       @PathVariable int half,
+                                       @PathVariable("series") int seriesSequence,
+                                       @PathVariable String level,
+                                       Model model,
+                                       HttpServletRequest request) {
+        Tournament tournament = tournamentUrlService.resolve(year, half, seriesSequence, level);
+        if (tournament == null) {
+            model.addAttribute("error", "赛事不存在");
+            return "error";
+        }
+        return renderKnockoutBracket(tournament.getId(), model, request);
+    }
+
+    /** 兼容旧链接 /tournament/{id}/knockout-bracket */
+    @GetMapping("/{id}/knockout-bracket")
+    public String knockoutBracketById(@PathVariable Long id, Model model, HttpServletRequest request) {
+        String redirect = tournamentUrlService.redirectToPrettyOrNull(id, tournamentUrlService.knockoutBracketUrl(id), request);
+        if (redirect != null) {
+            return redirect;
+        }
+        return renderKnockoutBracket(id, model, request);
+    }
+
+    private String renderKnockoutBracket(Long id, Model model, HttpServletRequest request) {
+        String clientIp = IpAddressUtil.getClientIpAddress(request);
+        String ipType = IpAddressUtil.classifyIpAddress(clientIp);
+        model.addAttribute("clientIp", clientIp);
+        model.addAttribute("ipType", ipType);
+
+        Tournament tournament = tournamentService.getById(id);
+        if (tournament == null) {
+            model.addAttribute("error", "赛事不存在");
+            return "error";
+        }
+
+        model.addAttribute("tournament", tournament);
+        model.addAttribute("pageTitle", tournament.getLevelCode() + " — 淘汰赛对阵图");
+
+        // 获取对阵图数据
+        com.example.dto.KnockoutBracketData bracketData = tournamentCompetitionService.buildKnockoutBracketData(id);
+        model.addAttribute("bracketData", bracketData);
+
+        return "tournament/knockout-bracket";
     }
 }

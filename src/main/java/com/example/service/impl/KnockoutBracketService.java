@@ -233,16 +233,72 @@ public class KnockoutBracketService {
         if (used.size() != bracketPlayers) {
             throw new IllegalStateException("手动排签存在重复选人或遗漏选人");
         }
-        deleteAllKnockoutMatches(operator, tournamentId);
+        
+        // 不再删除所有淘汰赛，只处理首轮（startRoundField）
         int koSets = (cfg.getKnockoutStageSets() != null && cfg.getKnockoutStageSets() > 0) ? cfg.getKnockoutStageSets() : 8;
         int startRoundField = cfg.getKnockoutStartRound();
+        
+        // 获取现有的首轮比赛
+        List<Match> existingFirstRound = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, startRoundField)
+                .list();
+        
+        // 构建现有比赛的索引（按 bracketSlot）
+        Map<Integer, Match> existingBySlot = existingFirstRound.stream()
+                .filter(m -> m.getKnockoutBracketSlot() != null)
+                .collect(Collectors.toMap(Match::getKnockoutBracketSlot, m -> m, (a, b) -> a));
+        
+        // 获取已有比分的比赛ID
+        Set<Long> matchIdsWithScores = new HashSet<>();
+        if (!existingFirstRound.isEmpty()) {
+            List<Long> matchIds = existingFirstRound.stream().map(Match::getId).filter(Objects::nonNull).toList();
+            if (!matchIds.isEmpty()) {
+                List<SetScore> scores = setScoreService.lambdaQuery()
+                        .in(SetScore::getMatchId, matchIds)
+                        .list();
+                matchIdsWithScores = scores.stream()
+                        .map(SetScore::getMatchId)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
+            }
+        }
+        
+        int updatedCount = 0;
         for (int i = 0; i < manualPairs.size(); i++) {
             ManualPairInput p = manualPairs.get(i);
+            Match existing = existingBySlot.get(i);
+            
+            // 如果已存在比赛且有比分，且选手没有变化，则跳过
+            if (existing != null && matchIdsWithScores.contains(existing.getId())) {
+                if (Objects.equals(existing.getPlayer1Id(), p.player1Id) && 
+                    Objects.equals(existing.getPlayer2Id(), p.player2Id)) {
+                    continue; // 跳过已有比分且选手未变的场次
+                }
+            }
+            
             String category = "[手动排签] " + koRoundLabel(startRoundField) + " 第" + (i + 1) + "场";
-            insertKoMatch(tournamentId, startRoundField, i, null, p.player1Id, p.player2Id, category, null, null, koSets, "MAIN",
-                    operator == null ? null : operator.getId(), SOURCE_MANUAL_KO_EDITOR);
+            
+            if (existing != null) {
+                // 更新现有比赛（删除比分后更新选手）
+                setScoreService.lambdaUpdate().eq(SetScore::getMatchId, existing.getId()).remove();
+                existing.setPlayer1Id(p.player1Id);
+                existing.setPlayer2Id(p.player2Id);
+                existing.setCategory(category);
+                existing.setWinnerId(null);
+                existing.setResultLocked(false);
+                existing.setUpdatedAt(LocalDateTime.now());
+                matchService.updateById(existing);
+            } else {
+                // 插入新比赛
+                insertKoMatch(tournamentId, startRoundField, i, null, p.player1Id, p.player2Id, category, null, null, koSets, "MAIN",
+                        operator == null ? null : operator.getId(), SOURCE_MANUAL_KO_EDITOR);
+            }
+            updatedCount++;
         }
-        return manualPairs.size();
+        
+        return updatedCount;
     }
 
     /**

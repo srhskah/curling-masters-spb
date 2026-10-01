@@ -75,6 +75,11 @@
                 <li><a class="dropdown-item" href="/match/list" data-i18n-key="nav.matchManagement">
                     <i class="bi bi-controller"></i> 比赛管理
                 </a></li>
+                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><hr class="dropdown-divider"></li>
+                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><h6 class="dropdown-header">系统配置</h6></li>
+                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><a class="dropdown-item" href="/admin/system-config">
+                    <i class="bi bi-sliders"></i> 赛制规则默认值
+                </a></li>
             </ul>
         </li>
         <li th:if="${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}" class="nav-item dropdown">
