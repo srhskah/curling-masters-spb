@@ -5,6 +5,7 @@ import com.example.entity.MatchAcceptance;
 import com.example.entity.SetScore;
 import com.example.entity.TournamentCompetitionConfig;
 import com.example.entity.TournamentGroup;
+import com.example.ranking.RankingCriterion;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -18,9 +19,20 @@ public class GroupRankingCalculator {
                                                                                List<Match> groupMatches,
                                                                                Map<Long, List<SetScore>> scoreByMatch,
                                                                                TournamentCompetitionConfig cfg) {
+        return buildGroupRankingsByMemberIds(groups, memberIdsByGroup, usernameById, groupMatches, scoreByMatch, cfg, null);
+    }
+
+    public Map<Long, List<Map<String, Object>>> buildGroupRankingsByMemberIds(List<TournamentGroup> groups,
+                                                                               Map<Long, List<Long>> memberIdsByGroup,
+                                                                               Map<Long, String> usernameById,
+                                                                               List<Match> groupMatches,
+                                                                               Map<Long, List<SetScore>> scoreByMatch,
+                                                                               TournamentCompetitionConfig cfg,
+                                                                               List<RankingCriterion> criteriaOrder) {
         boolean allowDraw = cfg == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
         int regularSets = (cfg != null && cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
-        return buildGroupRankingsByMemberIds(groups, memberIdsByGroup, usernameById, groupMatches, scoreByMatch, allowDraw, regularSets);
+        return buildGroupRankingsByMemberIds(groups, memberIdsByGroup, usernameById, groupMatches, scoreByMatch,
+                allowDraw, regularSets, criteriaOrder);
     }
 
     public Map<Long, List<Map<String, Object>>> buildGroupRankingsByMemberIds(List<TournamentGroup> groups,
@@ -30,6 +42,21 @@ public class GroupRankingCalculator {
                                                                                Map<Long, List<SetScore>> scoreByMatch,
                                                                                boolean allowDraw,
                                                                                int regularSets) {
+        return buildGroupRankingsByMemberIds(groups, memberIdsByGroup, usernameById, groupMatches, scoreByMatch,
+                allowDraw, regularSets, null);
+    }
+
+    /**
+     * @param criteriaOrder null=默认决胜顺序；非 null=仅按队列内决胜项依次比较（踢出项不参与）
+     */
+    public Map<Long, List<Map<String, Object>>> buildGroupRankingsByMemberIds(List<TournamentGroup> groups,
+                                                                               Map<Long, List<Long>> memberIdsByGroup,
+                                                                               Map<Long, String> usernameById,
+                                                                               List<Match> groupMatches,
+                                                                               Map<Long, List<SetScore>> scoreByMatch,
+                                                                               boolean allowDraw,
+                                                                               int regularSets,
+                                                                               List<RankingCriterion> criteriaOrder) {
         Map<Long, List<Map<String, Object>>> out = new HashMap<>();
         for (TournamentGroup g : groups) {
             List<Long> uids = memberIdsByGroup.getOrDefault(g.getId(), List.of()).stream().filter(Objects::nonNull).distinct().toList();
@@ -46,30 +73,22 @@ public class GroupRankingCalculator {
                         .count();
                 row.put("expectedGroupMatches", expected);
             }
-            out.put(g.getId(), rankRows(new ArrayList<>(stat.values()), gm));
+            out.put(g.getId(), rankRows(new ArrayList<>(stat.values()), gm, criteriaOrder));
         }
         return out;
     }
 
     public List<Map<String, Object>> buildOverallRanking(Map<Long, List<Map<String, Object>>> groupRankingByGroupId) {
+        return buildOverallRanking(groupRankingByGroupId, null);
+    }
+
+    public List<Map<String, Object>> buildOverallRanking(Map<Long, List<Map<String, Object>>> groupRankingByGroupId,
+                                                          List<RankingCriterion> criteriaOrder) {
         List<Map<String, Object>> rows = groupRankingByGroupId.values().stream().flatMap(List::stream).sorted((a, b) -> {
             int ar = (int) a.getOrDefault("groupRank", 999), br = (int) b.getOrDefault("groupRank", 999);
             if (ar != br) return Integer.compare(ar, br);
-            int ap = (int) a.getOrDefault("points", 0), bp = (int) b.getOrDefault("points", 0);
-            if (ap != bp) return Integer.compare(bp, ap);
-            int an = (int) a.getOrDefault("net", 0), bn = (int) b.getOrDefault("net", 0);
-            if (an != bn) return Integer.compare(bn, an);
-            int at = (int) a.getOrDefault("totalScore", 0), bt = (int) b.getOrDefault("totalScore", 0);
-            if (at != bt) return Integer.compare(bt, at);
-            int a2 = (int) a.getOrDefault("matchGe2Count", 0), b2 = (int) b.getOrDefault("matchGe2Count", 0);
-            if (a2 != b2) return Integer.compare(b2, a2);
-            int am = (int) a.getOrDefault("matchMaxScore", 0), bm = (int) b.getOrDefault("matchMaxScore", 0);
-            if (am != bm) return Integer.compare(bm, am);
-            int as = (int) a.getOrDefault("stealCount", 0), bs = (int) b.getOrDefault("stealCount", 0);
-            if (as != bs) return Integer.compare(bs, as);
-            int ax = (int) a.getOrDefault("stealMax", 0), bx = (int) b.getOrDefault("stealMax", 0);
-            if (ax != bx) return Integer.compare(bx, ax);
-            return String.valueOf(a.getOrDefault("username", "")).compareTo(String.valueOf(b.getOrDefault("username", "")));
+            // 跨组总排名无无组内交锋场次，跳过 HEAD_TO_HEAD
+            return compareByCriteria(a, b, null, criteriaOrder, true);
         }).collect(Collectors.toList());
         for (int i = 0; i < rows.size(); i++) rows.get(i).put("overallRank", i + 1);
         return rows;
@@ -84,9 +103,6 @@ public class GroupRankingCalculator {
             row.put("groupName", groupName);
             row.put("played", 0); row.put("wins", 0); row.put("draws", 0); row.put("losses", 0);
             row.put("points", 0); row.put("totalScore", 0); row.put("totalConceded", 0); row.put("net", 0);
-            // matchGe2Count：每场中「该局得分≥2」的局数，跨场累加（≥2 分局数总和）
-            // matchMaxScore：小组赛中单局最高得分（全局取 max，非相加）
-            // stealMax：单次偷分最高分（全局取 max）
             row.put("matchGe2Count", 0); row.put("matchMaxScore", 0); row.put("stealCount", 0); row.put("stealMax", 0);
             stat.put(uid, row);
         }
@@ -141,28 +157,49 @@ public class GroupRankingCalculator {
         }
     }
 
-    private List<Map<String, Object>> rankRows(List<Map<String, Object>> rows, List<Match> groupMatches) {
-        rows.sort((a, b) -> {
-            int ap = (int) a.getOrDefault("points", 0), bp = (int) b.getOrDefault("points", 0);
-            if (ap != bp) return Integer.compare(bp, ap);
-            int hh = compareHeadToHeadTwo(a, b, groupMatches);
-            if (hh != 0) return hh;
-            int an = (int) a.getOrDefault("net", 0), bn = (int) b.getOrDefault("net", 0);
-            if (an != bn) return Integer.compare(bn, an);
-            int at = (int) a.getOrDefault("totalScore", 0), bt = (int) b.getOrDefault("totalScore", 0);
-            if (at != bt) return Integer.compare(bt, at);
-            int a2 = (int) a.getOrDefault("matchGe2Count", 0), b2 = (int) b.getOrDefault("matchGe2Count", 0);
-            if (a2 != b2) return Integer.compare(b2, a2);
-            int am = (int) a.getOrDefault("matchMaxScore", 0), bm = (int) b.getOrDefault("matchMaxScore", 0);
-            if (am != bm) return Integer.compare(bm, am);
-            int as = (int) a.getOrDefault("stealCount", 0), bs = (int) b.getOrDefault("stealCount", 0);
-            if (as != bs) return Integer.compare(bs, as);
-            int ax = (int) a.getOrDefault("stealMax", 0), bx = (int) b.getOrDefault("stealMax", 0);
-            if (ax != bx) return Integer.compare(bx, ax);
-            return String.valueOf(a.getOrDefault("username", "")).compareTo(String.valueOf(b.getOrDefault("username", "")));
-        });
+    private List<Map<String, Object>> rankRows(List<Map<String, Object>> rows, List<Match> groupMatches,
+                                               List<RankingCriterion> criteriaOrder) {
+        rows.sort((a, b) -> compareByCriteria(a, b, groupMatches, criteriaOrder, false));
         for (int i = 0; i < rows.size(); i++) rows.get(i).put("groupRank", i + 1);
         return rows;
+    }
+
+    /**
+     * @param skipHeadToHead 跨组总排名等场景无组内交锋场次时跳过
+     */
+    private int compareByCriteria(Map<String, Object> a, Map<String, Object> b, List<Match> groupMatches,
+                                  List<RankingCriterion> criteriaOrder, boolean skipHeadToHead) {
+        List<RankingCriterion> order = criteriaOrder != null ? criteriaOrder : RankingCriterion.DEFAULT_ORDER;
+        for (RankingCriterion c : order) {
+            int cmp = switch (c) {
+                case POINTS -> Integer.compare(
+                        (int) b.getOrDefault("points", 0), (int) a.getOrDefault("points", 0));
+                case HEAD_TO_HEAD -> skipHeadToHead || groupMatches == null
+                        ? 0 : compareHeadToHeadTwo(a, b, groupMatches);
+                case NET -> Integer.compare(
+                        (int) b.getOrDefault("net", 0), (int) a.getOrDefault("net", 0));
+                case TOTAL_SCORE -> Integer.compare(
+                        (int) b.getOrDefault("totalScore", 0), (int) a.getOrDefault("totalScore", 0));
+                case MATCH_GE2 -> Integer.compare(
+                        (int) b.getOrDefault("matchGe2Count", 0), (int) a.getOrDefault("matchGe2Count", 0));
+                case MATCH_MAX -> Integer.compare(
+                        (int) b.getOrDefault("matchMaxScore", 0), (int) a.getOrDefault("matchMaxScore", 0));
+                case STEAL_COUNT -> Integer.compare(
+                        (int) b.getOrDefault("stealCount", 0), (int) a.getOrDefault("stealCount", 0));
+                case STEAL_MAX -> Integer.compare(
+                        (int) b.getOrDefault("stealMax", 0), (int) a.getOrDefault("stealMax", 0));
+                case USERNAME -> String.valueOf(a.getOrDefault("username", ""))
+                        .compareTo(String.valueOf(b.getOrDefault("username", "")));
+            };
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        if (criteriaOrder != null && !order.contains(RankingCriterion.USERNAME)) {
+            return String.valueOf(a.getOrDefault("username", ""))
+                    .compareTo(String.valueOf(b.getOrDefault("username", "")));
+        }
+        return 0;
     }
 
     private int compareHeadToHeadTwo(Map<String, Object> a, Map<String, Object> b, List<Match> groupMatches) {
@@ -203,6 +240,21 @@ public class GroupRankingCalculator {
             Map<Long, String> usernameById,
             boolean allowDraw,
             int regularSets) {
+        return buildPseudoGroupExportRowsAndApplyMainRanks(
+                groups, rankingByGroupId, groupMatches, setByMatch, acceptByMatch,
+                usernameById, allowDraw, regularSets, null);
+    }
+
+    public List<Map<String, Object>> buildPseudoGroupExportRowsAndApplyMainRanks(
+            List<TournamentGroup> groups,
+            Map<Long, List<Map<String, Object>>> rankingByGroupId,
+            List<Match> groupMatches,
+            Map<Long, List<SetScore>> setByMatch,
+            Map<Long, List<MatchAcceptance>> acceptByMatch,
+            Map<Long, String> usernameById,
+            boolean allowDraw,
+            int regularSets,
+            List<RankingCriterion> criteriaOrder) {
         List<Map<String, Object>> pseudoGroupRows = new ArrayList<>();
         Map<Long, List<MatchAcceptance>> acceptSafe = acceptByMatch != null ? acceptByMatch : Map.of();
         for (TournamentGroup g : groups) {
@@ -240,7 +292,7 @@ public class GroupRankingCalculator {
                 pseudoGroup.get(0).setGroupName(pseudoGroupName);
 
                 List<Map<String, Object>> pseudoRanking = buildGroupRankingsByMemberIds(
-                        pseudoGroup, pseudoMember, usernameById, tieMatches, setByMatch, allowDraw, regularSets
+                        pseudoGroup, pseudoMember, usernameById, tieMatches, setByMatch, allowDraw, regularSets, criteriaOrder
                 ).getOrDefault(g.getId(), List.of());
 
                 // 检查是否有2名或以上选手同"胜-平-负"
@@ -253,24 +305,17 @@ public class GroupRankingCalculator {
                     byRecord.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
                 }
 
-                // 对同"胜-平-负"的选手按优先级排序
+                // 对同"胜-平-负"的选手按决胜项排序（不含积分/交锋，已同积分）
+                List<RankingCriterion> tieBreakOrder = criteriaOrder != null
+                        ? criteriaOrder.stream()
+                            .filter(c -> c != RankingCriterion.POINTS && c != RankingCriterion.HEAD_TO_HEAD)
+                            .toList()
+                        : List.of(RankingCriterion.NET, RankingCriterion.TOTAL_SCORE, RankingCriterion.MATCH_GE2,
+                                RankingCriterion.MATCH_MAX, RankingCriterion.STEAL_COUNT, RankingCriterion.STEAL_MAX,
+                                RankingCriterion.USERNAME);
                 for (List<Map<String, Object>> group : byRecord.values()) {
                     if (group.size() >= 2) {
-                        group.sort((aa, bb) -> {
-                            int an = (int) aa.getOrDefault("net", 0), bn = (int) bb.getOrDefault("net", 0);
-                            if (an != bn) return Integer.compare(bn, an);
-                            int at = (int) aa.getOrDefault("totalScore", 0), bt = (int) bb.getOrDefault("totalScore", 0);
-                            if (at != bt) return Integer.compare(bt, at);
-                            int a2 = (int) aa.getOrDefault("matchGe2Count", 0), b2 = (int) bb.getOrDefault("matchGe2Count", 0);
-                            if (a2 != b2) return Integer.compare(b2, a2);
-                            int am = (int) aa.getOrDefault("matchMaxScore", 0), bm = (int) bb.getOrDefault("matchMaxScore", 0);
-                            if (am != bm) return Integer.compare(bm, am);
-                            int as = (int) aa.getOrDefault("stealCount", 0), bs = (int) bb.getOrDefault("stealCount", 0);
-                            if (as != bs) return Integer.compare(bs, as);
-                            int ax = (int) aa.getOrDefault("stealMax", 0), bx = (int) bb.getOrDefault("stealMax", 0);
-                            if (ax != bx) return Integer.compare(bx, ax);
-                            return String.valueOf(aa.getOrDefault("username", "")).compareTo(String.valueOf(bb.getOrDefault("username", "")));
-                        });
+                        group.sort((aa, bb) -> compareByCriteria(aa, bb, null, tieBreakOrder, true));
                     }
                 }
 

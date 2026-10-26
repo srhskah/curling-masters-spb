@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('总控台')}">
+</head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: success-alert}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+
+<div class="container mt-4 mb-5">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-sliders2-vertical"></i> 总控台</h3>
+            <p class="text-muted mb-0 small">
+                调整<strong>排名参考优先级</strong>（决胜项降序：队首优先）。默认顺序与代码一致：
+                积分 → 交锋 → 净胜分 → 总分 → ≥2局数 → 单局最高 → 偷分次数 → 偷分最高 → 用户名。
+                保存后对<strong>新建赛事系列</strong>默认生效；可勾选既往系列。
+                踢出队列的决胜项不再参与小组/伪小组/跨组总排名排序，对应数据列也不再显示。
+            </p>
+        </div>
+        <button type="button" class="btn btn-primary" id="savePriorityBtn">
+            <i class="bi bi-save"></i> 保存
+        </button>
+    </div>
+
+    <div id="saveAlert" class="alert d-none" role="alert"></div>
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="border rounded-3 bg-white p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">候选池（未启用决胜项）</h6>
+                    <span class="badge bg-secondary" id="candidateCount"
+                          th:text="${#lists.size(candidates)}">0</span>
+                </div>
+                <input type="search" class="form-control form-control-sm mb-2" id="candidateFilter"
+                       placeholder="搜索决胜项…">
+                <ul id="candidateList" class="list-group ranking-priority-list"
+                    style="min-height: 320px; max-height: 560px; overflow:auto;">
+                    <li th:each="c : ${candidates}"
+                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                        th:attr="data-code=${c.code}, data-label=${c.label}">
+                        <span>
+                            <strong th:text="${c.label}">积分</strong>
+                            <span class="text-muted small ms-1" th:text="${c.code}">POINTS</span>
+                        </span>
+                        <i class="bi bi-grip-vertical text-muted"></i>
+                    </li>
+                </ul>
+                <p class="form-text mb-0 mt-2">拖入右侧即启用该决胜项。</p>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="border rounded-3 bg-white p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">优先级队列（降序）</h6>
+                    <span class="badge bg-primary" id="queueCount"
+                          th:text="${#lists.size(queue)}">0</span>
+                </div>
+                <ul id="queueList" class="list-group ranking-priority-list"
+                    style="min-height: 320px; max-height: 560px; overflow:auto;">
+                    <li th:each="q, iter : ${queue}"
+                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                        th:attr="data-code=${q.code}, data-label=${q.label}">
+                        <span>
+                            <span class="badge bg-dark me-2 priority-rank" th:text="${iter.count}">1</span>
+                            <strong th:text="${q.label}">积分</strong>
+                            <span class="text-muted small ms-1" th:text="${q.code}">POINTS</span>
+                        </span>
+                        <i class="bi bi-grip-vertical text-muted"></i>
+                    </li>
+                </ul>
+                <p class="form-text mb-0 mt-2">拖拽调整先后；拖回左侧即踢出（不参与排序、不显示对应列）。</p>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="border rounded-3 bg-white p-3 h-100">
+                <h6 class="mb-2">生效范围</h6>
+                <div class="alert alert-light border small mb-3">
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" id="applyNewSeries" checked disabled>
+                        <label class="form-check-label" for="applyNewSeries">
+                            以后新增的赛事系列自动启用
+                            <span class="text-muted" th:if="${!applyToNewSeries}">（首次保存后开启）</span>
+                            <span class="text-success" th:if="${applyToNewSeries}">（已开启）</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="small text-muted">既往赛事系列</span>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" id="selectAllSeries">全选</button>
+                        <button type="button" class="btn btn-outline-secondary" id="clearAllSeries">清空</button>
+                    </div>
+                </div>
+                <div id="seriesChecks" style="max-height: 480px; overflow:auto;">
+                    <div th:if="${#lists.isEmpty(seriesOptions)}" class="text-muted small">暂无赛事系列</div>
+                    <div th:each="s : ${seriesOptions}" class="form-check mb-2">
+                        <input class="form-check-input series-enable" type="checkbox"
+                               th:id="'series-' + ${s.id}"
+                               th:value="${s.id}"
+                               th:checked="${s.enabled}">
+                        <label class="form-check-label" th:for="'series-' + ${s.id}">
+                            <span th:text="${s.label}">系列</span>
+                            <span class="text-muted small" th:text="' · ' + ${s.seasonLabel}"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .ranking-priority-list .sortable-ghost { opacity: 0.45; }
+    .ranking-priority-list .list-group-item { cursor: grab; user-select: none; }
+    .ranking-priority-list .list-group-item:active { cursor: grabbing; }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script th:inline="javascript">
+(function () {
+    const candidateList = document.getElementById('candidateList');
+    const queueList = document.getElementById('queueList');
+    const candidateFilter = document.getElementById('candidateFilter');
+    const candidateCount = document.getElementById('candidateCount');
+    const queueCount = document.getElementById('queueCount');
+    const saveBtn = document.getElementById('savePriorityBtn');
+    const saveAlert = document.getElementById('saveAlert');
+    const csrfToken = /*[[${_csrf != null ? _csrf.token : ''}]]*/ '';
+    const csrfHeader = /*[[${_csrf != null ? _csrf.headerName : 'X-CSRF-TOKEN'}]]*/ 'X-CSRF-TOKEN';
+
+    function itemLabel(li) {
+        return li.dataset.label || '';
+    }
+
+    function refreshRanks() {
+        [...queueList.querySelectorAll('li')].forEach((li, i) => {
+            let badge = li.querySelector('.priority-rank');
+            if (!badge) {
+                const wrap = document.createElement('span');
+                badge = document.createElement('span');
+                badge.className = 'badge bg-dark me-2 priority-rank';
+                const strong = document.createElement('strong');
+                strong.textContent = itemLabel(li);
+                const code = document.createElement('span');
+                code.className = 'text-muted small ms-1';
+                code.textContent = li.dataset.code || '';
+                wrap.appendChild(badge);
+                wrap.appendChild(strong);
+                wrap.appendChild(code);
+                const old = li.querySelector('span');
+                if (old) old.remove();
+                li.insertBefore(wrap, li.firstChild);
+            }
+            badge.textContent = String(i + 1);
+        });
+        [...candidateList.querySelectorAll('li')].forEach(li => {
+            const badge = li.querySelector('.priority-rank');
+            if (badge) badge.remove();
+        });
+        candidateCount.textContent = String(candidateList.querySelectorAll('li').length);
+        queueCount.textContent = String(queueList.querySelectorAll('li').length);
+        applyCandidateFilter();
+    }
+
+    function applyCandidateFilter() {
+        const q = (candidateFilter.value || '').trim().toLowerCase();
+        [...candidateList.querySelectorAll('li')].forEach(li => {
+            const hay = ((li.dataset.label || '') + ' ' + (li.dataset.code || '')).toLowerCase();
+            li.style.display = !q || hay.includes(q) ? '' : 'none';
+        });
+    }
+
+    candidateFilter.addEventListener('input', applyCandidateFilter);
+
+    new Sortable(candidateList, { group: 'ranking-priority', animation: 150, onSort: refreshRanks });
+    new Sortable(queueList, { group: 'ranking-priority', animation: 150, onSort: refreshRanks });
+
+    document.getElementById('selectAllSeries').addEventListener('click', () => {
+        document.querySelectorAll('.series-enable').forEach(cb => { cb.checked = true; });
+    });
+    document.getElementById('clearAllSeries').addEventListener('click', () => {
+        document.querySelectorAll('.series-enable').forEach(cb => { cb.checked = false; });
+    });
+
+    function showAlert(ok, msg) {
+        saveAlert.classList.remove('d-none', 'alert-success', 'alert-danger');
+        saveAlert.classList.add(ok ? 'alert-success' : 'alert-danger');
+        saveAlert.textContent = msg;
+    }
+
+    saveBtn.addEventListener('click', async () => {
+        const orderedCriterionCodes = [...queueList.querySelectorAll('li')]
+            .map(li => li.dataset.code)
+            .filter(Boolean);
+        const enabledSeriesIds = [...document.querySelectorAll('.series-enable:checked')]
+            .map(cb => cb.value)
+            .filter(Boolean);
+        saveBtn.disabled = true;
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (csrfToken) headers[csrfHeader] = csrfToken;
+            const xsrf = document.cookie.split(';').map(s => s.trim()).find(s => s.startsWith('XSRF-TOKEN='));
+            if (xsrf) headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrf.substring('XSRF-TOKEN='.length));
+            const res = await fetch('/admin/console/ranking-priority/save', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ orderedCriterionCodes, enabledSeriesIds })
+            });
+            const data = await res.json();
+            showAlert(!!data.success, data.message || (data.success ? '已保存' : '保存失败'));
+            if (data.success) setTimeout(() => location.reload(), 600);
+        } catch (e) {
+            showAlert(false, '保存失败：' + (e && e.message ? e.message : e));
+        } finally {
+            saveBtn.disabled = false;
+        }
+    });
+
+    refreshRanks();
+})();
+</script>
+</body>
+</html>

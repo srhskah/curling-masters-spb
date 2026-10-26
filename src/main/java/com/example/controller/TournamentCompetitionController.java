@@ -142,7 +142,7 @@ public class TournamentCompetitionController {
     public String clearKnockout(@PathVariable Long tournamentId, RedirectAttributes ra) {
         try {
             knockoutBracketService.deleteAllKnockoutMatches(currentUser(), tournamentId);
-            ra.addFlashAttribute("message", "已清空本赛事淘汰赛（MAIN/FINAL）场次");
+            ra.addFlashAttribute("message", "已清空本赛事淘汰赛及首轮挂载资格赛");
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
@@ -167,8 +167,8 @@ public class TournamentCompetitionController {
         try {
             User cu = currentUser();
             List<Long> eligible = knockoutBracketService.loadEligibleFirstRoundPlayers(cu, tournamentId);
-            List<com.example.service.impl.KnockoutBracketService.ManualPairDraft> draft =
-                    knockoutBracketService.buildManualFirstRoundDraft(cu, tournamentId);
+            com.example.service.impl.KnockoutBracketService.ManualFirstRoundPageData pageData =
+                    knockoutBracketService.buildManualFirstRoundPageData(cu, tournamentId);
             Map<Long, User> usersById = userService.listByIds(eligible).stream()
                     .collect(java.util.stream.Collectors.toMap(User::getId, u -> u, (a, b) -> a));
             List<Map<String, Object>> options = new ArrayList<>();
@@ -185,15 +185,24 @@ public class TournamentCompetitionController {
                 options.add(row);
                 rank++;
             }
+            TournamentCompetitionConfig cfg = competitionService.getConfig(tournamentId);
             model.addAttribute("tournamentId", tournamentId);
             model.addAttribute("tournamentName", "赛事#" + tournamentId);
             model.addAttribute("koManualOptions", options);
-            model.addAttribute("koManualDraft", draft);
+            model.addAttribute("koManualDraft", pageData.mainPairs);
+            model.addAttribute("koManualQualifierDraft", pageData.qualifierPairs);
+            model.addAttribute("koMountedQualifier", knockoutBracketService.isFirstRoundMountedQualifier(cfg));
             return "tournament/knockout-manual-first-round";
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
             return tournamentUrlService.redirectDetail(tournamentId);
         }
+    }
+
+    @GetMapping("/knockout-bracket-data/{tournamentId}")
+    @ResponseBody
+    public com.example.dto.KnockoutBracketData knockoutBracketData(@PathVariable Long tournamentId) {
+        return competitionService.buildKnockoutBracketData(tournamentId);
     }
 
     @GetMapping("/knockout/manual-data/{tournamentId}")
@@ -203,8 +212,8 @@ public class TournamentCompetitionController {
         try {
             User cu = currentUser();
             List<Long> eligible = knockoutBracketService.loadEligibleFirstRoundPlayers(cu, tournamentId);
-            List<com.example.service.impl.KnockoutBracketService.ManualPairDraft> draft =
-                    knockoutBracketService.buildManualFirstRoundDraft(cu, tournamentId);
+            com.example.service.impl.KnockoutBracketService.ManualFirstRoundPageData pageData =
+                    knockoutBracketService.buildManualFirstRoundPageData(cu, tournamentId);
             Map<Long, User> usersById = userService.listByIds(eligible).stream()
                     .collect(java.util.stream.Collectors.toMap(User::getId, u -> u, (a, b) -> a));
             List<Map<String, Object>> options = new ArrayList<>();
@@ -214,21 +223,22 @@ public class TournamentCompetitionController {
                 if (u == null) continue;
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("rank", rank);
-                row.put("userId", uid);
+                row.put("userId", uid.toString());
                 row.put("username", u.getUsername());
                 options.add(row);
                 rank++;
             }
-            List<Map<String, Object>> draftRows = new ArrayList<>();
-            for (com.example.service.impl.KnockoutBracketService.ManualPairDraft p : draft) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                row.put("slot", p.slot);
-                row.put("label", p.label);
-                row.put("defaultPlayer1Id", p.defaultPlayer1Id);
-                row.put("defaultPlayer2Id", p.defaultPlayer2Id);
-                draftRows.add(row);
-            }
-            return Map.of("ok", true, "options", options, "draft", draftRows);
+            List<Map<String, Object>> draftRows = manualDraftToJson(pageData.mainPairs);
+            List<Map<String, Object>> qualifierRows = manualDraftToJson(pageData.qualifierPairs);
+            TournamentCompetitionConfig cfg = competitionService.getConfig(tournamentId);
+            boolean mountedQualifier = knockoutBracketService.isFirstRoundMountedQualifier(cfg);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("ok", true);
+            out.put("options", options);
+            out.put("draft", draftRows);
+            out.put("qualifierDraft", qualifierRows);
+            out.put("mountedQualifier", mountedQualifier);
+            return out;
         } catch (Exception e) {
             return Map.of("ok", false, "message", e.getMessage());
         }
@@ -241,19 +251,23 @@ public class TournamentCompetitionController {
                                          RedirectAttributes ra) {
         try {
             int pairCount = Integer.parseInt(rawForm.getOrDefault("pairCount", "0"));
-            List<com.example.service.impl.KnockoutBracketService.ManualPairInput> pairs = new ArrayList<>();
-            for (int i = 0; i < pairCount; i++) {
-                String p1s = rawForm.get("p1_" + i);
-                String p2s = rawForm.get("p2_" + i);
-                Long p1 = (p1s == null || p1s.isBlank()) ? null : Long.parseLong(p1s);
-                Long p2 = (p2s == null || p2s.isBlank()) ? null : Long.parseLong(p2s);
-                pairs.add(new com.example.service.impl.KnockoutBracketService.ManualPairInput(p1, p2));
+            List<com.example.service.impl.KnockoutBracketService.ManualPairInput> pairs = parseManualPairForm(rawForm, "p1_", "p2_", pairCount);
+            TournamentCompetitionConfig cfg = competitionService.getConfig(tournamentId);
+            List<com.example.service.impl.KnockoutBracketService.ManualPairInput> qualifierPairs = null;
+            if (knockoutBracketService.isFirstRoundMountedQualifier(cfg)) {
+                int qualifierPairCount = Integer.parseInt(rawForm.getOrDefault("qualifierPairCount", "0"));
+                qualifierPairs = parseManualPairForm(rawForm, "qp1_", "qp2_", qualifierPairCount);
             }
-            int n = knockoutBracketService.generateFirstKnockoutRoundManual(currentUser(), tournamentId, pairs);
-            ra.addFlashAttribute("message", "已按手动排签更新淘汰赛首轮，共更新 " + n + " 场");
+            int n = knockoutBracketService.generateFirstKnockoutRoundManual(
+                    currentUser(), tournamentId, pairs, qualifierPairs);
+            if (knockoutBracketService.isFirstRoundMountedQualifier(cfg)) {
+                ra.addFlashAttribute("message", "已按手动排签更新淘汰赛首轮并同步生成挂载资格赛，共处理 " + n + " 场");
+            } else {
+                ra.addFlashAttribute("message", "已按手动排签更新淘汰赛首轮，共更新 " + n + " 场");
+            }
         } catch (Exception e) {
             ra.addFlashAttribute("error", e.getMessage());
-            return "redirect:/tournament/competition/knockout/manual/" + tournamentId;
+            return tournamentUrlService.redirectDetail(tournamentId);
         }
         return tournamentUrlService.redirectDetail(tournamentId);
     }
@@ -540,6 +554,39 @@ public class TournamentCompetitionController {
         body.put("canAcceptScore", canAccept);
         body.put("viewerIsSuperAdmin", viewerIsSuperAdmin);
         return body;
+    }
+
+    private static List<Map<String, Object>> manualDraftToJson(
+            List<com.example.service.impl.KnockoutBracketService.ManualPairDraft> draft) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if (draft == null) {
+            return rows;
+        }
+        for (com.example.service.impl.KnockoutBracketService.ManualPairDraft p : draft) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("slot", p.slot);
+            row.put("label", p.label);
+            row.put("defaultPlayer1Id", p.defaultPlayer1Id == null ? null : p.defaultPlayer1Id.toString());
+            row.put("defaultPlayer2Id", p.defaultPlayer2Id == null ? null : p.defaultPlayer2Id.toString());
+            row.put("locked", p.locked);
+            row.put("matchId", p.matchId == null ? null : p.matchId.toString());
+            row.put("linkedMainKoSlot", p.linkedMainKoSlot);
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private static List<com.example.service.impl.KnockoutBracketService.ManualPairInput> parseManualPairForm(
+            Map<String, String> rawForm, String p1Prefix, String p2Prefix, int pairCount) {
+        List<com.example.service.impl.KnockoutBracketService.ManualPairInput> pairs = new ArrayList<>();
+        for (int i = 0; i < pairCount; i++) {
+            String p1s = rawForm.get(p1Prefix + i);
+            String p2s = rawForm.get(p2Prefix + i);
+            Long p1 = (p1s == null || p1s.isBlank()) ? null : Long.parseLong(p1s);
+            Long p2 = (p2s == null || p2s.isBlank()) ? null : Long.parseLong(p2s);
+            pairs.add(new com.example.service.impl.KnockoutBracketService.ManualPairInput(p1, p2));
+        }
+        return pairs;
     }
 
     private static Map<String, Object> toSetScoreView(SetScore s) {
