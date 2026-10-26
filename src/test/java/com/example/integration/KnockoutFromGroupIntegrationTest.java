@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -456,6 +457,194 @@ class KnockoutFromGroupIntegrationTest {
             assertTrue(m.getCategory() != null && m.getCategory().startsWith("[手动排签]"));
             assertEquals(host.getId(), m.getCreatedByUserId());
             assertEquals(KnockoutBracketService.SOURCE_MANUAL_KO_EDITOR, m.getCreateSource());
+        }
+    }
+
+    @Test
+    @DisplayName("16人4组世界杯式1/4：两场半决赛同half时仍应生成金铜牌赛")
+    void worldCupSemisSameHalfCreatesMedalMatches() {
+        User host = createHost();
+        List<User> players = createPlayers(16, "kwc2");
+        long tid = setupGroupTournament(host, 16, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        TournamentCompetitionConfig cfgPatch = new TournamentCompetitionConfig();
+        cfgPatch.setTournamentId(tid);
+        cfgPatch.setMatchMode(3);
+        cfgPatch.setKnockoutStartRound(4);
+        cfgPatch.setQualifierRound(4);
+        cfgPatch.setKnockoutBracketMode(2);
+        competitionService.saveConfig(host, cfgPatch);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        assertEquals(4, groups.size());
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        for (int g = 0; g < 4; g++) {
+            roster.put(groups.get(g).getId(), players.subList(g * 4, g * 4 + 4).stream().map(User::getId).toList());
+        }
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        List<Match> quarterFinals = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 4)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(4, quarterFinals.size());
+        for (Match m : quarterFinals) {
+            acceptKoWithWinner(host, m, true);
+        }
+        List<Match> semis = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 2)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(2, semis.size());
+        for (Match m : semis) {
+            acceptKoWithWinner(host, m, true);
+        }
+        long medalMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, 1)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .count();
+        assertEquals(2, medalMatches, "世界杯式同 half 两场半决赛验收后应生成金/铜牌赛");
+    }
+
+    @Test
+    @DisplayName("24人4组世界杯式1/8挂载资格赛：首轮应8场MAIN+4场资格赛")
+    void worldCupMountedQualifier24Players() {
+        User host = createHost();
+        List<User> players = createPlayers(24, "kwc");
+        long tid = setupGroupTournament(host, 24, 6);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        TournamentCompetitionConfig cfgPatch = new TournamentCompetitionConfig();
+        cfgPatch.setTournamentId(tid);
+        cfgPatch.setMatchMode(3);
+        cfgPatch.setKnockoutStartRound(8);
+        cfgPatch.setQualifierRound(8);
+        cfgPatch.setKnockoutBracketMode(2);
+        competitionService.saveConfig(host, cfgPatch);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        assertEquals(4, groups.size());
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        for (int g = 0; g < 4; g++) {
+            roster.put(groups.get(g).getId(), players.subList(g * 6, g * 6 + 6).stream().map(User::getId).toList());
+        }
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        int n = knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        assertEquals(8, n);
+
+        List<KnockoutBracketService.ManualPairDraft> draft = knockoutBracketService.buildManualFirstRoundDraft(host, tid);
+        List<KnockoutBracketService.ManualPairInput> picked = draft.stream()
+                .map(x -> new KnockoutBracketService.ManualPairInput(x.defaultPlayer1Id, x.defaultPlayer2Id))
+                .toList();
+        assertDoesNotThrow(() -> knockoutBracketService.generateFirstKnockoutRoundManual(host, tid, picked),
+                "世界杯式默认草稿应可通过手动排签校验");
+
+        List<Match> koQualifiers = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .eq(Match::getQualifierRound, 8)
+                .orderByAsc(Match::getId)
+                .list();
+        assertTrue(koQualifiers.size() >= 1);
+        acceptKoWithWinner(host, koQualifiers.get(0), true);
+        List<KnockoutBracketService.ManualPairDraft> draftAfterQualifier =
+                knockoutBracketService.buildManualFirstRoundDraft(host, tid);
+        List<KnockoutBracketService.ManualPairInput> pickedAfterQualifier = draftAfterQualifier.stream()
+                .map(x -> new KnockoutBracketService.ManualPairInput(x.defaultPlayer1Id, x.defaultPlayer2Id))
+                .toList();
+        assertDoesNotThrow(() -> knockoutBracketService.generateFirstKnockoutRoundManual(host, tid, pickedAfterQualifier),
+                "挂载资格赛已有胜者落位后，默认草稿应仍可通过手动排签");
+
+        long mainCount = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 8)
+                .count();
+        assertEquals(8, mainCount);
+        long qCount = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .eq(Match::getQualifierRound, 8)
+                .count();
+        assertEquals(4, qCount);
+    }
+
+    @Test
+    @DisplayName("12人2组挂载资格赛：手动排签首轮同步生成附加资格赛")
+    void manualFirstRoundWithMountedQualifiers() {
+        User host = createHost();
+        List<User> players = createPlayers(12, "k3m");
+        long tid = setupGroupTournament(host, 12, 6);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        TournamentCompetitionConfig cfgPatch = new TournamentCompetitionConfig();
+        cfgPatch.setTournamentId(tid);
+        cfgPatch.setMatchMode(3);
+        cfgPatch.setKnockoutStartRound(4);
+        cfgPatch.setQualifierRound(4);
+        competitionService.saveConfig(host, cfgPatch);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 6).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(6, 12).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        List<KnockoutBracketService.ManualPairDraft> draft = knockoutBracketService.buildManualFirstRoundDraft(host, tid);
+        assertEquals(4, draft.size());
+        List<KnockoutBracketService.ManualPairInput> picked = draft.stream()
+                .map(x -> new KnockoutBracketService.ManualPairInput(x.defaultPlayer1Id, x.defaultPlayer2Id))
+                .toList();
+
+        int n = knockoutBracketService.generateFirstKnockoutRoundManual(host, tid, picked);
+        assertTrue(n >= 6, "应落位首轮并生成挂载资格赛");
+
+        List<Match> koQualifiers = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "QUALIFIER")
+                .eq(Match::getCreateSource, KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)
+                .list();
+        assertEquals(2, koQualifiers.size());
+
+        List<Match> quarterFinals = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 4)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(4, quarterFinals.size());
+        long withFeeder = quarterFinals.stream()
+                .filter(m -> m.getFeederMatch1Id() != null || m.getFeederMatch2Id() != null)
+                .count();
+        assertEquals(2, withFeeder, "应有两场首轮依赖资格赛晋级");
+        for (Match m : quarterFinals) {
+            assertTrue(m.getCategory() != null && m.getCategory().startsWith("[手动排签]"));
         }
     }
 

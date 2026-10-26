@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>冰壶淘汰赛对阵表 · 16强</title>
+<style>
+  :root{
+    --card-w: 200px;
+    --gap: 30px;
+
+    --ink:#0f172a; --ink2:#334155; --muted:#64748b; --faint:#94a3b8;
+    --line:#dbe4f0;
+    --brand:#1e3a8a; --brand2:#2563eb;
+    --accent:#f97316; --accent2:#fb923c;
+    --adv:#f97316; --adv2:#ea580c;      /* 晋级强调色：橙红 */
+    --gold:#d97706;
+
+    --r16:#3b82f6; --r16s:#eaf2fe;      /* 1/8 决赛：浅蓝 */
+    --qf:#8b5cf6;  --qfs:#f3ecff;       /* 1/4 决赛：紫 */
+    --sf:#f97316;  --sfs:#fff1e6;       /* 半决赛：橙 */
+    --third:#16a34a; --thirds:#e9f7ee;  /* 三四名决赛：绿 */
+    --fin:#e11d48; --fins:#ffe9ee;      /* 决赛：红 */
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    color:var(--ink); min-height:100vh; padding:18px 18px 36px;
+    background:
+      radial-gradient(1100px 560px at 8% -12%, #e0e7ff 0%, transparent 58%),
+      radial-gradient(900px 520px at 102% -6%, #ffedd5 0%, transparent 55%),
+      radial-gradient(900px 620px at 46% 112%, #e6f0ff 0%, transparent 56%),
+      #f5f7fc;
+  }
+  .wrap{ max-width:1560px; margin:0 auto; }
+
+  /* ============ 横幅 ============ */
+  .hero{
+    position:relative; overflow:hidden; border-radius:22px; padding:14px 26px;
+    background:linear-gradient(115deg,#0a1730 0%,#132a4d 46%,#1d3f86 100%);
+    box-shadow:0 22px 48px rgba(11,23,48,.32); color:#fff; margin-bottom:22px;
+  }
+  .hero::before{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(420px 220px at 88% -10%, rgba(249,115,22,.55), transparent 68%),
+      radial-gradient(360px 220px at 14% 118%, rgba(99,102,241,.55), transparent 70%),
+      radial-gradient(260px 200px at 62% 130%, rgba(56,189,248,.32), transparent 70%);
+  }
+  .hero::after{
+    content:''; position:absolute; right:-60px; top:-70px; width:260px; height:260px;
+    border-radius:50%; border:1px solid rgba(255,255,255,.13);
+    box-shadow:0 0 0 34px rgba(255,255,255,.045), 0 0 0 68px rgba(255,255,255,.03);
+  }
+  .hero>*{ position:relative; z-index:1; }
+  .hero h1{
+    font-size:24px; letter-spacing:1.5px; font-weight:800;
+    background:linear-gradient(92deg,#ffffff 25%,#ffe3b8 85%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .hero p{ color:rgba(226,236,255,.72); margin-top:5px; font-size:13px; letter-spacing:.3px; }
+  .stats{ display:flex; flex-wrap:wrap; gap:12px; margin-top:14px; }
+  .stat{
+    min-width:146px; padding:8px 15px; border-radius:14px;
+    background:rgba(255,255,255,.09); border:1px solid rgba(255,255,255,.16);
+    backdrop-filter:blur(8px);
+  }
+  .stat span{ display:block; font-size:11px; letter-spacing:2px; color:rgba(226,236,255,.6); }
+  .stat b{ display:block; margin-top:2px; font-size:17px; font-weight:800; letter-spacing:.5px; color:#fff;
+           white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:190px; }
+  .stat b em{ font-style:normal; font-size:12px; font-weight:600; color:rgba(226,236,255,.55); }
+  .stat b.is-champ{ color:#ffd979; }
+
+  /* ============ 面板 ============ */
+  .panel{
+    background:rgba(255,255,255,.9); backdrop-filter:blur(10px);
+    border:1px solid rgba(219,228,240,.9); border-radius:22px;
+    padding:18px 22px 20px; margin-bottom:18px;
+    box-shadow:0 14px 36px rgba(15,23,42,.07), 0 2px 6px rgba(15,23,42,.04);
+  }
+  .panel-hd{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+  .panel-hd .ic{
+    width:34px; height:34px; border-radius:11px; display:grid; place-items:center; font-size:16px;
+    background:linear-gradient(140deg,#1e3a8a,#3b82f6); box-shadow:0 6px 14px rgba(37,99,235,.28);
+  }
+  .panel-hd .ic.warm{ background:linear-gradient(140deg,#ea580c,#fb923c); box-shadow:0 6px 14px rgba(249,115,22,.3); }
+  .panel-hd h2{ font-size:15.5px; letter-spacing:.6px; color:var(--ink); font-weight:800; }
+  .panel-hd .sub{ font-size:12px; color:var(--faint); font-weight:500; }
+
+  .progress{ margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); }
+  .progress .bar{ width:132px; height:7px; border-radius:99px; background:#e8eef8; overflow:hidden; }
+  .progress .bar i{ display:block; height:100%; width:0; border-radius:99px;
+    background:linear-gradient(90deg,#fb923c,#ea580c); transition:width .45s ease; }
+
+  .names{ display:grid; grid-template-columns:repeat(8,1fr); gap:10px; }
+  @media (max-width:1060px){ .names{ grid-template-columns:repeat(4,1fr);} }
+  @media (max-width:560px){ .names{ grid-template-columns:repeat(2,1fr);} }
+  .name-item{ display:flex; align-items:center; gap:7px; }
+  .name-item .tag{
+    flex:0 0 auto; width:36px; height:32px; border-radius:9px;
+    display:grid; place-items:center; font-weight:800; font-size:12.5px;
+    background:#eef2fa; color:#64748b; border:1px solid #e3eaf5;
+  }
+  .name-item.seed .tag{
+    background:linear-gradient(140deg,#132a4d,#2d4f96); color:#fff; border-color:transparent;
+    box-shadow:0 4px 10px rgba(19,42,77,.24);
+  }
+  .name-item input{
+    width:100%; min-width:0; height:32px; border:1px solid #e0e8f3; border-radius:9px;
+    padding:0 10px; font-size:13px; color:var(--ink2); background:#fff; outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .name-item input:hover{ border-color:#cbd8ea; }
+  .name-item input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(249,115,22,.14); }
+
+  .group{ margin-top:14px; }
+  .groups-row{ display:grid; grid-template-columns:1fr; gap:2px 30px; }
+  @media (min-width:1120px){ .groups-row{ grid-template-columns:1.02fr 1fr; } }
+  .group-label{
+    font-size:11px; letter-spacing:2px; font-weight:800; color:#a8b6ca; margin-bottom:9px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .group-label::after{ content:''; flex:1; height:1px; background:linear-gradient(90deg,#e6edf7,transparent); }
+
+  .toolbar{ display:flex; flex-wrap:wrap; gap:11px; align-items:center; }
+  button{
+    border:none; cursor:pointer; border-radius:11px; padding:11px 20px;
+    font-size:13.5px; font-weight:700; letter-spacing:.3px;
+    transition:transform .12s, box-shadow .12s, opacity .12s, background .15s;
+  }
+  button:hover{ transform:translateY(-1px); }
+  button:active{ transform:translateY(0); }
+  button:disabled{ opacity:.45; cursor:not-allowed; transform:none; box-shadow:none; }
+  .btn-fixed{ color:#fff; background:linear-gradient(140deg,#132a4d,#2b4d92); box-shadow:0 8px 18px rgba(19,42,77,.26); }
+  .btn-draw{ color:#fff; background:linear-gradient(140deg,#ea580c,#fb923c); box-shadow:0 8px 18px rgba(249,115,22,.32); }
+  .btn-random{ color:#fff; background:linear-gradient(140deg,#6d28d9,#a78bfa); box-shadow:0 8px 18px rgba(109,40,217,.26); }
+  .btn-ghost{
+    color:var(--ink2); background:#fff; border:1px solid #e0e8f3; padding:10px 16px; font-size:13px;
+    box-shadow:0 2px 6px rgba(15,23,42,.04);
+  }
+  .btn-ghost:hover{ border-color:#c9d8ec; background:#f8fbff; }
+  .btn-soft{ color:#b45309; background:#fff7ed; border:1px solid #fed7aa; padding:10px 16px; font-size:13px; }
+  .btn-soft:hover{ background:#ffedd5; }
+  .rnd-sel{
+    border:1px solid #e0e8f3; border-radius:11px; padding:10px 12px; font-size:13px;
+    color:var(--ink2); background:#fff; outline:none; cursor:pointer; font-weight:600;
+    box-shadow:0 2px 6px rgba(15,23,42,.04); transition:border-color .15s, box-shadow .15s;
+  }
+  .rnd-sel:hover{ border-color:#c9d8ec; }
+  .rnd-sel:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(249,115,22,.14); }
+  .mode-note{ font-size:12px; color:var(--faint); line-height:1.75; flex:1; min-width:250px; }
+  .mode-note kbd{
+    background:#f2f6fc; border:1px solid #dfe8f4; border-bottom-width:2px; border-radius:5px;
+    padding:0 5px; font-size:11px; font-family:inherit; color:#5b7194;
+  }
+
+  #summary{ display:none; margin-top:16px; }
+  #summary.show{ display:block; }
+  #summary .cards{ display:flex; flex-wrap:wrap; gap:8px; }
+  #summary .m{
+    background:linear-gradient(140deg,#fff8f1,#fff1e2); border:1px solid #ffd9b0; color:#b45309;
+    border-radius:9px; padding:7px 12px; font-size:12.5px; font-weight:700;
+    animation:pop .32s ease both;
+  }
+  @keyframes pop{ from{ transform:scale(.72); opacity:0;} to{ transform:scale(1); opacity:1;} }
+
+  /* ============ 四分区对阵图 ============ */
+  /* 窄屏下允许横向滚动查看对阵图（fitBracket 会保底缩放比例）；桌面端隐藏滚动条 */
+  .bracket-wrap{ overflow:hidden; padding:2px 0 10px; }
+  @media (max-width:700px){ .bracket-wrap{ overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; } }
+  .bracket{
+    position:relative; display:grid;
+    grid-template-columns:repeat(6,var(--card-w));
+    grid-template-rows:40px auto auto 26px auto auto;
+    column-gap:var(--gap); row-gap:12px;
+    min-width:max-content; width:max-content;
+    padding:2px 6px 24px;
+    transform-origin:top left;
+  }
+
+  /* 四个 1/4 区背景 */
+  .zone{ z-index:0; border-radius:20px; pointer-events:none; margin:-6px -9px; border:1px dashed #e2eaf5; }
+  .za{ grid-row:2 / span 2; grid-column:1 / span 2;
+       background:linear-gradient(150deg,rgba(59,130,246,.09),rgba(59,130,246,.015));
+       border-color:rgba(59,130,246,.26); }
+  .zb{ grid-row:5 / span 2; grid-column:1 / span 2;
+       background:linear-gradient(150deg,rgba(139,92,246,.09),rgba(139,92,246,.015));
+       border-color:rgba(139,92,246,.24); }
+  .zc{ grid-row:2 / span 2; grid-column:5 / span 2;
+       background:linear-gradient(150deg,rgba(139,92,246,.09),rgba(139,92,246,.015));
+       border-color:rgba(139,92,246,.24); }
+  .zd{ grid-row:5 / span 2; grid-column:5 / span 2;
+       background:linear-gradient(150deg,rgba(249,115,22,.10),rgba(249,115,22,.02));
+       border-color:rgba(249,115,22,.26); }
+
+  /* 决赛区：绝对定位，紧贴半决赛卡片下方（间距由 positionFinal() 按实测设定），
+     纵向紧凑堆叠（决赛 → 冠军），宽度仅一张卡片，水平保持整体居中 */
+  .final-row{
+    position:absolute; left:0; right:0;
+    display:flex; justify-content:center;
+  }
+  .final-stack{ display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .final-stack .champ-hero{ margin-bottom:2px; }
+
+  /* 三四名决赛：位于两场半决赛上方（位置由 positionThird() 实测设定） */
+  .third-row{
+    position:absolute; left:0; right:0;
+    display:flex; justify-content:center;
+  }
+  .s-third{ --rc:var(--third); }
+
+  /* 冠军展示卡：决赛下方的视觉焦点 */
+  .champ-hero{
+    width:200px; padding:10px 10px 9px; border-radius:14px; text-align:center;
+    background:#fff; border:1.5px dashed #dfc894; color:#a8b6ca;
+    position:relative; z-index:2; transition:box-shadow .3s, background .3s, border-color .3s;
+  }
+  .champ-hero .champ-trophy{ font-size:24px; line-height:1; filter:grayscale(1); opacity:.45; }
+  .champ-hero .champ-name{
+    font-size:15px; font-weight:900; margin-top:3px; color:#8a5406;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .champ-hero .champ-name.ph{ color:#a8b6ca; font-weight:700; font-size:14px; }
+  .champ-hero .champ-sub{ font-size:9px; letter-spacing:2px; margin-top:3px; color:#b99b62; }
+  .champ-hero.lit{
+    border:1.5px solid #f4c454;
+    background:linear-gradient(160deg,#fffdf4,#ffe9b0 55%,#f6d189);
+    box-shadow:0 16px 36px rgba(217,119,6,.3);
+    animation:glow 2.6s ease-in-out infinite;
+  }
+  .champ-hero.lit .champ-trophy{ filter:none; opacity:1; text-shadow:0 4px 10px rgba(180,83,9,.35); }
+  .champ-hero.lit .champ-name{ text-shadow:0 1px 0 #fff; }
+
+  /* 亚军/季军领奖台：窄条形式置于冠军卡下方，视觉层级低于冠军 */
+  .podium-row{
+    width:280px; display:flex; align-items:flex-end; justify-content:center; gap:12px;
+    position:relative; z-index:2;
+  }
+  .pd-col{
+    flex:1; min-width:0;
+    display:flex; flex-direction:column; align-items:center;
+  }
+  .pd-col .pd-nm{
+    max-width:100%; margin-bottom:5px;
+    /* 名次字号统一为 12px，保证 5 字名（如"寂寞的星星"）+ 奖牌图标完整显示 */
+    font-size:12px; font-weight:800; color:#3b4d66;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .pd-col.silver .pd-nm{ font-weight:800; color:#4d5f7a; }
+  .pd-col.bronze .pd-nm{ font-weight:600; color:#8f7350; }
+  .pd-col .pd-nm.tbd{ color:#a8b6ca; font-weight:500; }
+  .pd-face{
+    width:100%; height:36px; border-radius:10px 10px 0 0;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    padding:0 6px;
+  }
+  .pd-face .pd-rank{
+    width:18px; height:18px; border-radius:6px; flex:0 0 auto;
+    display:grid; place-items:center; font-size:11px; color:#fff;
+  }
+  .pd-face .pd-lbl{ font-size:10.5px; letter-spacing:2px; font-weight:800; }
+  .pd-col.silver .pd-face{
+    height:40px; border:1.5px solid #c9d6e6; border-bottom:none;
+    background:linear-gradient(160deg,#fbfdff,#e3eaf4 60%,#cfd9e8);
+    color:#4d5f7a;
+  }
+  .pd-col.silver .pd-rank{ background:linear-gradient(140deg,#93a5bd,#5d7191); }
+  .pd-col.silver .pd-lbl{ color:#68798f; }
+  .pd-col.bronze .pd-face{
+    height:40px; border:1.5px solid #ddb98f; border-bottom:none;
+    background:linear-gradient(160deg,#fdf6ee,#f2dcc2 60%,#e5c194);
+    color:#7c5426;
+  }
+  .pd-col.bronze .pd-rank{ background:linear-gradient(140deg,#d29a5f,#a06a35); }
+  .pd-col.bronze .pd-lbl{ color:#96703c; }
+  @keyframes glow{
+    0%,100%{ box-shadow:0 10px 24px rgba(217,119,6,.2); }
+    50%{ box-shadow:0 16px 38px rgba(217,119,6,.4); }
+  }
+
+  /* 列标题 */
+  .ch{
+    z-index:2; align-self:end; justify-self:center; font-size:14px; font-weight:800;
+    letter-spacing:2px; color:#9fb0c6; padding-bottom:6px;
+  }
+  /* 阶段标签配色：1/8 蓝 → 1/4 紫 → 半决赛橙 → 决赛 红 */
+  .ch.h-r16{ color:#7f9bf4; } .ch.h-qf{ color:#a78bfa; } .ch.h-sf{ color:#fb923c; } .ch.h-fin{ color:#f06280; }
+
+  /* 连线层：低饱和暖灰棕，细线 + 实心小三角，风格统一 */
+  .wires{ position:absolute; inset:0; z-index:1; pointer-events:none; overflow:visible; }
+  .wire{ fill:none; stroke:#d3dde9; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .wire-head{ fill:#d3dde9; }
+  /* 各轮次连线区分色：未决出为浅色，已晋级（.on）为对应主色 */
+  .wire.r16, .wire.r16.on{ stroke:#ccd9f5; }   .wire-head.r16{ fill:#ccd9f5; }
+  .wire.r16.on{ stroke:#3b82f6; }              .wire-head.r16.on{ fill:#3b82f6; }
+  .wire.qf,  .wire.qf.on{  stroke:#e5dbfa; }   .wire-head.qf{  fill:#e5dbfa; }
+  .wire.qf.on{  stroke:#8b5cf6; }              .wire-head.qf.on{  fill:#8b5cf6; }
+  .wire.sf,  .wire.sf.on{  stroke:#fbdfc4; }   .wire-head.sf{  fill:#fbdfc4; }
+  .wire.sf.on{  stroke:#f97316; }              .wire-head.sf.on{  fill:#f97316; }
+  .wire.fin, .wire.fin.on{ stroke:#f9d3dc; }   .wire-head.fin{ fill:#f9d3dc; }
+  .wire.fin.on{ stroke:#e11d48; }              .wire-head.fin.on{ fill:#e11d48; }
+  .wire.third,.wire.third.on{stroke:#cfe8d5; } .wire-head.third{fill:#cfe8d5; }
+  .wire.third.on{stroke:#16a34a;}              .wire-head.third.on{fill:#16a34a;}
+  .wire.on{ stroke-width:2.1; }
+
+  .slot{ position:relative; z-index:2; align-self:center; }
+  .s-r16{ --rc:var(--r16); }
+  .s-qf{ --rc:var(--qf); }
+  .s-sf{ --rc:var(--sf); }
+  .s-fin{ --rc:var(--fin); }
+
+  .card{
+    position:relative; width:var(--card-w); background:#fff; border-radius:14px; overflow:hidden;
+    border:1px solid #e6edf7;
+    box-shadow:0 6px 16px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.05);
+    transition:box-shadow .16s, transform .16s, border-color .16s;
+  }
+  .card::before{
+    content:''; position:absolute; top:0; left:0; right:0; height:3px;
+    background:linear-gradient(90deg,var(--rc,var(--r16)),#eef2fa);
+    background:linear-gradient(90deg,var(--rc,var(--r16)),color-mix(in srgb,var(--rc,#6366f1) 16%,#fff));
+  }
+  .card:hover{ box-shadow:0 12px 26px rgba(15,23,42,.13); border-color:#d6e2f2; }
+  .card.tie{ border-color:#fbbf24; box-shadow:0 0 0 3px rgba(251,191,36,.16), 0 8px 20px rgba(15,23,42,.08); }
+  /* 比赛状态：未开始整体轻微调灰；已开始/已结束点亮为该轮次主色调 */
+  .card.idle{ filter:saturate(.55) brightness(.985); }
+  .card.live{ border-color:color-mix(in srgb,var(--rc,var(--r16)) 42%,#e6edf7);
+    box-shadow:0 6px 18px color-mix(in srgb,var(--rc,var(--r16)) 20%, transparent), 0 1px 2px rgba(15,23,42,.05); }
+  .card.live::before{ height:4px; }
+  .card .round-tag{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    font-size:10.5px; font-weight:800; letter-spacing:1px; color:#b6c4d8;
+    padding:4px 10px 0;
+  }
+  .card .round-tag .tg{ color:var(--rc,var(--r16)); opacity:.75; }
+  .card .round-tag .tie-tag{
+    color:#b45309; background:#fef3c7; border-radius:5px; padding:1px 6px;
+    font-size:10px; letter-spacing:.6px;
+  }
+
+  .entrant{
+    position:relative; display:flex; align-items:center; gap:5px; padding:6px 9px;
+    font-size:14.5px; min-height:35px; cursor:default; transition:background .14s;
+  }
+  .entrant.clickable{ cursor:pointer; }
+  .entrant.clickable:hover{ background:#f7fafe; }
+  /* 种子/排名徽章：白底圆形描边，与比分格（琥珀色方块）形成形状+颜色双重区分 */
+  .entrant .sd{
+    flex:0 0 auto; width:25px; height:25px; border-radius:50%;
+    background:#fff; color:#7b8ca6; font-size:11.5px; font-weight:800;
+    display:grid; place-items:center; border:1.5px solid #c9d6e8;
+    font-family:ui-monospace,Consolas,monospace;
+  }
+  /* 排名徽章统一为中性白底圆形描边，不做突出（与琥珀色比分格区分即可） */
+  .entrant .nm{
+    flex:1 1 auto; min-width:0; font-size:15px; font-weight:800; letter-spacing:.2px; color:#33455e;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .entrant .nm.tbd{ color:#b9c6d8; font-weight:500; font-size:13px; }
+  .entrant .tick{ flex:0 0 auto; width:8px; font-size:10.5px; color:#cf8256; font-weight:900; visibility:hidden; }
+
+  /* 晋级：橙红系（替代绿色） */
+  .entrant.win{ background:linear-gradient(90deg,#fff3ec 0%,#fffbf7 82%); }
+  .entrant.win::before{
+    content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:linear-gradient(180deg,#eda375,#d9895b);
+  }
+  .entrant.win .nm{ color:#9a3412; }
+  .entrant.win .tick{ visibility:visible; }
+  .entrant.revealed{ animation:flash .6s ease; }
+  @keyframes flash{ 0%{ background:#ffedd5;} 100%{ background:transparent;} }
+  .entrant.spin .nm{ color:var(--accent); font-weight:800; }
+
+  /* 比分格：琥珀色圆角方块（区别于排名的白色圆形），等宽加粗字体 */
+  .score{
+    flex:0 0 auto; min-width:30px; height:25px; padding:0 5px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:8px; background:#fff4e6; color:#b45309;
+    border:1.5px solid #f6c98f; cursor:text; user-select:none;
+    font-family:ui-monospace,Consolas,"Courier New",monospace;
+    font-size:15px; font-weight:800; font-variant-numeric:tabular-nums;
+    transition:background .13s, color .13s, box-shadow .13s, transform .13s, border-color .13s;
+  }
+  .score.empty{ color:#c3cfdf; font-weight:700; background:#f8fafd; border-style:dashed; border-color:#dfe9f6; }
+  .score:hover{ background:#ffeccc; border-color:#eda75f; }
+  .entrant.win .score{
+    background:linear-gradient(140deg,#eda375,#d9895b); color:#fff; border-color:transparent;
+    box-shadow:0 2px 6px rgba(217,137,91,.28);
+  }
+  .score.editing{
+    background:#fff; border-color:var(--accent); border-style:solid;
+    box-shadow:0 0 0 3px rgba(249,115,22,.16);
+  }
+  .score input{
+    width:28px; border:none; outline:none; background:transparent; padding:0;
+    text-align:center; font:inherit; color:var(--ink);
+    font-family:ui-monospace,Consolas,monospace;
+  }
+  .score.bump{ transform:scale(1.18); }
+
+  .hint{ color:var(--faint); font-size:12px; margin-top:8px; text-align:center; line-height:1.9; }
+  .legend{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px 12px; margin-top:8px; }
+  .legend span{
+    display:inline-flex; align-items:center; gap:8px; font-size:12px; color:#5c7091;
+    background:#f7fafd; border:1px solid #e8eff8; border-radius:999px; padding:5px 13px;
+  }
+  .legend .sw{ width:22px; height:0; border-top:2px solid #c9d6e6; border-radius:2px; }
+  .legend .sw.hot{ border-top-width:2.4px; border-color:#cf9c7c; }
+  .legend .zn{ width:16px; height:12px; border-radius:4px; border:1px dashed rgba(99,102,241,.4); background:rgba(99,102,241,.09); }
+
+  #toast{
+    position:fixed; left:50%; bottom:34px; transform:translate(-50%,14px);
+    background:linear-gradient(140deg,#0f2748,#1e3a8a); color:#fff;
+    padding:11px 22px; border-radius:12px; font-size:13.5px; font-weight:700;
+    opacity:0; pointer-events:none; transition:opacity .22s, transform .22s; z-index:99;
+    box-shadow:0 14px 34px rgba(11,23,48,.34);
+  }
+  #toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  @media (max-width:900px){
+    :root{ --card-w:172px; --gap:30px; }
+    .hero{ padding:22px 20px; border-radius:20px; }
+    .hero h1{ font-size:22px; }
+    .panel{ padding:18px 16px 20px; border-radius:18px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>🥌 冰壶淘汰赛对阵表</h1>
+    <p>16 强 · 1–8 号种子分占 8 个 1/8 区 · 四分区结构 · 比分自动判定晋级</p>
+    <div class="stats">
+      <div class="stat"><span>参赛队伍</span><b>16 <em>支 · 8 种子</em></b></div>
+      <div class="stat"><span>已决场次</span><b id="statDone">0 <em>/ 16</em></b></div>
+      <div class="stat"><span>冠军</span><b id="statChamp">待定</b></div>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="panel-hd">
+      <span class="ic">👥</span>
+      <h2>队伍名单</h2>
+      <span class="sub">1–8 号为种子队，名称可直接修改</span>
+    </div>
+    <div class="names" id="nameList"></div>
+
+    <div class="groups-row">
+    <div class="group">
+      <div class="group-label">生成对阵</div>
+      <div class="toolbar">
+        <button class="btn-fixed" id="btnFixed">① 常规固定对位</button>
+        <button class="btn-draw" id="btnDraw">② 🎲 混合抽签</button>
+        <button class="btn-ghost" id="btnClear">清空比赛结果</button>
+        <div class="mode-note">
+          固定对位：1vs16、2vs15、3vs14……8vs9，种子分占 8 个 1/8 区。<br>
+          混合抽签：1/2 号位混合抽 15/16 号位 · 3/4 号位抽 13/14 号位 · 5/6 号位抽 11/12 号位 · 7/8 号位抽 9/10 号位。
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">比分（手动录入 / 随机生成）</div>
+      <div class="toolbar">
+        <select id="rndSel" class="rnd-sel" title="选择批量生成比分的截止轮次（从 1/8 决赛起逐轮补齐）">
+          <option value="all">全部赛程（至决赛）</option>
+          <option value="r16">生成至 1/8 决赛</option>
+          <option value="qf">生成至 1/4 决赛</option>
+          <option value="sf">生成至半决赛</option>
+          <option value="third">生成至三四名决赛</option>
+        </select>
+        <button class="btn-random" id="btnRandomScores">🎲 随机生成比分</button>
+        <button class="btn-soft" id="btnClearScores">清空全部比分</button>
+        <button class="btn-ghost" id="btnExport">导出数据</button>
+        <button class="btn-ghost" id="btnImport">导入数据</button>
+        <input type="file" id="fileImport" accept="application/json,.json" hidden />
+        <div class="mode-note">
+          冰壶单场比分以个位数为主，录入上限 <b>10 分</b>（10 及以下正常记分，超出自动按 10 计）。<br>
+          点击比分格直接输入 · <kbd>↑</kbd><kbd>↓</kbd> 微调 · <kbd>Enter</kbd> 确认 · <kbd>Esc</kbd> 取消 · 滚轮加减；随机生成仅用于演示，取 0–10 且不出平局。
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <div id="summary"><div class="cards" id="summaryCards"></div></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-hd">
+      <span class="ic warm">🗺️</span>
+      <h2>淘汰赛对阵图</h2>
+      <span class="sub">两路胜者争夺冠军；点队名可手动指定胜者，有比分时以比分为准</span>
+      <div class="progress"><span id="progText">0/16 场已决出</span><div class="bar"><i id="progBar"></i></div></div>
+    </div>
+    <div class="bracket-wrap" id="bracketWrap">
+      <div class="bracket" id="bracket"></div>
+    </div>
+    <div class="hint">左半区（种子 1 · 8 · 4 · 5）→ 半决赛 1　|　右半区（种子 2 · 7 · 3 · 6）→ 半决赛 2　→　下方决赛 · 领奖台　|　半决赛负者 → 上方三四名决赛</div>
+    <div class="legend">
+      <span><i class="sw" style="border-color:#3b82f6"></i>1/8 决赛</span>
+      <span><i class="sw" style="border-color:#8b5cf6"></i>1/4 决赛</span>
+      <span><i class="sw" style="border-color:#f97316"></i>半决赛</span>
+      <span><i class="sw" style="border-color:#16a34a"></i>三四名决赛</span>
+      <span><i class="sw" style="border-color:#e11d48"></i>决赛</span>
+      <span><i class="sw hot" style="border-color:#cf9c7c"></i>加粗连线：该队已晋级，箭头指向去向</span>
+    </div>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script>
+/* =========================================================
+   1. 常量与状态
+   ========================================================= */
+const SEED_SLOTS = [1, 8, 4, 5, 2, 7, 3, 6];  // 8 个 1/8 区的种子分布（4 号区整体位于 5 号区上方）
+const GROUPS = { 1:[15,16], 2:[15,16], 3:[13,14], 4:[13,14], 5:[11,12], 6:[11,12], 7:[9,10], 8:[9,10] };
+const DEFAULT_NAMES = {
+  1:'阿方宇', 2:'TC', 3:'寂寞的清新', 4:'Hassselborg', 5:'Treasure', 6:'Hedgehog',
+  7:'Akinkarch water', 8:'Petrichor', 9:'禾谷', 10:'chao', 11:'迟夏', 12:'幸福快乐',
+  13:'Anchor', 14:'木易', 15:'振球abc', 16:'菜菜'
+};
+const SCORE_MAX = 10;          // 冰壶单场比分上限（个位数为主，10 为极限）
+
+/** 单场比赛对象：比分与手动胜者都按「队伍号」为键存储，因此与槽位上下顺序无关 */
+function newMatch(a = null, b = null) {
+  return { a, b, scores: {}, manual: null, winner: null, tie: false };
+}
+
+const state = {
+  players: { ...DEFAULT_NAMES },
+  r16: SEED_SLOTS.map(s => newMatch(s, null)),
+  qf:  Array.from({ length: 4 }, () => newMatch()),
+  sf:  Array.from({ length: 2 }, () => newMatch()),
+  third: newMatch(),
+  final: newMatch(),
+  pending: false
+};
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+const playerName = seed => seed == null ? '' : (state.players[seed] || (seed + '号队伍'));
+const escapeHtml = s => (s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+let toastTimer;
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1900);
+}
+
+/* =========================================================
+   2. 名单编辑
+   ========================================================= */
+function buildNameInputs() {
+  const box = $('nameList');
+  box.innerHTML = '';
+  for (let s = 1; s <= 16; s++) {
+    const item = document.createElement('div');
+    item.className = 'name-item' + (s <= 8 ? ' seed' : '');
+    item.innerHTML = `<span class="tag">${s}号</span>`;
+    const inp = document.createElement('input');
+    inp.value = state.players[s];
+    inp.maxLength = 12;
+    inp.addEventListener('input', () => {
+      state.players[s] = inp.value.trim();
+      document.querySelectorAll(`.nm[data-seed="${s}"]`).forEach(el => {
+        el.textContent = state.players[s] || (s + '号队伍');
+      });
+      updateStats();
+    });
+    item.appendChild(inp);
+    box.appendChild(item);
+  }
+}
+
+/* =========================================================
+   3. 生成对阵
+   ========================================================= */
+function clearResults() {
+  state.r16.forEach(m => { m.scores = {}; m.manual = null; m.tie = false; m.winner = null; });
+  state.qf.forEach(m => { m.a = m.b = null; m.scores = {}; m.manual = null; m.tie = false; m.winner = null; });
+  state.sf.forEach(m => { m.a = m.b = null; m.scores = {}; m.manual = null; m.tie = false; m.winner = null; });
+  state.third = newMatch();
+  state.final = newMatch();
+}
+
+function generateFixed() {
+  const snap = snapshotScores();
+  clearResults();
+  SEED_SLOTS.forEach((s, i) => { state.r16[i] = newMatch(s, 17 - s); });
+  restorePairScores(snap);
+  $('summary').classList.remove('show');
+  render();
+}
+
+/* 以「两队组合」为键缓存比分：重新生成后若仍是同一组对阵，比分自动跟回 */
+function pairKey(a, b) { return Math.min(a, b) + '-' + Math.max(a, b); }
+
+function snapshotScores() {
+  const map = {};
+  [...state.r16, ...state.qf, ...state.sf, state.third, state.final].forEach(m => {
+    if (m.a == null || m.b == null) return;
+    const sa = m.scores[m.a], sb = m.scores[m.b];
+    if (typeof sa !== 'number' && typeof sb !== 'number') return;
+    map[pairKey(m.a, m.b)] = { [m.a]: sa, [m.b]: sb };
+  });
+  return map;
+}
+
+function restorePairScores(map) {
+  state.r16.forEach(m => {
+    if (m.a == null || m.b == null) return;
+    const hit = map[pairKey(m.a, m.b)];
+    if (!hit) return;
+    if (typeof hit[m.a] === 'number') m.scores[m.a] = clampScore(hit[m.a]);
+    if (typeof hit[m.b] === 'number') m.scores[m.b] = clampScore(hit[m.b]);
+  });
+}
+
+async function mixedDraw() {
+  if (state.pending) return;
+  state.pending = true;
+  const snap = snapshotScores();
+  clearResults();
+  $('summary').classList.remove('show');
+  setBusy(true);
+  const assign = {};
+  for (const g of [[1,2],[3,4],[5,6],[7,8]]) {
+    const pool = shuffle([...GROUPS[g[0]]]);
+    assign[g[0]] = pool[0];
+    assign[g[1]] = pool[1];
+  }
+  SEED_SLOTS.forEach((s, i) => { state.r16[i] = newMatch(s, assign[s]); });
+
+  render();
+  for (let i = 0; i < 8; i++) await spinReveal(i, state.r16[i].b);
+
+  state.pending = false;
+  setBusy(false);
+  restorePairScores(snap);
+  render();
+  showSummary(assign);
+}
+
+async function spinReveal(i, finalSeed) {
+  const el = document.querySelector(`[data-slot="${i}"] .entrant.b .nm`);
+  if (!el) return;
+  const row = el.closest('.entrant');
+  row.classList.add('spin');
+  const pool = GROUPS[state.r16[i].a];
+  const t0 = Date.now();
+  while (Date.now() - t0 < 620) {
+    el.textContent = pool[Math.floor(Math.random() * pool.length)] + '号 ?';
+    await sleep(70);
+  }
+  el.textContent = playerName(finalSeed);
+  row.classList.remove('spin');
+  row.classList.add('revealed');
+  await sleep(200);
+}
+
+function showSummary(assign) {
+  const box = $('summaryCards');
+  box.innerHTML = '';
+  SEED_SLOTS.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'm';
+    d.style.animationDelay = (i * 0.06) + 's';
+    d.textContent = `第${i + 1}场 ${s} ${playerName(s)} vs ${assign[s]} ${playerName(assign[s])}`;
+    box.appendChild(d);
+  });
+  $('summary').classList.add('show');
+}
+
+function setBusy(busy) {
+  ['btnFixed','btnDraw','btnClear','btnRandomScores','btnClearScores'].forEach(id => { $(id).disabled = busy; });
+}
+
+/* =========================================================
+   4. 比分 → 胜者 → 下一轮
+   ========================================================= */
+function decide(m) {
+  const sa = m.a != null ? m.scores[m.a] : undefined;
+  const sb = m.b != null ? m.scores[m.b] : undefined;
+  const hasA = typeof sa === 'number', hasB = typeof sb === 'number';
+  if (hasA && hasB) {
+    if (sa > sb) return { winner: m.a, tie: false };
+    if (sb > sa) return { winner: m.b, tie: false };
+    return { winner: null, tie: true };
+  }
+  if (m.manual != null && (m.manual === m.a || m.manual === m.b)) return { winner: m.manual, tie: false };
+  return { winner: null, tie: false };
+}
+
+function syncMatch(m) {
+  for (const k of Object.keys(m.scores)) {
+    const s = +k;
+    if (s !== m.a && s !== m.b) delete m.scores[k];
+  }
+  if (m.manual != null && m.manual !== m.a && m.manual !== m.b) m.manual = null;
+  const d = decide(m);
+  m.winner = d.winner;
+  m.tie = d.tie;
+}
+
+function setEntrants(m, a, b) {
+  if (m.a !== a || m.b !== b) {
+    const keep = [a, b];
+    for (const k of Object.keys(m.scores)) if (!keep.includes(+k)) delete m.scores[k];
+    if (m.manual != null && !keep.includes(m.manual)) m.manual = null;
+    m.a = a; m.b = b;
+  }
+  syncMatch(m);
+}
+
+function computeEntrants() {
+  state.r16.forEach(syncMatch);
+  state.qf.forEach((m, i) => setEntrants(m, state.r16[2*i].winner, state.r16[2*i+1].winner));
+  state.sf.forEach((m, i) => setEntrants(m, state.qf[2*i].winner, state.qf[2*i+1].winner));
+  // 三四名决赛：两场半决赛的负者
+  const loserOf = m => (m.winner == null || m.a == null || m.b == null) ? null : (m.a === m.winner ? m.b : m.a);
+  setEntrants(state.third, loserOf(state.sf[0]), loserOf(state.sf[1]));
+  setEntrants(state.final, state.sf[0].winner, state.sf[1].winner);
+}
+
+/* =========================================================
+   5. 渲染：四分区（A 左上 / B 左下 / C 右上 / D 右下）+ 下方决赛
+   ---------------------------------------------------------
+   grid 列：1-R16 | 2-QF | 3-SF | 4-SF | 5-QF | 6-R16
+   grid 行：1-列标 | 2-R1/R5 | 3-R2/R6 | 4-区间隔 | 5-R3/R7 | 6-R4/R8 | 7-决赛/冠军
+   ========================================================= */
+const ROW_OF = [2, 3, 5, 6, 2, 3, 5, 6];                      // R1..R8 所在行
+
+function scoreChip(m, round, idx, seed) {
+  const v = m.scores[seed];
+  const has = typeof v === 'number';
+  return `<div class="score ${has ? '' : 'empty'}" data-round="${round}" data-idx="${idx}" data-seed="${seed}"
+               title="点击输入比分（0–${SCORE_MAX}）">${has ? v : '–'}</div>`;
+}
+
+function matchCard(round, idx, m, tag) {
+  const clickable = !state.pending && (m.a != null || m.b != null);
+  const row = (side, seed) => {
+    if (seed == null) {
+      return `<div class="entrant ${side}"><span class="sd">?</span><span class="nm tbd">待定</span><span class="tick">✔</span><div class="score empty">–</div></div>`;
+    }
+    const win = m.winner === seed;
+    return `<div class="entrant ${side} ${win ? 'win' : ''} ${clickable ? 'clickable' : ''}"
+                 data-round="${round}" data-idx="${idx}" data-seed="${seed}">
+        <span class="sd ${seed <= 8 ? 'top' : ''}">${seed}</span>
+        <span class="nm" data-seed="${seed}">${escapeHtml(playerName(seed))}</span>
+        <span class="tick">✔</span>${scoreChip(m, round, idx, seed)}</div>`;
+  };
+  const live = m.winner != null || Object.values(m.scores).some(v => typeof v === 'number');
+  return `<div class="card ${live ? 'live' : 'idle'}" data-m="${round}-${idx}">
+      ${(tag || m.tie) ? `<div class="round-tag"><span class="tg">${tag}</span>${m.tie ? '<span class="tie-tag">平</span>' : ''}</div>` : ''}
+      ${row('a', m.a)}${row('b', m.b)}</div>`;
+}
+
+function render() {
+  computeEntrants();
+  const R = state.r16, Q = state.qf, S = state.sf, T = state.third, F = state.final;
+
+  let html = '<svg class="wires" id="wires" xmlns="http://www.w3.org/2000/svg"></svg>';
+  html += '<div class="zone za"></div><div class="zone zb"></div><div class="zone zc"></div><div class="zone zd"></div>';
+
+  // 列标题
+  const heads = [['1/8 决赛','h-r16'],['1/4 决赛','h-qf'],['半决赛','h-sf'],
+                 ['半决赛','h-sf'],['1/4 决赛','h-qf'],['1/8 决赛','h-r16']];
+  heads.forEach(([t, c], i) => { html += `<div class="ch ${c}" style="grid-area:1/${i+1}">${t}</div>`; });
+
+  // 1/8 决赛（R1–R4 左，R5–R8 右）
+  R.forEach((m, i) => {
+    const col = i < 4 ? 1 : 6;
+    html += `<div class="slot s-r16" data-slot="${i}" style="grid-row:${ROW_OF[i]};grid-column:${col}">
+        ${matchCard('r16', i, m, '')}</div>`;
+  });
+  // 1/4 决赛（左半区）
+  Q.forEach((m, i) => {
+    if (i >= 2) return;
+    html += `<div class="slot s-qf" style="grid-row:${i === 0 ? 2 : 5}/span 2;grid-column:2">
+        ${matchCard('qf', i, m, `1/4 决赛`)}</div>`;
+  });
+  // 右半区 1/4 决赛
+  Q.forEach((m, i) => {
+    if (i < 2) return;
+    html += `<div class="slot s-qf" style="grid-row:${i === 2 ? 2 : 5}/span 2;grid-column:5">
+        ${matchCard('qf', i, m, `1/4 决赛`)}</div>`;
+  });
+  // 半决赛（左右两半区内侧并排）：跨第 2-6 行垂直居中——上侧 1/4 决赛连线恒向下、
+  // 下侧恒向上，两条折线垂直段区间天然错开，杜绝重叠/交叉
+  S.forEach((m, i) => {
+    html += `<div class="slot s-sf" style="grid-row:2/span 5;grid-column:${i === 0 ? 3 : 4}">
+        ${matchCard('sf', i, m, `半决赛 ${i + 1}`)}</div>`;
+  });
+
+  // 三四名决赛：位于两场半决赛上方（位置由 positionThird() 实测设定）
+  html += `<div class="third-row"><div class="slot s-third">${matchCard('third', 0, T, '三四名决赛')}</div></div>`;
+
+  // 决赛区：半决赛下方，纵向紧凑堆叠（决赛 → 领奖台），宽度仅一张卡片
+  const champ = F.winner;
+  const runnerUp = champ != null ? (F.a === champ ? F.b : F.a) : null;
+  const thirdWin = T.winner;
+  html += `<div class="final-row"><div class="final-stack">
+      <div class="slot s-fin">${matchCard('final', 0, F, '决 赛')}</div>
+      <div class="champ-hero ${champ != null ? 'lit' : ''}" data-m="champ">
+        <div class="champ-trophy">🏆</div>
+        <div class="champ-name ${champ == null ? 'ph' : ''}" ${champ != null ? `data-seed="${champ}"` : ''}>${champ != null ? escapeHtml(playerName(champ)) : '虚位以待'}</div>
+        <div class="champ-sub">CHAMPION · 冠军</div>
+      </div>
+      <div class="podium-row">
+        <div class="pd-col silver">
+          <span class="pd-nm ${runnerUp == null ? 'tbd' : ''}" ${runnerUp != null ? `data-seed="${runnerUp}"` : ''}>${runnerUp != null ? '🥈 ' + escapeHtml(playerName(runnerUp)) : '待定'}</span>
+          <div class="pd-face"><span class="pd-rank">2</span><span class="pd-lbl">亚军</span></div>
+        </div>
+        <div class="pd-col bronze">
+          <span class="pd-nm ${thirdWin == null ? 'tbd' : ''}" ${thirdWin != null ? `data-seed="${thirdWin}"` : ''}>${thirdWin != null ? '🥉 ' + escapeHtml(playerName(thirdWin)) : '待定'}</span>
+          <div class="pd-face"><span class="pd-rank">3</span><span class="pd-lbl">季军</span></div>
+        </div>
+      </div>
+    </div></div>`;
+
+  $('bracket').innerHTML = html;
+  positionSemi();     // 半决赛整簇上移至 1/4 决赛框中点（先定位半决赛）
+  positionThird();    // 三四名决赛紧贴半决赛上方（再定位，然后决赛、缩放、画线）
+  positionFinal();    // 决赛堆叠紧贴半决赛下方（然后缩放、画线）
+  fitBracket();       // 按容器宽度等比缩放，保证一屏展示
+  drawWires();        // getBoundingClientRect 会强制同步布局，可直接绘制
+  updateStats();
+  fitNames();         // 队名自适应：缩小字号/必要时折行，保证完整显示
+}
+
+/* 半决赛整簇上移：半决赛卡片顶部精确对齐上方 1/4 决赛卡片的垂直中点，
+   即约束允许的最高位置（不高于 QF 框中间位置）；决赛/冠军由 positionFinal 跟随。
+   几何保证：QF-A→半决赛恒下行、QF-B→半决赛恒上行，连线垂直段区间天然错开。 */
+function positionSemi() {
+  const br = $('bracket');
+  if (!br) return;
+  const sfSlots = [...br.querySelectorAll('.slot.s-sf')];
+  const qfCard = br.querySelector('.slot.s-qf .card');
+  if (sfSlots.length < 2 || !qfCard) return;
+  br.style.transform = 'none';                   // 撤销缩放后再测量
+  const base = br.getBoundingClientRect();
+  const k = base.width / (br.offsetWidth || 1) || 1;
+  const qfTop = (qfCard.getBoundingClientRect().top - base.top) / k;
+  const target = qfTop + qfCard.offsetHeight / 2 + 16;  // QF 框中间位置 + 下移留白（约束上限）
+  sfSlots.forEach(slot => {
+    slot.style.marginTop = '0px';                      // 先清掉上次偏移，避免把旧值累进测量值
+    slot.style.alignSelf = 'start';                    // 先顶对齐，测得槽位顶部轨迹起点
+    const slotTop = (slot.getBoundingClientRect().top - base.top) / k;
+    slot.style.marginTop = Math.max(0, Math.round(target - slotTop)) + 'px';
+  });
+}
+
+/* 三四名决赛定位：卡片底部置于半决赛顶部上方 12px 处，
+   即顶部尽量贴近对阵区顶端，且不与半决赛、1/4 决赛框重叠。 */
+function positionThird() {
+  const br = $('bracket');
+  const row = br && br.querySelector('.third-row');
+  const sf = br && br.querySelector('.slot.s-sf .card');
+  if (!row || !sf) return;
+  br.style.transform = 'none';                   // 撤销缩放后再测量
+  const base = br.getBoundingClientRect();
+  const k = base.width / (br.offsetWidth || 1) || 1;
+  const sfTop = (sf.getBoundingClientRect().top - base.top) / k;
+  const card = row.querySelector('.card');
+  if (!card) return;
+  const top = Math.max(4, Math.round(sfTop - 12 - card.offsetHeight));
+  row.style.top = top + 'px';
+}
+
+/* 决赛堆叠定位：绝对定位于两张半决赛卡片的最低点下方 14px 处，
+   消除半决赛与决赛之间的纵向留白；同时收缩 .bracket 底部内边距，
+   使整图高度只保留必要余量（需在未缩放状态下测量）。 */
+function positionFinal() {
+  const br = $('bracket');
+  const row = br && br.querySelector('.final-row');
+  if (!br || !row) return;
+  br.style.transform = 'none';                   // 撤销上一轮缩放后再测量
+  const sfs = [...br.querySelectorAll('.slot.s-sf .card')];
+  const stack = row.querySelector('.final-stack');
+  if (!sfs.length || !stack) return;
+  const base = br.getBoundingClientRect();
+  const k = base.width / (br.offsetWidth || 1) || 1;   // 缩放比归一化（此刻应为 1）
+  const sfBottom = Math.max(...sfs.map(c => (c.getBoundingClientRect().bottom - base.top) / k));
+  const top = Math.round(sfBottom + 14);
+  row.style.top = top + 'px';
+  const need = top + stack.offsetHeight + 18;          // 决赛堆叠底部 + 底部呼吸间距
+  const curPad = parseFloat(getComputedStyle(br).paddingBottom) || 0;
+  const extra = Math.max(0, need - (br.offsetHeight - curPad));
+  br.style.paddingBottom = (18 + extra) + 'px';        // 基础底部内边距 18px
+}
+
+/* =========================================================
+   5.1 连接线：全图 SVG 覆盖层 + 三次贝塞尔曲线 + 箭头
+   ---------------------------------------------------------
+   · 起点取「胜者所在行」的中线：谁晋级，线就从谁身上出发
+   · 终点落在下一场对应的 A/B 槽位行：晋级去向一目了然
+   ========================================================= */
+const EDGES = (() => {
+  const e = [];
+  for (let i = 0; i < 8; i++) e.push([`r16-${i}`, `qf-${i >> 1}`, i % 2 === 0 ? 'a' : 'b']);
+  for (let i = 0; i < 4; i++) e.push([`qf-${i}`, `sf-${i >> 1}`, i % 2 === 0 ? 'a' : 'b']);
+  // 两场半决赛垂直下落后，分别从决赛卡左缘（a 行）/ 右缘（b 行）侧向汇入；
+  // 半决赛负者自卡片顶部向上，汇入上方三四名决赛卡的左缘（a 行）/ 右缘（b 行）；
+  // 决赛 → 领奖台为竖直连线（纵向堆叠）
+  e.push(['sf-0', 'final-0', 'va'], ['sf-1', 'final-0', 'vb']);
+  e.push(['sf-0', 'third-0', 'ta'], ['sf-1', 'third-0', 'tb']);
+  e.push(['final-0', 'champ', 'down']);
+  return e;
+})();
+
+function getMatchById(id) {
+  if (id === 'champ') return null;
+  const [k, i] = id.split('-');
+  return getMatch(k, i || 0);
+}
+
+/* 自适应：整体等比缩放到容器宽度内，一屏展示，不出现横向滚动 */
+function fitBracket() {
+  const wrap = $('bracketWrap');
+  const br = $('bracket');
+  if (!wrap || !br) return;
+  br.style.transform = 'none';
+  const avail = wrap.clientWidth - 4;
+  const natW = br.offsetWidth, natH = br.offsetHeight;
+  if (!natW || !natH) return;
+  const s = Math.max((avail - 2) / natW, natW > 0 && window.innerWidth < 700 ? 0.62 : 0);
+  /* 窄屏保底缩放 0.62：对阵图保持可读，超出部分由 .bracket-wrap 横向滚动查看 */
+  const off = Math.max(0, (avail - natW * s) / 2);
+  br.style.transform = `translateX(${off}px) scale(${s})`;
+  wrap.style.height = Math.ceil(natH * s + 4) + 'px';
+}
+
+function drawWires() {
+  const wrap = $('bracket');
+  const svg = $('wires');
+  if (!wrap || !svg) return;
+
+  const base = wrap.getBoundingClientRect();
+  const k = base.width / wrap.offsetWidth || 1;     // 自适应缩放比（<=1）
+  const W = wrap.offsetWidth, H = wrap.offsetHeight;
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+
+  // 坐标统一换算回未缩放的布局坐标系
+  const box = el => {
+    const r = el.getBoundingClientRect();
+    const l = (r.left - base.left) / k, t = (r.top - base.top) / k;
+    return { l, rt: l + r.width / k, t, b: t + r.height / k,
+             cx: l + r.width / 2 / k, cy: t + r.height / 2 / k };
+  };
+
+  const HEAD = 7.5;      // 箭头长度（统一）
+  const HALF = 4;        // 箭头半高
+  const R = 8;           // 拐角圆角半径（统一）
+
+  // 统一风格的直角折线：横 → 竖 → 横，圆角过渡，末端留出箭头位置
+  const elbow = (sx, sy, tx, ty, dir) => {
+    const ex = tx - dir * HEAD;
+    if (Math.abs(ty - sy) < 1.2) return `M ${sx} ${sy} H ${ex}`;
+    const vdir = ty > sy ? 1 : -1;
+    const span = Math.abs(tx - sx);
+    const mx = sx + dir * Math.max(R + 4, Math.min(24, span * 0.55));
+    const rr = Math.min(R, Math.abs(ty - sy) / 2, Math.abs(mx - sx));
+    return `M ${sx} ${sy} H ${mx - dir * rr}` +
+           ` Q ${mx} ${sy} ${mx} ${sy + vdir * rr}` +
+           ` V ${ty - vdir * rr}` +
+           ` Q ${mx} ${ty} ${mx + dir * rr} ${ty}` +
+           ` H ${ex}`;
+  };
+
+  const out = [];
+  EDGES.forEach(([from, to, slot]) => {
+    const srcCard = wrap.querySelector(`[data-m="${from}"]`);
+    const dstCard = wrap.querySelector(`[data-m="${to}"]`);
+    if (!srcCard || !dstCard) return;
+
+    const sm = getMatchById(from);
+    const active = sm && sm.winner != null;
+    const s = box(srcCard), t = box(dstCard);
+    const sRows = [...srcCard.querySelectorAll('.entrant')];
+    const tRows = [...dstCard.querySelectorAll('.entrant')];
+
+    // 起点 y：胜者所在行的中线（未决出时取卡片中线）
+    let sy = s.cy;
+    if (sm && sm.winner != null) {
+      const wr = sRows.find(r => +r.dataset.seed === sm.winner);
+      if (wr) sy = box(wr).cy;
+    }
+
+    // 按来源轮次着色：r16 / qf / sf / fin / third
+    const roundKey = from.split('-')[0];
+    const cls = (active ? 'on ' : '') + (slot === 'ta' || slot === 'tb' ? 'third'
+               : roundKey === 'final' ? 'fin' : roundKey);
+
+    // 决赛 → 冠军展示卡：居中竖直线 + 向下三角
+    if (slot === 'down') {
+      const cx = s.cx, y0 = s.b + 2, y1 = t.t - 2, ex = y1 - HEAD;
+      out.push(`<path class="wire ${cls}" d="M ${cx} ${y0} V ${ex}"/>`,
+               `<path class="wire-head ${cls}" d="M ${cx} ${y1} L ${cx - HALF} ${ex} L ${cx + HALF} ${ex} Z"/>`);
+      return;
+    }
+
+    // 半决赛 → 决赛：自上方垂直下落后，水平进入决赛左右两侧的对应槽位行
+    if (slot === 'va' || slot === 'vb') {
+      const y0 = s.b + 2;
+      const left = slot === 'va';                     // 半决赛1 → 决赛左缘 a 行；半决赛2 → 右缘 b 行
+      const tRow = tRows[slot === 'vb' ? 1 : 0] || tRows[0];
+      const ty = tRow ? box(tRow).cy : t.cy;
+      const sx = s.cx;
+      const tx = left ? t.l - 1 : t.rt + 1;
+      const dir = left ? 1 : -1;
+      const rr = Math.min(R, Math.abs(ty - y0) / 2, Math.max(2, Math.abs(tx - sx) - HEAD - 2));
+      let d;
+      if (Math.abs(ty - y0) < 1.2) {
+        d = `M ${sx} ${y0} H ${tx - dir * HEAD}`;
+      } else {
+        d = `M ${sx} ${y0} V ${ty - rr}` +
+            ` Q ${sx} ${ty} ${sx + dir * rr} ${ty} H ${tx - dir * HEAD}`;
+      }
+      out.push(`<path class="wire ${cls}" d="${d}"/>`,
+               `<path class="wire-head ${cls}" d="M ${tx} ${ty} L ${tx - dir * HEAD} ${ty - HALF} L ${tx - dir * HEAD} ${ty + HALF} Z"/>`);
+      return;
+    }
+
+    // 半决赛负者上行：自半决赛卡片顶部向上，水平进入上方三四名决赛卡左右两侧对应槽位行
+    if (slot === 'ta' || slot === 'tb') {
+      const left = slot === 'ta';
+      const tRow = tRows[left ? 0 : 1] || tRows[0];
+      const ty = tRow ? box(tRow).cy : t.cy;
+      const sx = s.cx;
+      const y0 = s.t - 2;
+      const tx = left ? t.l - 1 : t.rt + 1;
+      const dir = left ? 1 : -1;
+      const rr = Math.min(R, Math.abs(y0 - ty) / 2, Math.max(2, Math.abs(tx - sx) - HEAD - 2));
+      let d;
+      if (Math.abs(y0 - ty) < 1.2) {
+        d = `M ${sx} ${y0} H ${tx - dir * HEAD}`;
+      } else {
+        d = `M ${sx} ${y0} V ${ty + rr}` +
+            ` Q ${sx} ${ty} ${sx + dir * rr} ${ty} H ${tx - dir * HEAD}`;
+      }
+      out.push(`<path class="wire ${cls}" d="${d}"/>`,
+               `<path class="wire-head ${cls}" d="M ${tx} ${ty} L ${tx - dir * HEAD} ${ty - HALF} L ${tx - dir * HEAD} ${ty + HALF} Z"/>`);
+      return;
+    }
+
+    const dir = (t.l > s.rt) ? 1 : -1;              // 目标在右 → 向右；在左 → 向左
+    const sx = dir > 0 ? s.rt : s.l;
+    const tx = dir > 0 ? t.l - 1 : t.rt + 1;
+    const tRow = tRows[slot === 'b' ? 1 : 0] || tRows[0];
+    const ty = tRow ? box(tRow).cy : t.cy;
+
+    out.push(`<path class="wire ${cls}" d="${elbow(sx, sy, tx, ty, dir)}"/>`,
+             `<path class="wire-head ${cls}" d="M ${tx} ${ty} L ${tx - dir * HEAD} ${ty - HALF} L ${tx - dir * HEAD} ${ty + HALF} Z"/>`);
+  });
+
+  svg.innerHTML = out.join('');
+}
+
+/* 队名自适应：所有队名保持统一字号（15px），放不下时折行显示，保证完整可读 */
+function fitNames() {
+  document.querySelectorAll('.entrant .nm, .pd-col .pd-nm').forEach(nm => {
+    nm.style.fontSize = '';
+    nm.style.whiteSpace = '';
+    if (nm.scrollWidth > nm.clientWidth + 0.5) nm.style.whiteSpace = 'normal';
+  });
+}
+
+function updateStats() {
+  const all = [...state.r16, ...state.qf, ...state.sf, state.third, state.final];
+  const done = all.filter(m => m.winner != null).length;
+  const champ = state.final.winner;
+  const doneEl = $('statDone');
+  if (doneEl) doneEl.innerHTML = `${done} <em>/ 16</em>`;
+  const champEl = $('statChamp');
+  if (champEl) {
+    champEl.textContent = champ != null ? playerName(champ) : '待定';
+    champEl.classList.toggle('is-champ', champ != null);
+  }
+  const bar = $('progBar'), txt = $('progText');
+  if (bar) bar.style.width = (done / 16 * 100) + '%';
+  if (txt) txt.textContent = `${done}/16 场已决出`;
+}
+
+window.addEventListener('resize', () => {
+  clearTimeout(window.__wt);
+  window.__wt = setTimeout(() => { fitBracket(); drawWires(); }, 120);
+});
+window.addEventListener('load', () => { positionSemi(); positionThird(); positionFinal(); fitBracket(); drawWires(); fitNames(); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { positionSemi(); positionThird(); positionFinal(); fitBracket(); drawWires(); fitNames(); });
+/* 窗口宽度变化：重算定位与缩放，保证对阵图自适应伸缩 */
+let _rsz = null;
+window.addEventListener('resize', () => {
+  if (_rsz) cancelAnimationFrame(_rsz);
+  _rsz = requestAnimationFrame(() => { positionSemi(); positionThird(); positionFinal(); fitBracket(); drawWires(); fitNames(); });
+});
+
+/* =========================================================
+   6. 比分编辑（上限 SCORE_MAX）
+   ========================================================= */
+function getMatch(round, idx) {
+  if (round === 'r16') return state.r16[+idx];
+  if (round === 'qf')  return state.qf[+idx];
+  if (round === 'sf')  return state.sf[+idx];
+  if (round === 'third') return state.third;
+  return state.final;
+}
+
+function clampScore(n) { return Math.max(0, Math.min(SCORE_MAX, n | 0)); }
+
+function commitScore(round, idx, seed, raw) {
+  const m = getMatch(round, idx);
+  if (seed !== m.a && seed !== m.b) return;
+  const digits = String(raw).replace(/\D/g, '').slice(0, 2);
+  if (digits === '') { delete m.scores[seed]; render(); return; }
+  const n = parseInt(digits, 10);
+  if (n > SCORE_MAX) {
+    m.scores[seed] = SCORE_MAX;
+    toast(`冰壶单场比分上限 ${SCORE_MAX} 分，已按 ${SCORE_MAX} 计`);
+  } else {
+    m.scores[seed] = n;
+  }
+  m.manual = null;
+  render();
+}
+
+function startEdit(chip) {
+  if (state.pending || chip.querySelector('input')) return;
+  const { round, idx, seed } = chip.dataset;
+  const s = +seed;
+  const m = getMatch(round, idx);
+  if (s !== m.a && s !== m.b) return;
+
+  const cur = m.scores[s];
+  chip.classList.add('editing');
+  chip.innerHTML = `<input type="text" inputmode="numeric" maxlength="2" value="${cur ?? ''}">`;
+  const inp = chip.querySelector('input');
+  inp.focus(); inp.select();
+
+  let done = false;
+  const close = (cancel) => {
+    if (done) return; done = true;
+    const raw = inp.value;
+    inp.removeEventListener('blur', onBlur);
+    if (cancel) render();
+    else commitScore(round, idx, s, raw);
+  };
+  const onBlur = () => close(false);
+
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); close(false); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(true); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const base = parseInt(inp.value || '0', 10) || 0;
+      inp.value = clampScore(base + (e.key === 'ArrowUp' ? 1 : -1));
+      inp.select();
+    }
+  });
+  inp.addEventListener('blur', onBlur);
+}
+
+function nudge(chip, delta) {
+  const { round, idx, seed } = chip.dataset;
+  const m = getMatch(round, idx);
+  const s = +seed;
+  if (s !== m.a && s !== m.b) return;
+  const base = typeof m.scores[s] === 'number' ? m.scores[s] : 0;
+  m.scores[s] = clampScore(base + delta);
+  m.manual = null;
+  render();
+  const again = document.querySelector(`.score[data-round="${round}"][data-idx="${idx}"][data-seed="${seed}"]`);
+  if (again) { again.classList.add('bump'); setTimeout(() => again.classList.remove('bump'), 130); }
+}
+
+/* =========================================================
+   7. 交互
+   ========================================================= */
+$('bracket').addEventListener('click', e => {
+  if (state.pending) return;
+
+  const chip = e.target.closest('.score');
+  if (chip) { e.stopPropagation(); startEdit(chip); return; }
+
+  const ent = e.target.closest('.entrant.clickable');
+  if (!ent) return;
+  const { round, idx, seed } = ent.dataset;
+  const m = getMatch(round, idx);
+  const s = +seed;
+  if (s !== m.a && s !== m.b) return;
+
+  const hasA = typeof m.scores[m.a] === 'number';
+  const hasB = typeof m.scores[m.b] === 'number';
+  if (hasA && hasB) { toast('该场已有完整比分，胜负由比分决定'); return; }
+
+  m.manual = (m.manual === s) ? null : s;
+  render();
+});
+
+$('bracket').addEventListener('wheel', e => {
+  const chip = e.target.closest('.score');
+  if (!chip || state.pending || chip.querySelector('input')) return;
+  e.preventDefault();
+  nudge(chip, e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+
+/* =========================================================
+   8. 比分随机 / 清空 / 导入导出
+   ========================================================= */
+
+/* =========================================================
+   冰壶比分模拟：
+   · 后手局（最后一投优势）：1–2 分为主，偶 3 分，4+ 极少，blank 较少
+   · 偷分局（后手方被 blank）：对方偷 1 分为主，偶偷 2–3 分
+   · 6 局制 = 每队 3 个后手局；8 局制（决赛/三四名）= 每队 4 个后手局
+   · 冰壶无平局：加局直到分出胜负
+   ========================================================= */
+function hammerEndScore() {           // 后手方在己方后手局的得分
+  const r = Math.random();
+  if (r < 0.12) return 0;             // blank ~12%
+  if (r < 0.70) return 1;             // 1 分 ~58%
+  if (r < 0.94) return 2;             // 2 分 ~24%
+  if (r < 0.99) return 3;             // 3 分 ~5%
+  if (r < 0.998) return 4;            // 4 分极罕见
+  return 5;
+}
+function stealEndScore() {            // 偷分方得分（不计入后手局得分）
+  const r = Math.random();
+  if (r < 0.80) return 1;             // 偷 1 ~80%
+  if (r < 0.98) return 2;             // 偷 2 ~18%
+  return 3;                           // 偷 3 ~2%
+}
+function simulateEnd() {              // 一局：约 16% 概率被偷分
+  if (Math.random() < 0.16) return [0, stealEndScore()];
+  return [hammerEndScore(), 0];
+}
+function generateMatchScores(endsPerTeam) {
+  const play = () => {
+    let a = 0, b = 0, hammerA = true; // a 先手开局的队伍视角
+    for (let e = 0; e < endsPerTeam * 2; e++) {
+      const [hs, ss] = simulateEnd();
+      if (hammerA) { a += hs; b += ss; } else { b += hs; a += ss; }
+      hammerA = !hammerA;             // 后手权逐局交替
+    }
+    while (a === b) {                 // 加局：冰壶无平局
+      const [hs, ss] = simulateEnd();
+      if (hammerA) { a += hs; b += ss; } else { b += hs; a += ss; }
+      hammerA = !hammerA;
+    }
+    return [Math.min(a, SCORE_MAX), Math.min(b, SCORE_MAX)];
+  };
+  /* 约束：总分不低于局数（6 局 ≥6 分、8 局 ≥8 分），且大分差（≥5）重采样；最多 6 次 */
+  const minTotal = endsPerTeam * 2;
+  let a, b;
+  for (let i = 0; i < 6; i++) {
+    [a, b] = play();
+    if ((a + b) >= minTotal && Math.abs(a - b) < 5) break;
+  }
+  return [a, b];
+}
+
+/* 随机比分的轮次链：按序批量生成，前一轮全部决出后才能进入下一轮 */
+const ROUND_CHAIN = [
+  { key: 'r16',   label: '1/8 决赛',    get: () => state.r16,           prev: null, ends: 3 },
+  { key: 'qf',    label: '1/4 决赛',    get: () => state.qf,            prev: 'r16', ends: 3 },
+  { key: 'sf',    label: '半决赛',      get: () => state.sf,            prev: 'qf',  ends: 3 },
+  { key: 'third', label: '三四名决赛',  get: () => [state.third],       prev: 'sf',  ends: 4 },
+  { key: 'final', label: '决赛',        get: () => [state.final],       prev: 'sf',  ends: 4 }
+];
+
+$('btnRandomScores').addEventListener('click', () => {
+  if (state.pending) return;
+  let filled = 0;
+  const fillRound = (arr, ends) => {
+    computeEntrants();
+    arr.forEach(m => {
+      if (m.a == null || m.b == null) return;
+      if (typeof m.scores[m.a] === 'number' && typeof m.scores[m.b] === 'number') return;
+      const [x, y] = generateMatchScores(ends);
+      m.scores[m.a] = x; m.scores[m.b] = y;
+      m.manual = null;
+      filled++;
+    });
+  };
+
+  /* 下拉框为「生成至某轮」的批量语义：从 1/8 起逐轮补齐，最多到所选轮次 */
+  const key = $('rndSel').value;
+  const upto = key === 'all' ? ROUND_CHAIN.length - 1
+             : ROUND_CHAIN.findIndex(s => s.key === key);
+  let blocked = null;
+  for (let i = 0; i <= upto; i++) {
+    const step = ROUND_CHAIN[i];
+    computeEntrants();                // 先同步上一轮胜负，再做递进校验
+    if (step.prev) {
+      const prevStep = ROUND_CHAIN.find(s => s.key === step.prev);
+      const pending = prevStep.get().filter(m => m.winner == null);
+      if (pending.length) {
+        const lacks = pending.some(m => m.a == null || m.b == null ||
+          typeof m.scores[m.a] !== 'number' || typeof m.scores[m.b] !== 'number');
+        blocked = lacks
+          ? `缺少上一轮数据：请先完成「${prevStep.label}」的全部比分`
+          : `「${prevStep.label}」尚有平局未决出，无法生成后续轮次比分`;
+        break;
+      }
+    }
+    fillRound(step.get(), step.ends);
+  }
+
+  render();
+  if (blocked) { toast(blocked); return; }
+  const target = key === 'all' ? '全部赛程' : `至${ROUND_CHAIN[upto].label}`;
+  toast(filled ? `已随机生成${target}共 ${filled} 场比分（0–${SCORE_MAX}）` : '没有待填的完整对阵');
+});
+
+$('btnClearScores').addEventListener('click', () => {
+  if (state.pending) return;
+  [...state.r16, ...state.qf, ...state.sf, state.third, state.final].forEach(m => {
+    m.scores = {}; m.manual = null; m.tie = false; m.winner = null;
+  });
+  render();
+  toast('已清空全部比分');
+});
+
+const dumpMatch = m => ({ a: m.a, b: m.b, scores: { ...m.scores }, manual: m.manual });
+
+$('btnExport').addEventListener('click', () => {
+  const data = {
+    version: 6, exportedAt: new Date().toISOString(),
+    players: state.players,
+    r16: state.r16.map(dumpMatch),
+    qf: state.qf.map(dumpMatch),
+    sf: state.sf.map(dumpMatch),
+    third: dumpMatch(state.third),
+    final: dumpMatch(state.final)
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'curling-bracket-16-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('已导出对阵与比分数据');
+});
+
+$('btnImport').addEventListener('click', () => $('fileImport').click());
+
+$('fileImport').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    if (!data || !Array.isArray(data.r16) || data.r16.length !== 8) throw new Error('bad format');
+
+    if (data.players) state.players = { ...DEFAULT_NAMES, ...data.players };
+
+    data.r16.forEach((src, i) => {
+      const m = newMatch(src.a ?? null, src.b ?? null);
+      m.scores = {};
+      for (const k of Object.keys(src.scores || {})) {
+        if (typeof src.scores[k] === 'number') m.scores[+k] = clampScore(src.scores[k]);
+      }
+      m.manual = src.manual ?? null;
+      state.r16[i] = m;
+    });
+
+    state.qf.forEach(m => { m.a = m.b = null; m.scores = {}; m.manual = null; });
+    state.sf.forEach(m => { m.a = m.b = null; m.scores = {}; m.manual = null; });
+    state.third = newMatch();
+    state.final = newMatch();
+    computeEntrants();
+    applyLaterScores(state.qf, data.qf);
+    applyLaterScores(state.sf, data.sf);
+    applyLaterScores([state.third], data.third ? [data.third] : null);
+    applyLaterScores([state.final], data.final ? [data.final] : null);
+
+    $('summary').classList.remove('show');
+    buildNameInputs();
+    render();
+    toast('数据导入成功');
+  } catch (err) {
+    toast('导入失败：文件格式不正确');
+  }
+});
+
+function applyLaterScores(targets, srcArr) {
+  if (!Array.isArray(srcArr)) return;
+  targets.forEach((m, i) => {
+    const src = srcArr[i];
+    if (!src || !src.scores) return;
+    for (const k of Object.keys(src.scores)) {
+      const s = +k;
+      if ((s === m.a || s === m.b) && typeof src.scores[k] === 'number') {
+        m.scores[s] = clampScore(src.scores[k]);
+      }
+    }
+    if (src.manual === m.a || src.manual === m.b) m.manual = src.manual;
+  });
+}
+
+/* =========================================================
+   9. 顶部按钮 & 初始化
+   ========================================================= */
+$('btnFixed').addEventListener('click', () => { if (!state.pending) generateFixed(); });
+$('btnDraw').addEventListener('click', mixedDraw);
+$('btnClear').addEventListener('click', () => {
+  if (state.pending) return;
+  clearResults();
+  $('summary').classList.remove('show');
+  render();
+});
+
+buildNameInputs();
+generateFixed();
+</script>
+</body>
+</html>

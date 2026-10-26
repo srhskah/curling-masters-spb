@@ -37,6 +37,7 @@ public class RankingApiController {
     @Autowired private ITournamentCompetitionService tournamentCompetitionService;
     @Autowired private com.example.service.impl.TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired private GroupRankingCalculator groupRankingCalculator;
+    @Autowired private RankingPriorityService rankingPriorityService;
     @Autowired private MatchPerformancePdfAssembler matchPerformancePdfAssembler;
 
     /** 与赛事详情积分榜一致：存在生效取消资格时按积分降序重排并生成连续名次。 */
@@ -705,11 +706,12 @@ public class RankingApiController {
         Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
         Map<Long, String> groupNameById = groups.stream().collect(Collectors.toMap(TournamentGroup::getId, TournamentGroup::getGroupName, (a, b) -> a));
         List<Map<String, Object>> groupRows = new ArrayList<>();
+        var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         Map<Long, List<Map<String, Object>>> rankingByGroupId = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets
+                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets, rankingPriority
         );
         List<Map<String, Object>> pseudoGroupRows = groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, rankingByGroupId, groupMatches, setByMatch, acceptByMatch, uname, allowDraw, regularSets
+                groups, rankingByGroupId, groupMatches, setByMatch, acceptByMatch, uname, allowDraw, regularSets, rankingPriority
         );
 
         for (TournamentGroup g : groups) {
@@ -757,37 +759,24 @@ public class RankingApiController {
         Map<String, Object> data = getTournamentGroupRanking(tournamentId);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> groups = (List<Map<String, Object>>) data.getOrDefault("groups", List.of());
-        List<Map<String, Object>> rows = new ArrayList<>();
+        Map<Long, List<Map<String, Object>>> byGroup = new LinkedHashMap<>();
         for (Map<String, Object> g : groups) {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> rs = (List<Map<String, Object>>) g.getOrDefault("ranking", List.of());
             String gname = String.valueOf(g.getOrDefault("groupName", "-"));
+            List<Map<String, Object>> copied = new ArrayList<>();
             for (Map<String, Object> r : rs) {
                 Map<String, Object> one = new LinkedHashMap<>(r);
                 one.put("groupName", gname);
-                rows.add(one);
+                copied.add(one);
+            }
+            Object gid = g.get("groupId");
+            if (gid instanceof Number n) {
+                byGroup.put(n.longValue(), copied);
             }
         }
-        rows.sort((a, b) -> {
-            int ar = (int) a.getOrDefault("groupRank", 999), br = (int) b.getOrDefault("groupRank", 999);
-            if (ar != br) return Integer.compare(ar, br);
-            int ap = (int) a.getOrDefault("points", 0), bp = (int) b.getOrDefault("points", 0);
-            if (ap != bp) return Integer.compare(bp, ap);
-            int an = (int) a.getOrDefault("net", 0), bn = (int) b.getOrDefault("net", 0);
-            if (an != bn) return Integer.compare(bn, an);
-            int at = (int) a.getOrDefault("totalScore", 0), bt = (int) b.getOrDefault("totalScore", 0);
-            if (at != bt) return Integer.compare(bt, at);
-            int a2 = (int) a.getOrDefault("matchGe2Count", 0), b2 = (int) b.getOrDefault("matchGe2Count", 0);
-            if (a2 != b2) return Integer.compare(b2, a2);
-            int am = (int) a.getOrDefault("matchMaxScore", 0), bm = (int) b.getOrDefault("matchMaxScore", 0);
-            if (am != bm) return Integer.compare(bm, am);
-            int as = (int) a.getOrDefault("stealCount", 0), bs = (int) b.getOrDefault("stealCount", 0);
-            if (as != bs) return Integer.compare(bs, as);
-            int ax = (int) a.getOrDefault("stealMax", 0), bx = (int) b.getOrDefault("stealMax", 0);
-            if (ax != bx) return Integer.compare(bx, ax);
-            return String.valueOf(a.getOrDefault("username", "")).compareTo(String.valueOf(b.getOrDefault("username", "")));
-        });
-        for (int i = 0; i < rows.size(); i++) rows.get(i).put("overallRank", i + 1);
+        var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
+        List<Map<String, Object>> rows = groupRankingCalculator.buildOverallRanking(byGroup, rankingPriority);
         return Map.of("tournamentId", tournamentId, "overallRanking", rows);
     }
 

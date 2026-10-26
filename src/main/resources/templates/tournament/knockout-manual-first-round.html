@@ -17,22 +17,31 @@
             <i class="bi bi-arrow-left"></i> 返回赛事详情
         </a>
     </div>
-    <div class="alert alert-info small">
-        默认已按模式 0（小组赛总排名经典种子）填充。仅可选择小组赛晋级选手，且同一选手不可重复选择。
+    <div class="alert alert-info small" th:if="${koMountedQualifier}">
+        已启用首轮挂载资格赛：请同时确认淘汰赛首轮与挂载资格赛对阵。已有比分或已验收的场次不可修改。仅可选择小组赛晋级选手（含资格赛晋级落位），且同一选手不可重复选择。
+    </div>
+    <div class="alert alert-info small" th:unless="${koMountedQualifier}">
+        默认已按模式 0（小组赛总排名经典种子）填充。已有比分或已验收的场次不可修改。仅可选择小组赛晋级选手，且同一选手不可重复选择。
     </div>
     <div class="card border-0 shadow-sm">
         <div class="card-body">
             <form th:action="@{/tournament/competition/knockout/manual/{id}(id=${tournamentId})}" method="post">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <input type="hidden" name="pairCount" th:value="${#lists.size(koManualDraft)}"/>
+                <input type="hidden" name="qualifierPairCount" th:if="${koMountedQualifier}" th:value="${#lists.size(koManualQualifierDraft)}"/>
                 <div class="row g-3" th:if="${koManualDraft != null and !#lists.isEmpty(koManualDraft)}">
                     <div class="col-12" th:each="p : ${koManualDraft}">
-                        <div class="border rounded p-3">
-                            <div class="fw-bold mb-2" th:text="${p.label}">1/8决赛 第1场</div>
+                        <div class="border rounded p-3" th:classappend="${p.locked} ? ' bg-light' : ''">
+                            <div class="fw-bold mb-2">
+                                <span th:text="${p.label}">1/8决赛 第1场</span>
+                                <span class="badge bg-secondary ms-2" th:if="${p.locked}">已有比分或已验收</span>
+                            </div>
                             <div class="row g-2 align-items-center">
                                 <div class="col-md-5">
+                                    <input th:if="${p.locked}" type="hidden" th:name="${'p1_' + p.slot}" th:value="${p.defaultPlayer1Id}"/>
                                     <select class="form-select ko-manual-player-select"
-                                            th:name="${'p1_' + p.slot}">
+                                            th:name="${p.locked ? null : 'p1_' + p.slot}"
+                                            th:disabled="${p.locked}">
                                         <option value="">-- 请选择选手 --</option>
                                         <option th:each="u : ${koManualOptions}"
                                                 th:value="${u.userId}"
@@ -42,14 +51,56 @@
                                 </div>
                                 <div class="col-md-2 text-center text-muted">VS</div>
                                 <div class="col-md-5">
+                                    <input th:if="${p.locked}" type="hidden" th:name="${'p2_' + p.slot}" th:value="${p.defaultPlayer2Id}"/>
                                     <select class="form-select ko-manual-player-select"
-                                            th:name="${'p2_' + p.slot}">
+                                            th:name="${p.locked ? null : 'p2_' + p.slot}"
+                                            th:disabled="${p.locked}">
                                         <option value="">-- 请选择选手 --</option>
                                         <option th:each="u : ${koManualOptions}"
                                                 th:value="${u.userId}"
                                                 th:selected="${u.userId == p.defaultPlayer2Id}"
                                                 th:text="${'#' + u.rank + ' ' + u.username}">#8 选手</option>
                                     </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4" th:if="${koMountedQualifier and koManualQualifierDraft != null and !#lists.isEmpty(koManualQualifierDraft)}">
+                    <h6 class="text-secondary mb-2"><i class="bi bi-diagram-3"></i> 首轮挂载资格赛</h6>
+                    <div class="row g-3">
+                        <div class="col-12" th:each="p : ${koManualQualifierDraft}">
+                            <div class="border rounded p-3" th:classappend="${p.locked} ? ' bg-light' : ''">
+                                <div class="fw-bold mb-2">
+                                    <span th:text="${p.label}">挂载资格赛</span>
+                                    <span class="badge bg-secondary ms-2" th:if="${p.locked}">已有比分或已验收</span>
+                                </div>
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-5">
+                                        <input th:if="${p.locked}" type="hidden" th:name="${'qp1_' + p.slot}" th:value="${p.defaultPlayer1Id}"/>
+                                        <select class="form-select ko-manual-player-select"
+                                                th:name="${p.locked ? null : 'qp1_' + p.slot}"
+                                                th:disabled="${p.locked}">
+                                            <option value="">-- 请选择选手 --</option>
+                                            <option th:each="u : ${koManualOptions}"
+                                                    th:value="${u.userId}"
+                                                    th:selected="${u.userId == p.defaultPlayer1Id}"
+                                                    th:text="${'#' + u.rank + ' ' + u.username}">#1 选手</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2 text-center text-muted">VS</div>
+                                    <div class="col-md-5">
+                                        <input th:if="${p.locked}" type="hidden" th:name="${'qp2_' + p.slot}" th:value="${p.defaultPlayer2Id}"/>
+                                        <select class="form-select ko-manual-player-select"
+                                                th:name="${p.locked ? null : 'qp2_' + p.slot}"
+                                                th:disabled="${p.locked}">
+                                            <option value="">-- 请选择选手 --</option>
+                                            <option th:each="u : ${koManualOptions}"
+                                                    th:value="${u.userId}"
+                                                    th:selected="${u.userId == p.defaultPlayer2Id}"
+                                                    th:text="${'#' + u.rank + ' ' + u.username}">#8 选手</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -69,11 +120,13 @@
 <div th:replace="~{fragments::scripts}"></div>
 <script>
     (function () {
-        const selects = Array.from(document.querySelectorAll('.ko-manual-player-select'));
+        const selects = Array.from(document.querySelectorAll('.ko-manual-player-select:not([disabled])'));
         if (!selects.length) return;
 
         function refreshDisabledOptions() {
             const used = new Set();
+            document.querySelectorAll('input[type="hidden"][name^="p1_"], input[type="hidden"][name^="p2_"], input[type="hidden"][name^="qp1_"], input[type="hidden"][name^="qp2_"]')
+                .forEach((h) => { if (h.value) used.add(h.value); });
             selects.forEach((sel) => {
                 if (sel.value) used.add(sel.value);
             });

@@ -8,6 +8,8 @@ public class Series {
     private Long seasonId;
     private Integer sequence; // 该赛季内的序号
     private String name; // 系列名称
+    /** 是否启用排名参考优先级（小组赛总排名 / 小组 / 伪小组） */
+    private Boolean rankingPriorityEnabled;
     private LocalDateTime createdAt;
 
     // Getters and Setters
@@ -41,6 +43,14 @@ public class Series {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Boolean getRankingPriorityEnabled() {
+        return rankingPriorityEnabled;
+    }
+
+    public void setRankingPriorityEnabled(Boolean rankingPriorityEnabled) {
+        this.rankingPriorityEnabled = rankingPriorityEnabled;
     }
 
     public LocalDateTime getCreatedAt() {

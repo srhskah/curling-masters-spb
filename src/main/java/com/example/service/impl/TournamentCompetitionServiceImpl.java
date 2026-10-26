@@ -44,6 +44,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
     @Autowired private UserTournamentPointsService userTournamentPointsService;
     @Autowired private TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired private GroupRankingCalculator groupRankingCalculator;
+    @Autowired private RankingPriorityService rankingPriorityService;
     @Autowired private TournamentDisqualificationMapper tournamentDisqualificationMapper;
     @Autowired private TournamentDisqualificationAcceptanceMapper tournamentDisqualificationAcceptanceMapper;
 
@@ -1372,13 +1373,14 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 .list()
                 .stream()
                 .collect(java.util.stream.Collectors.groupingBy(SetScore::getMatchId));
+        var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         Map<Long, List<Map<String, Object>>> byG = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg);
+                groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg, rankingPriority);
         boolean allowDraw = cfg.getGroupAllowDraw() == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
         int regularSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
         groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDraw, regularSets);
-        return groupRankingCalculator.buildOverallRanking(byG);
+                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDraw, regularSets, rankingPriority);
+        return groupRankingCalculator.buildOverallRanking(byG, rankingPriority);
     }
 
     private boolean isGroupStageReadyForNonKnockoutAward(Long tournamentId, TournamentCompetitionConfig cfg) {
@@ -1868,6 +1870,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (startRound == null) {
             return data;
         }
+        data.setKnockoutStartRound(startRound);
         
         // 获取所有淘汰赛相关比赛
         List<Match> allMatches = matchService.lambdaQuery()
@@ -1881,6 +1884,11 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (allMatches.isEmpty()) {
             return data;
         }
+
+        List<Long> matchIds = allMatches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<SetScore>> scoresByMatch = matchIds.isEmpty() ? Map.of()
+                : setScoreService.lambdaQuery().in(SetScore::getMatchId, matchIds).list().stream()
+                .collect(Collectors.groupingBy(SetScore::getMatchId));
         
         // 获取用户名映射
         Set<Long> userIds = new HashSet<>();
@@ -1916,27 +1924,37 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         Integer currentRound = null;
         String currentRoundLabel = null;
         
+        int decided = 0;
+        int totalCountable = 0;
+        Map<String, com.example.dto.KnockoutBracketData.MatchSlot> qualifierByKoSlot = new LinkedHashMap<>();
+
         for (Match m : allMatches) {
-            com.example.dto.KnockoutBracketData.MatchSlot slot = new com.example.dto.KnockoutBracketData.MatchSlot();
-            slot.setId(m.getId());
-            slot.setPlayer1Id(m.getPlayer1Id());
-            slot.setPlayer2Id(m.getPlayer2Id());
-            slot.setPlayer1Name(userNameMap.get(m.getPlayer1Id()));
-            slot.setPlayer2Name(userNameMap.get(m.getPlayer2Id()));
-            slot.setWinnerId(m.getWinnerId());
-            slot.setRound(m.getRound());
-            slot.setKnockoutBracketSlot(m.getKnockoutBracketSlot());
-            slot.setKnockoutHalf(m.getKnockoutHalf());
-            slot.setCategory(m.getCategory());
+            com.example.dto.KnockoutBracketData.MatchSlot slot = toBracketMatchSlot(m, userNameMap, scoresByMatch);
+            if (m.getPlayer1Id() != null && m.getPlayer2Id() != null) {
+                totalCountable++;
+                if (m.getWinnerId() != null) {
+                    decided++;
+                }
+            }
             
             String phaseCode = m.getPhaseCode();
             Integer round = m.getRound();
             
             if ("QUALIFIER".equals(phaseCode)) {
                 qualifiers.add(slot);
-                if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                Integer linked = parseMountedQualifierKoSlot(m.getCategory());
+                slot.setLinkedKoSlot(linked);
+                if (linked != null) {
+                    qualifierByKoSlot.put(String.valueOf(linked), slot);
+                }
+                int koSlot = m.getKnockoutBracketSlot() == null ? -1 : m.getKnockoutBracketSlot();
+                boolean upperHalf = koSlot >= 0 && koSlot < 4;
+                if (linked != null) {
+                    upperHalf = linked < 4;
+                }
+                if (upperHalf) {
                     qualifiersUpper.add(slot);
-                } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                } else {
                     qualifiersLower.add(slot);
                 }
                 data.setHasQualifiers(true);
@@ -1948,42 +1966,51 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 }
                 data.setHasFinal(true);
             } else if ("MAIN".equals(phaseCode)) {
+                // 铜牌赛等可能落在 MAIN + round=1，不能按淘汰赛轮次归入半决赛槽位
+                String category = m.getCategory();
+                if (category != null && category.contains("金牌")) {
+                    goldMatch = slot;
+                    data.setHasFinal(true);
+                } else if (category != null && category.contains("铜牌")) {
+                    bronzeMatch = slot;
+                    data.setHasFinal(true);
+                } else {
                 // 根据首轮轮次和当前轮次计算显示层级
                 int relativeRound = getRelativeRound(startRound, round);
                 
                 switch (relativeRound) {
                     case 1 -> {
                         firstRound.add(slot);
-                        if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                        if (isBracketUpperHalf(m)) {
                             firstRoundUpper.add(slot);
-                        } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                        } else {
                             firstRoundLower.add(slot);
                         }
                         data.setHasRound16(true);
                     }
                     case 2 -> {
                         secondRound.add(slot);
-                        if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                        if (isBracketUpperHalf(m)) {
                             secondRoundUpper.add(slot);
-                        } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                        } else {
                             secondRoundLower.add(slot);
                         }
                         data.setHasRound8(true);
                     }
                     case 3 -> {
                         thirdRound.add(slot);
-                        if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                        if (isBracketUpperHalf(m)) {
                             thirdRoundUpper.add(slot);
-                        } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                        } else {
                             thirdRoundLower.add(slot);
                         }
                         data.setHasRound4(true);
                     }
                     case 4 -> {
                         thirdRound.add(slot);
-                        if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 1) {
+                        if (isBracketUpperHalf(m)) {
                             thirdRoundUpper.add(slot);
-                        } else if (m.getKnockoutHalf() != null && m.getKnockoutHalf() == 2) {
+                        } else {
                             thirdRoundLower.add(slot);
                         }
                         data.setHasRound4(true);
@@ -1994,6 +2021,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 if (m.getWinnerId() == null && currentRound == null) {
                     currentRound = round;
                     currentRoundLabel = getRoundLabel(round, startRound);
+                }
                 }
             }
         }
@@ -2006,52 +2034,161 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         
         // 根据首轮轮次分配到对应字段
         if (startRound == 16) {
-            data.setRound16Matches(firstRound);
-            data.setRound16MatchesUpper(firstRoundUpper);
-            data.setRound16MatchesLower(firstRoundLower);
-            data.setRound8Matches(secondRound);
-            data.setRound8MatchesUpper(secondRoundUpper);
-            data.setRound8MatchesLower(secondRoundLower);
-            data.setRound4Matches(thirdRound);
-            data.setRound4MatchesUpper(thirdRoundUpper);
-            data.setRound4MatchesLower(thirdRoundLower);
+            data.setRound16Matches(padBracketRound(firstRound, 8));
+            data.setRound16MatchesUpper(sortBracketSlots(firstRoundUpper));
+            data.setRound16MatchesLower(sortBracketSlots(firstRoundLower));
+            data.setRound8Matches(padBracketRound(secondRound, 4));
+            data.setRound8MatchesUpper(sortBracketSlots(secondRoundUpper));
+            data.setRound8MatchesLower(sortBracketSlots(secondRoundLower));
+            data.setRound4Matches(padBracketRound(thirdRound, 2));
+            data.setRound4MatchesUpper(sortBracketSlots(thirdRoundUpper));
+            data.setRound4MatchesLower(sortBracketSlots(thirdRoundLower));
         } else if (startRound == 8) {
-            data.setRound16Matches(new ArrayList<>());
-            data.setRound16MatchesUpper(new ArrayList<>());
-            data.setRound16MatchesLower(new ArrayList<>());
-            data.setRound8Matches(firstRound);
-            data.setRound8MatchesUpper(firstRoundUpper);
-            data.setRound8MatchesLower(firstRoundLower);
-            data.setRound4Matches(secondRound);
-            data.setRound4MatchesUpper(secondRoundUpper);
-            data.setRound4MatchesLower(secondRoundLower);
+            data.setRound16Matches(padBracketRound(firstRound, 8));
+            data.setRound16MatchesUpper(sortBracketSlots(firstRoundUpper));
+            data.setRound16MatchesLower(sortBracketSlots(firstRoundLower));
+            data.setRound8Matches(padBracketRound(secondRound, 4));
+            data.setRound8MatchesUpper(sortBracketSlots(secondRoundUpper));
+            data.setRound8MatchesLower(sortBracketSlots(secondRoundLower));
+            data.setRound4Matches(padBracketRound(thirdRound, 2));
+            data.setRound4MatchesUpper(sortBracketSlots(thirdRoundUpper));
+            data.setRound4MatchesLower(sortBracketSlots(thirdRoundLower));
         } else if (startRound == 4) {
-            data.setRound16Matches(new ArrayList<>());
-            data.setRound16MatchesUpper(new ArrayList<>());
-            data.setRound16MatchesLower(new ArrayList<>());
-            data.setRound8Matches(new ArrayList<>());
-            data.setRound8MatchesUpper(new ArrayList<>());
-            data.setRound8MatchesLower(new ArrayList<>());
-            data.setRound4Matches(firstRound);
-            data.setRound4MatchesUpper(firstRoundUpper);
-            data.setRound4MatchesLower(firstRoundLower);
+            data.setRound16Matches(padBracketRound(firstRound, 4));
+            data.setRound16MatchesUpper(sortBracketSlots(firstRoundUpper));
+            data.setRound16MatchesLower(sortBracketSlots(firstRoundLower));
+            data.setRound8Matches(padBracketRound(secondRound, 2));
+            data.setRound8MatchesUpper(sortBracketSlots(secondRoundUpper));
+            data.setRound8MatchesLower(sortBracketSlots(secondRoundLower));
+            data.setRound4Matches(padBracketRound(thirdRound, 2));
+            data.setRound4MatchesUpper(sortBracketSlots(thirdRoundUpper));
+            data.setRound4MatchesLower(sortBracketSlots(thirdRoundLower));
         }
         
-        data.setQualifierMatches(qualifiers);
-        data.setQualifierMatchesUpper(qualifiersUpper);
-        data.setQualifierMatchesLower(qualifiersLower);
+        data.setQualifierMatches(sortBracketSlots(qualifiers));
+        data.setQualifierMatchesUpper(sortBracketSlots(qualifiersUpper));
+        data.setQualifierMatchesLower(sortBracketSlots(qualifiersLower));
+        data.setQualifierByKoSlot(qualifierByKoSlot);
         data.setGoldMatch(goldMatch);
         data.setBronzeMatch(bronzeMatch);
         data.setCurrentRound(currentRound);
         data.setCurrentRoundLabel(currentRoundLabel);
+        data.setDecidedMatchCount(decided);
+        data.setTotalMatchCount(totalCountable);
         
         return data;
+    }
+
+    private com.example.dto.KnockoutBracketData.MatchSlot toBracketMatchSlot(Match m,
+                                                                             Map<Long, String> userNameMap,
+                                                                             Map<Long, List<SetScore>> scoresByMatch) {
+        com.example.dto.KnockoutBracketData.MatchSlot slot = new com.example.dto.KnockoutBracketData.MatchSlot();
+        slot.setId(m.getId());
+        slot.setPlayer1Id(m.getPlayer1Id());
+        slot.setPlayer2Id(m.getPlayer2Id());
+        slot.setPlayer1Name(displayBracketPlayerName(m.getPlayer1Id(), userNameMap));
+        slot.setPlayer2Name(displayBracketPlayerName(m.getPlayer2Id(), userNameMap));
+        slot.setWinnerId(m.getWinnerId());
+        slot.setRound(m.getRound());
+        slot.setKnockoutBracketSlot(m.getKnockoutBracketSlot());
+        slot.setKnockoutHalf(m.getKnockoutHalf());
+        slot.setCategory(m.getCategory());
+        slot.setPhaseCode(m.getPhaseCode());
+        List<SetScore> ss = scoresByMatch.getOrDefault(m.getId(), List.of());
+        int p1 = ss.stream().mapToInt(x -> x.getPlayer1Score() == null ? 0 : x.getPlayer1Score()).sum();
+        int p2 = ss.stream().mapToInt(x -> x.getPlayer2Score() == null ? 0 : x.getPlayer2Score()).sum();
+        boolean hasScore = !ss.isEmpty() && (p1 != 0 || p2 != 0);
+        slot.setPlayer1Score(hasScore ? p1 : null);
+        slot.setPlayer2Score(hasScore ? p2 : null);
+        return slot;
+    }
+
+    private static String displayBracketPlayerName(Long userId, Map<Long, String> userNameMap) {
+        if (userId == null) {
+            return "待定";
+        }
+        String name = userNameMap.get(userId);
+        return name == null || name.isBlank() ? "待定" : name;
+    }
+
+    private static boolean isBracketUpperHalf(Match m) {
+        if (m.getKnockoutBracketSlot() != null) {
+            return m.getKnockoutBracketSlot() < 4;
+        }
+        if (m.getKnockoutHalf() != null) {
+            return m.getKnockoutHalf() == 0;
+        }
+        return true;
+    }
+
+    private static List<com.example.dto.KnockoutBracketData.MatchSlot> sortBracketSlots(
+            List<com.example.dto.KnockoutBracketData.MatchSlot> list) {
+        if (list == null || list.isEmpty()) {
+            return List.of();
+        }
+        Comparator<com.example.dto.KnockoutBracketData.MatchSlot> bySlot =
+                Comparator.comparingInt((com.example.dto.KnockoutBracketData.MatchSlot s) -> {
+                    Integer slot = s.getKnockoutBracketSlot();
+                    return slot == null ? Integer.MAX_VALUE : slot;
+                });
+        Comparator<com.example.dto.KnockoutBracketData.MatchSlot> byId =
+                Comparator.comparing((com.example.dto.KnockoutBracketData.MatchSlot s) ->
+                        s.getId() == null ? 0L : s.getId());
+        return list.stream().sorted(bySlot.thenComparing(byId)).toList();
+    }
+
+    private Integer parseMountedQualifierKoSlot(String category) {
+        if (category == null) {
+            return null;
+        }
+        Matcher matcher = KO_QUALIFIER_SLOT_PATTERN.matcher(category);
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(1)) - 1;
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
     
     /**
      * 根据首轮轮次和当前轮次计算相对层级
      * 例如：首轮16强，当前8强 -> 返回2
      */
+    private List<com.example.dto.KnockoutBracketData.MatchSlot> padBracketRound(
+            List<com.example.dto.KnockoutBracketData.MatchSlot> source, int expectedSize) {
+        List<com.example.dto.KnockoutBracketData.MatchSlot> sorted = sortBracketSlots(source);
+        com.example.dto.KnockoutBracketData.MatchSlot[] arr = new com.example.dto.KnockoutBracketData.MatchSlot[expectedSize];
+        for (com.example.dto.KnockoutBracketData.MatchSlot s : sorted) {
+            if (s == null) {
+                continue;
+            }
+            int idx = s.getKnockoutBracketSlot() == null ? -1 : s.getKnockoutBracketSlot();
+            if (idx >= 0 && idx < expectedSize) {
+                arr[idx] = s;
+            }
+        }
+        int write = 0;
+        for (com.example.dto.KnockoutBracketData.MatchSlot s : sorted) {
+            if (s == null) {
+                continue;
+            }
+            int idx = s.getKnockoutBracketSlot() == null ? -1 : s.getKnockoutBracketSlot();
+            if (idx >= 0 && idx < expectedSize) {
+                continue;
+            }
+            while (write < expectedSize && arr[write] != null) {
+                write++;
+            }
+            if (write < expectedSize) {
+                arr[write] = s;
+                write++;
+            }
+        }
+        return Arrays.asList(arr);
+    }
+
     private int getRelativeRound(Integer startRound, Integer currentRound) {
         if (startRound == null || currentRound == null) return 1;
         if (currentRound > startRound) return 1;

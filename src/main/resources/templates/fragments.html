@@ -75,6 +75,11 @@
                 <li><a class="dropdown-item" href="/match/list" data-i18n-key="nav.matchManagement">
                     <i class="bi bi-controller"></i> 比赛管理
                 </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">总控台</h6></li>
+                <li><a class="dropdown-item" href="/admin/console">
+                    <i class="bi bi-sliders2-vertical"></i> 总控台 · 排名参考优先级
+                </a></li>
                 <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><hr class="dropdown-divider"></li>
                 <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><h6 class="dropdown-header">系统配置</h6></li>
                 <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><a class="dropdown-item" href="/admin/system-config">

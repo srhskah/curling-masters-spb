@@ -43,6 +43,7 @@ public class TournamentController {
     @Autowired private INotificationService notificationService;
     @Autowired private ITournamentCompetitionService tournamentCompetitionService;
     @Autowired private GroupRankingCalculator groupRankingCalculator;
+    @Autowired private RankingPriorityService rankingPriorityService;
     @Autowired private com.example.mapper.TournamentGroupMapper tournamentGroupMapper;
     @Autowired private com.example.mapper.TournamentGroupMemberMapper tournamentGroupMemberMapper;
     @Autowired private com.example.service.impl.DrawManagementService drawManagementService;
@@ -1510,8 +1511,9 @@ public class TournamentController {
                         .toList();
                 memberIdsByGroup.put(e.getKey(), uids);
             }
+            var rankingPriority = rankingPriorityService.criteriaOrderForTournament(id);
             Map<Long, List<Map<String, Object>>> groupRankingByGroupId = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                    groups, memberIdsByGroup, usernameById, matches, scoresByMatchId, competitionConfig);
+                    groups, memberIdsByGroup, usernameById, matches, scoresByMatchId, competitionConfig, rankingPriority);
             List<Match> groupMatchesOnly = matches.stream()
                     .filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()))
                     .toList();
@@ -1519,11 +1521,12 @@ public class TournamentController {
             int regularSetsForPseudo = (competitionConfig != null && competitionConfig.getGroupStageSets() != null && competitionConfig.getGroupStageSets() > 0)
                     ? competitionConfig.getGroupStageSets() : 8;
             groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                    groups, groupRankingByGroupId, groupMatchesOnly, scoresByMatchId, Map.of(), usernameById, allowDrawForPseudo, regularSetsForPseudo);
+                    groups, groupRankingByGroupId, groupMatchesOnly, scoresByMatchId, Map.of(), usernameById,
+                    allowDrawForPseudo, regularSetsForPseudo, rankingPriority);
             Map<Long, String> dqReasonByUserId = loadEffectiveDisqualificationReasonByUserId(id);
             applyDisqualificationBottomInGroupRanking(groupRankingByGroupId, dqReasonByUserId);
             model.addAttribute("groupRankingByGroupId", groupRankingByGroupId);
-            List<Map<String, Object>> groupOverallRanking = groupRankingCalculator.buildOverallRanking(groupRankingByGroupId);
+            List<Map<String, Object>> groupOverallRanking = groupRankingCalculator.buildOverallRanking(groupRankingByGroupId, rankingPriority);
             applyDisqualificationBottomInOverallRanking(groupOverallRanking, dqReasonByUserId);
             Map<Long, Integer> overallRankByUserId = groupOverallRanking.stream()
                     .filter(r -> r.get("userId") != null)
@@ -1539,6 +1542,9 @@ public class TournamentController {
             applyKnockoutAdvancementMarkers(groupRankingByGroupId, competitionConfig, groups.size());
 
             model.addAttribute("groupOverallRanking", groupOverallRanking);
+            model.addAttribute("rankingPriorityVisibleColumns",
+                    rankingPriorityService.visibleColumnCodesForTournament(id));
+            model.addAttribute("rankingPriorityCustom", rankingPriority != null);
             model.addAttribute("disqualifiedReasonByUserId", dqReasonByUserId);
             model.addAttribute("disqualificationRows", tournamentCompetitionService.listGroupDisqualifications(id));
             model.addAttribute("tournamentDrawMemberCount", drawManagementService.countGroupMembers(id));
@@ -1556,6 +1562,10 @@ public class TournamentController {
             model.addAttribute("groupMatchCards", Map.of());
             model.addAttribute("groupRankingByGroupId", Map.of());
             model.addAttribute("groupOverallRanking", List.of());
+            model.addAttribute("rankingPriorityVisibleColumns",
+                    rankingPriorityService.visibleColumnCodesForTournament(id));
+            model.addAttribute("rankingPriorityCustom",
+                    rankingPriorityService.criteriaOrderForTournament(id) != null);
             model.addAttribute("disqualifiedReasonByUserId", Map.of());
             model.addAttribute("disqualificationRows", List.of());
             model.addAttribute("tournamentDrawMemberCount", null);
@@ -1813,6 +1823,7 @@ public class TournamentController {
             }
         }
         Integer configuredKoStartRound = competitionConfig != null ? competitionConfig.getKnockoutStartRound() : null;
+        boolean knockoutBracketPlaced = false;
         List<Integer> orderedKoRounds = new ArrayList<>(knockoutCardsByRound.keySet());
         orderedKoRounds.sort(Comparator.reverseOrder());
         if (configuredKoStartRound != null && orderedKoRounds.contains(configuredKoStartRound)) {
@@ -1844,11 +1855,16 @@ public class TournamentController {
             t.put("round", koRound);
             t.put("koCards", koCards);
             t.put("roundPlayers", roundPlayers);
+            t.put("showKnockoutBracketHere", !knockoutBracketPlaced);
+            if (!knockoutBracketPlaced) {
+                knockoutBracketPlaced = true;
+            }
             t.put("active", matchTabFirst);
             matchTabFirst = false;
             competitionMatchTabs.add(t);
         }
         model.addAttribute("competitionMatchTabs", competitionMatchTabs);
+        model.addAttribute("hasKnockoutBracketView", !orderedKoRounds.isEmpty());
 
         return "tournament-detail";
     }
@@ -2635,13 +2651,14 @@ public class TournamentController {
         Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
         boolean allowDraw = cfg.getGroupAllowDraw() == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
         int regularSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
+        var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         Map<Long, List<Map<String, Object>>> byGroup = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets
+                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets, rankingPriority
         );
         groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, byGroup, groupMatches, setByMatch, Map.of(), uname, allowDraw, regularSets
+                groups, byGroup, groupMatches, setByMatch, Map.of(), uname, allowDraw, regularSets, rankingPriority
         );
-        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byGroup);
+        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byGroup, rankingPriority);
         List<Long> out = new ArrayList<>();
         for (Map<String, Object> row : overall) {
             Long uid = (Long) row.get("userId");

@@ -27,6 +27,43 @@ public class KnockoutBracketData {
     private boolean hasRound8;
     private boolean hasRound4;
     private boolean hasFinal;
+    private Integer knockoutStartRound;
+    private int decidedMatchCount;
+    private int totalMatchCount;
+    /** 挂载资格赛：首轮淘汰赛卡位（0 起）→ 资格赛场次 */
+    private java.util.Map<String, MatchSlot> qualifierByKoSlot = new java.util.LinkedHashMap<>();
+
+    public Integer getKnockoutStartRound() {
+        return knockoutStartRound;
+    }
+
+    public void setKnockoutStartRound(Integer knockoutStartRound) {
+        this.knockoutStartRound = knockoutStartRound;
+    }
+
+    public int getDecidedMatchCount() {
+        return decidedMatchCount;
+    }
+
+    public void setDecidedMatchCount(int decidedMatchCount) {
+        this.decidedMatchCount = decidedMatchCount;
+    }
+
+    public int getTotalMatchCount() {
+        return totalMatchCount;
+    }
+
+    public void setTotalMatchCount(int totalMatchCount) {
+        this.totalMatchCount = totalMatchCount;
+    }
+
+    public java.util.Map<String, MatchSlot> getQualifierByKoSlot() {
+        return qualifierByKoSlot;
+    }
+
+    public void setQualifierByKoSlot(java.util.Map<String, MatchSlot> qualifierByKoSlot) {
+        this.qualifierByKoSlot = qualifierByKoSlot == null ? new java.util.LinkedHashMap<>() : qualifierByKoSlot;
+    }
 
     public List<MatchSlot> getQualifierMatches() {
         return qualifierMatches;
@@ -210,6 +247,42 @@ public class KnockoutBracketData {
         private Integer knockoutBracketSlot;
         private Integer knockoutHalf;
         private String category;
+        private String phaseCode;
+        private Integer player1Score;
+        private Integer player2Score;
+        private Integer linkedKoSlot;
+
+        public String getPhaseCode() {
+            return phaseCode;
+        }
+
+        public void setPhaseCode(String phaseCode) {
+            this.phaseCode = phaseCode;
+        }
+
+        public Integer getPlayer1Score() {
+            return player1Score;
+        }
+
+        public void setPlayer1Score(Integer player1Score) {
+            this.player1Score = player1Score;
+        }
+
+        public Integer getPlayer2Score() {
+            return player2Score;
+        }
+
+        public void setPlayer2Score(Integer player2Score) {
+            this.player2Score = player2Score;
+        }
+
+        public Integer getLinkedKoSlot() {
+            return linkedKoSlot;
+        }
+
+        public void setLinkedKoSlot(Integer linkedKoSlot) {
+            this.linkedKoSlot = linkedKoSlot;
+        }
 
         public Long getId() {
             return id;

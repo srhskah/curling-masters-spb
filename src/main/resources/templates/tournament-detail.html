@@ -80,98 +80,6 @@
             }
         }
         
-        /* 淘汰赛对阵表视图样式 */
-        .bracket-view-container {
-            display: none;
-            overflow-x: auto;
-            padding: 1rem 0;
-        }
-        .bracket-view-container.active {
-            display: block;
-        }
-        .bracket-view {
-            display: flex;
-            min-width: 800px;
-            gap: 2rem;
-        }
-        .bracket-half {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .bracket-half-title {
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            color: #495057;
-        }
-        .bracket-round {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-        .bracket-round-title {
-            font-size: 0.875rem;
-            color: #6c757d;
-            margin-bottom: 0.5rem;
-            text-align: center;
-        }
-        .bracket-match {
-            display: flex;
-            align-items: center;
-            background: #fff;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-        }
-        .bracket-match:hover {
-            background: #f8f9fa;
-            border-color: #adb5bd;
-        }
-        .bracket-match.from-qualifier {
-            background-color: #e4f0e8;
-            border-left: 3px solid #6c757d;
-        }
-        .bracket-match.from-qualifier:hover {
-            background-color: #e9ecef;
-        }
-        .bracket-match-winner {
-            font-weight: bold;
-            color: #28a745;
-        }
-        .bracket-player {
-            flex: 1;
-            padding: 0.25rem 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .bracket-player-name {
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .bracket-player-score {
-            font-weight: bold;
-            min-width: 2rem;
-            text-align: center;
-        }
-        .bracket-player.is-winner {
-            color: #28a745;
-        }
-        .bracket-player.is-loser {
-            color: #6c757d;
-        }
-        .bracket-connector {
-            position: absolute;
-            background: #dee2e6;
-        }
-        /* 卡片视图切换 */
         .view-toggle-btn {
             padding: 0.25rem 0.75rem;
             font-size: 0.875rem;
@@ -180,118 +88,89 @@
             background-color: #0d6efd;
             color: white;
         }
+        .ko-view-switch-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        .ko-view-switch-bar .ko-view-switch-label {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: #64748b;
+            white-space: nowrap;
+        }
+        .ko-view-switch-bar .ko-view-switch-label.on {
+            color: #0d6efd;
+        }
+        .ko-view-switch-bar .form-check.form-switch {
+            min-height: 1.5rem;
+            padding-left: 2.35rem;
+        }
+        .ko-view-switch-bar .form-check-input {
+            width: 2.35rem;
+            height: 1.2rem;
+            cursor: pointer;
+        }
+        .ko-view-mode-hint {
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+        }
+        #knockoutViewBar {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.5rem;
+        }
+        #knockoutViewBar .ko-knockout-bar-tools {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: nowrap;
+            overflow: visible;
+        }
+        #knockoutViewBar .ko-knockout-tabs-row {
+            width: 100%;
+            margin: 0;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+        @media (max-width: 767.98px) {
+            .ko-view-switch-bar {
+                width: auto;
+                flex: 1 1 auto;
+                justify-content: flex-start;
+                padding: 0;
+                border-bottom: none;
+                margin-bottom: 0;
+            }
+            #knockoutViewBar .ko-knockout-bar-tools {
+                width: 100%;
+                padding-bottom: 0.35rem;
+                border-bottom: 1px solid #e8eef5;
+            }
+            .bracket-view-container.active {
+                margin-left: -0.35rem;
+                margin-right: -0.35rem;
+            }
+        }
         .match-cards-wrap {
             display: none;
         }
         .match-cards-wrap.active {
             display: flex;
         }
-        
-        /* 对阵表视图样式 - 根据提供的图片样式 */
         .bracket-view-container {
             display: none;
-            overflow-x: auto;
-            padding: 1rem 0;
+            padding: 0.5rem 0 1rem;
         }
         .bracket-view-container.active {
             display: block;
         }
-        .bracket-view {
-            display: flex;
-            min-width: 900px;
-            gap: 3rem;
-            padding: 1rem;
+        #competitionMatchTabContent.ko-bracket-mode {
+            display: none !important;
         }
-        .bracket-half {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        .bracket-half-title {
-            text-align: center;
-            font-weight: bold;
-            margin-bottom: 1rem;
-            color: #495057;
-            font-size: 1.1rem;
-        }
-        .bracket-round {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-        }
-        .bracket-round-title {
-            font-size: 0.875rem;
-            color: #6c757d;
-            margin-bottom: 0.5rem;
-            text-align: center;
-            font-weight: 500;
-        }
-        .bracket-match {
-            display: flex;
-            align-items: center;
-            background: #fff;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-            min-height: 40px;
-        }
-        .bracket-match:hover {
-            background: #f8f9fa;
-            border-color: #adb5bd;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        /* 资格赛晋级到淘汰赛的着色 - 较浅绿色 */
-        .bracket-match.from-qualifier {
-            background-color: #e4f0e8;
-            border-left: 4px solid #6c757d;
-        }
-        .bracket-match.from-qualifier:hover {
-            background-color: #e9ecef;
-        }
-        /* 直接晋级淘汰赛的着色 - 较深绿色 */
-        .bracket-match.direct-qualify {
-            background-color: #a4e8ba;
-            border-left: 4px solid #28a745;
-        }
-        .bracket-match.direct-qualify:hover {
-            background-color: #c3e6cb;
-        }
-        /* 淘汰赛胜者着色 */
-        .bracket-player.is-winner {
-            color: #28a745;
-            font-weight: bold;
-        }
-        .bracket-player.is-loser {
-            color: #6c757d;
-        }
-        .bracket-player {
-            flex: 1;
-            padding: 0.25rem 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .bracket-player-name {
-            flex: 1;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .bracket-player-score {
-            font-weight: bold;
-            min-width: 2rem;
-            text-align: center;
-        }
-        /* 比赛未开始时 */
-        .bracket-match.pending {
-            background-color: #f8f9fa;
-        }
-        .bracket-match.pending .bracket-player-score {
-            color: #adb5bd;
+        .ko-bracket-root.card {
+            border-radius: 1rem;
         }
     </style>
 
@@ -1139,7 +1018,7 @@
                                         <h5 class="mb-0 text-start"><i class="bi bi-trophy"></i> 淘汰赛</h5>
                                     </div>
                                     <div class="card-body">
-                                        <p class="small text-muted mb-2">须已保存「淘汰赛首轮」与对阵模式；小组赛全部场次验收后，可自动生成首轮，或在关闭自动生成时手动执行。重新生成会先删除已有 MAIN/FINAL 淘汰赛场次。</p>
+                                        <p class="small text-muted mb-2">须已保存「淘汰赛首轮」与对阵模式；小组赛全部场次验收后，可自动生成首轮（含已挂载的附加资格赛），或在关闭自动生成时手动排签首轮。重新生成会先删除已有 MAIN/FINAL 淘汰赛场次。</p>
                                         <form class="d-inline me-2" th:action="@{/tournament/competition/knockout/generate/{id}(id=${tournamentInfo.tournament.id})}" method="post"
                                               onsubmit="return confirm('确定根据当前小组赛总排名生成淘汰赛首轮？将删除已有淘汰赛场次。');">
                                             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
@@ -1166,7 +1045,7 @@
                                             <button type="submit" class="btn btn-outline-warning btn-sm"><i class="bi bi-arrow-repeat"></i> 重算淘汰赛验收状态</button>
                                         </form>
                                         <form class="d-inline" th:action="@{/tournament/competition/knockout/clear/{id}(id=${tournamentInfo.tournament.id})}" method="post"
-                                              onsubmit="return confirm('确定删除本赛事全部淘汰赛（MAIN/FINAL）场次？');">
+                                              onsubmit="return confirm('确定删除本赛事全部淘汰赛，以及首轮淘汰赛挂载的资格赛？正赛资格赛赛程不会删除。');">
                                             <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                                             <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> 清空淘汰赛</button>
                                         </form>
@@ -1263,9 +1142,15 @@
                                 <table class="table table-sm table-hover align-middle mb-0">
                                     <thead class="table-light">
                                     <tr>
-                                        <th>🏅</th><th>组内</th><th>组</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th><th>积分</th><th>净胜</th><th>总分</th>
+                                        <th>🏅</th><th>组内</th><th>组</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th>
+                                        <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'POINTS')}">积分</th>
+                                        <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'NET')}">净胜</th>
+                                        <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'TOTAL_SCORE')}">总分</th>
                                         <th class="d-none d-md-table-cell">胜</th><th class="d-none d-md-table-cell">平</th><th class="d-none d-md-table-cell">负</th>
-                                        <th class="d-none d-md-table-cell" title="小组赛中所有局：得分≥2的局数总和（每场累加）">≥2局数总和</th><th class="d-none d-md-table-cell" title="小组赛中单局最高得分">单局最高</th><th class="d-none d-md-table-cell">偷分次数</th><th class="d-none d-md-table-cell" title="小组赛中单次偷分最高得分">偷分最高</th>
+                                        <th class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'MATCH_GE2')}" title="小组赛中所有局：得分≥2的局数总和（每场累加）">≥2局数总和</th>
+                                        <th class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'MATCH_MAX')}" title="小组赛中单局最高得分">单局最高</th>
+                                        <th class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'STEAL_COUNT')}">偷分次数</th>
+                                        <th class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'STEAL_MAX')}" title="小组赛中单次偷分最高得分">偷分最高</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -1277,9 +1162,14 @@
                                         <td th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0},pl=${r.played != null ? r.played : 0}"
                                             th:classappend="${exp > 0 and pl == exp} ? ' group-ranking-matches-complete'"
                                             th:text="|${pl}/${exp}|">0/0</td>
-                                        <td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td>
+                                        <td th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'POINTS')}" th:text="${r.points}">0</td>
+                                        <td th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'NET')}" th:text="${r.net}">0</td>
+                                        <td th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'TOTAL_SCORE')}" th:text="${r.totalScore}">0</td>
                                         <td class="d-none d-md-table-cell" th:text="${r.wins}">0</td><td class="d-none d-md-table-cell" th:text="${r.draws}">0</td><td class="d-none d-md-table-cell" th:text="${r.losses}">0</td>
-                                        <td class="d-none d-md-table-cell" th:text="${r.matchGe2Count}">0</td><td class="d-none d-md-table-cell" th:text="${r.matchMaxScore}">0</td><td class="d-none d-md-table-cell" th:text="${r.stealCount}">0</td><td class="d-none d-md-table-cell" th:text="${r.stealMax}">0</td>
+                                        <td class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'MATCH_GE2')}" th:text="${r.matchGe2Count}">0</td>
+                                        <td class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'MATCH_MAX')}" th:text="${r.matchMaxScore}">0</td>
+                                        <td class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'STEAL_COUNT')}" th:text="${r.stealCount}">0</td>
+                                        <td class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'STEAL_MAX')}" th:text="${r.stealMax}">0</td>
                                     </tr>
                                     </tbody>
                                 </table>
@@ -1360,19 +1250,35 @@
                                     </ul>
 
                                     <!-- 第二行：淘汰赛选项卡（如果有） -->
-                                    <div class="d-flex align-items-center gap-2 mb-3 flex-nowrap overflow-auto"
-                                         th:if="${hasKnockoutTabs}">
-                                        <!-- 视图切换按钮 -->
-                                        <div class="d-flex gap-2 flex-shrink-0">
-                                            <button class="btn btn-sm btn-outline-primary view-toggle-btn active" data-view="card">
+                                    <div class="d-flex mb-3"
+                                         th:if="${hasKnockoutTabs}"
+                                         id="knockoutViewBar">
+                                        <div class="ko-knockout-bar-tools">
+                                        <!-- 窄屏：开关切换视图 -->
+                                        <div class="ko-view-switch-bar d-md-none" id="koViewSwitchBar">
+                                            <span class="ko-view-switch-label on" id="koViewLabelCard">卡片</span>
+                                            <div class="form-check form-switch mb-0">
+                                                <input class="form-check-input" type="checkbox" role="switch"
+                                                       id="koViewModeSwitch" aria-label="切换对阵表视图">
+                                            </div>
+                                            <span class="ko-view-switch-label" id="koViewLabelBracket">对阵表</span>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary ko-view-mode-hint ms-1"
+                                                    id="koViewModeHintBtn" aria-label="查看当前视图">
+                                                <i class="bi bi-info-circle"></i>
+                                            </button>
+                                        </div>
+                                        <!-- 宽屏：按钮切换 -->
+                                        <div class="d-none d-md-flex gap-2 flex-shrink-0">
+                                            <button type="button" class="btn btn-sm btn-outline-primary view-toggle-btn active" data-view="card">
                                                 <i class="bi bi-grid"></i> 卡片视图
                                             </button>
-                                            <button class="btn btn-sm btn-outline-primary view-toggle-btn" data-view="bracket">
+                                            <button type="button" class="btn btn-sm btn-outline-primary view-toggle-btn" data-view="bracket">
                                                 <i class="bi bi-diagram-3"></i> 对阵表
                                             </button>
                                         </div>
-                                        <!-- 淘汰赛标签 -->
-                                        <ul class="nav nav-pills flex-nowrap overflow-auto gap-1" role="tablist">
+                                        </div>
+                                        <!-- 淘汰赛阶段选项卡（单独一行，窄屏可横向滑动） -->
+                                        <ul class="nav nav-pills ko-knockout-tabs-row gap-1" role="tablist">
                                             <li class="nav-item text-nowrap" role="presentation"
                                                 th:each="tab : ${competitionMatchTabs}"
                                                 th:if="${tab.kind.equals('KO') or tab.kind.equals('KO_QUALIFIER')}">
@@ -1388,7 +1294,15 @@
                                         </ul>
                                     </div>
                                 </th:block>
-                        <div class="tab-content" th:if="${competitionMatchTabs != null and !#lists.isEmpty(competitionMatchTabs)}">
+                        <div th:if="${hasKnockoutBracketView}"
+                             class="bracket-view-container mb-3"
+                             id="sharedKoBracketPanel"
+                             th:attr="data-fetch-url=@{/tournament/competition/knockout-bracket-data/{id}(id=${tournamentInfo.tournament.id})}">
+                            <div class="ko-bracket-root card border-0 shadow-sm p-3 p-md-4"
+                                 th:attr="data-fetch-url=@{/tournament/competition/knockout-bracket-data/{id}(id=${tournamentInfo.tournament.id})},data-export-title=|${tournamentInfo.tournament.levelCode} 淘汰赛对阵图|">
+                            </div>
+                        </div>
+                        <div class="tab-content" id="competitionMatchTabContent" th:if="${competitionMatchTabs != null and !#lists.isEmpty(competitionMatchTabs)}">
                             <div class="tab-pane fade"
                                  th:each="tab : ${competitionMatchTabs}"
                                  role="tabpanel"
@@ -1409,11 +1323,17 @@
                                     <table class="table table-sm table-striped table-hover align-middle mb-0">
                                         <thead class="table-light">
                                         <tr>
-                                            <th>🏅</th><th>组排</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th><th>积分</th><th>净胜</th><th>总分</th>
+                                            <th>🏅</th><th>组排</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th>
+                                            <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'POINTS')}">积分</th>
+                                            <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'NET')}">净胜</th>
+                                            <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'TOTAL_SCORE')}">总分</th>
                                             <th class="d-none d-md-table-cell">胜</th>
                                             <th class="d-none d-md-table-cell" th:if="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}">平</th>
                                             <th class="d-none d-md-table-cell">负</th>
-                                            <th class="d-none d-md-table-cell" title="小组赛中所有局：得分≥2的局数总和（每场累加）">≥2局数总和</th><th class="d-none d-md-table-cell" title="小组赛中单局最高得分">单局最高</th><th class="d-none d-md-table-cell">偷分次数</th><th class="d-none d-md-table-cell" title="小组赛中单次偷分最高得分">偷分最高</th>
+                                            <th class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'MATCH_GE2')}" title="小组赛中所有局：得分≥2的局数总和（每场累加）">≥2局数总和</th>
+                                            <th class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'MATCH_MAX')}" title="小组赛中单局最高得分">单局最高</th>
+                                            <th class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'STEAL_COUNT')}">偷分次数</th>
+                                            <th class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'STEAL_MAX')}" title="小组赛中单次偷分最高得分">偷分最高</th>
                                         </tr>
                                         </thead>
                                         <tbody>
@@ -1429,16 +1349,16 @@
                                             <td th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0},pl=${r.played != null ? r.played : 0}"
                                                 th:classappend="${exp > 0 and pl == exp} ? ' group-ranking-matches-complete'"
                                                 th:text="|${pl}/${exp}|">0/0</td>
-                                            <td th:text="${r.points}">0</td>
-                                            <td th:text="${r.net}">0</td>
-                                            <td th:text="${r.totalScore}">0</td>
+                                            <td th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'POINTS')}" th:text="${r.points}">0</td>
+                                            <td th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'NET')}" th:text="${r.net}">0</td>
+                                            <td th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'TOTAL_SCORE')}" th:text="${r.totalScore}">0</td>
                                             <td class="d-none d-md-table-cell" th:text="${r.wins}">0</td>
                                             <td class="d-none d-md-table-cell" th:if="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}" th:text="${r.draws}">0</td>
                                             <td class="d-none d-md-table-cell" th:text="${r.losses}">0</td>
-                                            <td class="d-none d-md-table-cell" th:text="${r.matchGe2Count}">0</td>
-                                            <td class="d-none d-md-table-cell" th:text="${r.matchMaxScore}">0</td>
-                                            <td class="d-none d-md-table-cell" th:text="${r.stealCount}">0</td>
-                                            <td class="d-none d-md-table-cell" th:text="${r.stealMax}">0</td>
+                                            <td class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'MATCH_GE2')}" th:text="${r.matchGe2Count}">0</td>
+                                            <td class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'MATCH_MAX')}" th:text="${r.matchMaxScore}">0</td>
+                                            <td class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'STEAL_COUNT')}" th:text="${r.stealCount}">0</td>
+                                            <td class="d-none d-md-table-cell" th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'STEAL_MAX')}" th:text="${r.stealMax}">0</td>
                                         </tr>
                                         <tr th:if="${groupRankingByGroupId[g.id] == null or #lists.isEmpty(groupRankingByGroupId[g.id])}">
                                             <td th:colspan="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw} ? 14 : 13" class="text-muted text-center">暂无数据</td>
@@ -1578,15 +1498,6 @@
                                         </select>
                                     </div>
 
-                                    <div class="d-flex gap-2 mb-3">
-                                        <button class="btn btn-sm btn-outline-primary view-toggle-btn active" data-view="card">
-                                            <i class="bi bi-grid"></i> 卡片视图
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-primary view-toggle-btn" data-view="bracket">
-                                            <i class="bi bi-diagram-3"></i> 对阵表
-                                        </button>
-                                    </div>
-
                                     <div class="d-flex flex-wrap gap-3 match-cards-wrap active">
                                         <div class="card border-0 shadow-sm match-card"
                                              style="min-width: 260px; flex: 1 1 300px; cursor: pointer;"
@@ -1604,95 +1515,6 @@
                                         <div class="text-muted" th:if="${tab.koCards == null or #lists.isEmpty(tab.koCards)}">本轮暂无场次</div>
                                     </div>
                                     <div class="text-muted match-filter-empty d-none w-100">没有符合条件的比赛</div>
-
-                                    <div class="bracket-view-container">
-                                        <div class="bracket-view">
-                                            <div class="bracket-half">
-                                                <div class="bracket-half-title">上半区</div>
-                                                <div class="bracket-round">
-                                                    <div class="bracket-round-title">资格赛</div>
-                                                    <div class="bracket-match from-qualifier" th:each="c : ${tab.koCards}" th:if="${c.match.phaseCode != null and c.match.phaseCode.contains('Q')}" th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}" onclick="openGroupMatchModal(this)">
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player1Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player1Name}">选手1</span>
-                                                            <span class="bracket-player-score" th:text="${c.player1Score}">0</span>
-                                                        </div>
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player2Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player2Name}">选手2</span>
-                                                            <span class="bracket-player-score" th:text="${c.player2Score}">0</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="bracket-round">
-                                                    <div class="bracket-round-title">首轮</div>
-                                                    <div class="bracket-match" th:each="c : ${tab.koCards}" th:if="${c.match.phaseCode != null and (c.match.phaseCode.contains('R1') or c.match.phaseCode.contains('R32'))}" th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}" onclick="openGroupMatchModal(this)">
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player1Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player1Name}">选手1</span>
-                                                            <span class="bracket-player-score" th:text="${c.player1Score}">0</span>
-                                                        </div>
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player2Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player2Name}">选手2</span>
-                                                            <span class="bracket-player-score" th:text="${c.player2Score}">0</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="bracket-round">
-                                                    <div class="bracket-round-title">次轮</div>
-                                                    <div class="bracket-match" th:each="c : ${tab.koCards}" th:if="${c.match.phaseCode != null and (c.match.phaseCode.contains('R2') or c.match.phaseCode.contains('R16'))}" th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}" onclick="openGroupMatchModal(this)">
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player1Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player1Name}">选手1</span>
-                                                            <span class="bracket-player-score" th:text="${c.player1Score}">0</span>
-                                                        </div>
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player2Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player2Name}">选手2</span>
-                                                            <span class="bracket-player-score" th:text="${c.player2Score}">0</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="bracket-half">
-                                                <div class="bracket-half-title">下半区</div>
-                                                <div class="bracket-round">
-                                                    <div class="bracket-round-title">资格赛</div>
-                                                    <div class="bracket-match from-qualifier" th:each="c : ${tab.koCards}" th:if="${c.match.phaseCode != null and c.match.phaseCode.contains('Q')}" th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}" onclick="openGroupMatchModal(this)">
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player1Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player1Name}">选手1</span>
-                                                            <span class="bracket-player-score" th:text="${c.player1Score}">0</span>
-                                                        </div>
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player2Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player2Name}">选手2</span>
-                                                            <span class="bracket-player-score" th:text="${c.player2Score}">0</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="bracket-round">
-                                                    <div class="bracket-round-title">首轮</div>
-                                                    <div class="bracket-match" th:each="c : ${tab.koCards}" th:if="${c.match.phaseCode != null and (c.match.phaseCode.contains('R1') or c.match.phaseCode.contains('R32'))}" th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}" onclick="openGroupMatchModal(this)">
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player1Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player1Name}">选手1</span>
-                                                            <span class="bracket-player-score" th:text="${c.player1Score}">0</span>
-                                                        </div>
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player2Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player2Name}">选手2</span>
-                                                            <span class="bracket-player-score" th:text="${c.player2Score}">0</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="bracket-round">
-                                                    <div class="bracket-round-title">次轮</div>
-                                                    <div class="bracket-match" th:each="c : ${tab.koCards}" th:if="${c.match.phaseCode != null and (c.match.phaseCode.contains('R2') or c.match.phaseCode.contains('R16'))}" th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}" onclick="openGroupMatchModal(this)">
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player1Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player1Name}">选手1</span>
-                                                            <span class="bracket-player-score" th:text="${c.player1Score}">0</span>
-                                                        </div>
-                                                        <div class="bracket-player" th:classappend="${c.match.winnerId != null and c.match.winnerId == c.match.player2Id ? 'is-winner' : (c.match.winnerId != null ? 'is-loser' : '')}">
-                                                            <span class="bracket-player-name" th:text="${c.player2Name}">选手2</span>
-                                                            <span class="bracket-player-score" th:text="${c.player2Score}">0</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </th:block>
                             </div>
                         </div>
@@ -1848,7 +1670,9 @@
     <div class="modal fade" id="koManualModal" tabindex="-1">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
-                <form id="koManualForm" method="post" onsubmit="return submitKoManualForm(event)">
+                <form id="koManualForm" method="post"
+                      th:attr="data-detail-url=${@tournamentUrls.detailUrl(tournamentInfo.tournament)}"
+                      onsubmit="return submitKoManualForm(event)">
                     <div class="modal-header">
                         <h5 class="modal-title"><i class="bi bi-ui-checks-grid"></i> 手动排签：淘汰赛首轮</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -1856,10 +1680,15 @@
                     <div class="modal-body">
                         <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                         <input type="hidden" name="pairCount" id="koManualPairCount" value="0"/>
-                        <div class="alert alert-info small mb-2">
+                        <input type="hidden" name="qualifierPairCount" id="koManualQualifierPairCount" value="0"/>
+                        <div class="alert alert-info small mb-2" id="koManualHelp">
                             默认按模式0填充。仅可选择小组赛晋级选手，且同一选手不可重复选择。
                         </div>
                         <div id="koManualBody" class="d-flex flex-column gap-2"></div>
+                        <div id="koManualQualifierSection" class="d-none mt-3">
+                            <h6 class="text-secondary mb-2"><i class="bi bi-diagram-3"></i> 首轮挂载资格赛</h6>
+                            <div id="koManualQualifierBody" class="d-flex flex-column gap-2"></div>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
@@ -1918,7 +1747,9 @@
     <div th:replace="~{fragments :: footer}"></div>
 
     <th:block th:replace="~{fragments :: scripts}"></th:block>
+    <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=12}">
     <script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
+    <script th:src="@{/js/knockout-bracket-view.js?v=14}"></script>
     <script>
         function isPrimeGroupCount(n) {
             if (!Number.isInteger(n) || n <= 1) return false;
@@ -2417,9 +2248,46 @@
             matchPageModal.show();
         }
 
+        function renderKoManualPairBlock(p, nameP1, nameP2) {
+            const locked = !!p.locked;
+            const badge = locked ? '<span class="badge bg-secondary ms-2">已有比分或已验收</span>' : '';
+            const optionHtml = (selectedId) => {
+                const s = selectedId == null || selectedId === '' ? '' : String(selectedId);
+                const rows = ['<option value="">-- 请选择选手 --</option>'];
+                (window.__koManualOptions || []).forEach((u) => {
+                    const uid = String(u.userId);
+                    rows.push(`<option value="${uid}" ${uid === s ? 'selected' : ''}>#${u.rank} ${u.username}</option>`);
+                });
+                return rows.join('');
+            };
+            const p1 = p.defaultPlayer1Id == null ? '' : String(p.defaultPlayer1Id);
+            const p2 = p.defaultPlayer2Id == null ? '' : String(p.defaultPlayer2Id);
+            const sel1 = locked
+                ? `<input type="hidden" name="${nameP1}" value="${p1}"/><select class="form-select ko-manual-player-select" disabled>${optionHtml(p.defaultPlayer1Id)}</select>`
+                : `<select class="form-select ko-manual-player-select" name="${nameP1}">${optionHtml(p.defaultPlayer1Id)}</select>`;
+            const sel2 = locked
+                ? `<input type="hidden" name="${nameP2}" value="${p2}"/><select class="form-select ko-manual-player-select" disabled>${optionHtml(p.defaultPlayer2Id)}</select>`
+                : `<select class="form-select ko-manual-player-select" name="${nameP2}">${optionHtml(p.defaultPlayer2Id)}</select>`;
+            return `
+                <div class="border rounded p-3 ${locked ? 'bg-light' : ''}">
+                    <div class="fw-bold mb-2">${p.label || '-'}${badge}</div>
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-5">${sel1}</div>
+                        <div class="col-md-2 text-center text-muted">VS</div>
+                        <div class="col-md-5">${sel2}</div>
+                    </div>
+                </div>`;
+        }
+
         function refreshKoManualSelectDisables() {
-            const selects = Array.from(document.querySelectorAll('#koManualBody .ko-manual-player-select'));
-            const used = new Set(selects.map(s => s.value).filter(Boolean));
+            const form = document.getElementById('koManualForm');
+            const used = new Set();
+            if (form) {
+                form.querySelectorAll('input[type="hidden"][name^="p1_"], input[type="hidden"][name^="p2_"], input[type="hidden"][name^="qp1_"], input[type="hidden"][name^="qp2_"]')
+                    .forEach((h) => { if (h.value) used.add(h.value); });
+            }
+            const selects = Array.from(document.querySelectorAll('#koManualModal .ko-manual-player-select:not([disabled])'));
+            selects.forEach((s) => { if (s.value) used.add(s.value); });
             selects.forEach((sel) => {
                 const mine = sel.value;
                 Array.from(sel.options).forEach((op) => {
@@ -2437,7 +2305,10 @@
             if (!manualUrl) return;
             const dataUrl = manualUrl.replace('/knockout/manual/', '/knockout/manual-data/');
             const body = document.getElementById('koManualBody');
+            const qualSection = document.getElementById('koManualQualifierSection');
+            const qualBody = document.getElementById('koManualQualifierBody');
             const pairCountEl = document.getElementById('koManualPairCount');
+            const qualPairCountEl = document.getElementById('koManualQualifierPairCount');
             const form = document.getElementById('koManualForm');
             if (!body || !pairCountEl || !form) return;
             body.innerHTML = '<div class="text-muted small">加载中...</div>';
@@ -2453,35 +2324,33 @@
                     return;
                 }
                 const options = Array.isArray(data.options) ? data.options : [];
+                window.__koManualOptions = options;
                 const draft = Array.isArray(data.draft) ? data.draft : [];
+                const qualifierDraft = Array.isArray(data.qualifierDraft) ? data.qualifierDraft : [];
+                const helpEl = document.getElementById('koManualHelp');
+                if (helpEl) {
+                    helpEl.textContent = data.mountedQualifier
+                        ? '已启用首轮挂载资格赛：请同时确认淘汰赛首轮与挂载资格赛对阵。已有比分或已验收的场次不可修改。仅可选择小组赛晋级选手（含资格赛晋级落位），且同一选手不可重复选择。'
+                        : '默认按模式0填充。已有比分或已验收的场次不可修改。仅可选择小组赛晋级选手，且同一选手不可重复选择。';
+                }
                 pairCountEl.value = String(draft.length);
+                if (qualPairCountEl) qualPairCountEl.value = String(qualifierDraft.length);
                 if (!draft.length) {
                     body.innerHTML = '<div class="text-muted small">暂无可手动排签的首轮场次。</div>';
+                    if (qualSection) qualSection.classList.add('d-none');
                     return;
                 }
-                const optionHtml = (selectedId) => {
-                    const s = selectedId == null ? '' : String(selectedId);
-                    const rows = ['<option value="">-- 请选择选手 --</option>'];
-                    options.forEach((u) => {
-                        rows.push(`<option value="${u.userId}" ${String(u.userId) === s ? 'selected' : ''}>#${u.rank} ${u.username}</option>`);
-                    });
-                    return rows.join('');
-                };
-                body.innerHTML = draft.map((p) => `
-                    <div class="border rounded p-3">
-                        <div class="fw-bold mb-2">${p.label || '-'}</div>
-                        <div class="row g-2 align-items-center">
-                            <div class="col-md-5">
-                                <select class="form-select ko-manual-player-select" name="p1_${p.slot}">${optionHtml(p.defaultPlayer1Id)}</select>
-                            </div>
-                            <div class="col-md-2 text-center text-muted">VS</div>
-                            <div class="col-md-5">
-                                <select class="form-select ko-manual-player-select" name="p2_${p.slot}">${optionHtml(p.defaultPlayer2Id)}</select>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-                document.querySelectorAll('#koManualBody .ko-manual-player-select').forEach((sel) => {
+                body.innerHTML = draft.map((p) => renderKoManualPairBlock(p, `p1_${p.slot}`, `p2_${p.slot}`)).join('');
+                if (qualSection && qualBody) {
+                    if (data.mountedQualifier && qualifierDraft.length) {
+                        qualSection.classList.remove('d-none');
+                        qualBody.innerHTML = qualifierDraft.map((p) => renderKoManualPairBlock(p, `qp1_${p.slot}`, `qp2_${p.slot}`)).join('');
+                    } else {
+                        qualSection.classList.add('d-none');
+                        qualBody.innerHTML = '';
+                    }
+                }
+                document.querySelectorAll('#koManualModal .ko-manual-player-select:not([disabled])').forEach((sel) => {
                     sel.addEventListener('change', refreshKoManualSelectDisables);
                 });
                 refreshKoManualSelectDisables();
@@ -2491,41 +2360,18 @@
             }
         }
 
-        async function submitKoManualForm(event) {
-            event.preventDefault();
+        function submitKoManualForm(event) {
             const form = document.getElementById('koManualForm');
-            const formData = new FormData(form);
+            if (!form) {
+                return true;
+            }
             const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn ? submitBtn.innerHTML : '';
             if (submitBtn) {
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 提交中...';
             }
-            try {
-                const res = await fetch(form.action, {
-                    method: 'POST',
-                    body: formData
-                });
-                if (res.redirected) {
-                    window.location.href = res.url;
-                    return;
-                }
-                const text = await res.text();
-                if (res.ok) {
-                    if (koManualModal) koManualModal.hide();
-                    window.location.reload();
-                } else {
-                    alert('提交失败：' + text);
-                }
-            } catch (e) {
-                alert('提交失败：' + e.message);
-            } finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
-                }
-            }
-            return false;
+            // 使用浏览器原生 POST，避免 fetch 跟随 302 时跳到容器内 localhost 导致远端 failed to fetch
+            return true;
         }
 
         function openGroupRankDetailModal(row) {
@@ -3136,39 +2982,128 @@
                 });
             }
 
-            // 处理淘汰赛视图切换（卡片视图/对阵表视图）
-            const viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
-            viewToggleBtns.forEach(btn => {
+            /** 当前是否为「淘汰赛 MAIN」轮次 Tab（不含附加资格赛 Tab） */
+            function isMainKoTabPane(pane) {
+                return pane && pane.id && /^match-tab-ko-\d+$/.test(pane.id);
+            }
+
+            function getActiveKoTabPane() {
+                const active = document.querySelector('.tab-content .tab-pane.active');
+                return isMainKoTabPane(active) ? active : null;
+            }
+
+            function getFirstMainKoTabButton() {
+                return document.querySelector('button[id^="match-tab-btn-match-tab-ko-"][data-bs-target^="#match-tab-ko-"]:not([data-bs-target*="qualifier"])');
+            }
+
+            let koCurrentMatchView = 'card';
+
+            function koViewModeLabel(view) {
+                return view === 'bracket' ? '对阵表视图' : '卡片视图';
+            }
+
+            function getKoMatchView() {
+                return koCurrentMatchView;
+            }
+
+            function syncKoViewToggleButtons(view) {
+                document.querySelectorAll('#knockoutViewBar .view-toggle-btn').forEach((b) => {
+                    b.classList.toggle('active', b.dataset.view === view);
+                });
+                const sw = document.getElementById('koViewModeSwitch');
+                if (sw) sw.checked = view === 'bracket';
+                const labelCard = document.getElementById('koViewLabelCard');
+                const labelBracket = document.getElementById('koViewLabelBracket');
+                if (labelCard) labelCard.classList.toggle('on', view === 'card');
+                if (labelBracket) labelBracket.classList.toggle('on', view === 'bracket');
+            }
+
+            function showKoViewModeToast() {
+                const msg = `当前是${koViewModeLabel(getKoMatchView())}`;
+                if (typeof showAlert === 'function') {
+                    showAlert(msg, 'info');
+                } else {
+                    alert(msg);
+                }
+            }
+
+            function setKoCardsVisible(visible) {
+                document.querySelectorAll('.tab-pane[id^="match-tab-ko-"]').forEach((pane) => {
+                    if (!isMainKoTabPane(pane)) return;
+                    const cardsWrap = pane.querySelector('.match-cards-wrap');
+                    if (!cardsWrap) return;
+                    cardsWrap.classList.toggle('active', visible);
+                });
+            }
+
+            function setCompetitionTabContentHiddenForBracket(hidden) {
+                document.getElementById('competitionMatchTabContent')
+                    ?.classList.toggle('ko-bracket-mode', hidden);
+            }
+
+            function mountKnockoutBracket() {
+                const sharedBracket = document.getElementById('sharedKoBracketPanel');
+                if (!sharedBracket) return;
+                sharedBracket.classList.add('active');
+                setCompetitionTabContentHiddenForBracket(true);
+                const koRoot = sharedBracket.querySelector('.ko-bracket-root');
+                const load = () => {
+                    if (koRoot && window.KnockoutBracketView) {
+                        window.KnockoutBracketView.ensure(koRoot);
+                    }
+                };
+                requestAnimationFrame(() => requestAnimationFrame(load));
+                sharedBracket.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            function applyKnockoutMatchView(view) {
+                const sharedBracket = document.getElementById('sharedKoBracketPanel');
+                if (!sharedBracket) return;
+
+                koCurrentMatchView = view;
+                syncKoViewToggleButtons(view);
+                if (view === 'card') {
+                    setKoCardsVisible(true);
+                    sharedBracket.classList.remove('active');
+                    setCompetitionTabContentHiddenForBracket(false);
+                    return;
+                }
+
+                if (view === 'bracket') {
+                    setKoCardsVisible(false);
+                    mountKnockoutBracket();
+                    const firstKoTabBtn = getFirstMainKoTabButton();
+                    if (!getActiveKoTabPane() && firstKoTabBtn) {
+                        if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+                            bootstrap.Tab.getOrCreateInstance(firstKoTabBtn).show();
+                        } else {
+                            firstKoTabBtn.click();
+                        }
+                    }
+                }
+            }
+
+            document.querySelectorAll('#knockoutViewBar .view-toggle-btn').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const view = btn.dataset.view;
-                    // 使用 closest() 方法找到最近的 tab-pane 容器
-                    const tabContent = btn.closest('.tab-pane');
-                    if (!tabContent) {
-                        console.error('未找到 tab-pane 容器');
-                        return;
-                    }
+                    if (!view) return;
+                    applyKnockoutMatchView(view);
+                });
+            });
 
-                    // 只更新当前标签页内的按钮状态
-                    const currentTabBtns = tabContent.querySelectorAll('.view-toggle-btn');
-                    currentTabBtns.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
+            const koViewModeSwitch = document.getElementById('koViewModeSwitch');
+            if (koViewModeSwitch) {
+                koViewModeSwitch.addEventListener('change', () => {
+                    applyKnockoutMatchView(koViewModeSwitch.checked ? 'bracket' : 'card');
+                });
+            }
+            document.getElementById('koViewModeHintBtn')?.addEventListener('click', showKoViewModeToast);
 
-                    // 切换视图
-                    const cardsWrap = tabContent.querySelector('.match-cards-wrap');
-                    const bracketContainer = tabContent.querySelector('.bracket-view-container');
-                    
-                    if (!cardsWrap || !bracketContainer) {
-                        console.error('未找到视图容器元素');
-                        return;
-                    }
-                    
-                    if (view === 'card') {
-                        cardsWrap.classList.add('active');
-                        bracketContainer.classList.remove('active');
-                    } else if (view === 'bracket') {
-                        cardsWrap.classList.remove('active');
-                        bracketContainer.classList.add('active');
-                    }
+            document.querySelectorAll('[data-bs-toggle="pill"][data-bs-target^="#match-tab-"]').forEach((tabBtn) => {
+                tabBtn.addEventListener('shown.bs.tab', () => {
+                    if (getKoMatchView() !== 'bracket') return;
+                    setKoCardsVisible(getActiveKoTabPane() != null);
+                    mountKnockoutBracket();
                 });
             });
         });

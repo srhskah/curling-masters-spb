@@ -60,6 +60,8 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     @Autowired
     private GroupRankingCalculator groupRankingCalculator;
     @Autowired
+    private RankingPriorityService rankingPriorityService;
+    @Autowired
     @Lazy
     private ITournamentCompetitionService tournamentCompetitionService;
     @Autowired
@@ -1131,9 +1133,10 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
                 .list()
                 .stream()
                 .collect(Collectors.groupingBy(SetScore::getMatchId));
+        var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         Map<Long, List<Map<String, Object>>> byGroup = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg);
-        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byGroup);
+                groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg, rankingPriority);
+        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byGroup, rankingPriority);
         List<Long> out = new ArrayList<>();
         for (Map<String, Object> row : overall) {
             Long uid = (Long) row.get("userId");

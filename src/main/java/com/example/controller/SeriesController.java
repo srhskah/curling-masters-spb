@@ -41,8 +41,10 @@ public class SeriesController {
     
     @Autowired
     private UserService userService;
-    
+
     @Autowired
+    private RankingPriorityService rankingPriorityService;
+    
     // private TournamentLevelService tournamentLevelService;
     
     private boolean isAdmin() {
@@ -349,9 +351,18 @@ public class SeriesController {
             
             if (series.getId() == null) {
                 series.setCreatedAt(LocalDateTime.now());
+                if (rankingPriorityService.applyToNewSeries()) {
+                    series.setRankingPriorityEnabled(true);
+                } else if (series.getRankingPriorityEnabled() == null) {
+                    series.setRankingPriorityEnabled(false);
+                }
                 seriesService.save(series);
                 redirectAttributes.addFlashAttribute("success", "系列赛事创建成功");
             } else {
+                Series old = seriesService.getById(series.getId());
+                if (old != null && series.getRankingPriorityEnabled() == null) {
+                    series.setRankingPriorityEnabled(old.getRankingPriorityEnabled());
+                }
                 seriesService.updateById(series);
                 redirectAttributes.addFlashAttribute("success", "系列赛事更新成功");
             }
