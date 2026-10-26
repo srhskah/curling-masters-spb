@@ -89,6 +89,7 @@ public class SecurityConfig {
                         "/css/**", "/js/**", "/images/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/tournament/competition/match/detail/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/tournament/competition/knockout-bracket-data/**").permitAll()
                 .requestMatchers("/user/manage/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
                 .requestMatchers("/user/registration-bans").hasAnyRole("SUPER_ADMIN", "ADMIN")
                 .requestMatchers("/user/registration-ban/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
