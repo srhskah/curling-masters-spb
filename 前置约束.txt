@@ -1,0 +1,62 @@
+【强制约束：修改后必须自检，避免以下错误】
+
+一、通用（任何改动都要遵守）
+1. 不要臆造不存在的类、方法、字段、Mapper 方法或配置项。修改前先检查：
+   - 实体类字段与数据库列是否一致（下划线→驼峰）；
+   - Mapper 接口是否已存在该方法，不存在则先补接口和 XML/注解；
+   - Service/Controller 注入的 Bean 是否已定义。
+2. 所有 Controller 方法必须返回项目统一的 Result 包装（如 Result.success/Result.error），不要直接返回实体或裸字符串，除非原方法已是该风格。
+3. 新增/修改接口必须考虑：参数校验（@Valid / 手动判空）、异常捕获、事务边界（多表写操作加 @Transactional）。
+4. 不要修改已经执行过的 Flyway 迁移脚本（db/migration 下已有版本号的文件），如需变更表结构，新增 V{日期}_x__xxx.sql，并使用幂等写法（IF NOT EXISTS / INSERT IGNORE / 先查后改）。
+5. 数据库表名 `match` 是 MySQL 保留字，SQL 中必须写成 `` `match` ``，MyBatis-Plus 实体上加 @TableName("`match`") 或确保生成的 SQL 带反引号。
+6. 时间字段统一用 LocalDateTime/LocalDate，JSON 序列化格式保持项目现有配置，不要混用 Date 和 LocalDateTime。
+7. 不要引入新的第三方依赖，除非我明确要求；不要升级 Spring Boot / MyBatis-Plus / Flyway 版本。
+
+二、避免 500（服务端异常）
+1. 所有可能为 null 的查询结果、集合、Optional 必须先判空再使用，禁止直接 .get(0) / .stream() / .equals()。
+2. 字符串比较用 Objects.equals 或 "常量".equals(var)，禁止 var.equals("常量")。
+3. 除法、取模、数组/集合下标访问前必须做边界与零值判断。
+4. 日期解析、数字转换（Integer.parseInt 等）必须 try-catch 或使用安全工具方法。
+5. 外键关联查询不要假设数据一定存在；关联对象为 null 时要有兜底展示。
+6. 异步/定时任务中的异常必须捕获并记录日志，不能让异常冒泡导致线程池或调度器异常。
+7. 任何新增的 @RequestMapping 路径不要与已有路径冲突（检查 Controller 中已有映射）。
+
+三、避免 40x（客户端错误）
+1. 路径变量/请求参数必须与前端调用完全一致（@PathVariable 名称、@RequestParam 名称、required 属性）。
+2. POST/PUT 接口的 @RequestBody DTO 字段名必须与前端 JSON 字段名一致；如前端用驼峰，DTO 也用驼峰。
+3. 需要登录/权限的接口，确认拦截器或 Spring Security 配置不会误拦；公开页面（如排行榜、导出）要显式放行。
+4. 表单提交注意 CSRF（若启用了 Spring Security），Thymeleaf 表单中保留 th:action 自动注入的 CSRF hidden 字段，不要手写覆盖。
+5. 静态资源路径使用项目现有写法（如 @{/css/xxx.css}），不要硬编码 /static/ 前缀。
+6. 分页参数、枚举值、状态值要与后端枚举/常量定义一致，不要凭空写魔法值。
+
+四、避免 Spring EL / 表达式错误
+1. application.properties 中的 ${...} 只能引用已存在的配置项或环境变量；新增配置必须同时在 application.properties 中给出默认值或在 docker-compose 环境变量中声明。
+2. @Value("${xxx}") 必须提供默认值（如 ${xxx:default}），避免启动时因缺失配置导致 500 或启动失败。
+3. Thymeleaf 中的 ${...} 只能访问模型里真实存在的属性或已注册的 Bean（如 @beanName）；不要访问未放入 Model 的对象。
+4. SpEL 中不要调用可能为 null 的对象方法；复杂表达式先在 Controller 中算好放入 Model，模板里只做简单展示。
+5. 不要在 Thymeleaf 中写 Java 语法（如 new、强转、lambda），保持表达式简单。
+
+五、避免 Thymeleaf 模板错误
+1. 所有模板必须能被 Thymeleaf 解析：标签闭合、属性引号成对、th:* 属性拼写正确（th:text / th:each / th:if / th:href / th:action / th:object / th:field）。
+2. th:each 的语法必须是 "item : ${list}" 或 "item, stat : ${list}"，不要漏掉冒号或 ${}。
+3. th:if / th:unless 中的表达式不要以 HTML 实体形式出现；比较用 eq/ne/gt/lt 或 ==/!=，字符串常量加单引号。
+4. 表单绑定（th:object + th:field）时，确保 Controller 放入了对应对象，且字段名与 DTO 一致。
+5. 引用片段用 th:replace / th:insert / th:include 时，路径和片段名必须存在；片段参数传递语法正确。
+6. 模板中引用的静态资源统一用 @{...}，不要写死相对路径。
+7. 模板文件放在外置 templates/ 目录（容器内 /app/templates/），新增模板必须同时确认该目录下文件已创建，不能只改 JAR 内旧路径。
+8. 修改模板后提醒我：开发环境 spring.thymeleaf.cache=false 时刷新即可；生产环境需重启 app 容器。
+
+六、避免前端样式错误
+1. 只改样式时，优先修改外置 static/css 下的文件，不要动 JAR 内资源路径。
+2. 新增 CSS 类名要与现有命名风格一致，避免与已有类冲突；不要随意覆盖全局标签样式（如 body、table、button）。
+3. 使用项目已有的 CSS 框架/变量（如有），不要引入新的 CDN 或 UI 库。
+4. 布局改动要兼顾移动端：表格加 overflow-x:auto，按钮/输入框不要写死固定宽度导致小屏溢出。
+5. 修改 Thymeleaf 中嵌入的 style 时，确保不破坏原有选择器；不要使用内联 style 覆盖全局样式，除非必要。
+6. 图片/字体路径使用 @{...} 或相对 static 的正确路径，避免 404。
+7. 改完前端后，列出受影响的页面路径，方便我逐一 F5 验证。
+
+七、输出要求
+1. 修改完成后，用简短列表说明：改了哪些文件、每个文件改了什么、可能影响哪些页面/接口。
+2. 如果本次改动涉及数据库、配置、模板目录、Docker 相关，单独标注“需要重启/需要迁移/需要重新挂载”。
+3. 如果发现我的需求与现有代码风格冲突，先指出冲突点，再给最小改动方案，不要擅自大改。
+4. 不要删除或重写我未要求修改的文件；不要顺手“优化”无关代码。

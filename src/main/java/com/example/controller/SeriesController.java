@@ -44,8 +44,12 @@ public class SeriesController {
 
     @Autowired
     private RankingPriorityService rankingPriorityService;
-    
-    // private TournamentLevelService tournamentLevelService;
+
+    @Autowired
+    private ITournamentLevelService tournamentLevelService;
+
+    @Autowired
+    private TournamentUrlService tournamentUrlService;
     
     private boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -85,6 +89,34 @@ public class SeriesController {
         } else {
             seriesList = seriesService.list();
         }
+
+        Map<String, String> levelNameByCode = new LinkedHashMap<>();
+        List<TournamentLevel> levels = tournamentLevelService != null ? tournamentLevelService.list() : List.of();
+        if (levels != null) {
+            for (TournamentLevel lv : levels) {
+                if (lv == null || lv.getCode() == null || lv.getCode().isBlank()) {
+                    continue;
+                }
+                String label = lv.getName() != null && !lv.getName().isBlank() ? lv.getName() : lv.getCode();
+                levelNameByCode.putIfAbsent(lv.getCode(), label);
+            }
+        }
+        Map<Long, LinkedHashSet<String>> levelsBySeriesId = new LinkedHashMap<>();
+        Map<Long, Long> tournamentCountBySeriesId = new HashMap<>();
+        List<Tournament> allTournaments = tournamentService.list();
+        if (allTournaments != null) {
+            for (Tournament t : allTournaments) {
+                if (t == null || t.getSeriesId() == null) {
+                    continue;
+                }
+                tournamentCountBySeriesId.merge(t.getSeriesId(), 1L, Long::sum);
+                if (t.getLevelCode() == null || t.getLevelCode().isBlank()) {
+                    continue;
+                }
+                String label = levelNameByCode.getOrDefault(t.getLevelCode(), t.getLevelCode());
+                levelsBySeriesId.computeIfAbsent(t.getSeriesId(), k -> new LinkedHashSet<>()).add(label);
+            }
+        }
         
         // 使用Map来存储额外信息
         List<Map<String, Object>> seriesInfoList = new ArrayList<>();
@@ -94,8 +126,12 @@ public class SeriesController {
             
             Season season = seasonService.getById(s.getSeasonId());
             seriesInfo.put("seasonName", season != null ? season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年") : "未知");
-            long tournamentCount = tournamentService.lambdaQuery().eq(com.example.entity.Tournament::getSeriesId, s.getId()).count();
+            long tournamentCount = tournamentCountBySeriesId.getOrDefault(s.getId(), 0L);
             seriesInfo.put("tournamentCount", tournamentCount);
+            LinkedHashSet<String> seriesLevels = s.getId() != null
+                    ? levelsBySeriesId.getOrDefault(s.getId(), new LinkedHashSet<>())
+                    : new LinkedHashSet<>();
+            seriesInfo.put("levelLabels", new ArrayList<>(seriesLevels));
             
             seriesInfoList.add(seriesInfo);
         }
@@ -115,6 +151,25 @@ public class SeriesController {
             
             // 构建系列名称
             String seriesName = buildSeriesDisplayName(series);
+            @SuppressWarnings("unchecked")
+            List<String> levelLabels = (List<String>) seriesInfo.get("levelLabels");
+            if (levelLabels == null) {
+                levelLabels = List.of();
+            }
+            StringBuilder levelHtml = new StringBuilder();
+            if (levelLabels.isEmpty()) {
+                levelHtml.append("-");
+            } else {
+                for (String lab : levelLabels) {
+                    if (lab == null || lab.isBlank()) {
+                        continue;
+                    }
+                    levelHtml.append("<span class=\"badge bg-light text-dark border me-1 mb-1\">")
+                            .append(HtmlEscaper.escapeHtml(lab))
+                            .append("</span>");
+                }
+            }
+            String levelPlain = String.join("、", levelLabels);
             
             item.put("data", Arrays.asList(
                 series.getId(),
@@ -123,10 +178,12 @@ public class SeriesController {
                 series.getSequence(),
                 "-", // Series表没有status字段，显示占位符
                 "<span class=\"badge bg-info\">" + tournamentCount + " 个</span>",
+                levelHtml.toString(),
                 createTimeStr
             ));
-            item.put("filters", Map.of("status", 0)); // 默认状态
+            item.put("filters", (seasonName != null ? seasonName : "") + " " + (seriesName != null ? seriesName : "") + " " + levelPlain);
             item.put("id", series.getId());
+            item.put("seasonDetailUrl", tournamentUrlService.seasonDetailBySeriesUrl(series.getId()));
             
             dataList.add(item);
         }
@@ -139,11 +196,12 @@ public class SeriesController {
         columns.add(Map.of("title", "序列号", "type", "text"));
         columns.add(Map.of("title", "状态", "type", "custom"));
         columns.add(Map.of("title", "赛事数量", "type", "custom"));
+        columns.add(Map.of("title", "该系列下的赛事等级", "type", "custom"));
         columns.add(Map.of("title", "创建时间", "type", "text"));
         
         // 构建操作按钮
         List<Map<String, Object>> actions = new ArrayList<>();
-        actions.add(Map.of("urlPrefix", "/season/detail/by-series/", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情"));
+        actions.add(Map.of("urlField", "seasonDetailUrl", "urlPrefix", "/season/detail/by-series/", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情"));
         actions.add(Map.of("urlPrefix", "/series/edit/", "btnClass", "btn btn-sm btn-outline-warning", "icon", "bi bi-pencil", "text", "编辑"));
         actions.add(Map.of("urlPrefix", "/series/delete/", "method", "post", "btnClass", "btn btn-sm btn-outline-danger", "icon", "bi bi-trash", "text", "删除", "confirm", "确定要删除这个赛事系列吗？"));
         
@@ -215,7 +273,7 @@ public class SeriesController {
         model.addAttribute("pageTitle", "添加赛事系列");
         model.addAttribute("pageIcon", "bi bi-collection");
         model.addAttribute("saveUrl", seasonId != null ? "/series/save?returnSeasonId=" + seasonId : "/series/save");
-        model.addAttribute("backUrl", seasonId != null ? "/season/detail/" + seasonId : "/series/list");
+        model.addAttribute("backUrl", seasonId != null ? tournamentUrlService.seasonDetailUrl(seasonId) : "/series/list");
         Series formData = new Series();
         formData.setSeasonId(seasonId);
         model.addAttribute("formData", formData);
@@ -367,7 +425,7 @@ public class SeriesController {
                 redirectAttributes.addFlashAttribute("success", "系列赛事更新成功");
             }
             
-            return returnSeasonId != null ? "redirect:/season/detail/" + returnSeasonId : "redirect:/series/list";
+            return returnSeasonId != null ? "redirect:" + tournamentUrlService.seasonDetailUrl(returnSeasonId) : "redirect:/series/list";
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "操作失败：" + e.getMessage());
             return series.getId() == null ? "redirect:/series/add" : "redirect:/series/edit/" + series.getId();
