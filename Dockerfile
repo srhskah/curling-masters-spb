@@ -1,17 +1,41 @@
-FROM mcr.microsoft.com/openjdk/jdk:21-ubuntu
+ARG BASE_IMAGE=mcr.registry.cdn.w7.cc/openjdk/jdk:21-ubuntu
+FROM ${BASE_IMAGE}
 
 # 设置工作目录
 WORKDIR /app
 
 # 安装必要的工具和字体
-RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
-    sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
-    apt-get update && \
+# RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
+#     sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
+#     apt-get update && \
+#     apt-get install -y --no-install-recommends \
+#         curl \
+#         wget \
+#         fontconfig \
+#         && rm -rf /var/lib/apt/lists/*
+
+# 使用国内镜像源（这里以清华大学源为例）并更新
+RUN set -eux; \
+    # 1. 优先处理 deb822 格式的新配置文件
+    if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+        sed -i 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list.d/ubuntu.sources && \
+        sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list.d/ubuntu.sources && \
+        sed -i 's|http://azure.archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list.d/ubuntu.sources; \
+    fi; \
+    # 2. 同时处理传统的 sources.list 文件，作为兼容
+    if [ -f /etc/apt/sources.list ]; then \
+        sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
+        sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
+        sed -i 's|http://azure.archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list; \
+    fi; \
+    # 3. 更新并安装软件
+    apt-get update; \
     apt-get install -y --no-install-recommends \
         curl \
         wget \
         fontconfig \
-        && rm -rf /var/lib/apt/lists/*
+    ; \
+    rm -rf /var/lib/apt/lists/*
 
 # 安装中文字体支持
 RUN apt-get update && \
@@ -25,16 +49,16 @@ RUN apt-get update && \
         && rm -rf /var/lib/apt/lists/*
 
 # 复制字体安装脚本和构建产物
-COPY install-font.sh /tmp/install-font.sh
+# COPY install-font.sh /tmp/install-font.sh
 COPY build/libs/demo-0.0.1-SNAPSHOT.war app.war
 
 # 复制整个构建上下文到临时目录（用于检测本地字体文件）
 COPY . /build-context/
 
 # 安装单色 Noto Emoji（优先使用本地文件，否则从网络下载）
-RUN chmod +x /tmp/install-font.sh && \
-    /tmp/install-font.sh && \
-    rm -rf /build-context /tmp/install-font.sh
+# RUN chmod +x /tmp/install-font.sh && \
+#     /tmp/install-font.sh && \
+#     rm -rf /build-context /tmp/install-font.sh
 
 # 创建非root用户
 # RUN groupadd -r appuser && useradd -r -g appuser appuser && \

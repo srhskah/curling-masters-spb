@@ -153,6 +153,26 @@
                 margin-right: -0.35rem;
             }
         }
+        .group-unique-tie-mode {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 0 0.75rem;
+        }
+        .group-unique-tie-mode .form-label {
+            margin-bottom: 0.25rem;
+            color: #64748b;
+            font-size: 0.8125rem;
+        }
+        .group-unique-tie-mode .form-select {
+            width: 100%;
+            max-width: 36rem;
+        }
+        @media (max-width: 767.98px) {
+            .group-unique-tie-mode .form-select {
+                max-width: 100%;
+                font-size: 0.8125rem;
+            }
+        }
         .match-cards-wrap {
             display: none;
         }
@@ -172,10 +192,66 @@
         .ko-bracket-root.card {
             border-radius: 1rem;
         }
+        .ranking-priority-list .sortable-ghost { opacity: 0.45; }
+        .ranking-priority-list .list-group-item { cursor: grab; user-select: none; }
+        .ranking-priority-list .list-group-item:active { cursor: grabbing; }
+        #tournamentRankingPriorityCard .ranking-priority-card-header {
+            flex-wrap: nowrap;
+            gap: 0.4rem;
+            padding-top: 0.45rem;
+            padding-bottom: 0.45rem;
+            line-height: 1.25;
+        }
+        #tournamentRankingPriorityCard .ranking-priority-card-title {
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+            flex: 1 1 auto;
+            font-size: 1rem;
+        }
+        #tournamentRankingPriorityCard .ranking-priority-title-short {
+            display: none;
+        }
+        #tournamentRankingPriorityCard .ranking-priority-card-header .section-header-end {
+            flex-wrap: nowrap;
+            gap: 0.35rem;
+        }
+        #tournamentRankingPriorityCard .ranking-priority-status-badge,
+        #tournamentRankingPriorityCard .ranking-priority-toggle-btn {
+            white-space: nowrap;
+            line-height: 1.25;
+        }
+        @media (max-width: 767px) {
+            #tournamentRankingPriorityCard .ranking-priority-card-title {
+                font-size: 0.95rem;
+            }
+            #tournamentRankingPriorityCard .ranking-priority-title-full {
+                display: none;
+            }
+            #tournamentRankingPriorityCard .ranking-priority-title-short {
+                display: inline;
+            }
+            #tournamentRankingPriorityCard .ranking-priority-toggle-btn {
+                padding: 0.12rem 0.45rem;
+                font-size: 0.75rem;
+            }
+            #tournamentRankingPriorityCard .ranking-priority-status-badge {
+                font-size: 0.7rem;
+                padding: 0.2em 0.45em;
+            }
+        }
     </style>
 
     <!-- 消息提示 -->
     <div th:replace="~{fragments :: success-alert}"></div>
+    <div th:if="${success}" class="container mt-3">
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <span th:text="${success}"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    </div>
     <div th:replace="~{fragments :: error-alert}"></div>
     
     <div class="container mt-4">
@@ -192,9 +268,18 @@
                         <!-- <small class="opacity-75" th:text="${' - ' + tournamentInfo.levelName}"></small> -->
                     </h5>
                     <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-light btn-sm tournament-header-mobile-return"
+                                id="copyShortPathBtn"
+                                th:if="${shortDetailPath != null and shortDetailPath != '#'}"
+                                th:attr="data-short-path=${shortDetailPath}"
+                                title="复制当前域名下的短网址">
+                            <i class="bi bi-link-45deg"></i>
+                            <span class="btn-text">生成短路径</span>
+                            <span class="btn-text-mobile" style="display: none;">短链</span>
+                        </button>
                         <a class="btn btn-outline-light btn-sm tournament-header-mobile-return"
                            th:if="${tournamentInfo.seasonId != null}"
-                           th:href="@{/season/detail/{id}(id=${tournamentInfo.seasonId},seriesId=${tournamentInfo.tournament.seriesId})}">
+                           th:href="${@tournamentUrls.seasonDetailUrl(tournamentInfo.seasonId, tournamentInfo.tournament.seriesId)}">
                             <i class="bi bi-arrow-left"></i>
                             <span class="btn-text">返回赛季</span>
                             <span class="btn-text-mobile" style="display: none;">赛季</span>
@@ -875,7 +960,7 @@
                                                     <option value="picker">③ 下拉搜索选人（全库用户）</option>
                                                 </select>
                                                 <div class="form-text text-muted small mt-1">
-                                                    三种方式互斥展示；②③ 编辑后请按<strong>各组</strong>「保存本组名单」提交；③ 为下拉检索（与② 共用同一解析规则）。
+                                                    三种方式互斥展示；②③ 编辑后请按<strong>各组</strong>「保存本组名单」提交。③ 搜索后点选结果即可填入席位（可先点席位指定要填哪一个）。
                                                 </div>
                                             </div>
 
@@ -893,11 +978,17 @@
                                                 <datalist id="groupUserDatalist">
                                                     <option th:each="u : ${allUsersForGroupPick}" th:value="${u.username}"></option>
                                                 </datalist>
+                                                <script th:inline="javascript">
+                                                    window.__groupPickUsernames = /*[[${allUsersForGroupPick != null ? allUsersForGroupPick.![username] : T(java.util.Collections).emptyList()}]]*/ [];
+                                                    window.__groupDirectUsernames = /*[[${groupDirectUsernames != null ? groupDirectUsernames : T(java.util.Collections).emptyList()}]]*/ [];
+                                                    window.__groupQualifierUsernames = /*[[${groupQualifierUsernames != null ? groupQualifierUsernames : T(java.util.Collections).emptyList()}]]*/ [];
+                                                    window.__groupEligibleUsernames = /*[[${groupEligibleUsernames != null ? groupEligibleUsernames : T(java.util.Collections).emptyList()}]]*/ [];
+                                                </script>
                                                 <div class="alert alert-secondary py-2" th:if="${#lists.isEmpty(competitionGroups)}">
                                                     请先在上方保存"小组赛配置"（参赛人数m + 每组人数），系统会自动创建 A/B/C 组后即可手动录入名单。
                                                 </div>
                                                 <div class="row g-3">
-                                                    <div class="col-md-6 d-flex flex-column" th:each="g : ${competitionGroups}">
+                                                    <div class="col-md-6 d-flex flex-column" th:each="g,gStat : ${competitionGroups}">
                                                         <form class="group-one-save-form border rounded p-2 h-100 d-flex flex-column"
                                                               th:action="@{/tournament/competition/groups/save-group/{id}(id=${tournamentInfo.tournament.id})}"
                                                               method="post">
@@ -915,8 +1006,10 @@
                                                                           name="groupMembers"
                                                                           th:text="${groupMemberImportTextByGroupId != null ? groupMemberImportTextByGroupId[g.id] : ''}"
                                                                           th:placeholder="'每行一位；行内多人用逗号或分号分隔。用户名可含空格，勿用空格分隔多人'"></textarea>
+                                                                <th:block th:with="fromList=${groupMemberSlotIndexesList != null and #lists.size(groupMemberSlotIndexesList) > gStat.index ? groupMemberSlotIndexesList[gStat.index] : null},
+                                                                                   fromMap=${groupMemberSlotIndexesByGroupId != null ? groupMemberSlotIndexesByGroupId[g.id] : null},
+                                                                                   slotIndexes=${fromList != null and !#lists.isEmpty(fromList) ? fromList : (fromMap != null and !#lists.isEmpty(fromMap) ? fromMap : groupMemberSlotIndexes)}">
                                                                 <div class="group-member-picker mt-2 group-picker-area"
-                                                                     th:with="slotIndexes=${groupMemberSlotIndexesByGroupId != null ? groupMemberSlotIndexesByGroupId[g.id] : groupMemberSlotIndexes}"
                                                                      th:if="${slotIndexes != null and !#lists.isEmpty(slotIndexes)}">
                                                                     <div class="small text-muted mb-1">
                                                                         <th:block th:if="${groupPickerUseQualifierRules}">
@@ -925,67 +1018,46 @@
                                                                             <span th:text="${groupQualifierSlotsPerGroup}">0</span> 个）。
                                                                         </th:block>
                                                                         <th:block th:unless="${groupPickerUseQualifierRules}">
-                                                                            从全库用户中下拉选择（本组
+                                                                            搜索后点选即可填入席位（本组
                                                                             <span th:text="${#lists.size(slotIndexes)}">0</span> 个席位
                                                                             <th:block th:if="${groupLayout != null and groupLayout.adjustN > 0}">；质数报名时可末组调整</th:block>）
                                                                         </th:block>
                                                                     </div>
                                                                     <div class="mb-2">
-                                                                        <input type="text"
+                                                                        <input type="search"
                                                                                class="form-control form-control-sm group-member-picker-search"
                                                                                th:attr="data-group-id=${g.id}"
-                                                                               placeholder="搜索选手（支持空格/emoji/符号）">
+                                                                               placeholder="搜索用户名，点选结果填入席位"
+                                                                               autocomplete="off">
+                                                                        <div class="group-picker-results list-group list-group-flush mt-1 d-none"></div>
                                                                     </div>
                                                                     <div class="group-member-slot-grid">
                                                                         <div class="group-member-slot"
                                                                              th:each="slot,st : ${slotIndexes}"
+                                                                             th:with="members=${groupMembersByGroupId[g.id]}, curName=${members != null and #lists.size(members) > st.index ? members[st.index].username : ''}"
                                                                              th:classappend="${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup} ? ' group-member-slot-qualifier' : ' group-member-slot-main'">
                                                                             <label class="form-label form-label-sm mb-1" th:text="${'席位' + (st.index + 1)}">席位1</label>
-                                                                            <select class="form-select form-select-sm group-member-slot-input"
-                                                                                    th:attr="data-group-id=${g.id},
-                                                                                             data-slot-index=${st.index},
-                                                                                             data-slot-kind=${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup ? 'qualifier' : 'main'},
-                                                                                             data-slot-flex=${groupPickerUseQualifierRules and groupQualifierFlexibleSlotPerGroup and st.index == 0 ? 'true' : 'false'}">
-                                                                                <option value="">-- 请选择 --</option>
-                                                                                <th:block th:if="${groupPickerUseQualifierRules}">
-                                                                                    <th:block th:if="${st.index < groupQualifierSlotsPerGroup}">
-                                                                                        <th:block th:if="${groupQualifierFlexibleSlotPerGroup and st.index == 0}">
-                                                                                            <option th:each="name : ${groupEligibleUsernames}"
-                                                                                                    th:value="${name}"
-                                                                                                    th:text="${(#lists.contains(groupDirectUsernames, name) ? '【直通】' : (#lists.contains(groupQualifierUsernames, name) ? '【资格】' : '【报名】')) + name}"
-                                                                                                    th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
-                                                                                            </option>
-                                                                                        </th:block>
-                                                                                        <th:block th:unless="${groupQualifierFlexibleSlotPerGroup and st.index == 0}">
-                                                                                            <option th:each="name : ${groupQualifierUsernames}"
-                                                                                                    th:value="${name}"
-                                                                                                    th:text="${name}"
-                                                                                                    th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
-                                                                                            </option>
-                                                                                        </th:block>
-                                                                                    </th:block>
-                                                                                    <th:block th:unless="${st.index < groupQualifierSlotsPerGroup}">
-                                                                                        <option th:each="name : ${groupDirectUsernames}"
-                                                                                                th:value="${name}"
-                                                                                                th:text="${name}"
-                                                                                                th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == name}">
-                                                                                        </option>
-                                                                                    </th:block>
-                                                                                </th:block>
-                                                                                <th:block th:unless="${groupPickerUseQualifierRules}">
-                                                                                    <option th:each="u : ${allUsersForGroupPick}"
-                                                                                            th:value="${u.username}"
-                                                                                            th:text="${u.username}"
-                                                                                            th:selected="${groupMembersByGroupId[g.id] != null and #lists.size(groupMembersByGroupId[g.id]) > st.index and groupMembersByGroupId[g.id][st.index].username == u.username}">
-                                                                                    </option>
-                                                                                </th:block>
-                                                                            </select>
+                                                                            <input type="hidden"
+                                                                                   class="group-member-slot-input"
+                                                                                   th:value="${curName}"
+                                                                                   th:attr="data-group-id=${g.id},
+                                                                                            data-slot-index=${st.index},
+                                                                                            data-source=${groupPickerUseQualifierRules ? 'static' : 'all-users'},
+                                                                                            data-slot-kind=${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup ? 'qualifier' : 'main'},
+                                                                                            data-slot-flex=${groupPickerUseQualifierRules and groupQualifierFlexibleSlotPerGroup and st.index == 0 ? 'true' : 'false'}">
+                                                                            <div class="d-flex gap-1">
+                                                                                <button type="button"
+                                                                                        class="btn btn-outline-secondary btn-sm flex-grow-1 text-start group-slot-display"
+                                                                                        th:text="${curName != null and !#strings.isEmpty(curName) ? curName : '未选'}">未选</button>
+                                                                                <button type="button" class="btn btn-outline-danger btn-sm group-slot-clear" title="清空本席">&times;</button>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     <div class="small mt-2 text-muted" th:if="${groupPickerUseQualifierRules}">
                                                                         规则：高亮席位仅可选资格赛名单（非整除场景下每组第1个高亮席位可从全部报名名单选择）；非高亮席位仅可选直通正赛名单。高亮席位可留空保存。
                                                                     </div>
                                                                 </div>
+                                                                </th:block>
                                                                 <div class="small text-muted mt-1"
                                                                      th:if="${groupMembersByGroupId[g.id] != null and !#lists.isEmpty(groupMembersByGroupId[g.id])}">
                                                                     当前名单：
@@ -1007,6 +1079,99 @@
                                                 </div>
                                             </div>
                                         </th:block>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-12"
+                                 th:if="${canEditRankingPriority}"
+                                 id="tournamentRankingPriorityCard"
+                                 th:attr="data-tournament-id=${tournamentInfo.tournament.id}">
+                                <div class="card border-0 shadow-sm">
+                                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center ranking-priority-card-header">
+                                        <h5 class="mb-0 text-start ranking-priority-card-title">
+                                            <i class="bi bi-sliders2-vertical"></i>
+                                            <span class="ranking-priority-title-full">本届小组排名优先级</span>
+                                            <span class="ranking-priority-title-short">排名优先级</span>
+                                        </h5>
+                                        <div class="section-header-end d-flex align-items-center flex-shrink-0 justify-content-end">
+                                            <span class="badge bg-info text-dark ranking-priority-status-badge" th:if="${rankingPriorityOverride}">
+                                                <span class="d-none d-sm-inline">本届独立</span>
+                                                <span class="d-sm-none">独立</span>
+                                            </span>
+                                            <span class="badge bg-secondary ranking-priority-status-badge" th:unless="${rankingPriorityOverride}">
+                                                <span class="d-none d-sm-inline">跟随系列默认</span>
+                                                <span class="d-sm-none">默认</span>
+                                            </span>
+                                            <button class="btn btn-outline-light btn-sm toggle-collapse-btn ranking-priority-toggle-btn"
+                                                    type="button"
+                                                    data-bs-toggle="collapse"
+                                                    data-bs-target="#tournamentRankingPriorityCollapse"
+                                                    aria-controls="tournamentRankingPriorityCollapse"
+                                                    th:attr="aria-expanded=${!(tournamentInfo.tournament.status == 1 and hasGroupStageMatches)}">
+                                                展开/收起
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="tournamentRankingPriorityCollapse"
+                                         class="card-body collapse"
+                                         th:classappend="${(tournamentInfo.tournament.status == 1 and hasGroupStageMatches) ? '' : ' show'}">
+                                        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                                            <button type="button" class="btn btn-primary btn-sm" id="saveTournamentPriorityBtn">
+                                                <i class="bi bi-save"></i> 保存本届优先级
+                                            </button>
+                                            <button type="button" class="btn btn-outline-warning btn-sm" id="clearTournamentPriorityBtn"
+                                                    th:if="${rankingPriorityOverride}">
+                                                恢复跟随系列
+                                            </button>
+                                        </div>
+                                        <p class="small text-muted mb-3 mb-0">
+                                            仅对本届赛事生效，不会改动其他赛事或总控台全局队列。
+                                            队首优先；踢出队列的决胜项不再参与本届小组/伪小组/跨组总排名，对应列也不再显示。
+                                            保存后请到「小组赛总排名」或各组选项卡一键重算名次，场次与比分不会被删除。
+                                        </p>
+                                        <div id="tournamentPriorityAlert" class="alert d-none mt-2" role="alert"></div>
+                                        <div class="row g-3 mt-1">
+                                            <div class="col-md-6">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <h6 class="mb-0">候选池（未启用）</h6>
+                                                    <span class="badge bg-secondary" id="tournamentCandidateCount"
+                                                          th:text="${#lists.size(rankingPriorityCandidates)}">0</span>
+                                                </div>
+                                                <ul id="tournamentCandidateList" class="list-group ranking-priority-list"
+                                                    style="min-height: 220px; max-height: 360px; overflow:auto;">
+                                                    <li th:each="c : ${rankingPriorityCandidates}"
+                                                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                                        th:attr="data-code=${c.code}, data-label=${c.label}">
+                                                        <span>
+                                                            <strong th:text="${c.label}">积分</strong>
+                                                            <span class="text-muted small ms-1" th:text="${c.code}">POINTS</span>
+                                                        </span>
+                                                        <i class="bi bi-grip-vertical text-muted"></i>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <h6 class="mb-0">优先级队列（降序）</h6>
+                                                    <span class="badge bg-primary" id="tournamentQueueCount"
+                                                          th:text="${#lists.size(rankingPriorityQueue)}">0</span>
+                                                </div>
+                                                <ul id="tournamentQueueList" class="list-group ranking-priority-list"
+                                                    style="min-height: 220px; max-height: 360px; overflow:auto;">
+                                                    <li th:each="q, iter : ${rankingPriorityQueue}"
+                                                        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                                        th:attr="data-code=${q.code}, data-label=${q.label}">
+                                                        <span>
+                                                            <span class="badge bg-dark me-2 priority-rank" th:text="${iter.count}">1</span>
+                                                            <strong th:text="${q.label}">积分</strong>
+                                                            <span class="text-muted small ms-1" th:text="${q.code}">POINTS</span>
+                                                        </span>
+                                                        <i class="bi bi-grip-vertical text-muted"></i>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1131,6 +1296,15 @@
                             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center flex-wrap gap-2">
                                 <h5 class="mb-0 text-start"><i class="bi bi-list-stars"></i> 小组赛总排名</h5>
                                 <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
+                                    <form th:if="${canEditRankingPriority}" class="d-inline"
+                                          th:action="@{/tournament/group-ranking/recompute-all/{id}(id=${tournamentInfo.tournament.id})}"
+                                          method="post"
+                                          onsubmit="return confirm('将按本届当前优先级，根据已有场次比分重算全部小组排名及总排名。不会删除或改动任何场次。是否继续？');">
+                                        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                        <button type="submit" class="btn btn-warning btn-sm">
+                                            <i class="bi bi-arrow-repeat"></i> 重算小组排名
+                                        </button>
+                                    </form>
                                     <button type="button" class="btn btn-outline-light btn-sm"
                                             id="groupOverallCopyBtn"
                                             th:attr="data-tournament-id=${tournamentInfo.tournament.id}">复制为文本</button>
@@ -1313,11 +1487,32 @@
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <div class="fw-bold"><i class="bi bi-bar-chart"></i> <span th:text="${g.groupName + ' 排名'}">A组排名</span></div>
                                     <div class="d-flex gap-2">
+                                        <form th:if="${canEditRankingPriority}" class="d-inline"
+                                              th:action="@{/tournament/group-ranking/recompute/{tid}/{gid}(tid=${tournamentInfo.tournament.id},gid=${g.id})}"
+                                              method="post"
+                                              onsubmit="return confirm('将按本届当前优先级，根据已有场次比分重算本组排名。不会删除或改动任何场次。是否继续？');">
+                                            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                            <button type="submit" class="btn btn-outline-warning btn-sm">
+                                                <i class="bi bi-arrow-repeat"></i> 重算本组排名
+                                            </button>
+                                        </form>
                                         <button type="button" class="btn btn-outline-secondary btn-sm group-copy-btn"
                                                 th:attr="data-tournament-id=${tournamentInfo.tournament.id},data-group-id=${g.id}">复制为文本</button>
                                         <a class="btn btn-outline-secondary btn-sm"
                                            th:href="@{/ranking/export/pdf/tournament/{tid}/group/{gid}/ranking(tid=${tournamentInfo.tournament.id},gid=${g.id})}">导出为PDF</a>
                                     </div>
+                                </div>
+                                <div class="group-unique-tie-mode"
+                                     th:if="${canEditRankingPriority and uniqueSameWdlTieByGroupId != null and uniqueSameWdlTieByGroupId[#strings.toString(g.id)]}">
+                                    <label class="form-label" th:for="${'groupRankTieMode-' + g.id}">同分排名依据</label>
+                                    <select class="form-select form-select-sm group-rank-tie-mode-select"
+                                            th:id="${'groupRankTieMode-' + g.id}"
+                                            th:attr="data-tournament-id=${tournamentInfo.tournament.id},data-group-id=${g.id}">
+                                        <option value="PSEUDO"
+                                                th:selected="${g.rankTieMode == null or #strings.equalsIgnoreCase(g.rankTieMode, 'PSEUDO')}">单独拆出伪小组，以当前伪小组的排名逻辑为准</option>
+                                        <option value="GROUP"
+                                                th:selected="${g.rankTieMode != null and #strings.equalsIgnoreCase(g.rankTieMode, 'GROUP')}">直接以当前小组内的数据作为排名依据</option>
+                                    </select>
                                 </div>
                                 <div class="table-responsive mb-3">
                                     <table class="table table-sm table-striped table-hover align-middle mb-0">
@@ -1748,6 +1943,7 @@
 
     <th:block th:replace="~{fragments :: scripts}"></th:block>
     <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=12}">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
     <script th:src="@{/js/knockout-bracket-view.js?v=14}"></script>
     <script>
@@ -2012,71 +2208,191 @@
                     const inputs = card.querySelectorAll('.group-member-slot-input');
                     if (!textarea || !inputs.length) return;
                     const tokens = parseGroupTokens(textarea.value);
-                    inputs.forEach((inp, i) => {
-                        inp.value = i < tokens.length ? tokens[i] : '';
-                    });
+                    inputs.forEach((inp, i) => setGroupSlotValue(inp, i < tokens.length ? tokens[i] : ''));
+                    const search = card.querySelector('.group-member-picker-search');
+                    renderGroupPickerResults(card, search ? search.value : '');
                 });
             };
-            const applyGroupPickerSearch = (card, keywordRaw) => {
-                if (!card) return;
-                const keyword = (keywordRaw || '').trim().toLowerCase();
-                card.querySelectorAll('.group-member-slot-input').forEach(sel => {
-                    Array.from(sel.options).forEach((op, idx) => {
-                        if (idx === 0) return; // placeholder
-                        const txt = (op.textContent || '').toLowerCase();
-                        const val = (op.value || '').toLowerCase();
-                        op.hidden = keyword ? !(txt.includes(keyword) || val.includes(keyword)) : false;
-                    });
+            const listToNames = (raw) => (Array.isArray(raw) ? raw : []).map((n) => String(n || '').trim()).filter(Boolean);
+            const allPickNames = () => {
+                let names = listToNames(window.__groupPickUsernames);
+                if (!names.length) {
+                    names = Array.from(document.querySelectorAll('#groupUserDatalist option'))
+                        .map((o) => (o.value || '').trim())
+                        .filter(Boolean);
+                    window.__groupPickUsernames = names;
+                }
+                return names;
+            };
+            const escapePickerText = (s) => {
+                const d = document.createElement('div');
+                d.textContent = s == null ? '' : String(s);
+                return d.innerHTML;
+            };
+            const slotPoolNames = (inp) => {
+                if ((inp.dataset.source || '') === 'all-users') {
+                    return allPickNames();
+                }
+                const kind = inp.dataset.slotKind || 'main';
+                const flex = inp.dataset.slotFlex === 'true';
+                if (kind === 'qualifier') {
+                    return listToNames(flex ? window.__groupEligibleUsernames : window.__groupQualifierUsernames);
+                }
+                return listToNames(window.__groupDirectUsernames);
+            };
+            const slotLabelPrefix = (inp, name) => {
+                if ((inp.dataset.source || '') === 'all-users') return '';
+                const directs = listToNames(window.__groupDirectUsernames);
+                const quals = listToNames(window.__groupQualifierUsernames);
+                if (directs.includes(name)) return '【直通】';
+                if (quals.includes(name)) return '【资格】';
+                return '【报名】';
+            };
+            const pickedSlotValues = (exceptInp) => {
+                const set = new Set();
+                document.querySelectorAll('.group-member-slot-input').forEach((inp) => {
+                    if (inp === exceptInp) return;
+                    const v = (inp.value || '').trim();
+                    if (v) set.add(v);
                 });
+                return set;
+            };
+            const setGroupSlotValue = (inp, name) => {
+                if (!inp) return;
+                inp.value = name || '';
+                const display = inp.closest('.group-member-slot')?.querySelector('.group-slot-display');
+                if (display) display.textContent = inp.value ? inp.value : '未选';
+            };
+            const targetSlotInput = (card) => {
+                const marked = card.querySelector('.group-slot-display.is-target');
+                if (marked) {
+                    const inp = marked.closest('.group-member-slot')?.querySelector('.group-member-slot-input');
+                    if (inp) return inp;
+                }
+                const empty = Array.from(card.querySelectorAll('.group-member-slot-input'))
+                    .find((inp) => !(inp.value || '').trim());
+                return empty || card.querySelector('.group-member-slot-input');
+            };
+            const markTargetSlot = (card, inp) => {
+                card.querySelectorAll('.group-slot-display').forEach((btn) => btn.classList.remove('is-target'));
+                const display = inp?.closest('.group-member-slot')?.querySelector('.group-slot-display');
+                if (display) display.classList.add('is-target');
+            };
+            const renderGroupPickerResults = (card, keywordRaw) => {
+                if (!card) return;
+                const box = card.querySelector('.group-picker-results');
+                if (!box) return;
+                const kw = (keywordRaw || '').trim().toLowerCase();
+                if (!kw) {
+                    box.innerHTML = '';
+                    box.classList.add('d-none');
+                    return;
+                }
+                const target = targetSlotInput(card);
+                if (!target) {
+                    box.innerHTML = '<div class="list-group-item text-muted small">没有可填席位</div>';
+                    box.classList.remove('d-none');
+                    return;
+                }
+                markTargetSlot(card, target);
+                const taken = pickedSlotValues(target);
+                const matches = slotPoolNames(target)
+                    .filter((n) => n.toLowerCase().includes(kw))
+                    .slice(0, 80);
+                box.innerHTML = '';
+                if (!matches.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'list-group-item text-muted small';
+                    empty.textContent = '无匹配用户';
+                    box.appendChild(empty);
+                    box.classList.remove('d-none');
+                    return;
+                }
+                matches.forEach((name) => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action py-2 px-3 text-start';
+                    btn.innerHTML = escapePickerText(slotLabelPrefix(target, name) + name);
+                    if (taken.has(name)) {
+                        btn.disabled = true;
+                        btn.classList.add('disabled');
+                        btn.title = '已在其他席位';
+                    } else {
+                        btn.addEventListener('click', () => {
+                            setGroupSlotValue(target, name);
+                            const search = card.querySelector('.group-member-picker-search');
+                            if (search) {
+                                search.value = '';
+                                search.focus();
+                            }
+                            const nextEmpty = Array.from(card.querySelectorAll('.group-member-slot-input'))
+                                .find((inp) => !(inp.value || '').trim());
+                            markTargetSlot(card, nextEmpty || target);
+                            renderGroupPickerResults(card, '');
+                        });
+                    }
+                    box.appendChild(btn);
+                });
+                box.classList.remove('d-none');
             };
             const refreshGroupPickerUniqueOptions = () => {
-                const selects = Array.from(document.querySelectorAll('.group-member-slot-input'));
-                const picked = new Map();
-                selects.forEach((sel, idx) => {
-                    const v = (sel.value || '').trim();
-                    if (!v) return;
-                    if (!picked.has(v)) picked.set(v, idx);
+                document.querySelectorAll('.group-member-card').forEach((card) => {
+                    const search = card.querySelector('.group-member-picker-search');
+                    renderGroupPickerResults(card, search ? search.value : '');
                 });
-                selects.forEach((sel, idx) => {
-                    Array.from(sel.options).forEach((op, opIdx) => {
-                        if (opIdx === 0) return; // placeholder
-                        const v = (op.value || '').trim();
-                        if (!v) return;
-                        const owner = picked.get(v);
-                        op.disabled = owner != null && owner !== idx;
-                    });
-                });
+            };
+            const readGroupListEntryMode = (key) => {
+                try {
+                    return localStorage.getItem(key);
+                } catch (e) {
+                    return null;
+                }
+            };
+            const writeGroupListEntryMode = (key, value) => {
+                try {
+                    localStorage.setItem(key, value);
+                } catch (e) { /* Edge 跟踪防护等可能禁止写入，不影响切模式 */ }
             };
             const applyGroupListEntryMode = (mode) => {
                 const autoPanel = document.getElementById('groupEntryPanelAuto');
                 const saveSection = document.querySelector('.group-save-form');
-                if (!autoPanel || !saveSection) return;
+                const toolbar = document.querySelector('.group-entry-mode-toolbar');
+                if (!saveSection && !autoPanel) return;
                 const manualAreas = document.querySelectorAll('.group-manual-import-area');
                 const pickerAreas = document.querySelectorAll('.group-picker-area');
                 if (mode === 'auto') {
-                    autoPanel.classList.remove('d-none');
-                    saveSection.classList.add('d-none');
+                    if (autoPanel) autoPanel.classList.remove('d-none');
+                    if (saveSection) saveSection.classList.add('d-none');
                     return;
                 }
-                autoPanel.classList.add('d-none');
-                saveSection.classList.remove('d-none');
-                if (mode === 'manual') {
+                if (autoPanel) autoPanel.classList.add('d-none');
+                if (saveSection) saveSection.classList.remove('d-none');
+                if (mode === 'picker') {
+                    manualAreas.forEach((el) => el.classList.add('d-none'));
+                    pickerAreas.forEach((el) => el.classList.remove('d-none'));
+                    if (pickerAreas.length === 0 && toolbar) {
+                        let hint = document.getElementById('groupPickerMissingHint');
+                        if (!hint) {
+                            hint = document.createElement('div');
+                            hint.id = 'groupPickerMissingHint';
+                            hint.className = 'alert alert-warning small mt-2';
+                            hint.textContent = '当前还没有小组席位，请先保存「小组赛配置」（参赛人数 + 每组人数）后再用下拉选人。';
+                            toolbar.after(hint);
+                        }
+                        hint.classList.remove('d-none');
+                    }
+                } else {
+                    const hint = document.getElementById('groupPickerMissingHint');
+                    if (hint) hint.classList.add('d-none');
                     manualAreas.forEach((el) => el.classList.remove('d-none'));
                     pickerAreas.forEach((el) => el.classList.add('d-none'));
-                } else if (mode === 'picker') {
-                    manualAreas.forEach((el) => el.classList.add('d-none'));
-                    if (pickerAreas.length === 0) {
-                        manualAreas.forEach((el) => el.classList.remove('d-none'));
-                    } else {
-                        pickerAreas.forEach((el) => el.classList.remove('d-none'));
-                    }
                 }
             };
             const modeSelect = document.getElementById('groupListEntryMode');
             if (modeSelect) {
                 const tid = modeSelect.getAttribute('data-tournament-id') || '';
                 const storageKey = 'groupListEntryMode:' + tid;
-                const saved = localStorage.getItem(storageKey);
+                const saved = readGroupListEntryMode(storageKey);
                 if (saved === 'auto' || saved === 'manual' || saved === 'picker') {
                     modeSelect.value = saved;
                 }
@@ -2085,23 +2401,31 @@
                 modeSelect.addEventListener('change', () => {
                     const prev = modeSelect.dataset.prevMode || '';
                     const next = modeSelect.value;
-                    if (prev === 'picker' && next === 'manual') {
-                        syncGroupSlotsToTextarea();
-                    }
-                    if (next === 'picker' && prev !== 'picker') {
-                        fillSlotsFromTextarea();
-                        refreshGroupPickerUniqueOptions();
+                    applyGroupListEntryMode(next);
+                    try {
+                        if (prev === 'picker' && next === 'manual') {
+                            syncGroupSlotsToTextarea();
+                        }
+                        if (next === 'picker' && prev !== 'picker') {
+                            fillSlotsFromTextarea();
+                            document.querySelectorAll('.group-member-card').forEach((card) => {
+                                const empty = Array.from(card.querySelectorAll('.group-member-slot-input'))
+                                    .find((inp) => !(inp.value || '').trim());
+                                markTargetSlot(card, empty || card.querySelector('.group-member-slot-input'));
+                            });
+                            refreshGroupPickerUniqueOptions();
+                        }
+                    } catch (e) {
+                        console.warn('切换小组名单录入模式时附加逻辑失败', e);
                     }
                     modeSelect.dataset.prevMode = next;
-                    localStorage.setItem(storageKey, next);
-                    applyGroupListEntryMode(next);
+                    writeGroupListEntryMode(storageKey, next);
                 });
             }
             document.querySelectorAll('.group-one-save-form').forEach((form) => {
                 form.addEventListener('submit', () => {
                     const sel = document.getElementById('groupListEntryMode');
                     if (sel && sel.value === 'picker') {
-                        refreshGroupPickerUniqueOptions();
                         const card = form.querySelector('.group-member-card');
                         if (card) {
                             const textarea = card.querySelector('textarea[name="groupMembers"]');
@@ -2120,12 +2444,46 @@
             document.querySelectorAll('.group-member-picker-search').forEach((searchInput) => {
                 searchInput.addEventListener('input', () => {
                     const card = searchInput.closest('.group-member-card');
-                    applyGroupPickerSearch(card, searchInput.value);
+                    renderGroupPickerResults(card, searchInput.value);
+                });
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    const card = searchInput.closest('.group-member-card');
+                    const first = card && card.querySelector('.group-picker-results button.list-group-item-action:not(:disabled)');
+                    if (first) first.click();
                 });
             });
-            document.querySelectorAll('.group-member-slot-input').forEach((sel) => {
-                sel.addEventListener('change', () => {
-                    refreshGroupPickerUniqueOptions();
+            document.querySelectorAll('.group-slot-display').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const card = btn.closest('.group-member-card');
+                    const inp = btn.closest('.group-member-slot')?.querySelector('.group-member-slot-input');
+                    if (!card || !inp) return;
+                    markTargetSlot(card, inp);
+                    const search = card.querySelector('.group-member-picker-search');
+                    if (search) {
+                        search.focus();
+                        renderGroupPickerResults(card, search.value);
+                    }
+                });
+            });
+            document.querySelectorAll('.group-slot-clear').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const slot = btn.closest('.group-member-slot');
+                    const card = btn.closest('.group-member-card');
+                    const inp = slot && slot.querySelector('.group-member-slot-input');
+                    if (!inp) return;
+                    setGroupSlotValue(inp, '');
+                    markTargetSlot(card, inp);
+                    const search = card && card.querySelector('.group-member-picker-search');
+                    renderGroupPickerResults(card, search ? search.value : '');
+                });
+            });
+            document.querySelectorAll('.group-one-save-form').forEach((form) => {
+                form.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && e.target && e.target.matches('input.group-member-picker-search')) {
+                        e.preventDefault();
+                    }
                 });
             });
             refreshGroupPickerUniqueOptions();
@@ -2888,6 +3246,199 @@
         })();
 
         document.addEventListener('DOMContentLoaded', () => {
+            (function restoreDetailSection() {
+                const params = new URLSearchParams(window.location.search);
+                const section = params.get('section');
+                if (!section) return;
+                const show = (btnId) => {
+                    const btn = document.getElementById(btnId);
+                    if (btn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+                        bootstrap.Tab.getOrCreateInstance(btn).show();
+                    } else if (btn) {
+                        btn.click();
+                    }
+                };
+                if (section === 'group-overall') {
+                    show('detail-group-overall-tab');
+                } else if (section === 'matches') {
+                    show('detail-matches-tab');
+                    const groupId = params.get('groupId');
+                    if (groupId) {
+                        show('match-tab-btn-match-tab-group-' + groupId);
+                    }
+                } else if (section === 'ranking-priority') {
+                    show('detail-main-tab');
+                    const panel = document.getElementById('tournamentRankingPriorityCollapse');
+                    if (panel && typeof bootstrap !== 'undefined' && bootstrap.Collapse) {
+                        bootstrap.Collapse.getOrCreateInstance(panel, { toggle: false }).show();
+                    } else if (panel) {
+                        panel.classList.add('show');
+                    }
+                    document.getElementById('tournamentRankingPriorityCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            })();
+
+            (function groupRankTieModeSelects() {
+                const csrfInput = document.querySelector('input[name="_csrf"]');
+                const csrfToken = csrfInput ? csrfInput.value : '';
+                const csrfHeaders = () => {
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (csrfToken) headers['X-CSRF-TOKEN'] = csrfToken;
+                    const xsrf = document.cookie.split(';').map(s => s.trim()).find(s => s.startsWith('XSRF-TOKEN='));
+                    if (xsrf) headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrf.substring('XSRF-TOKEN='.length));
+                    return headers;
+                };
+                document.querySelectorAll('.group-rank-tie-mode-select').forEach((sel) => {
+                    sel.addEventListener('change', async () => {
+                        const tournamentId = sel.dataset.tournamentId;
+                        const groupId = sel.dataset.groupId;
+                        const mode = sel.value;
+                        if (!tournamentId || !groupId) return;
+                        sel.disabled = true;
+                        try {
+                            const res = await fetch(
+                                '/tournament/group-ranking/tie-mode/' + encodeURIComponent(tournamentId) + '/' + encodeURIComponent(groupId),
+                                { method: 'POST', headers: csrfHeaders(), body: JSON.stringify({ mode }) }
+                            );
+                            const data = await res.json();
+                            if (!data.success) {
+                                if (typeof showAlert === 'function') showAlert(data.message || '保存失败', 'danger');
+                                else alert(data.message || '保存失败');
+                                sel.disabled = false;
+                                return;
+                            }
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('section', 'matches');
+                            url.searchParams.set('groupId', groupId);
+                            window.location.href = url.toString();
+                        } catch (e) {
+                            if (typeof showAlert === 'function') showAlert(e.message || '保存失败', 'danger');
+                            else alert(e.message || '保存失败');
+                            sel.disabled = false;
+                        }
+                    });
+                });
+            })();
+
+            (function tournamentRankingPriorityEditor() {
+                const candidateList = document.getElementById('tournamentCandidateList');
+                const queueList = document.getElementById('tournamentQueueList');
+                const saveBtn = document.getElementById('saveTournamentPriorityBtn');
+                if (!candidateList || !queueList || !saveBtn || typeof Sortable === 'undefined') return;
+
+                const candidateCount = document.getElementById('tournamentCandidateCount');
+                const queueCount = document.getElementById('tournamentQueueCount');
+                const saveAlert = document.getElementById('tournamentPriorityAlert');
+                const clearBtn = document.getElementById('clearTournamentPriorityBtn');
+                const csrfInput = document.querySelector('input[name="_csrf"]');
+                const csrfToken = csrfInput ? csrfInput.value : '';
+                const csrfHeader = 'X-CSRF-TOKEN';
+                const card = document.getElementById('tournamentRankingPriorityCard');
+                const tournamentId = card && card.dataset.tournamentId ? card.dataset.tournamentId : '';
+                if (!tournamentId) return;
+
+                function itemLabel(li) {
+                    return li.dataset.label || '';
+                }
+
+                function refreshRanks() {
+                    [...queueList.querySelectorAll('li')].forEach((li, i) => {
+                        let badge = li.querySelector('.priority-rank');
+                        if (!badge) {
+                            const wrap = document.createElement('span');
+                            badge = document.createElement('span');
+                            badge.className = 'badge bg-dark me-2 priority-rank';
+                            const strong = document.createElement('strong');
+                            strong.textContent = itemLabel(li);
+                            const code = document.createElement('span');
+                            code.className = 'text-muted small ms-1';
+                            code.textContent = li.dataset.code || '';
+                            wrap.appendChild(badge);
+                            wrap.appendChild(strong);
+                            wrap.appendChild(code);
+                            const old = li.querySelector('span');
+                            if (old) old.remove();
+                            li.insertBefore(wrap, li.firstChild);
+                        }
+                        badge.textContent = String(i + 1);
+                    });
+                    [...candidateList.querySelectorAll('li')].forEach(li => {
+                        const badge = li.querySelector('.priority-rank');
+                        if (badge) badge.remove();
+                    });
+                    if (candidateCount) candidateCount.textContent = String(candidateList.querySelectorAll('li').length);
+                    if (queueCount) queueCount.textContent = String(queueList.querySelectorAll('li').length);
+                }
+
+                function showAlert(ok, msg) {
+                    if (!saveAlert) return;
+                    saveAlert.classList.remove('d-none', 'alert-success', 'alert-danger');
+                    saveAlert.classList.add(ok ? 'alert-success' : 'alert-danger');
+                    saveAlert.textContent = msg;
+                }
+
+                function csrfHeaders() {
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (csrfToken) headers[csrfHeader] = csrfToken;
+                    const xsrf = document.cookie.split(';').map(s => s.trim()).find(s => s.startsWith('XSRF-TOKEN='));
+                    if (xsrf) headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrf.substring('XSRF-TOKEN='.length));
+                    return headers;
+                }
+
+                new Sortable(candidateList, { group: 'tournament-ranking-priority', animation: 150, onSort: refreshRanks });
+                new Sortable(queueList, { group: 'tournament-ranking-priority', animation: 150, onSort: refreshRanks });
+                refreshRanks();
+
+                saveBtn.addEventListener('click', async () => {
+                    const orderedCriterionCodes = [...queueList.querySelectorAll('li')]
+                        .map(li => li.dataset.code)
+                        .filter(Boolean);
+                    saveBtn.disabled = true;
+                    try {
+                        const res = await fetch('/tournament/ranking-priority/save/' + encodeURIComponent(tournamentId), {
+                            method: 'POST',
+                            headers: csrfHeaders(),
+                            body: JSON.stringify({ orderedCriterionCodes })
+                        });
+                        const data = await res.json();
+                        showAlert(!!data.success, data.message || (data.success ? '已保存' : '保存失败'));
+                        if (data.success) setTimeout(() => {
+                            const url = new URL(window.location.href);
+                            url.searchParams.set('section', 'ranking-priority');
+                            window.location.href = url.toString();
+                        }, 600);
+                    } catch (e) {
+                        showAlert(false, '保存失败：' + (e && e.message ? e.message : e));
+                    } finally {
+                        saveBtn.disabled = false;
+                    }
+                });
+
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', async () => {
+                        if (!confirm('取消本届独立优先级，改回跟随系列/全局默认？不影响场次数据。')) return;
+                        clearBtn.disabled = true;
+                        try {
+                            const res = await fetch('/tournament/ranking-priority/clear/' + encodeURIComponent(tournamentId), {
+                                method: 'POST',
+                                headers: csrfHeaders()
+                            });
+                            const data = await res.json();
+                            showAlert(!!data.success, data.message || (data.success ? '已恢复' : '操作失败'));
+                            if (data.success) setTimeout(() => {
+                                const url = new URL(window.location.href);
+                                url.searchParams.set('section', 'ranking-priority');
+                                window.location.href = url.toString();
+                            }, 600);
+                        } catch (e) {
+                            showAlert(false, '操作失败：' + (e && e.message ? e.message : e));
+                        } finally {
+                            clearBtn.disabled = false;
+                        }
+                    });
+                }
+            })();
+
             // 显示帮助信息的toast函数
             window.showHelpToast = function(button) {
                 const helpText = button.getAttribute('data-help-text');
@@ -3098,6 +3649,25 @@
                 });
             }
             document.getElementById('koViewModeHintBtn')?.addEventListener('click', showKoViewModeToast);
+
+            const copyShortPathBtn = document.getElementById('copyShortPathBtn');
+            if (copyShortPathBtn) {
+                copyShortPathBtn.addEventListener('click', async () => {
+                    const path = copyShortPathBtn.getAttribute('data-short-path');
+                    if (!path || path === '#') return;
+                    const url = window.location.origin + path;
+                    try {
+                        if (typeof copyPlainTextToClipboardWithButton === 'function') {
+                            await copyPlainTextToClipboardWithButton(url, { button: copyShortPathBtn });
+                        } else {
+                            await navigator.clipboard.writeText(url);
+                            alert('已复制：' + url);
+                        }
+                    } catch (e) {
+                        alert('复制失败：' + url);
+                    }
+                });
+            }
 
             document.querySelectorAll('[data-bs-toggle="pill"][data-bs-target^="#match-tab-"]').forEach((tabBtn) => {
                 tabBtn.addEventListener('shown.bs.tab', () => {

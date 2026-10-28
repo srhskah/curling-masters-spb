@@ -147,7 +147,7 @@ public class HomeController {
         model.addAttribute("openRegistrationTournamentIds", openRegistrationTournamentIds);
 
         // 首页入口：当前赛季 / 当前系列
-        model.addAttribute("currentSeasonEntryUrl", currentSeason != null ? ("/season/detail/" + currentSeason.getId()) : null);
+        model.addAttribute("currentSeasonEntryUrl", currentSeason != null ? tournamentUrlService.seasonDetailUrl(currentSeason) : null);
         model.addAttribute("currentSeasonEntryName", currentSeason != null
                 ? (currentSeason.getYear() + "年" + (currentSeason.getHalf() == 1 ? "上半年" : "下半年"))
                 : null);
@@ -172,7 +172,7 @@ public class HomeController {
             }
         }
         model.addAttribute("currentSeriesName", currentSeriesName);
-        model.addAttribute("currentSeriesEntryUrl", currentSeries != null ? ("/season/detail/by-series/" + currentSeries.getId()) : null);
+        model.addAttribute("currentSeriesEntryUrl", currentSeries != null ? tournamentUrlService.seasonDetailBySeriesUrl(currentSeries.getId()) : null);
 
         List<Tournament> currentSeriesOngoing = List.of();
         List<Tournament> currentSeriesRegistration = List.of();
@@ -233,7 +233,7 @@ public class HomeController {
             row.put("seriesName", seriesName);
             row.put("seasonLabel", seasonLabel);
             row.put("isTestSeries", isTestSeries);
-            row.put("entryUrl", "/season/detail/by-series/" + sid);
+            row.put("entryUrl", tournamentUrlService.seasonDetailBySeriesUrl(sid));
             row.put("tournaments", ts);
             activeSeriesRows.add(row);
         }
@@ -418,7 +418,7 @@ public class HomeController {
         out.put("seriesId", earliest.getId());
         out.put("seriesName", seriesName);
         out.put("seasonLabel", seasonLabel);
-        out.put("entryUrl", "/season/detail/by-series/" + earliest.getId());
+        out.put("entryUrl", tournamentUrlService.seasonDetailBySeriesUrl(earliest.getId()));
         return out;
     }
 

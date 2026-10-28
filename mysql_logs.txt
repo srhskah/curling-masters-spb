@@ -1,0 +1,88 @@
+mysql-1  | 2026-10-26 10:05:32+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:32+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:05:32+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:32+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:05:32+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:32+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:05:32+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:33+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:05:33+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:33+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:05:33+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:33+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:05:34+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:34+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:05:34+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:34+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:05:35+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:35+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:05:35+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:35+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:05:37+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:37+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:05:37+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:37+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:05:40+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:40+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:05:40+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:40+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:05:47+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:47+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:05:47+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:05:47+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:06:00+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:06:00+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:06:00+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:06:00+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:06:26+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:06:26+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:06:26+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:06:26+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
+mysql-1  | 2026-10-26 10:07:18+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:07:18+08:00 [Note] [Entrypoint]: Switching to dedicated user 'mysql'
+mysql-1  | 2026-10-26 10:07:18+08:00 [Note] [Entrypoint]: Entrypoint script for MySQL Server 8.0.45-1.el9 started.
+mysql-1  | 2026-10-26 10:07:19+08:00 [ERROR] [Entrypoint]: Database is uninitialized and password option is not specified
+mysql-1  |     You need to specify one of the following as an environment variable:
+mysql-1  |     - MYSQL_ROOT_PASSWORD
+mysql-1  |     - MYSQL_ALLOW_EMPTY_PASSWORD
+mysql-1  |     - MYSQL_RANDOM_ROOT_PASSWORD
