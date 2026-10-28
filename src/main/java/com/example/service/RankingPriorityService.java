@@ -7,7 +7,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 排名参考优先级：全局有序「决胜项」队列，按系列开关在小组赛排名中生效。
+ * 排名参考优先级：全局有序「决胜项」队列，按系列开关作为默认；
+ * 单届赛事可独立覆盖，不影响其他赛事。
  */
 public interface RankingPriorityService {
 
@@ -29,11 +30,26 @@ public interface RankingPriorityService {
     boolean applyToNewSeries();
 
     /**
-     * 系列已启用且已配置队列时返回决胜顺序；未启用返回 null（沿用代码默认顺序）。
+     * 本届已独立覆盖则用本届队列；否则系列已启用且已配置队列时返回全局决胜顺序；
+     * 未启用返回 null（沿用代码默认顺序）。
      */
     List<RankingCriterion> criteriaOrderForTournament(Long tournamentId);
 
     List<RankingCriterion> criteriaOrderForSeries(Long seriesId);
+
+    boolean hasTournamentOverride(Long tournamentId);
+
+    /**
+     * 赛事详情编辑器：queue / candidates / override。
+     * 未覆盖时队列展示当前生效顺序（系列队列或代码默认），保存后才写入本届。
+     */
+    Map<String, Object> editorStateForTournament(Long tournamentId);
+
+    /** 仅写入本届队列，不改全局队列与其他赛事。 */
+    void saveTournamentQueue(Long tournamentId, List<String> orderedCriterionCodes);
+
+    /** 取消本届覆盖，恢复跟随系列/全局默认。 */
+    void clearTournamentOverride(Long tournamentId);
 
     /** 启用自定义优先级时，应显示的数据列代码集合；未启用返回 null（全部显示） */
     Set<String> visibleColumnCodesForTournament(Long tournamentId);

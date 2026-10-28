@@ -100,7 +100,7 @@
                                             </div>
 
                                             <div class="mt-3 d-flex flex-wrap gap-2 generic-list-actions">
-                                                <a th:href="@{/season/detail/{id}(id=${season.id})}"
+                                                <a th:href="${@tournamentUrls.seasonDetailUrl(season)}"
                                                    class="btn btn-sm btn-outline-info">
                                                     <i class="bi bi-eye"></i> 详情
                                                 </a>
@@ -145,7 +145,7 @@
                                 <td th:text="${season.half == 1 ? '上半年' : '下半年'}"></td>
                                     <td th:text="${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy-MM-dd HH:mm') : '-'}"></td>
                                     <td>
-                                        <a th:href="@{/season/detail/{id}(id=${season.id})}"
+                                        <a th:href="${@tournamentUrls.seasonDetailUrl(season)}"
                                            class="btn btn-sm btn-outline-info me-1">
                                             <i class="bi bi-eye"></i> 详情
                                         </a>

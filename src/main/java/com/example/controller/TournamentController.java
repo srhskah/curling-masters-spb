@@ -481,7 +481,7 @@ public class TournamentController {
         model.addAttribute("pageTitle", "添加赛事");
         model.addAttribute("pageIcon", "bi bi-trophy");
         model.addAttribute("saveUrl", returnSeasonId != null ? "/tournament/save?returnSeasonId=" + returnSeasonId : "/tournament/save");
-        model.addAttribute("backUrl", returnSeasonId != null ? "/season/detail/" + returnSeasonId : "/tournament/list");
+        model.addAttribute("backUrl", returnSeasonId != null ? tournamentUrlService.seasonDetailUrl(returnSeasonId) : "/tournament/list");
         Tournament formData = new Tournament();
         formData.setSeriesId(seriesId);
         model.addAttribute("formData", formData);
@@ -716,7 +716,7 @@ public class TournamentController {
         model.addAttribute("pageTitle", "编辑赛事");
         model.addAttribute("pageIcon", "bi bi-trophy");
         model.addAttribute("saveUrl", returnSeasonId != null ? "/tournament/save?returnSeasonId=" + returnSeasonId : "/tournament/save");
-        model.addAttribute("backUrl", returnSeasonId != null ? "/season/detail/" + returnSeasonId : "/tournament/list");
+        model.addAttribute("backUrl", returnSeasonId != null ? tournamentUrlService.seasonDetailUrl(returnSeasonId) : "/tournament/list");
         model.addAttribute("formData", tournament);
         model.addAttribute("fields", fields);
         model.addAttribute("clientIp", clientIp);
@@ -864,7 +864,7 @@ public class TournamentController {
                 notificationService.sendSystemNotification(title, markdown, "TOURNAMENT_ONGOING", tournament.getId());
             }
             
-            return returnSeasonId != null ? "redirect:/season/detail/" + returnSeasonId : "redirect:/tournament/list";
+            return returnSeasonId != null ? "redirect:" + tournamentUrlService.seasonDetailUrl(returnSeasonId) : "redirect:/tournament/list";
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("error", "操作失败：" + e.getMessage());
             return tournament.getId() == null ? "redirect:/tournament/add" : "redirect:/tournament/edit/" + tournament.getId();
@@ -903,6 +903,12 @@ public class TournamentController {
         if (tournament == null) {
             return "redirect:/tournament/list";
         }
+        String compact = TournamentUrlService.compactCode(year, half, seriesSequence);
+        if (compact != null && tournament.getLevelCode() != null) {
+            String q = request != null ? request.getQueryString() : null;
+            return "redirect:/tnd/" + compact + "/" + TournamentUrlService.encodeLevel(tournament.getLevelCode().trim())
+                    + (q != null && !q.isBlank() ? "?" + q : "");
+        }
         return renderTournamentDetail(tournament.getId(), model, request);
     }
 
@@ -916,7 +922,7 @@ public class TournamentController {
         return renderTournamentDetail(id, model, request);
     }
 
-    private String renderTournamentDetail(Long id, Model model, HttpServletRequest request) {
+    public String renderTournamentDetail(Long id, Model model, HttpServletRequest request) {
         String clientIp = IpAddressUtil.getClientIpAddress(request);
         String ipType = IpAddressUtil.classifyIpAddress(clientIp);
         model.addAttribute("clientIp", clientIp);
@@ -926,6 +932,7 @@ public class TournamentController {
         if (tournament == null) {
             return "redirect:/tournament/list";
         }
+        model.addAttribute("shortDetailPath", tournamentUrlService.shortDetailUrl(tournament));
         
         Series series = seriesService.getById(tournament.getSeriesId());
         Season season = series != null ? seasonService.getById(series.getSeasonId()) : null;
@@ -1332,6 +1339,18 @@ public class TournamentController {
         model.addAttribute("isAdmin", admin);
         model.addAttribute("isSuperAdmin", superAdmin);
         model.addAttribute("isHost", isHost);
+        boolean canEditRankingPriority = superAdmin || admin || isHost;
+        model.addAttribute("canEditRankingPriority", canEditRankingPriority);
+        if (canEditRankingPriority) {
+            Map<String, Object> rankingPriorityEditor = rankingPriorityService.editorStateForTournament(id);
+            model.addAttribute("rankingPriorityOverride", rankingPriorityEditor.get("override"));
+            model.addAttribute("rankingPriorityQueue", rankingPriorityEditor.get("queue"));
+            model.addAttribute("rankingPriorityCandidates", rankingPriorityEditor.get("candidates"));
+        } else {
+            model.addAttribute("rankingPriorityOverride", false);
+            model.addAttribute("rankingPriorityQueue", List.of());
+            model.addAttribute("rankingPriorityCandidates", List.of());
+        }
         model.addAttribute("currentUser", currentUser);
         java.time.LocalDateTime nowReg = java.time.LocalDateTime.now();
         model.addAttribute("registrationOpen", tournamentRegistrationService.isRegistrationOpen(tournament, nowReg));
@@ -1379,6 +1398,7 @@ public class TournamentController {
                     : ((competitionConfig.getParticipantCount() != null && groupSize > 0)
                     ? (competitionConfig.getParticipantCount() / groupSize) : 0);
             Map<Long, List<Integer>> groupMemberSlotIndexesByGroupId = new LinkedHashMap<>();
+            List<List<Integer>> groupMemberSlotIndexesList = new ArrayList<>();
             for (int gi = 0; gi < groups.size(); gi++) {
                 int cap = groupLayout != null ? groupLayout.capacityAt(gi) : groupSize;
                 List<Integer> slots = new ArrayList<>();
@@ -1386,8 +1406,10 @@ public class TournamentController {
                     slots.add(i);
                 }
                 groupMemberSlotIndexesByGroupId.put(groups.get(gi).getId(), slots);
+                groupMemberSlotIndexesList.add(slots);
             }
             model.addAttribute("groupMemberSlotIndexesByGroupId", groupMemberSlotIndexesByGroupId);
+            model.addAttribute("groupMemberSlotIndexesList", groupMemberSlotIndexesList);
             model.addAttribute("groupLayout", groupLayout);
             // 兼容旧模板引用：取最大席位数
             int maxSlots = groupMemberSlotIndexesByGroupId.values().stream().mapToInt(List::size).max().orElse(groupSize);
@@ -1520,6 +1542,8 @@ public class TournamentController {
             boolean allowDrawForPseudo = competitionConfig == null || !Boolean.FALSE.equals(competitionConfig.getGroupAllowDraw());
             int regularSetsForPseudo = (competitionConfig != null && competitionConfig.getGroupStageSets() != null && competitionConfig.getGroupStageSets() > 0)
                     ? competitionConfig.getGroupStageSets() : 8;
+            model.addAttribute("uniqueSameWdlTieByGroupId",
+                    groupRankingCalculator.uniqueSameWdlTieFlagsByGroupId(groupRankingByGroupId));
             groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
                     groups, groupRankingByGroupId, groupMatchesOnly, scoresByMatchId, Map.of(), usernameById,
                     allowDrawForPseudo, regularSetsForPseudo, rankingPriority);
@@ -1558,9 +1582,11 @@ public class TournamentController {
             model.addAttribute("allUsersForGroupPick", List.of());
             model.addAttribute("groupMemberSlotIndexes", List.of());
             model.addAttribute("groupMemberSlotIndexesByGroupId", Map.of());
+            model.addAttribute("groupMemberSlotIndexesList", List.of());
             model.addAttribute("groupLayout", null);
             model.addAttribute("groupMatchCards", Map.of());
             model.addAttribute("groupRankingByGroupId", Map.of());
+            model.addAttribute("uniqueSameWdlTieByGroupId", Map.of());
             model.addAttribute("groupOverallRanking", List.of());
             model.addAttribute("rankingPriorityVisibleColumns",
                     rankingPriorityService.visibleColumnCodesForTournament(id));
@@ -2370,6 +2396,186 @@ public class TournamentController {
             redirectAttributes.addFlashAttribute("error", "刷新排名失败：" + e.getMessage());
         }
         return tournamentUrlService.redirectDetail(tournamentId);
+    }
+
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @PostMapping("/ranking-priority/save/{tournamentId}")
+    @ResponseBody
+    public Map<String, Object> saveTournamentRankingPriority(@PathVariable Long tournamentId,
+                                                             @RequestBody Map<String, Object> body) {
+        try {
+            if (!isAdmin() && !isHostUser(tournamentId)) {
+                return Map.of("success", false, "message", "您没有权限调整本届排名优先级");
+            }
+            List<String> orderedCodes = toStringList(body.get("orderedCriterionCodes"));
+            rankingPriorityService.saveTournamentQueue(tournamentId, orderedCodes);
+            Map<String, Object> ok = new LinkedHashMap<>();
+            ok.put("success", true);
+            ok.put("message", "本届排名参考优先级已保存，不影响其他赛事。请在小组排名处一键重算以按新顺序刷新名次（场次数据保留）。");
+            ok.put("queueSize", orderedCodes.size());
+            return ok;
+        } catch (Exception e) {
+            return Map.of("success", false, "message", e.getMessage() == null ? "保存失败" : e.getMessage());
+        }
+    }
+
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @PostMapping("/ranking-priority/clear/{tournamentId}")
+    @ResponseBody
+    public Map<String, Object> clearTournamentRankingPriority(@PathVariable Long tournamentId) {
+        try {
+            if (!isAdmin() && !isHostUser(tournamentId)) {
+                return Map.of("success", false, "message", "您没有权限调整本届排名优先级");
+            }
+            rankingPriorityService.clearTournamentOverride(tournamentId);
+            return Map.of("success", true, "message", "已取消本届独立优先级，重新跟随系列/全局默认。");
+        } catch (Exception e) {
+            return Map.of("success", false, "message", e.getMessage() == null ? "操作失败" : e.getMessage());
+        }
+    }
+
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @PostMapping("/group-ranking/recompute-all/{tournamentId}")
+    public String recomputeAllGroupRankings(@PathVariable Long tournamentId, RedirectAttributes redirectAttributes) {
+        try {
+            if (!isAdmin() && !isHostUser(tournamentId)) {
+                redirectAttributes.addFlashAttribute("error", "您没有权限重算小组排名");
+                return tournamentUrlService.redirectDetail(tournamentId);
+            }
+            int groups = countGroupRankingsRecomputed(tournamentId, null);
+            redirectAttributes.addFlashAttribute("success",
+                    "已按本届当前优先级重算全部 " + groups + " 个小组排名（及总排名）；未改动任何场次与比分。");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "重算失败：" + e.getMessage());
+        }
+        return tournamentUrlService.redirectDetail(tournamentId, "section=group-overall");
+    }
+
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @PostMapping("/group-ranking/recompute/{tournamentId}/{groupId}")
+    public String recomputeOneGroupRanking(@PathVariable Long tournamentId,
+                                           @PathVariable Long groupId,
+                                           RedirectAttributes redirectAttributes) {
+        try {
+            if (!isAdmin() && !isHostUser(tournamentId)) {
+                redirectAttributes.addFlashAttribute("error", "您没有权限重算小组排名");
+                return tournamentUrlService.redirectDetail(tournamentId);
+            }
+            countGroupRankingsRecomputed(tournamentId, groupId);
+            TournamentGroup g = tournamentGroupMapper.selectById(groupId);
+            String name = g != null && g.getGroupName() != null ? g.getGroupName() : "该组";
+            redirectAttributes.addFlashAttribute("success",
+                    "已按本届当前优先级重算 " + name + " 排名；未改动任何场次与比分。");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "重算失败：" + e.getMessage());
+        }
+        return tournamentUrlService.redirectDetail(tournamentId, "section=matches&groupId=" + groupId);
+    }
+
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN') or @tournamentController.isHostUser(#tournamentId)")
+    @PostMapping("/group-ranking/tie-mode/{tournamentId}/{groupId}")
+    @ResponseBody
+    public Map<String, Object> saveGroupRankTieMode(@PathVariable Long tournamentId,
+                                                    @PathVariable Long groupId,
+                                                    @RequestBody Map<String, Object> body) {
+        try {
+            if (!isAdmin() && !isHostUser(tournamentId)) {
+                return Map.of("success", false, "message", "您没有权限调整该组同分排名依据");
+            }
+            if (tournamentId == null || groupId == null) {
+                return Map.of("success", false, "message", "参数不完整");
+            }
+            TournamentGroup group = tournamentGroupMapper.selectById(groupId);
+            if (group == null || !Objects.equals(group.getTournamentId(), tournamentId)) {
+                return Map.of("success", false, "message", "小组不存在或不属于本赛事");
+            }
+            String raw = body == null || body.get("mode") == null ? "" : String.valueOf(body.get("mode")).trim();
+            String mode;
+            if ("GROUP".equalsIgnoreCase(raw)) {
+                mode = "GROUP";
+            } else if ("PSEUDO".equalsIgnoreCase(raw) || raw.isEmpty()) {
+                mode = "PSEUDO";
+            } else {
+                return Map.of("success", false, "message", "无效的排名依据");
+            }
+            group.setRankTieMode(mode);
+            tournamentGroupMapper.updateById(group);
+            Map<String, Object> ok = new LinkedHashMap<>();
+            ok.put("success", true);
+            ok.put("mode", mode);
+            ok.put("message", "GROUP".equals(mode)
+                    ? "已改为以当前小组内数据作为排名依据"
+                    : "已改为单独拆出伪小组，按伪小组排名逻辑");
+            return ok;
+        } catch (Exception e) {
+            return Map.of("success", false, "message", e.getMessage() == null ? "保存失败" : e.getMessage());
+        }
+    }
+
+    /**
+     * 按当前本届优先级根据已有场次重算小组排名（只读计算，不写场次/局分）。
+     * @return 参与重算的小组数
+     */
+    private int countGroupRankingsRecomputed(Long tournamentId, Long onlyGroupId) {
+        Tournament tournament = tournamentService.getById(tournamentId);
+        if (tournament == null) {
+            throw new IllegalStateException("赛事不存在");
+        }
+        TournamentCompetitionConfig cfg = tournamentCompetitionService.getConfig(tournamentId);
+        if (cfg == null || cfg.getMatchMode() == null || cfg.getMatchMode() != 3) {
+            throw new IllegalStateException("当前赛制没有小组赛排名可重算");
+        }
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tournamentId)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        if (onlyGroupId != null) {
+            groups = groups.stream().filter(g -> Objects.equals(g.getId(), onlyGroupId)).toList();
+            if (groups.isEmpty()) {
+                throw new IllegalArgumentException("小组不存在或不属于本赛事");
+            }
+        }
+        if (groups.isEmpty()) {
+            throw new IllegalStateException("尚未创建小组");
+        }
+        List<TournamentGroupMember> members = tournamentGroupMemberMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentGroupMember>lambdaQuery()
+                        .eq(TournamentGroupMember::getTournamentId, tournamentId));
+        Map<Long, List<Long>> memberIdsByGroup = members.stream().collect(Collectors.groupingBy(
+                TournamentGroupMember::getGroupId, LinkedHashMap::new,
+                Collectors.mapping(TournamentGroupMember::getUserId, Collectors.toList())));
+        List<Match> groupMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .list();
+        List<Long> mids = groupMatches.stream().map(Match::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<SetScore>> setByMatch = mids.isEmpty() ? Map.of() : setScoreService.lambdaQuery()
+                .in(SetScore::getMatchId, mids)
+                .orderByAsc(SetScore::getSetNumber)
+                .list()
+                .stream().collect(Collectors.groupingBy(SetScore::getMatchId, LinkedHashMap::new, Collectors.toList()));
+        Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
+        groupRankingCalculator.buildGroupRankingsByMemberIds(
+                groups, memberIdsByGroup, uname, groupMatches, setByMatch, cfg, rankingPriority);
+        return groups.size();
+    }
+
+    private static List<String> toStringList(Object raw) {
+        if (!(raw instanceof List<?> list)) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (Object o : list) {
+            if (o == null) {
+                continue;
+            }
+            String s = String.valueOf(o).trim();
+            if (!s.isEmpty()) {
+                out.add(s);
+            }
+        }
+        return out;
     }
 
     /**

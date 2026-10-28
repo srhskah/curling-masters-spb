@@ -12,9 +12,12 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/match")
@@ -75,108 +78,10 @@ public class MatchController {
         model.addAttribute("clientIp", clientIp);
         model.addAttribute("ipType", ipType);
         
-        List<Match> matches;
-        if (tournamentId != null) {
-            matches = matchService.lambdaQuery()
-                .eq(Match::getTournamentId, tournamentId)
-                .orderByAsc(Match::getRound)
-                .list();
-        } else {
-            matches = matchService.list();
-        }
-        
-        // 修复：使用Map来存储额外信息，而不是直接调用不存在的set方法
-        List<Map<String, Object>> matchInfoList = new ArrayList<>();
-        for (Match m : matches) {
-            Map<String, Object> matchInfo = new HashMap<>();
-            matchInfo.put("match", m);
-            
-            Tournament tournament = tournamentService.getById(m.getTournamentId());
-            if (tournament != null) {
-                Series series = seriesService.getById(tournament.getSeriesId());
-                Season season = series != null ? seasonService.getById(series.getSeasonId()) : null;
-                matchInfo.put("tournamentName", (season != null ? season.getYear() + "年" : "") + 
-                    (tournament.getLevelCode() != null ? tournament.getLevelCode() : ""));
-                matchInfo.put("seriesId", tournament.getSeriesId());
-                matchInfo.put("isHost", isHostUser(tournament.getId()));
-            }
-            User player1 = userService.getById(m.getPlayer1Id());
-            User player2 = userService.getById(m.getPlayer2Id());
-            matchInfo.put("player1Name", player1 != null ? player1.getUsername() : "待定");
-            matchInfo.put("player2Name", player2 != null ? player2.getUsername() : "待定");
-            
-            matchInfoList.add(matchInfo);
-        }
-        
         User currentUser = getCurrentUser();
         boolean admin = isAdmin();
         boolean superAdmin = isSuperAdmin();
-        
-        // 构建通用列表数据
         List<Map<String, Object>> dataList = new ArrayList<>();
-        for (Map<String, Object> matchInfo : matchInfoList) {
-            Match match = (Match) matchInfo.get("match");
-            String tournamentName = (String) matchInfo.get("tournamentName");
-            String player1Name = (String) matchInfo.get("player1Name");
-            String player2Name = (String) matchInfo.get("player2Name");
-            Boolean isHost = (Boolean) matchInfo.get("isHost");
-            
-            Map<String, Object> item = new HashMap<>();
-            
-            // 构建状态徽章
-            String statusBadge = "";
-            switch (match.getStatus()) {
-                case 0:
-                    statusBadge = "<span class=\"badge bg-secondary\">未开始</span>";
-                    break;
-                case 1:
-                    statusBadge = "<span class=\"badge bg-primary\">进行中</span>";
-                    break;
-                case 2:
-                    statusBadge = "<span class=\"badge bg-success\">已结束</span>";
-                    break;
-                case 3:
-                    statusBadge = "<span class=\"badge bg-danger\">退赛</span>";
-                    break;
-            }
-            
-            // 构建比赛显示
-            String matchDisplay = HtmlEscaper.escapeHtml(player1Name) + " vs " + HtmlEscaper.escapeHtml(player2Name);
-            if (match.getWinnerId() != null && match.getWinnerId().equals(match.getPlayer1Id())) {
-                matchDisplay += " <span class=\"text-success\">(" + HtmlEscaper.escapeHtml(player1Name) + "胜)</span>";
-            } else if (match.getWinnerId() != null && match.getWinnerId().equals(match.getPlayer2Id())) {
-                matchDisplay += " <span class=\"text-success\">(" + HtmlEscaper.escapeHtml(player2Name) + "胜)</span>";
-            }
-            
-            // 构建时间显示
-            String timeStr = "";
-            if (match.getScheduledTime() != null) {
-                timeStr = match.getScheduledTime().toLocalDate() + " " + match.getScheduledTime().toLocalTime();
-            } else {
-                timeStr = "-";
-            }
-            
-            // 构建创建时间显示
-            String createTimeStr = match.getCreateTime() != null ? 
-                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(match.getCreateTime()) : "-";
-            
-            item.put("data", Arrays.asList(
-                match.getId(),
-                "<strong>" + HtmlEscaper.escapeHtml(tournamentName) + "</strong>",
-                match.getCategory() != null ? match.getCategory() : "-",
-                match.getRound() != null ? "第" + match.getRound() + "场" : "-",
-                matchDisplay,
-                statusBadge,
-                timeStr,
-                createTimeStr
-            ));
-            item.put("filters", Map.of("status", match.getStatus()));
-            item.put("id", match.getId());
-            item.put("player1Name", player1Name);
-            item.put("player2Name", player2Name);
-
-            dataList.add(item);
-        }
         
         // 构建列配置
         List<Map<String, Object>> columns = new ArrayList<>();
@@ -211,6 +116,7 @@ public class MatchController {
         model.addAttribute("isAdmin", admin);
         model.addAttribute("isSuperAdmin", superAdmin);
         model.addAttribute("currentUser", currentUser);
+        model.addAttribute("remoteListUrl", "/match/list-page");
         model.addAttribute("customScript", """
 (() => {
   let modal;
@@ -418,6 +324,62 @@ public class MatchController {
 """);
         
         return "generic-list";
+    }
+
+    @GetMapping("/list-page")
+    @ResponseBody
+    public Map<String, Object> matchListPage(@RequestParam(required = false) Long tournamentId,
+                                             @RequestParam(required = false) Integer page,
+                                             @RequestParam(required = false) Integer size,
+                                             @RequestParam(required = false) String q,
+                                             @RequestParam(required = false) String category,
+                                             @RequestParam(required = false) Integer status,
+                                             @RequestParam(required = false) Integer round) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        try {
+            int pageNo = page == null || page < 1 ? 1 : page;
+            int pageSize = size == null ? 20 : size;
+            if (pageSize < 1) {
+                pageSize = 10;
+            }
+            if (pageSize > 100) {
+                pageSize = 100;
+            }
+            Byte statusByte = null;
+            if (status != null && status >= 0 && status <= 3) {
+                statusByte = status.byteValue();
+            }
+            LambdaQueryWrapper<Match> countW = buildMatchListWrapper(tournamentId, q, category, statusByte, round);
+            long total = matchService.count(countW);
+            long pages = total <= 0 ? 1 : ((total + pageSize - 1) / pageSize);
+            if (pageNo > pages) {
+                pageNo = (int) pages;
+            }
+            int offset = (pageNo - 1) * pageSize;
+            LambdaQueryWrapper<Match> pageW = buildMatchListWrapper(tournamentId, q, category, statusByte, round);
+            pageW.last("LIMIT " + offset + "," + pageSize);
+            List<Match> matches = matchService.list(pageW);
+            if (matches == null) {
+                matches = List.of();
+            }
+            out.put("success", true);
+            out.put("total", total);
+            out.put("page", pageNo);
+            out.put("size", pageSize);
+            out.put("pages", pages);
+            out.put("items", toMatchListItems(matches));
+            out.put("facets", matchListFacets(tournamentId));
+            return out;
+        } catch (Exception e) {
+            out.put("success", false);
+            out.put("message", e.getMessage() == null ? "加载失败" : e.getMessage());
+            out.put("total", 0);
+            out.put("page", 1);
+            out.put("size", 20);
+            out.put("pages", 1);
+            out.put("items", List.of());
+            return out;
+        }
     }
 
     @GetMapping("/detail/{id}")
@@ -835,5 +797,244 @@ public class MatchController {
             redirectAttributes.addFlashAttribute("error", "保存失败：" + e.getMessage());
             return "redirect:/match/score/" + matchId;
         }
+    }
+
+    private LambdaQueryWrapper<Match> buildMatchListWrapper(Long tournamentId, String q, String category,
+                                                            Byte status, Integer round) {
+        LambdaQueryWrapper<Match> w = Wrappers.lambdaQuery();
+        if (tournamentId != null) {
+            w.eq(Match::getTournamentId, tournamentId);
+        }
+        if (category != null && !category.isBlank() && !"-".equals(category.trim())) {
+            w.eq(Match::getCategory, category.trim());
+        }
+        if (status != null) {
+            w.eq(Match::getStatus, status);
+        }
+        if (round != null && round > 0) {
+            w.eq(Match::getRound, round);
+        }
+        String kw = q == null ? "" : q.trim();
+        if (!kw.isEmpty()) {
+            List<Long> userIds = userService.lambdaQuery()
+                    .like(User::getUsername, kw)
+                    .select(User::getId)
+                    .list()
+                    .stream()
+                    .map(User::getId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            List<Long> tournamentIds = new ArrayList<>();
+            List<Tournament> tHits = tournamentService.lambdaQuery()
+                    .like(Tournament::getLevelCode, kw)
+                    .list();
+            if (tHits != null) {
+                for (Tournament t : tHits) {
+                    if (t != null && t.getId() != null) {
+                        tournamentIds.add(t.getId());
+                    }
+                }
+            }
+            Long parsedId = null;
+            try {
+                parsedId = Long.parseLong(kw);
+            } catch (NumberFormatException ignored) {
+                parsedId = null;
+            }
+            final Long idEq = parsedId;
+            w.and(x -> {
+                x.like(Match::getCategory, kw);
+                if (idEq != null) {
+                    x.or().eq(Match::getId, idEq);
+                }
+                if (userIds != null && !userIds.isEmpty()) {
+                    x.or().in(Match::getPlayer1Id, userIds);
+                    x.or().in(Match::getPlayer2Id, userIds);
+                }
+                if (!tournamentIds.isEmpty()) {
+                    x.or().in(Match::getTournamentId, tournamentIds);
+                }
+            });
+        }
+        w.orderByDesc(Match::getId);
+        return w;
+    }
+
+    private List<Map<String, Object>> toMatchListItems(List<Match> matches) {
+        if (matches == null || matches.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> tIds = new HashSet<>();
+        Set<Long> uIds = new HashSet<>();
+        for (Match m : matches) {
+            if (m == null) {
+                continue;
+            }
+            if (m.getTournamentId() != null) {
+                tIds.add(m.getTournamentId());
+            }
+            if (m.getPlayer1Id() != null) {
+                uIds.add(m.getPlayer1Id());
+            }
+            if (m.getPlayer2Id() != null) {
+                uIds.add(m.getPlayer2Id());
+            }
+        }
+        Map<Long, Tournament> tMap = tIds.isEmpty() ? Map.of() : tournamentService.listByIds(tIds).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Tournament::getId, t -> t, (a, b) -> a));
+        Set<Long> seriesIds = tMap.values().stream().map(Tournament::getSeriesId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, Series> sMap = seriesIds.isEmpty() ? Map.of() : seriesService.listByIds(seriesIds).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Series::getId, s -> s, (a, b) -> a));
+        Set<Long> seasonIds = sMap.values().stream().map(Series::getSeasonId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, Season> seasonMap = seasonIds.isEmpty() ? Map.of() : seasonService.listByIds(seasonIds).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+        Map<Long, String> uname = uIds.isEmpty() ? Map.of() : userService.listByIds(uIds).stream()
+                .filter(u -> u != null && u.getId() != null)
+                .collect(Collectors.toMap(User::getId, u -> u.getUsername() == null ? "待定" : u.getUsername(), (a, b) -> a));
+
+        List<Map<String, Object>> dataList = new ArrayList<>();
+        for (Match match : matches) {
+            if (match == null) {
+                continue;
+            }
+            Tournament tournament = match.getTournamentId() == null ? null : tMap.get(match.getTournamentId());
+            String tournamentName = "";
+            if (tournament != null) {
+                Series series = tournament.getSeriesId() == null ? null : sMap.get(tournament.getSeriesId());
+                Season season = series != null && series.getSeasonId() != null ? seasonMap.get(series.getSeasonId()) : null;
+                tournamentName = (season != null ? season.getYear() + "年" : "")
+                        + (tournament.getLevelCode() != null ? tournament.getLevelCode() : "");
+            }
+            String player1Name = uname.getOrDefault(match.getPlayer1Id(), "待定");
+            String player2Name = uname.getOrDefault(match.getPlayer2Id(), "待定");
+            dataList.add(toMatchListItem(match, tournamentName, player1Name, player2Name));
+        }
+        return dataList;
+    }
+
+    private Map<String, Object> toMatchListItem(Match match, String tournamentName, String player1Name, String player2Name) {
+        Map<String, Object> item = new HashMap<>();
+        String statusBadge = "<span class=\"badge bg-secondary\">未开始</span>";
+        Byte st = match.getStatus();
+        if (st != null && st == 1) {
+            statusBadge = "<span class=\"badge bg-primary\">进行中</span>";
+        } else if (st != null && st == 2) {
+            statusBadge = "<span class=\"badge bg-success\">已结束</span>";
+        } else if (st != null && st == 3) {
+            statusBadge = "<span class=\"badge bg-danger\">退赛</span>";
+        }
+        String matchDisplay = HtmlEscaper.escapeHtml(player1Name) + " vs " + HtmlEscaper.escapeHtml(player2Name);
+        if (match.getWinnerId() != null && Objects.equals(match.getWinnerId(), match.getPlayer1Id())) {
+            matchDisplay += " <span class=\"text-success\">(" + HtmlEscaper.escapeHtml(player1Name) + "胜)</span>";
+        } else if (match.getWinnerId() != null && Objects.equals(match.getWinnerId(), match.getPlayer2Id())) {
+            matchDisplay += " <span class=\"text-success\">(" + HtmlEscaper.escapeHtml(player2Name) + "胜)</span>";
+        }
+        String timeStr = match.getScheduledTime() != null
+                ? (match.getScheduledTime().toLocalDate() + " " + match.getScheduledTime().toLocalTime())
+                : "-";
+        String createTimeStr = match.getCreateTime() != null
+                ? java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").format(match.getCreateTime())
+                : "-";
+        item.put("data", Arrays.asList(
+                match.getId(),
+                "<strong>" + HtmlEscaper.escapeHtml(tournamentName == null ? "" : tournamentName) + "</strong>",
+                match.getCategory() != null ? match.getCategory() : "-",
+                match.getRound() != null ? "第" + match.getRound() + "场" : "-",
+                matchDisplay,
+                statusBadge,
+                timeStr,
+                createTimeStr
+        ));
+        item.put("filters", Map.of("status", match.getStatus() == null ? 0 : match.getStatus()));
+        item.put("id", match.getId());
+        item.put("player1Name", player1Name);
+        item.put("player2Name", player2Name);
+        return item;
+    }
+
+    private Map<String, Object> matchListFacets(Long tournamentId) {
+        Map<String, Object> facets = new LinkedHashMap<>();
+        List<Map<String, Object>> statuses = List.of(
+                Map.of("value", "0", "text", "未开始"),
+                Map.of("value", "1", "text", "进行中"),
+                Map.of("value", "2", "text", "已结束"),
+                Map.of("value", "3", "text", "退赛")
+        );
+        facets.put("statuses", statuses);
+        LambdaQueryWrapper<Match> catW = Wrappers.lambdaQuery();
+        if (tournamentId != null) {
+            catW.eq(Match::getTournamentId, tournamentId);
+        }
+        catW.select(Match::getCategory).isNotNull(Match::getCategory).groupBy(Match::getCategory);
+        List<String> categories = new ArrayList<>();
+        try {
+            List<Match> catRows = matchService.list(catW);
+            if (catRows != null) {
+                for (Match m : catRows) {
+                    if (m != null && m.getCategory() != null && !m.getCategory().isBlank() && !categories.contains(m.getCategory())) {
+                        categories.add(m.getCategory());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            categories = List.of();
+        }
+        Collections.sort(categories);
+        facets.put("categories", categories);
+
+        LambdaQueryWrapper<Match> rndW = Wrappers.lambdaQuery();
+        if (tournamentId != null) {
+            rndW.eq(Match::getTournamentId, tournamentId);
+        }
+        rndW.select(Match::getRound).isNotNull(Match::getRound).groupBy(Match::getRound);
+        List<Integer> rounds = new ArrayList<>();
+        try {
+            List<Match> rndRows = matchService.list(rndW);
+            if (rndRows != null) {
+                for (Match m : rndRows) {
+                    if (m != null && m.getRound() != null && !rounds.contains(m.getRound())) {
+                        rounds.add(m.getRound());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            rounds = List.of();
+        }
+        Collections.sort(rounds);
+        facets.put("rounds", rounds);
+
+        List<Map<String, Object>> tournaments = new ArrayList<>();
+        if (tournamentId == null) {
+            List<Tournament> allT = tournamentService.list();
+            if (allT != null) {
+                Set<Long> sIds = allT.stream().map(Tournament::getSeriesId).filter(Objects::nonNull).collect(Collectors.toSet());
+                Map<Long, Series> sMap = sIds.isEmpty() ? Map.of() : seriesService.listByIds(sIds).stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toMap(Series::getId, s -> s, (a, b) -> a));
+                Set<Long> seasonIds = sMap.values().stream().map(Series::getSeasonId).filter(Objects::nonNull).collect(Collectors.toSet());
+                Map<Long, Season> seasonMap = seasonIds.isEmpty() ? Map.of() : seasonService.listByIds(seasonIds).stream()
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+                for (Tournament t : allT) {
+                    if (t == null || t.getId() == null) {
+                        continue;
+                    }
+                    Series series = t.getSeriesId() == null ? null : sMap.get(t.getSeriesId());
+                    Season season = series != null && series.getSeasonId() != null ? seasonMap.get(series.getSeasonId()) : null;
+                    String name = (season != null ? season.getYear() + "年" : "")
+                            + (t.getLevelCode() != null ? t.getLevelCode() : ("赛事" + t.getId()));
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("value", String.valueOf(t.getId()));
+                    row.put("text", name);
+                    tournaments.add(row);
+                }
+            }
+        }
+        facets.put("tournaments", tournaments);
+        return facets;
     }
 }

@@ -21,6 +21,8 @@ public class Tournament {
     private String competitionRuleType; // 赛制规则类型：NORMAL-正常5壶保护制，CUSTOM-自定义
     private Integer customCenterLineLimit; // 自定义不允许磕中线壶的数量（0-16）
     private Integer customDeadStoneLimit; // 自定义不允许打成死壶的数量（0-16）
+    /** 为 true 时使用本届独立决胜项队列，不再跟随系列/全局默认 */
+    private Boolean rankingPriorityOverride;
     
     @TableField("created_at")
     private LocalDateTime createdAt;

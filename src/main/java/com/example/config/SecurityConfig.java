@@ -85,6 +85,7 @@ public class SecurityConfig {
                         "/h2h", "/h2h/**",
                         "/season/list", "/season/detail/**",
                         "/tournament/list", "/tournament/detail/**",
+                        "/tnd/**",
                         "/user/login", "/user/register", "/user/change-password", "/user/forgot-password",
                         "/css/**", "/js/**", "/images/**"
                 ).permitAll()

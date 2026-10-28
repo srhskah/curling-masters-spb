@@ -35,9 +35,17 @@
                         <i class="bi bi-calendar3"></i>
                         <span th:text="${season.year + '年' + (season.half == 1 ? '上半年' : '下半年')}"></span>
                     </h5>
-                    <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-light btn-sm"
+                                id="copySeasonShortPathBtn"
+                                th:if="${shortSeasonPath != null and shortSeasonPath != '#'}"
+                                th:attr="data-short-path=${shortSeasonPath}"
+                                title="复制当前域名下的短网址">
+                            <i class="bi bi-link-45deg"></i>
+                            <span>生成短路径</span>
+                        </button>
                         <a th:if="${isAdmin}" th:href="@{/season/edit/{id}(id=${season.id})}" 
-                           class="btn btn-light btn-sm me-2">
+                           class="btn btn-light btn-sm">
                             <i class="bi bi-pencil"></i> 编辑赛季
                         </a>
                         <a href="/season/management" class="btn btn-outline-light btn-sm">
@@ -134,9 +142,9 @@
 
                             <!-- 上一个 / 下一个（任何用户可用） -->
                             <div class="mt-2 d-flex justify-content-between align-items-center gap-2 series-prev-next-bar"
-                                 th:attr="data-prev-url=${prevSeasonLastSeriesId != null ? ('/season/detail/by-series/' + prevSeasonLastSeriesId) : ''},
+                                 th:attr="data-prev-url=${prevSeasonUrl},
                                           data-prev-label=${prevSeasonLastSeriesLabel != null ? prevSeasonLastSeriesLabel : ''},
-                                          data-next-url=${nextSeasonFirstSeriesId != null ? ('/season/detail/by-series/' + nextSeasonFirstSeriesId) : ''},
+                                          data-next-url=${nextSeasonUrl},
                                           data-next-label=${nextSeasonFirstSeriesLabel != null ? nextSeasonFirstSeriesLabel : ''}">
                                 <button type="button" class="btn btn-link p-0 text-decoration-none series-prev-btn text-start" style="max-width: 48%;">
                                     ⬅️ <span class="series-prev-label text-primary"></span>
@@ -392,9 +400,9 @@
 
                                 <!-- 上一个 / 下一个（任何用户可用） -->
                                 <div class="mt-2 d-flex justify-content-between align-items-center gap-2 series-prev-next-bar"
-                                     th:attr="data-prev-url=${prevSeasonLastSeriesId != null ? ('/season/detail/by-series/' + prevSeasonLastSeriesId) : ''},
+                                     th:attr="data-prev-url=${prevSeasonUrl},
                                               data-prev-label=${prevSeasonLastSeriesLabel != null ? prevSeasonLastSeriesLabel : ''},
-                                              data-next-url=${nextSeasonFirstSeriesId != null ? ('/season/detail/by-series/' + nextSeasonFirstSeriesId) : ''},
+                                              data-next-url=${nextSeasonUrl},
                                               data-next-label=${nextSeasonFirstSeriesLabel != null ? nextSeasonFirstSeriesLabel : ''}">
                                     <button type="button" class="btn btn-link p-0 text-decoration-none series-prev-btn text-start" style="max-width: 48%;">
                                         ⬅️<span class="series-prev-label text-primary"></span>
@@ -1032,6 +1040,25 @@
             document.querySelectorAll('.series-exportpdf-btn').forEach((btn) => {
                 btn.addEventListener('click', () => handleExportSeriesSummaryPdf());
             });
+
+            const copySeasonShortPathBtn = document.getElementById('copySeasonShortPathBtn');
+            if (copySeasonShortPathBtn) {
+                copySeasonShortPathBtn.addEventListener('click', async () => {
+                    const path = copySeasonShortPathBtn.getAttribute('data-short-path');
+                    if (!path || path === '#') return;
+                    const url = window.location.origin + path;
+                    try {
+                        if (typeof copyPlainTextToClipboardWithButton === 'function') {
+                            await copyPlainTextToClipboardWithButton(url, { button: copySeasonShortPathBtn });
+                        } else {
+                            await navigator.clipboard.writeText(url);
+                            alert('已复制：' + url);
+                        }
+                    } catch (e) {
+                        alert('复制失败：' + url);
+                    }
+                });
+            }
 
             document.querySelectorAll('.tournament-copy-btn').forEach((btn) => {
                 btn.addEventListener('click', async () => {

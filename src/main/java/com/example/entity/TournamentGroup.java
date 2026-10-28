@@ -18,6 +18,12 @@ public class TournamentGroup {
     private Long tournamentId;
     private String groupName;
     private Integer groupOrder;
+    /**
+     * 唯一 ≥3 人同分且胜平负相同时的排名依据：
+     * {@code PSEUDO}=拆伪小组（默认）；{@code GROUP}=用完整小组数据。
+     */
+    @TableField("rank_tie_mode")
+    private String rankTieMode;
     @TableField("created_at")
     private LocalDateTime createdAt;
 }

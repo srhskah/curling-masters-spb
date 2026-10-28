@@ -1,8 +1,8 @@
 plugins {
 	id 'java'
 	id 'war'
-	id 'org.springframework.boot' version '3.1.10'   // Downgraded for MyBatis-Plus compatibility
-    id 'io.spring.dependency-management' version '1.1.4' // 配套版本
+	id 'org.springframework.boot' version '3.4.0'   // Downgraded for MyBatis-Plus compatibility
+    id 'io.spring.dependency-management' version '1.1.7' // 配套版本
 	id 'com.qqviaja.gradle.MybatisGenerator' version '2.5'
 }
 
@@ -57,10 +57,10 @@ dependencies {
 	implementation 'org.flywaydb:flyway-mysql'
     
     // MyBatis-Plus 完整 starter（包含 extension、core 等所有模块）
-    implementation 'com.baomidou:mybatis-plus-boot-starter:3.5.7'
+    implementation 'com.baomidou:mybatis-plus-spring-boot3-starter:3.5.12'
 
 	// 仅用于代码生成，不会影响运行时
-	implementation 'com.baomidou:mybatis-plus-generator:3.5.7'
+	implementation 'com.baomidou:mybatis-plus-generator:3.5.12'
 	implementation 'org.apache.velocity:velocity-engine-core:2.3' // 模板引擎
     
     // Lombok（JDK 21 下显式版本 + 显式 processor 配置，避免 getter/setter 丢失）
@@ -75,6 +75,7 @@ dependencies {
     testRuntimeOnly 'com.h2database:h2'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:mysql'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 sourceSets {

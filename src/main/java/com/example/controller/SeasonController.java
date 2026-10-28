@@ -11,6 +11,7 @@ import com.example.service.SeriesService;
 import com.example.service.TournamentService;
 import com.example.service.ITournamentRegistrationService;
 import com.example.service.RankingService;
+import com.example.service.TournamentUrlService;
 import com.example.entity.Series;
 import com.example.entity.Tournament;
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,6 +59,9 @@ public class SeasonController {
     @Autowired
     private ITournamentRegistrationService tournamentRegistrationService;
 
+    @Autowired
+    private TournamentUrlService tournamentUrlService;
+
     /**
      * 赛季与赛事等级管理页面（统一管理入口）
      */
@@ -87,19 +91,48 @@ public class SeasonController {
     }
     
     /**
-     * 赛季详情页面（按赛事系列呈现该赛季历届赛事）
+     * 赛季详情：{@code /season/detail/{year}/{half}}（half：1=上半年，2=下半年）。
+     */
+    @GetMapping("/detail/{year:\\d{4}}/{half:[12]}")
+    public String seasonDetailByKey(@PathVariable int year,
+                                    @PathVariable int half,
+                                    @RequestParam(required = false) Long seriesId,
+                                    Model model,
+                                    HttpServletRequest request) {
+        Season season = seasonService.lambdaQuery()
+                .eq(Season::getYear, year)
+                .eq(Season::getHalf, half)
+                .one();
+        if (season == null) {
+            return "redirect:/season/list";
+        }
+        return renderSeasonDetail(season, seriesId, model, request);
+    }
+
+    /**
+     * 兼容旧链接 /season/detail/{id} → /season/detail/{year}/{half}
      */
     @GetMapping("/detail/{id}")
     public String seasonDetail(@PathVariable Long id,
                                @RequestParam(required = false) Long seriesId,
                                Model model,
                                HttpServletRequest request) {
-        // 获取赛季信息
         Season season = seasonService.getById(id);
         if (season == null) {
             return "redirect:/season/management";
         }
+        String pretty = tournamentUrlService.seasonDetailUrl(season);
+        if (pretty != null && !pretty.equals("#") && !pretty.equals("/season/detail/" + id)) {
+            String q = request != null ? request.getQueryString() : null;
+            return "redirect:" + pretty + (q != null && !q.isBlank() ? "?" + q : "");
+        }
+        return renderSeasonDetail(season, seriesId, model, request);
+    }
+
+    private String renderSeasonDetail(Season season, Long seriesId, Model model, HttpServletRequest request) {
+        Long id = season.getId();
         model.addAttribute("season", season);
+        model.addAttribute("shortSeasonPath", tournamentUrlService.seasonDetailUrl(season));
         
         // 获取该赛季的所有系列赛事
         List<Series> seriesList = seriesService.lambdaQuery()
@@ -181,6 +214,10 @@ public class SeasonController {
         model.addAttribute("prevSeasonLastSeriesLabel", prevSeasonLastSeriesLabel);
         model.addAttribute("nextSeasonFirstSeriesId", nextSeasonFirstSeriesId);
         model.addAttribute("nextSeasonFirstSeriesLabel", nextSeasonFirstSeriesLabel);
+        model.addAttribute("prevSeasonUrl", prevSeasonLastSeriesId != null
+                ? tournamentUrlService.seasonDetailBySeriesUrl(prevSeasonLastSeriesId) : "");
+        model.addAttribute("nextSeasonUrl", nextSeasonFirstSeriesId != null
+                ? tournamentUrlService.seasonDetailBySeriesUrl(nextSeasonFirstSeriesId) : "");
 
         // 默认展示：本赛季最新系列（sequence 最大）；若传入 seriesId，则优先展示该系列
         Long latestSeriesId = seriesList.stream()
@@ -319,7 +356,7 @@ public class SeasonController {
             redirectAttributes.addFlashAttribute("error", "系列不存在或未绑定赛季");
             return "redirect:/series/list";
         }
-        return "redirect:/season/detail/" + series.getSeasonId() + "?seriesId=" + seriesId;
+        return "redirect:" + tournamentUrlService.seasonDetailUrl(series.getSeasonId(), seriesId);
     }
     
     /**
@@ -354,6 +391,7 @@ public class SeasonController {
             filters.put("status", 0); // 默认状态
             item.put("filters", filters);
             item.put("id", season.getId());
+            item.put("detailUrl", tournamentUrlService.seasonDetailUrl(season));
             
             dataList.add(item);
         }
@@ -369,7 +407,7 @@ public class SeasonController {
         
         // 构建操作按钮
         List<Map<String, Object>> actions = new ArrayList<>();
-        actions.add(Map.of("urlPrefix", "/season/detail/", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情", "public", true));
+        actions.add(Map.of("urlField", "detailUrl", "urlPrefix", "/season/detail/", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情", "public", true));
         actions.add(Map.of("urlPrefix", "/season/edit/", "btnClass", "btn btn-sm btn-outline-warning", "icon", "bi bi-pencil", "text", "编辑"));
         actions.add(Map.of("urlPrefix", "/season/delete/", "method", "post", "btnClass", "btn btn-sm btn-outline-danger", "icon", "bi bi-trash", "text", "删除", "confirm", "确定要删除这个赛季吗？"));
         

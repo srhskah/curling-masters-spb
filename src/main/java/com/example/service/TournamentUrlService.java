@@ -12,9 +12,11 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * 赛事页面友好 URL：{@code /{year}/{half}/{seriesSequence}/{levelCode}}。
+ * 赛事 / 赛季友好 URL。
  * <p>
- * 半年度：1=上半年，2=下半年；系列为赛季内 sequence；等级为 {@code level_code}。
+ * 赛事详情短路径：{@code /tnd/{YY}{half两位}{系列sequence两位}/{levelCode}}，
+ * 例如 {@code /tournament/detail/2026/2/5/CM250} → {@code /tnd/260205/CM250}。
+ * 赛季详情：{@code /season/detail/{year}/{half}}（half：1=上半年，2=下半年）。
  */
 @Component("tournamentUrls")
 public class TournamentUrlService {
@@ -30,6 +32,50 @@ public class TournamentUrlService {
         public String toPath() {
             return year + "/" + half + "/" + seriesSequence + "/" + encodeLevel(levelCode);
         }
+
+        /** 可编码为 6 位短码时返回 {@code /tnd/YYHHSS/level}，否则 null。 */
+        public String toCompactPath() {
+            String code = compactCode(year, half, seriesSequence);
+            if (code == null || levelCode == null || levelCode.isBlank()) {
+                return null;
+            }
+            return "/tnd/" + code + "/" + encodeLevel(levelCode);
+        }
+    }
+
+    /** 短码解析结果：完整四位年份 + 半年 + 系列序号。 */
+    public record CompactParts(int year, int half, int seriesSequence) {
+    }
+
+    /**
+     * 6 位短码：年份后两位 + 半年两位（01/02）+ 系列序号两位。
+     * 仅支持 2000–2099 年、半年 1–2、序号 0–99。
+     */
+    public static String compactCode(int year, int half, int seriesSequence) {
+        if (year < 2000 || year > 2099 || half < 1 || half > 2
+                || seriesSequence < 0 || seriesSequence > 99) {
+            return null;
+        }
+        return String.format("%02d%02d%02d", year % 100, half, seriesSequence);
+    }
+
+    public static CompactParts parseCompact(String code) {
+        if (code == null || code.length() != 6) {
+            return null;
+        }
+        for (int i = 0; i < 6; i++) {
+            char c = code.charAt(i);
+            if (c < '0' || c > '9') {
+                return null;
+            }
+        }
+        int yy = Integer.parseInt(code.substring(0, 2));
+        int half = Integer.parseInt(code.substring(2, 4));
+        int seq = Integer.parseInt(code.substring(4, 6));
+        if (half < 1 || half > 2) {
+            return null;
+        }
+        return new CompactParts(2000 + yy, half, seq);
     }
 
     public static String encodeLevel(String levelCode) {
@@ -93,12 +139,41 @@ public class TournamentUrlService {
         return list.get(0);
     }
 
-    public String detailUrl(Tournament tournament) {
+    public Tournament resolveCompact(String compact, String levelCode) {
+        CompactParts parts = parseCompact(compact);
+        if (parts == null) {
+            return null;
+        }
+        return resolve(parts.year(), parts.half(), parts.seriesSequence(), levelCode);
+    }
+
+    public String prettyDetailUrl(Tournament tournament) {
         PathKey key = pathKey(tournament);
         if (key == null && tournament != null && tournament.getId() != null) {
             return "/tournament/detail/" + tournament.getId();
         }
         return key == null ? "#" : "/tournament/detail/" + key.toPath();
+    }
+
+    /** 优先 6 位短路径；无法压缩时回退到长友好路径。 */
+    public String detailUrl(Tournament tournament) {
+        PathKey key = pathKey(tournament);
+        if (key != null) {
+            String compact = key.toCompactPath();
+            if (compact != null) {
+                return compact;
+            }
+            return "/tournament/detail/" + key.toPath();
+        }
+        if (tournament != null && tournament.getId() != null) {
+            return "/tournament/detail/" + tournament.getId();
+        }
+        return "#";
+    }
+
+    /** 与 {@link #detailUrl(Tournament)} 相同：供页面「生成短路径」复制。 */
+    public String shortDetailUrl(Tournament tournament) {
+        return detailUrl(tournament);
     }
 
     public String detailUrl(Long tournamentId) {
@@ -220,5 +295,46 @@ public class TournamentUrlService {
         }
         String q = request != null ? request.getQueryString() : null;
         return "redirect:" + prettyUrl + (q != null && !q.isBlank() ? "?" + q : "");
+    }
+
+    public String seasonDetailUrl(Season season) {
+        if (season == null) {
+            return "#";
+        }
+        if (season.getYear() != null && season.getHalf() != null
+                && season.getHalf() >= 1 && season.getHalf() <= 2) {
+            return "/season/detail/" + season.getYear() + "/" + season.getHalf();
+        }
+        return season.getId() != null ? "/season/detail/" + season.getId() : "#";
+    }
+
+    public String seasonDetailUrl(Long seasonId) {
+        if (seasonId == null) {
+            return "#";
+        }
+        Season season = seasonService.getById(seasonId);
+        if (season == null) {
+            return "/season/detail/" + seasonId;
+        }
+        return seasonDetailUrl(season);
+    }
+
+    public String seasonDetailUrl(Long seasonId, Long seriesId) {
+        String base = seasonDetailUrl(seasonId);
+        if (seriesId == null || "#".equals(base)) {
+            return base;
+        }
+        return base + "?seriesId=" + seriesId;
+    }
+
+    public String seasonDetailBySeriesUrl(Long seriesId) {
+        if (seriesId == null) {
+            return "#";
+        }
+        Series series = seriesService.getById(seriesId);
+        if (series == null || series.getSeasonId() == null) {
+            return "/season/detail/by-series/" + seriesId;
+        }
+        return seasonDetailUrl(series.getSeasonId(), seriesId);
     }
 }
