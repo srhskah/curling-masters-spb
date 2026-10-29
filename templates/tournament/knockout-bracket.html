@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${pageTitle})}"></head>
+<body th:classappend="${ipBgClass}" th:attr="data-tournament-id=${tournament.id}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: success-alert}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+
+<div class="container mt-4 mb-5">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h4 class="mb-0">
+            <i class="bi bi-trophy"></i>
+            <span th:text="${tournament.levelCode}">赛事</span> — 淘汰赛对阵图
+        </h4>
+        <div class="d-flex flex-wrap gap-2">
+            <a th:href="${@tournamentUrls.detailUrl(tournament)}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> 返回赛事详情
+            </a>
+        </div>
+    </div>
+
+    <div class="alert alert-info small" th:if="${bracketData != null and (bracketData.hasQualifiers or bracketData.hasRound16 or bracketData.hasRound8 or bracketData.hasRound4 or bracketData.hasFinal)}">
+        <strong>当前阶段：</strong>
+        <span th:if="${bracketData.currentRoundLabel != null}" th:text="${bracketData.currentRoundLabel}">-</span>
+        <span th:if="${bracketData.currentRoundLabel == null}">尚未开始</span>
+        <span th:if="${bracketData.totalMatchCount > 0}"
+              th:text="${' · 已决出 ' + bracketData.decidedMatchCount + '/' + bracketData.totalMatchCount + ' 场'}"></span>
+    </div>
+    <div class="alert alert-secondary small"
+         th:if="${bracketData == null or (!bracketData.hasQualifiers and !bracketData.hasRound16 and !bracketData.hasRound8 and !bracketData.hasRound4 and !bracketData.hasFinal)}">
+        暂无淘汰赛对阵数据，请先在赛事详情中生成淘汰赛。
+    </div>
+
+    <div class="ko-bracket-root card border-0 shadow-sm p-3 p-md-4"
+         th:if="${bracketData != null and (bracketData.hasQualifiers or bracketData.hasRound16 or bracketData.hasRound8 or bracketData.hasRound4 or bracketData.hasFinal)}"
+         th:attr="data-fetch-url=@{/tournament/competition/knockout-bracket-data/{id}(id=${tournament.id})},data-export-title=|${tournament.levelCode} 淘汰赛对阵图|">
+    </div>
+</div>
+
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<th:block th:replace="~{fragments-group-match-score-modal :: groupMatchScoreModalAndSignature}"></th:block>
+<link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=12}">
+<script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
+<script th:src="@{/js/knockout-bracket-view.js?v=14}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const root = document.querySelector('.ko-bracket-root');
+        if (root && window.KnockoutBracketView) {
+            window.KnockoutBracketView.ensure(root);
+        }
+    });
+</script>
+</body>
+</html>

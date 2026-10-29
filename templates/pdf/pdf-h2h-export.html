@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">H2H 交手记录</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 12mm;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: "WenQuanYi Micro Hei", "WenQuanYi Zen Hei", "Noto Emoji", "DejaVu Sans", sans-serif;
+            font-size: 12px;
+            color: #111;
+        }
+        h2 { margin: 0 0 4px; font-size: 16px; }
+        h3 { margin: 12px 0 6px; font-size: 13px; font-weight: 700; }
+        .muted { color: #666; }
+        .meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 12px;
+        }
+        .logo {
+            width: 28.6%;
+            max-width: 220px;
+            min-width: 120px;
+            height: auto;
+        }
+        .stats-grid {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .stats-grid tr td {
+            border: 1px solid #eee;
+            padding: 6px 8px;
+            width: 33.33%;
+            vertical-align: top;
+        }
+        .stats-grid .lbl { font-size: 11px; color: #666; }
+        .stats-grid .val { font-weight: 700; font-size: 13px; margin-top: 2px; }
+        /* 与 pdf-user-match-performance / fragments-pdf-match-performance 单场块一致 */
+        .match-block { border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 10px; page-break-inside: avoid; }
+        .match-title { font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+        .score-matrix td:first-child, .score-matrix th:first-child { text-align: left; white-space: nowrap; min-width: 120px; }
+        .hammer-mark {
+            font-family: "Noto Emoji","Noto Sans Symbols 2","DejaVu Sans","WenQuanYi Micro Hei","WenQuanYi Zen Hei",sans-serif;
+            font-weight: 400;
+        }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: auto; }
+        th, td { border: 1px solid #ddd; padding: 5px 7px; text-align: center; vertical-align: middle; }
+        th { background: #f3f3f3; }
+        .sig-cell { width: 32%; text-align: center; }
+        .sig-img {
+            max-width: 88%;
+            max-height: 56px;
+            width: auto;
+            height: 56px;
+            object-fit: contain;
+            display: inline-block;
+            border-bottom: 1px solid #bbb;
+            padding: 0 2px 2px 2px;
+        }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">H2H 交手记录</h2>
+        <div class="muted" th:if="${subtitle != null}" th:text="${subtitle}">副标题</div>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<div th:if="${statsIntro != null}" class="muted" style="margin-bottom:8px;" th:text="${statsIntro}">统计说明</div>
+
+<table class="stats-grid" th:if="${stats != null}">
+    <tr>
+        <td>
+            <div class="lbl">胜 / 平 / 负</div>
+            <div class="val" th:text="|${stats.wins} / ${stats.draws} / ${stats.losses}|">0 / 0 / 0</div>
+        </td>
+        <td>
+            <div class="lbl">总得分</div>
+            <div class="val" th:text="${stats.totalFor}">0</div>
+        </td>
+        <td>
+            <div class="lbl">总失分</div>
+            <div class="val" th:text="${stats.totalAgainst}">0</div>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <div class="lbl">历史单局最高分</div>
+            <div class="val" th:text="${stats.maxSingleEndScore}">0</div>
+        </td>
+        <td>
+            <div class="lbl">偷分次数</div>
+            <div class="val" th:text="${stats.stealEnds}">0</div>
+        </td>
+        <td>
+            <div class="lbl">历史单局（偷分）最高分</div>
+            <div class="val" th:text="${stats.maxStealSingleEnd}">0</div>
+        </td>
+    </tr>
+</table>
+
+<h3>场次明细（逐场局分与单场 PDF 相同）</h3>
+<div th:if="${matchDetails == null or #lists.isEmpty(matchDetails)}" class="muted">暂无场次数据</div>
+<th:block th:each="m : ${matchDetails}">
+    <div th:replace="~{pdf/fragments-pdf-match-performance :: matchBlock(m=${m})}"></div>
+</th:block>
+</body>
+</html>
