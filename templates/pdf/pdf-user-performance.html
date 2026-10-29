@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">战绩导出</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        h2 { margin: 0; font-size: 16px; }
+        h3 { margin: 14px 0 6px; font-size: 13px; }
+        .muted { color: #666; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 14px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        table { width: 100%; border-collapse: collapse; table-layout: auto; margin-top: 6px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; vertical-align: middle; text-align: center; }
+        th { background: #f3f3f3; }
+        .counted { background: #e8f5e9; font-weight: 700; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">战绩导出</h2>
+        <div class="muted" th:text="${'选手：' + username}">选手</div>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<div class="muted" th:text="${'常规Top10累计：' + regularTop10Sum + ' 分；决赛/年终累计：' + finalsSum + ' 分；合计：' + totalPoints + ' 分'}"></div>
+
+<h3>常规系列（Top10 已标记）</h3>
+<table>
+    <thead>
+    <tr>
+        <th>赛季</th>
+        <th>系列</th>
+        <th>积分</th>
+        <th>标记</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="r : ${regularSeries}">
+        <td th:text="${r.seasonLabel}"></td>
+        <td th:text="${r.seriesName}"></td>
+        <td th:classappend="${r.countedInTop10 ? ' counted' : ''}" th:text="${r.points}"></td>
+        <td th:text="${r.countedInTop10 ? 'Top10' : ''}"></td>
+    </tr>
+    <tr th:if="${regularSeries == null or #lists.isEmpty(regularSeries)}">
+        <td colspan="4" class="muted" style="text-align:center;">暂无常规系列数据</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>赛季总决赛 / 年终总决赛</h3>
+<table>
+    <thead>
+    <tr>
+        <th>赛季</th>
+        <th>系列</th>
+        <th>赛事</th>
+        <th>积分</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="f : ${finals}">
+        <td th:text="${f.seasonLabel}"></td>
+        <td th:text="${f.seriesName}"></td>
+        <td th:text="${f.levelName}"></td>
+        <td th:text="${f.points}"></td>
+    </tr>
+    <tr th:if="${finals == null or #lists.isEmpty(finals)}">
+        <td colspan="4" class="muted" style="text-align:center;">无决赛/年终数据</td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">战绩导出</title>
+    <style>
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        h2 { margin: 0; font-size: 16px; }
+        h3 { margin: 14px 0 6px; font-size: 13px; }
+        .muted { color: #666; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 14px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        table { width: 100%; border-collapse: collapse; table-layout: auto; margin-top: 6px; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; vertical-align: middle; text-align: center; }
+        th { background: #f3f3f3; }
+        .counted { background: #e8f5e9; font-weight: 700; }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">战绩导出</h2>
+        <div class="muted" th:text="${'选手：' + username}">选手</div>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<div class="muted" th:text="${'常规Top10累计：' + regularTop10Sum + ' 分；决赛/年终累计：' + finalsSum + ' 分；合计：' + totalPoints + ' 分'}"></div>
+
+<h3>常规系列（Top10 已标记）</h3>
+<table>
+    <thead>
+    <tr>
+        <th>赛季</th>
+        <th>系列</th>
+        <th>积分</th>
+        <th>标记</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="r : ${regularSeries}">
+        <td th:text="${r.seasonLabel}"></td>
+        <td th:text="${r.seriesName}"></td>
+        <td th:classappend="${r.countedInTop10 ? ' counted' : ''}" th:text="${r.points}"></td>
+        <td th:text="${r.countedInTop10 ? 'Top10' : ''}"></td>
+    </tr>
+    <tr th:if="${regularSeries == null or #lists.isEmpty(regularSeries)}">
+        <td colspan="4" class="muted" style="text-align:center;">暂无常规系列数据</td>
+    </tr>
+    </tbody>
+</table>
+
+<h3>赛季总决赛 / 年终总决赛</h3>
+<table>
+    <thead>
+    <tr>
+        <th>赛季</th>
+        <th>系列</th>
+        <th>赛事</th>
+        <th>积分</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="f : ${finals}">
+        <td th:text="${f.seasonLabel}"></td>
+        <td th:text="${f.seriesName}"></td>
+        <td th:text="${f.levelName}"></td>
+        <td th:text="${f.points}"></td>
+    </tr>
+    <tr th:if="${finals == null or #lists.isEmpty(finals)}">
+        <td colspan="4" class="muted" style="text-align:center;">无决赛/年终数据</td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>
+

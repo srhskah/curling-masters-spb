@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments :: head('首页')}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="icon" type="image/svg+xml"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    <link rel="shortcut icon"
+          href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+</head>
+
+<body th:classappend="${ipBgClass}">
+    <!-- 导航栏 -->
+    <div th:replace="~{fragments :: navbar}"></div>
+
+    <!-- 消息提示 -->
+    <div th:replace="~{fragments :: success-alert}"></div>
+    <div th:replace="~{fragments :: error-alert}"></div>
+
+    <div class="container mt-4">
+        <div class="welcome-card"
+             th:with="isAdmin=${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'') or hasRole(''ROLE_ADMIN'')')},
+                      isLoggedIn=${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}">
+            <div class="text-center mb-5">
+                <h1 class="display-4 fw-bold text-dark" data-i18n-key="page.home.welcome">欢迎光临</h1>
+                <!-- <p th:if="${isLoggedIn}" class="lead text-muted" data-i18n-key="page.home.subtitle.loggedIn">您已成功登录系统，开始管理您的冰壶赛事</p> -->
+                <!-- <p th:if="${!isLoggedIn}" class="lead text-muted" data-i18n-key="page.home.subtitle.loggedOut">欢迎使用 Curling Masters。您可以先浏览赛事信息，或登录后进行管理。</p> -->
+                <div class="alert alert-light border d-inline-flex flex-column align-items-center gap-2 py-2 px-3 mt-2 mb-0">
+                    <div class="small text-muted" data-i18n-key="page.home.api.label">
+                        <i class="bi bi-code-slash"></i> 开发者实时排名 API（公开只读）
+                    </div>
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <a class="btn btn-sm btn-outline-primary" href="/ranking/api/public/total?topN=24" target="_blank" rel="noopener" data-i18n-key="page.home.api.total">
+                            总排名 API
+                        </a>
+                        <a class="btn btn-sm btn-outline-success" href="/ranking/api/public/current-season?topN=24" target="_blank" rel="noopener" data-i18n-key="page.home.api.season">
+                            当前赛季 API
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0" data-i18n-key="page.home.medal.total"><i class="bi bi-award"></i> 奖牌榜</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-none d-lg-block">
+                                <div class="row g-3">
+                                    <div class="col-lg-6">
+                                        <div class="border rounded p-2 h-100">
+                                            <div class="fw-bold mb-2" data-i18n-key="page.home.medal.total">总奖牌榜</div>
+                                            <ul class="nav nav-pills nav-sm mb-2" role="tablist">
+                                                <li class="nav-item" role="presentation"
+                                                    th:each="tab,st : ${homeTotalMedalBoard.tabs}">
+                                                    <button class="nav-link"
+                                                            th:classappend="${st.index == 0} ? ' active'"
+                                                            data-bs-toggle="pill"
+                                                            th:data-bs-target="|#homeTotalMedalLg_${tab.tabId}|"
+                                                            type="button"
+                                                            role="tab"
+                                                            th:text="${tab.label}">等级</button>
+                                                </li>
+                                            </ul>
+                                            <div class="tab-content">
+                                                <div class="tab-pane fade"
+                                                     th:each="tab,st : ${homeTotalMedalBoard.tabs}"
+                                                     th:id="|homeTotalMedalLg_${tab.tabId}|"
+                                                     th:classappend="${st.index == 0} ? ' show active'">
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-hover mb-0">
+                                                            <thead class="table-light">
+                                                            <tr><th style="width:56px;" data-i18n-key="common.rank">排名</th><th data-i18n-key="common.player">选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
+                                                            </thead>
+                                                            <tbody>
+                                                            <tr th:each="r,s : ${tab.rows}"
+                                                                class="medal-board-row"
+                                                                style="cursor:pointer;"
+                                                                th:attr="data-board='total',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
+                                                                <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
+                                                                <td><a th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}">选手</a></td>
+                                                                <td th:text="${r.gold}">0</td>
+                                                                <td th:text="${r.silver}">0</td>
+                                                                <td th:text="${r.bronze}">0</td>
+                                                            </tr>
+                                                            <tr th:if="${#lists.isEmpty(tab.rows)}">
+                                                                <td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td>
+                                                            </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <div th:if="${#lists.isEmpty(homeTotalMedalBoard.tabs)}" class="text-muted small" data-i18n-key="page.home.noRankData">暂无总奖牌榜数据</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-6">
+                                        <div class="border rounded p-2 h-100">
+                                            <div class="fw-bold mb-2" data-i18n-key="page.home.medal.season">当前赛季奖牌榜</div>
+                                            <ul class="nav nav-pills nav-sm mb-2" role="tablist">
+                                                <li class="nav-item" role="presentation"
+                                                    th:each="tab,st : ${homeSeasonMedalBoard['tabs']}">
+                                                    <button class="nav-link"
+                                                            th:classappend="${st.index == 0} ? ' active'"
+                                                            data-bs-toggle="pill"
+                                                            th:data-bs-target="|#homeSeasonMedalLg_${tab.tabId}|"
+                                                            type="button"
+                                                            role="tab"
+                                                            th:text="${tab.label}">等级</button>
+                                                </li>
+                                            </ul>
+                                            <div class="tab-content">
+                                                <div class="tab-pane fade"
+                                                     th:each="tab,st : ${homeSeasonMedalBoard['tabs']}"
+                                                     th:id="|homeSeasonMedalLg_${tab.tabId}|"
+                                                     th:classappend="${st.index == 0} ? ' show active'">
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-hover mb-0">
+                                                            <thead class="table-light">
+                                                            <tr><th style="width:56px;" data-i18n-key="common.rank">排名</th><th data-i18n-key="common.player">选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
+                                                            </thead>
+                                                            <tbody>
+                                                            <tr th:each="r,s : ${tab.rows}"
+                                                                class="medal-board-row"
+                                                                style="cursor:pointer;"
+                                                                th:attr="data-board='season',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
+                                                                <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
+                                                                <td><a th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}">选手</a></td>
+                                                                <td th:text="${r.gold}">0</td>
+                                                                <td th:text="${r.silver}">0</td>
+                                                                <td th:text="${r.bronze}">0</td>
+                                                            </tr>
+                                                            <tr th:if="${#lists.isEmpty(tab.rows)}">
+                                                                <td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td>
+                                                            </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <div th:if="${#lists.isEmpty(homeSeasonMedalBoard['tabs'])}" class="text-muted small" data-i18n-key="page.home.noSeasonData">暂无赛季奖牌榜数据</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-lg-none">
+                                <ul class="nav nav-pills mb-2" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#homeMedalMobileTotal" type="button" role="tab">总奖牌榜</button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" data-bs-toggle="pill" data-bs-target="#homeMedalMobileSeason" type="button" role="tab">当前赛季奖牌榜</button>
+                                    </li>
+                                </ul>
+                                <div class="tab-content">
+                                    <div class="tab-pane fade show active" id="homeMedalMobileTotal" role="tabpanel">
+                                        <ul class="nav nav-pills nav-sm mb-2" role="tablist">
+                                            <li class="nav-item" role="presentation"
+                                                th:each="tab,st : ${homeTotalMedalBoard.tabs}">
+                                                <button class="nav-link" 
+                                                        th:classappend="${st.index == 0} ? ' active'"
+                                                        data-bs-toggle="pill"
+                                                        th:data-bs-target="|#homeTotalMedalSm_${tab.tabId}|" type="button"
+                                                        role="tab" th:text="${tab.label}">等级</button>
+                                            </li>
+                                        </ul>
+                                        <div class="tab-content">
+                                            <div class="tab-pane fade"
+                                                 th:each="tab,st : ${homeTotalMedalBoard.tabs}"
+                                                 th:id="|homeTotalMedalSm_${tab.tabId}|"
+                                                 th:classappend="${st.index == 0} ? ' show active'">
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-hover mb-0">
+                                                        <thead class="table-light">
+                                                        <tr><th style="width:56px;" data-i18n-key="common.rank">排名</th><th data-i18n-key="common.player">选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
+                                                        </thead>
+                                                        <tbody>
+                                                        <tr th:each="r,s : ${tab.rows}"
+                                                            class="medal-board-row"
+                                                            style="cursor:pointer;"
+                                                            th:attr="data-board='total',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
+                                                            <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
+                                                            <td><a th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}">选手</a></td>
+                                                            <td th:text="${r.gold}">0</td>
+                                                            <td th:text="${r.silver}">0</td>
+                                                            <td th:text="${r.bronze}">0</td>
+                                                        </tr>
+                                                        <tr th:if="${#lists.isEmpty(tab.rows)}">
+                                                            <td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td>
+                                                        </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                            <div th:if="${#lists.isEmpty(homeTotalMedalBoard.tabs)}" class="text-muted small" data-i18n-key="page.home.noRankData">暂无总奖牌榜数据</div>
+                                        </div>
+                                    </div>
+                                    <div class="tab-pane fade" id="homeMedalMobileSeason" role="tabpanel">
+                                        <ul class="nav nav-pills nav-sm mb-2" role="tablist">
+                                            <li class="nav-item" role="presentation"
+                                                th:each="tab,st : ${homeSeasonMedalBoard['tabs']}">
+                                                <button class="nav-link"
+                                                        th:classappend="${st.index == 0} ? ' active'"
+                                                        data-bs-toggle="pill"
+                                                        th:data-bs-target="|#homeSeasonMedalSm_${tab.tabId}|" type="button"
+                                                        role="tab" th:text="${tab.label}">等级</button>
+                                            </li>
+                                        </ul>
+                                        <div class="tab-content">
+                                            <div class="tab-pane fade"
+                                                 th:each="tab,st : ${homeSeasonMedalBoard['tabs']}"
+                                                 th:id="|homeSeasonMedalSm_${tab.tabId}|"
+                                                 th:classappend="${st.index == 0} ? ' show active'">
+                                                <div class="table-responsive">
+                                                    <table class="table table-sm table-hover mb-0">
+                                                        <thead class="table-light">
+                                                        <tr><th style="width:56px;" data-i18n-key="common.rank">排名</th><th data-i18n-key="common.player">选手</th><th style="width:62px;">🥇</th><th style="width:62px;">🥈</th><th style="width:62px;">🥉</th></tr>
+                                                        </thead>
+                                                        <tbody>
+                                                        <tr th:each="r,s : ${tab.rows}"
+                                                            class="medal-board-row"
+                                                            style="cursor:pointer;"
+                                                            th:attr="data-board='season',data-level-code=${tab.code},data-user-id=${r.userId},data-username=${r.username}">
+                                                            <td><span class="badge bg-primary" th:text="${s.index+1}">1</span></td>
+                                                            <td><a th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}">选手</a></td>
+                                                            <td th:text="${r.gold}">0</td>
+                                                            <td th:text="${r.silver}">0</td>
+                                                            <td th:text="${r.bronze}">0</td>
+                                                        </tr>
+                                                        <tr th:if="${#lists.isEmpty(tab.rows)}">
+                                                            <td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td>
+                                                        </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                            <div th:if="${#lists.isEmpty(homeSeasonMedalBoard['tabs'])}" class="text-muted small" data-i18n-key="page.home.noSeasonData">暂无赛季奖牌榜数据</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4" th:if="${homeNotifications != null and !#lists.isEmpty(homeNotifications)}">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-bell"></i> 消息通知</h5>
+                            <a class="btn btn-sm btn-outline-dark btn-mobile-compact" href="/notification/list">
+                                <span class="btn-label" data-i18n-key="page.home.viewAll">查看全部</span><span class="btn-emoji" aria-hidden="true" data-i18n-key="page.home.viewAll">查看</span>
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group list-group-flush">
+                                <a class="list-group-item list-group-item-action px-0"
+                                   th:each="n : ${homeNotifications}"
+                                   th:href="@{/notification/detail/{id}(id=${n.id})}">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <strong th:text="${n.title}">通知标题</strong>
+                                            <!-- <span class="badge bg-secondary ms-2"
+                                                  th:if="${n.sourceType != null and !#strings.isEmpty(n.sourceType)}">自动</span> -->
+                                            <small class="text-muted d-block mt-1" th:if="${n.authorUsername != null}"
+                                                   th:text="${'发起者：' + n.authorUsername}">-</small>
+                                            <!-- <small class="text-primary d-block mt-1"
+                                                   th:if="${n.tournamentEditionLabel != null and !#strings.isEmpty(n.tournamentEditionLabel)}"
+                                                   th:text="${'关联赛事：' + n.tournamentEditionLabel}">关联赛事</small> -->
+                                        </div>
+                                        <small class="text-muted text-nowrap"
+                                               th:text="${n.publishedAt != null ? #temporals.format(n.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">-</small>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-4" th:if="${homeActiveSeriesRows != null and !#lists.isEmpty(homeActiveSeriesRows)}">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-diagram-3"></i>当前赛事系列</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="border rounded p-3 mb-3" th:each="sr : ${homeActiveSeriesRows}">
+                                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                                    <h6 class="mb-0">
+                                        <span th:text="${sr.seasonLabel + ' - ' + sr.seriesName}">赛季-系列</span>
+                                        <span class="badge bg-danger ms-2" th:if="${sr.isTestSeries}">测试</span>
+                                    </h6>
+                                    <a class="btn btn-sm btn-outline-secondary btn-mobile-compact"
+                                       th:href="${sr.entryUrl}">
+                                        <span class="btn-label">系列详情</span><span class="btn-emoji" aria-hidden="true">查看</span>
+                                    </a>
+                                </div>
+                                <ul class="list-group list-group-flush" th:if="${sr.tournaments != null and !#lists.isEmpty(sr.tournaments)}">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                                        th:each="t : ${sr.tournaments}">
+                                        <span class="d-inline-flex align-items-center gap-2 flex-wrap">
+                                            <span class="badge bg-secondary" th:text="${t.levelCode}">等级</span>
+                                            <span class="badge"
+                                                  th:classappend="${t.status == 0} ? ' bg-warning text-dark' : ' bg-primary'"
+                                                  th:text="${t.status == 0 ? '筹备中' : '进行中'}">进行中</span>
+                                            <span class="text-muted small" th:if="${t.startDate != null}"
+                                                  th:text="${#temporals.format(t.startDate, 'yyyy-MM-dd')}">日期</span>
+                                        </span>
+                                        <span class="d-inline-flex gap-2">
+                                            <a class="btn btn-sm btn-success btn-mobile-compact"
+                                               th:if="${openRegistrationTournamentIds != null and #sets.contains(openRegistrationTournamentIds, t.id)}"
+                                               th:href="${@tournamentUrls.registrationUrl(t)}">
+                                                <span class="btn-label">报名接龙</span><span class="btn-emoji" aria-hidden="true">📝</span>
+                                            </a>
+                                            <a class="btn btn-sm btn-outline-primary btn-mobile-compact"
+                                               th:href="${@tournamentUrls.detailUrl(t)}">
+                                                <span class="btn-label">赛事详情</span><span class="btn-emoji" aria-hidden="true">详情</span>
+                                            </a>
+                                        </span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 当前赛季 + 当前系列 + 系列赛事概览（合并） -->
+            <!-- <div class="row mb-4" th:if="${currentSeasonEntryName != null or currentSeriesName != null}">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-grid"></i>
+                                <span th:text="${(currentSeasonEntryName != null ? currentSeasonEntryName : '当前赛季') + '-' + (currentSeriesName != null ? currentSeriesName : '当前系列')}">当前赛季-当前系列</span>
+                            </h5>
+                            <a class="btn btn-sm btn-outline-light btn-mobile-compact"
+                               th:if="${currentSeriesEntryUrl != null}"
+                               th:href="${currentSeriesEntryUrl}">
+                                <span class="btn-label">系列详情</span><span class="btn-emoji" aria-hidden="true">查看</span>
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <div class="border rounded p-3 mb-3"
+                                 th:if="${currentSeriesRegistrationTournaments != null and !currentSeriesRegistrationTournaments.isEmpty()}">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0 text-success"><i class="bi bi-journal-plus"></i> 正在报名</h6>
+                                </div>
+                                <ul class="list-group list-group-flush"
+                                    >
+                                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                                        th:each="rt : ${currentSeriesRegistrationTournaments}">
+                                        <span class="d-inline-flex align-items-center gap-2 flex-wrap">
+                                            <span class="badge bg-secondary me-2" th:text="${rt.levelCode}">等级</span>
+                                            <span class="text-muted small" th:if="${rt.startDate != null}"
+                                                  th:text="${#temporals.format(rt.startDate, 'yyyy-MM-dd')}">日期</span>
+                                        </span>
+                                        <a class="btn btn-sm btn-success btn-mobile-compact" th:href="${@tournamentUrls.registrationUrl(rt)}">
+                                            <span class="btn-label">报名接龙</span><span class="btn-emoji" aria-hidden="true">📝</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="border rounded p-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <h6 class="mb-0 text-primary"><i class="bi bi-play-circle"></i> 进行中</h6>
+                                </div>
+                                <ul class="list-group list-group-flush"
+                                    th:if="${currentSeriesOngoingTournaments != null and !currentSeriesOngoingTournaments.isEmpty()}">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center"
+                                        th:each="ot : ${currentSeriesOngoingTournaments}">
+                                        <span class="d-inline-flex align-items-center gap-2 flex-wrap">
+                                            <span class="badge bg-secondary" th:text="${ot.levelCode}">等级</span>
+                                            <span class="text-muted small" th:if="${ot.startDate != null}"
+                                                  th:text="${#temporals.format(ot.startDate, 'yyyy-MM-dd')}">日期</span>
+                                        </span>
+                                        <a class="btn btn-sm btn-primary btn-mobile-compact" th:href="${@tournamentUrls.detailUrl(ot)}">
+                                            <span class="btn-label">赛事详情</span><span class="btn-emoji" aria-hidden="true">详情</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                                <div class="text-muted small" th:if="${currentSeriesOngoingTournaments == null or currentSeriesOngoingTournaments.isEmpty()}">
+                                    当前系列暂无进行中赛事。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div> -->
+
+            <!-- 管理员功能区域 -->
+            <div th:if="${isAdmin}" class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-gear"></i> 管理功能</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="d-grid">
+                                        <a href="/season/management" class="btn btn-outline-primary">
+                                            <i class="bi bi-calendar3"></i> 赛季管理
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-grid">
+                                        <a href="/tournamentLevel/list" class="btn btn-outline-primary">
+                                            <i class="bi bi-layers"></i> 赛事等级管理
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-grid">
+                                        <a href="/series/list" class="btn btn-outline-primary">
+                                            <i class="bi bi-collection"></i> 赛事系列管理
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-grid">
+                                        <a href="/tournament/list" class="btn btn-outline-primary">
+                                            <i class="bi bi-trophy"></i> 赛事管理
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-grid">
+                                        <a href="/match/list" class="btn btn-outline-primary">
+                                            <i class="bi bi-controller"></i> 比赛管理
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="d-grid">
+                                        <a href="/user/manage" class="btn btn-outline-primary">
+                                            <i class="bi bi-people"></i> 用户管理
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 开放报名中的赛事（筹备中 + 已开启 + 未截止） -->
+            <!-- <div class="row mb-4" th:if="${openRegistrationTournaments != null and !openRegistrationTournaments.isEmpty()}">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm border-success border-2">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-journal-plus"></i> 开放报名中的赛事</h5>
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center"
+                                    th:each="ot : ${openRegistrationTournaments}">
+                                    <span>
+                                        <span class="badge bg-secondary me-2" th:text="${ot.levelCode}">等级</span>
+                                        <span class="text-muted small" th:if="${ot.startDate != null}"
+                                              th:text="${#temporals.format(ot.startDate, 'yyyy-MM-dd')}">日期</span>
+                                    </span>
+                                    <a class="btn btn-sm btn-success btn-mobile-compact" th:href="${@tournamentUrls.registrationUrl(ot)}">
+                                        <span class="btn-label">报名接龙</span><span class="btn-emoji" aria-hidden="true">📝</span>
+                                    </a>
+                                </li>
+                            </ul>
+                            <p class="text-muted small mb-0 mt-2">需登录后报名；此处仅列出「已开启报名且未到截止」的赛事。筹备中的新赛事请先到「赛事列表 → 报名接龙」或赛事详情页开启报名配置。</p>
+                        </div>
+                    </div>
+                </div>
+            </div> -->
+            
+            <!-- 用户功能区域 -->
+            <div th:if="${!isAdmin}" class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-trophy"></i> 赛事功能</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="d-grid">
+                                        <a href="/tournament/list" class="btn btn-outline-info">
+                                            <i class="bi bi-list"></i> 赛事列表
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-grid">
+                                        <a href="/season/list" class="btn btn-outline-info">
+                                            <i class="bi bi-calendar3"></i> 赛季列表
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-grid">
+                                        <a href="/ranking" class="btn btn-outline-info">
+                                            <i class="bi bi-list-ol"></i> 排名
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4 mt-3 mt-md-0">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="bi bi-list-ol"></i> 排名前24</h5>
+                            <a class="btn btn-light btn-sm" href="/ranking">更多</a>
+                        </div>
+                        <div class="card-body">
+                            <ul class="nav nav-pills mb-3" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#homeRankTotal" type="button" role="tab">
+                                        总排名
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#homeRankSeason" type="button" role="tab">
+                                        当前赛季
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="homeRankTotal" role="tabpanel">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"
+                                         th:if="${totalRankingEarliestSeries != null and !#maps.isEmpty(totalRankingEarliestSeries)}">
+                                        <div class="small text-muted">
+                                            覆盖起始赛事系列：
+                                            <span class="fw-semibold text-body"
+                                                  th:text="${totalRankingEarliestSeries.seasonLabel + ' ' + totalRankingEarliestSeries.seriesName}">2025年上半年 第1系列</span>
+                                        </div>
+                                        <a class="btn btn-outline-secondary btn-sm"
+                                           th:href="${totalRankingEarliestSeries.entryUrl}">
+                                            直达该系列
+                                        </a>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <tbody>
+                                            <tr th:each="entry, stat : ${totalRankingTop24}">
+                                                <td style="width: 56px;">
+                                                    <span class="badge bg-primary" th:text="${stat.index + 1}"></span>
+                                                </td>
+                                                <td><a th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a></td>
+                                                <td style="width: 90px; text-align: right;">
+                                                    <span class="badge bg-success" th:text="${entry.points}"></span>
+                                                </td>
+                                            </tr>
+                                            <tr th:if="${#lists.isEmpty(totalRankingTop24)}">
+                                                <td colspan="3" class="text-center text-muted">暂无数据</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <div class="tab-pane fade" id="homeRankSeason" role="tabpanel">
+                                    <div class="text-muted small mb-2" th:if="${currentSeason != null}"
+                                         th:text="${currentSeason.year + '年' + (currentSeason.half == 1 ? '上半年' : '下半年')}"></div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover mb-0">
+                                            <tbody>
+                                            <tr th:each="entry, stat : ${currentSeasonRankingTop24}">
+                                                <td style="width: 56px;">
+                                                    <span class="badge bg-primary" th:text="${stat.index + 1}"></span>
+                                                </td>
+                                                <td><a th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a></td>
+                                                <td style="width: 90px; text-align: right;">
+                                                    <span class="badge bg-success" th:text="${entry.points}"></span>
+                                                </td>
+                                            </tr>
+                                            <tr th:if="${#lists.isEmpty(currentSeasonRankingTop24)}">
+                                                <td colspan="3" class="text-center text-muted">暂无数据</td>
+                                            </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 系统信息区域（仅管理员可见） -->
+            <div class="row" th:if="${isAdmin}">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0"><i class="bi bi-server"></i> 系统信息</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center">
+                                <div class="col-md-3 mb-3">
+                                    <div class="p-3">
+                                        <i class="bi bi-cpu fs-3 text-primary"></i>
+                                        <h6 class="mt-2">Java环境</h6>
+                                        <p class="mb-0 small text-muted" th:text="${systemInfo.javaVersion}">Java版本</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="p-3">
+                                        <i class="bi bi-laptop fs-3 text-success"></i>
+                                        <h6 class="mt-2">操作系统</h6>
+                                        <p class="mb-0 small text-muted" th:text="${systemInfo.osName}">操作系统</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="p-3">
+                                        <i class="bi bi-memory fs-3 text-warning"></i>
+                                        <h6 class="mt-2">内存使用</h6>
+                                        <div class="progress mb-2" style="height: 8px;">
+                                            <div class="progress-bar" role="progressbar" 
+                                                 th:style="'width: ' + ${systemInfo.memoryUsagePercent} + '%'"
+                                                 th:aria-valuenow="${systemInfo.memoryUsagePercent}" aria-valuemin="0" aria-valuemax="100">
+                                            </div>
+                                        </div>
+                                        <p class="mb-0 small text-muted" th:text="${systemInfo.memoryUsagePercent + '%'}">内存使用率</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <div class="p-3">
+                                        <i class="bi bi-clock fs-3 text-info"></i>
+                                        <h6 class="mt-2">登录时间</h6>
+                                        <p class="mb-0 small text-muted" th:text="${#temporals.format(currentTime, 'yyyy-MM-dd HH:mm:ss')}">登录时间</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="homeMedalDetailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="homeMedalDetailTitle">奖牌榜计入明细</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="homeMedalDetailHint" class="small text-muted mb-2">加载中...</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>赛季</th><th>系列</th><th>等级</th><th>名次</th><th style="width:120px;">操作</th>
+                            </tr>
+                            </thead>
+                            <tbody id="homeMedalDetailRows">
+                            <tr><td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div th:replace="~{fragments :: footer}"></div>
+
+    <!-- 脚本 -->
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+    <script>
+        (() => {
+            let medalDetailModal;
+            const titleEl = () => document.getElementById('homeMedalDetailTitle');
+            const hintEl = () => document.getElementById('homeMedalDetailHint');
+            const rowsEl = () => document.getElementById('homeMedalDetailRows');
+
+            function escapeHtml(v) {
+                return String(v == null ? '' : v)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            async function openMedalRowDetail(tr) {
+                const board = tr.getAttribute('data-board') || '';
+                const levelCode = tr.getAttribute('data-level-code') || '';
+                const userId = tr.getAttribute('data-user-id') || '';
+                const username = tr.getAttribute('data-username') || '-';
+                if (!board || !levelCode || !userId) return;
+                if (!medalDetailModal) {
+                    medalDetailModal = new bootstrap.Modal(document.getElementById('homeMedalDetailModal'));
+                }
+                if (titleEl()) titleEl().textContent = `${username} - 奖牌计入赛事`;
+                if (hintEl()) hintEl().textContent = '加载中...';
+                if (rowsEl()) rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted">加载中...</td></tr>';
+                medalDetailModal.show();
+                try {
+                    const url = `/ranking/api/home/medal-contributions?boardType=${encodeURIComponent(board)}&levelCode=${encodeURIComponent(levelCode)}&userId=${encodeURIComponent(userId)}`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    if (!data.ok) {
+                        if (hintEl()) hintEl().textContent = data.message || '加载失败';
+                        if (rowsEl()) rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted">加载失败</td></tr>';
+                        return;
+                    }
+                    const rows = Array.isArray(data.rows) ? data.rows : [];
+                    if (hintEl()) hintEl().textContent = rows.length ? `共 ${rows.length} 场计入` : '该选手在当前榜单/等级暂无计入赛事';
+                    if (!rowsEl()) return;
+                    if (!rows.length) {
+                        rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted" data-i18n-key="common.noData">暂无数据</td></tr>';
+                        return;
+                    }
+                    rowsEl().innerHTML = rows.map(r => `
+                        <tr>
+                            <td>${escapeHtml(r.seasonLabel || '-')}</td>
+                            <td>${escapeHtml(r.seriesLabel || '-')}</td>
+                            <td>${escapeHtml(r.levelLabel || '-')}</td>
+                            <td>${escapeHtml(r.rankLabel || '-')}</td>
+                            <td><a class="btn btn-outline-secondary btn-sm" href="${escapeHtml(r.detailUrl || '#')}">赛事详情</a></td>
+                        </tr>
+                    `).join('');
+                } catch (e) {
+                    if (hintEl()) hintEl().textContent = e.message || '加载失败';
+                    if (rowsEl()) rowsEl().innerHTML = '<tr><td colspan="5" class="text-center text-muted">加载失败</td></tr>';
+                }
+            }
+
+            document.querySelectorAll('.medal-board-row').forEach((tr) => {
+                tr.addEventListener('click', () => openMedalRowDetail(tr));
+            });
+        })();
+    </script>
+</body>
+</html>

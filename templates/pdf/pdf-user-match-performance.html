@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${title}">选手战绩明细</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 12mm;
+        }
+        html, body { margin: 0; padding: 0; }
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        h2 { margin: 0 0 4px; font-size: 16px; }
+        .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
+        .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
+        .muted { color: #666; }
+        .match-block { border: 1px solid #ddd; border-radius: 6px; padding: 8px; margin-bottom: 10px; page-break-inside: avoid; }
+        .match-title { font-size: 13px; font-weight: 700; margin-bottom: 5px; }
+        .score-matrix td:first-child, .score-matrix th:first-child { text-align: left; white-space: nowrap; min-width: 120px; }
+        .hammer-mark {
+            font-family: "Noto Emoji","Noto Sans Symbols 2","DejaVu Sans","WenQuanYi Micro Hei","WenQuanYi Zen Hei",sans-serif;
+            font-weight: 400;
+        }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 8px; table-layout: auto; }
+        th, td { border: 1px solid #ddd; padding: 5px 7px; text-align: center; vertical-align: middle; }
+        th { background: #f3f3f3; }
+        .sig-cell { width: 32%; text-align: center; }
+        .sig-img {
+            max-width: 88%;
+            max-height: 56px;
+            width: auto;
+            height: 56px;
+            object-fit: contain;
+            display: inline-block;
+            border-bottom: 1px solid #bbb;
+            padding: 0 2px 2px 2px;
+        }
+    </style>
+</head>
+<body>
+<div class="meta">
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <div style="flex: 1 1 auto;">
+        <h2 th:text="${title}">选手战绩明细</h2>
+        <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
+    </div>
+</div>
+
+<div th:if="${matchDetails == null or #lists.isEmpty(matchDetails)}" class="muted">暂无数据</div>
+<th:block th:each="m : ${matchDetails}">
+    <div th:replace="~{pdf/fragments-pdf-match-performance :: matchBlock(m=${m})}"></div>
+</th:block>
+</body>
+</html>

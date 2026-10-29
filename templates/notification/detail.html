@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('通知详情')}"></head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+<div th:replace="~{fragments :: success-alert}"></div>
+<div class="container mt-4" th:if="${message != null}">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0" th:text="${message.title}">通知标题</h3>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm btn-mobile-compact" href="/notification/list">
+                <span class="btn-label">返回列表</span><span class="btn-emoji" aria-hidden="true">↩️</span>
+            </a>
+            <a class="btn btn-outline-primary btn-sm btn-mobile-compact" th:href="@{/notification/export/pdf/{id}(id=${message.id})}">
+                <span class="btn-label">导出PDF</span><span class="btn-emoji" aria-hidden="true">📄</span>
+            </a>
+            <form method="post" th:action="@{/notification/mark-unread/{id}(id=${message.id})}">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="btn btn-outline-warning btn-sm btn-mobile-compact">
+                    <span class="btn-label">标记未读</span><span class="btn-emoji" aria-hidden="true">🔔</span>
+                </button>
+            </form>
+            <button type="button" class="btn btn-primary btn-sm btn-mobile-compact"
+                    data-copy-target="#copyText" data-copy-reset-ms="1200">
+                <span class="btn-label">复制为文本</span><span class="btn-emoji" aria-hidden="true">📋</span>
+            </button>
+        </div>
+    </div>
+    <div class="text-muted small mb-3">
+        <span th:text="${message.publishedAt != null ? #temporals.format(message.publishedAt,'yyyy-MM-dd HH:mm:ss') : '-'}">时间</span>
+        <span th:if="${message.authorUsername != null}"> · 发起者：<span th:text="${message.authorUsername}">用户</span></span>
+        <span th:if="${message.tournamentEditionLabel != null and !#strings.isEmpty(message.tournamentEditionLabel)}">
+            · 关联赛事：<span th:text="${message.tournamentEditionLabel}">赛季-等级-届次</span>
+        </span>
+        <span th:if="${message.tournamentDetailUrl != null and !#strings.isEmpty(message.tournamentDetailUrl)}">
+            · <a th:href="${message.tournamentDetailUrl}">前往赛事详情</a>
+        </span>
+    </div>
+    
+    <!-- 忘记密码重置密码操作区域 -->
+    <div th:if="${message.sourceType == 'FORGOT_PASSWORD' and isManager}" class="card border-primary mb-3">
+        <div class="card-body">
+            <h5 class="card-title">重置密码操作</h5>
+            <div id="resetPasswordSection">
+                <!-- 动态加载重置密码状态 -->
+            </div>
+        </div>
+    </div>
+    <article class="card border-0 shadow-sm">
+        <div class="card-body markdown-body" th:utext="${message.contentHtml}"></div>
+    </article>
+    <div class="mt-3" th:if="${canEditThis}">
+        <a class="btn btn-sm btn-warning" th:href="@{/notification/edit/{id}(id=${message.id})}">编辑</a>
+    </div>
+</div>
+<textarea id="copyText" class="d-none" th:text="${copyText}"></textarea>
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:if="${message.sourceType == 'FORGOT_PASSWORD' and isManager}">
+    // 加载重置密码状态
+    function loadResetPasswordStatus() {
+        fetch('/notification/reset-password-status/' + [[${message.id}]])
+            .then(response => response.json())
+            .then(data => {
+                const section = document.getElementById('resetPasswordSection');
+                if (data.status === 'PENDING') {
+                    section.innerHTML = `
+                        <p class="text-muted">该用户的密码尚未重置</p>
+                        <button class="btn btn-warning" onclick="resetPassword()">重置密码</button>
+                    `;
+                } else if (data.status === 'RESET_BY_ME') {
+                    section.innerHTML = `
+                        <p class="text-success">您已于 ${data.resetTime} 重置了该用户的密码</p>
+                        <p class="text-muted">新密码：123456</p>
+                    `;
+                } else if (data.status === 'RESET_BY_OTHER') {
+                    section.innerHTML = `
+                        <p class="text-warning">密码已由管理员 <strong>${data.resetBy}</strong> 于 ${data.resetTime} 重置</p>
+                        <p class="text-muted">新密码：123456</p>
+                    `;
+                } else {
+                    section.innerHTML = '<p class="text-muted">无法获取重置密码状态</p>';
+                }
+            })
+            .catch(error => {
+                console.error('加载重置密码状态失败:', error);
+                document.getElementById('resetPasswordSection').innerHTML = '<p class="text-danger">加载状态失败</p>';
+            });
+    }
+
+    // 重置密码
+    function resetPassword() {
+        if (!confirm('确定要重置该用户的密码为 123456 吗？')) {
+            return;
+        }
+        
+        const csrfToken = document.querySelector('input[name="_csrf"]')?.value;
+        
+        fetch('/notification/reset-password/' + [[${message.id}]], {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: '_csrf=' + encodeURIComponent(csrfToken)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('密码重置成功！新密码：123456');
+                loadResetPasswordStatus();
+            } else {
+                alert('重置失败：' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('重置密码失败:', error);
+            alert('重置失败，请稍后重试');
+        });
+    }
+
+    // 页面加载时获取状态
+    document.addEventListener('DOMContentLoaded', loadResetPasswordStatus);
+</script>
+</body>
+</html>

@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments :: head(${pageTitle})}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <style>
+        /* 移动端：表格改卡片，提升可读性与可点按 */
+        @media (max-width: 767.98px) {
+            .generic-table-desktop { display: none; }
+            .generic-cards-mobile { display: block; }
+            .generic-cards-grid > [class^="col-"] { display: flex; }
+            .generic-cards-grid .card { width: 100%; }
+            .generic-list-actions .btn,
+            .generic-list-actions button.btn {
+                padding: 0.5rem 0.75rem;
+            }
+            .generic-card-row {
+                display: grid;
+                grid-template-columns: 96px 1fr;
+                gap: 0.25rem 0.75rem;
+                align-items: start;
+            }
+            .generic-card-label {
+                color: #6c757d;
+                font-weight: 600;
+                font-size: 0.85rem;
+            }
+        }
+        @media (min-width: 768px) {
+            .generic-table-desktop { display: block; }
+            .generic-cards-mobile { display: none; }
+        }
+        .generic-col-filters th {
+            vertical-align: middle;
+            padding-top: 0.35rem;
+            padding-bottom: 0.35rem;
+            background: #f8fafc;
+        }
+        .generic-col-filters .form-select {
+            min-width: 0;
+            max-width: 100%;
+            font-size: 0.8125rem;
+        }
+        .generic-list-pager {
+            width: 100%;
+        }
+        .generic-list-pager .pagination {
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        @media (max-width: 767.98px) {
+            .generic-list-pager .pagination {
+                justify-content: center;
+            }
+            .generic-list-pager-info {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body th:classappend="${ipBgClass}">
+    <!-- 导航栏 -->
+    <div th:replace="~{fragments :: navbar}"></div>
+
+    <!-- 消息提示 -->
+    <div th:replace="~{fragments :: success-alert}"></div>
+    <div th:replace="~{fragments :: error-alert}"></div>
+
+    <div class="container mt-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i th:class="${pageIcon}"></i> <span th:text="${pageTitle}"></span>
+                </h5>
+                <a th:if="${isAdmin and addUrl != null}" th:href="${addUrl}" class="btn btn-light btn-sm">
+                    <i class="bi bi-plus-circle"></i> 添加<span th:text="${entityName}"></span>
+                </a>
+            </div>
+            <div class="card-body">
+                <!-- 顶部筛选/搜索区域 -->
+                <div class="row g-2 mb-3">
+                    <!-- 左侧：原有筛选器（可选） -->
+                    <div th:if="${filters != null and !#lists.isEmpty(filters)}" class="col-12 col-md-7">
+                        <div class="row g-2">
+                            <div th:each="filter : ${filters}" class="col-12 col-md-6 col-xl-4">
+                                <div th:if="${filter['type'] == 'select'}">
+                                    <select class="form-select" th:id="${filter['id']}" th:onchange="${filter['onchange']}">
+                                        <option value="">所有<span th:text="${filter['label']}"></span></option>
+                                        <option th:each="option : ${filter['options']}" 
+                                                th:value="${option['value']}"
+                                                th:text="${option['text']}">
+                                        </option>
+                                    </select>
+                                </div>
+                                <div th:if="${filter['type'] == 'text'}">
+                                    <input type="text" class="form-control" th:id="${filter['id']}" 
+                                           th:placeholder="${filter['placeholder']}" th:onkeyup="${filter['onkeyup']}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 右侧：通用模糊搜索（赛事等级/系列/赛事等列表共用） -->
+                    <div class="col-12 col-md-5">
+                        <input id="genericSearchInput"
+                               type="search"
+                               class="form-control"
+                               placeholder="模糊搜索（名称、备注等）">
+                    </div>
+                </div>
+                
+                <!-- 空数据提示 -->
+                <div th:if="${remoteListUrl == null and (dataList == null or #lists.isEmpty(dataList))}" class="text-center py-4">
+                    <i th:class="${emptyIcon}" class="fs-1 text-muted"></i>
+                    <p class="mt-2 text-muted" th:text="${emptyMessage}"></p>
+                    <a th:if="${isAdmin and addUrl != null}" th:href="${addUrl}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> 创建第一个<span th:text="${entityName}"></span>
+                    </a>
+                </div>
+                
+                <!-- 数据表格 -->
+                <div th:if="${remoteListUrl != null or (dataList != null and !#lists.isEmpty(dataList))}">
+                    <!-- 移动端：仅卡片 -->
+                    <div class="d-md-none mb-3">
+                        <div class="generic-cards-mobile">
+                            <div class="row g-3 generic-cards-grid" id="genericListCardsGrid">
+                                <div class="col-12 col-sm-6 generic-list-item" th:each="item : ${dataList}" th:with="itemData=${item.data}">
+                                    <div class="card border-0 shadow-sm h-100"
+                                         th:attr="data-filters=${item.filters + ' ' + #strings.arrayJoin(itemData, ' ')}">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-end align-items-start mb-2">
+                                                <span class="badge bg-light text-dark border" th:text="${'ID: ' + item.id}"></span>
+                                            </div>
+
+                                            <div class="generic-card-row">
+                                                <div th:each="column, colStat : ${columns}"
+                                                     th:with="cellValue=${itemData[colStat.index]}"
+                                                     class="d-flex justify-content-between align-items-center mb-1">
+                                                    <div class="generic-card-label me-2" th:text="${column['title']}"></div>
+                                                    <div class="text-end flex-grow-1">
+                                                        <div th:if="${column['type'] == 'custom'}"
+                                                             th:utext="${column['content'] != null ? #strings.replace(
+                                                                     column['content'],
+                                                                     '{item}',
+                                                                     cellValue != null ? cellValue.toString() : ''
+                                                                 ) : (cellValue != null ? cellValue : '')}"></div>
+                                                        <div th:if="${column['type'] == 'link'}">
+                                                            <a th:href="${column['linkPrefix'] + cellValue}"
+                                                               class="text-decoration-none"
+                                                               th:text="${column['displayPrefix'] + cellValue + column['displaySuffix']}">
+                                                            </a>
+                                                        </div>
+                                                        <div th:if="${column['type'] == 'badge'}">
+                                                            <span th:if="${column['badgeClass'] != null}" th:class="${column['badgeClass']}" th:text="${cellValue}"></span>
+                                                            <span th:if="${column['badgeClass'] == null}" class="badge bg-info" th:text="${cellValue}"></span>
+                                                        </div>
+                                                        <div th:if="${column['type'] == 'text' or column['type'] == null}" th:text="${cellValue}"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div th:if="${hasActions}" class="mt-3 d-flex flex-wrap gap-2 generic-list-actions">
+                                                <th:block th:each="action : ${actions}">
+                                                    <a th:if="${(action['method'] == null or action['method'] == 'get') and (isAdmin or action['public'] == true) and (action['requireRegistrationOpen'] == null or action['requireRegistrationOpen'] == false or item['registrationOpen'] == true) and (action['requireRegistrationNavVisible'] == null or action['requireRegistrationNavVisible'] == false or item['registrationNavVisible'] == true)}"
+                                                       th:href="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
+                                                       th:class="${action['btnClass']}"
+                                                       th:attr="data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
+                                                       onclick="return !this.dataset.confirm || confirm(this.dataset.confirm)">
+                                                        <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
+                                                    </a>
+                                                    <form th:if="${action['method'] == 'post' and isAdmin}"
+                                                          th:action="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
+                                                          method="post"
+                                                          style="display: inline;"
+                                                          th:attr="data-confirm=${action['confirm']}"
+                                                          onsubmit="return !this.dataset.confirm || confirm(this.dataset.confirm)">
+                                                        <input type="hidden"
+                                                               th:if="${_csrf != null}"
+                                                               th:name="${_csrf.parameterName}"
+                                                               th:value="${_csrf.token}" />
+                                                        <button type="submit" th:class="${action['btnClass']}">
+                                                            <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
+                                                        </button>
+                                                    </form>
+                                                </th:block>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 宽屏：仅表格 -->
+                    <div class="d-none d-md-block generic-table-desktop">
+                        <!-- 宽屏表格（可横向滚动） -->
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead class="table-light">
+                                    <tr>
+                                        <th th:each="column : ${columns}" th:text="${column['title']}"></th>
+                                        <th th:if="${hasActions}">操作</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="genericListDesktopBody">
+                                    <tr class="generic-list-item" th:each="item : ${dataList}" 
+                                    th:with="itemData=${item.data}"
+                                    th:attr="data-filters=${item.filters + ' ' + #strings.arrayJoin(itemData, ' ')}">
+                                        <td th:each="column, colStat : ${columns}"
+                                            th:with="cellValue=${itemData[colStat.index]}"
+                                            th:attr="data-col=${colStat.index}">
+                                            <div th:if="${column['type'] == 'custom'}"
+                                                 th:utext="${column['content'] != null ? #strings.replace(
+                                                     column['content'],
+                                                     '{item}',
+                                                     cellValue != null ? cellValue.toString() : ''
+                                                 ) : (cellValue != null ? cellValue : '')}"></div>
+                                            <div th:if="${column['type'] == 'link'}">
+                                                <a th:href="${column['linkPrefix'] + cellValue}"
+                                                   class="text-decoration-none"
+                                                   th:text="${column['displayPrefix'] + cellValue + column['displaySuffix']}">
+                                                </a>
+                                            </div>
+                                            <div th:if="${column['type'] == 'badge'}">
+                                                <span th:if="${column['badgeClass'] != null}" th:class="${column['badgeClass']}" th:text="${cellValue}"></span>
+                                                <span th:if="${column['badgeClass'] == null}" class="badge bg-info" th:text="${cellValue}"></span>
+                                            </div>
+                                            <div th:if="${column['type'] == 'text' or column['type'] == null}" th:text="${cellValue}"></div>
+                                        </td>
+                                        <td th:if="${hasActions}">
+                                            <div class="btn-group generic-list-actions" role="group">
+                                                <th:block th:each="action : ${actions}">
+                                                    <a th:if="${(action['method'] == null or action['method'] == 'get') and (isAdmin or action['public'] == true) and (action['requireRegistrationOpen'] == null or action['requireRegistrationOpen'] == false or item['registrationOpen'] == true) and (action['requireRegistrationNavVisible'] == null or action['requireRegistrationNavVisible'] == false or item['registrationNavVisible'] == true)}"
+                                                       th:href="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
+                                                       th:class="${action['btnClass']}"
+                                                       th:attr="data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
+                                                       onclick="return !this.dataset.confirm || confirm(this.dataset.confirm)">
+                                                        <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
+                                                    </a>
+                                                    <form th:if="${action['method'] == 'post' and isAdmin}"
+                                                          th:action="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
+                                                          method="post"
+                                                          style="display: inline;"
+                                                          th:attr="data-confirm=${action['confirm']}"
+                                                          onsubmit="return !this.dataset.confirm || confirm(this.dataset.confirm)">
+                                                        <input type="hidden"
+                                                               th:if="${_csrf != null}"
+                                                               th:name="${_csrf.parameterName}"
+                                                               th:value="${_csrf.token}" />
+                                                        <button type="submit" th:class="${action['btnClass']}">
+                                                            <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
+                                                        </button>
+                                                    </form>
+                                                </th:block>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <!-- </div> -->
+                    </div>
+                    <nav class="generic-list-pager mt-3" aria-label="列表分页">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                            <div class="small text-muted generic-list-pager-info">共 0 条</div>
+                            <ul class="pagination pagination-sm mb-0 generic-list-pager-pages"></ul>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div th:replace="~{fragments :: footer}"></div>
+
+    <!-- 脚本 -->
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+    
+    <script th:if="${customScript != null}" th:utext="${customScript}"></script>
+    <script th:if="${remoteListUrl != null}" th:inline="javascript">
+        window.__genericListRemote = {
+            url: /*[[${remoteListUrl}]]*/ '',
+            tournamentId: /*[[${tournamentId}]]*/ null,
+            isAdmin: /*[[${isAdmin}]]*/ false,
+            isSuperAdmin: /*[[${isSuperAdmin}]]*/ false,
+            emptyMessage: /*[[${emptyMessage}]]*/ '暂无数据'
+        };
+    </script>
+
+    <!-- 通用列表：模糊搜索 + 宽屏列筛选 + 分页 -->
+    <script>
+        (() => {
+            const MD = 768;
+            const input = document.getElementById('genericSearchInput');
+            const table = document.querySelector('.generic-table-desktop table');
+            const tbody = document.getElementById('genericListDesktopBody');
+            const cardsGrid = document.getElementById('genericListCardsGrid');
+            const pagerInfo = document.querySelector('.generic-list-pager-info');
+            const pagerPages = document.querySelector('.generic-list-pager-pages');
+            const remote = window.__genericListRemote && window.__genericListRemote.url ? window.__genericListRemote : null;
+            const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
+            const pageSize = () => (window.innerWidth < MD ? 10 : 20);
+            const isWide = () => window.innerWidth >= MD;
+            let page = 1;
+            let lastPageSize = pageSize();
+            let searchTimer = null;
+
+            const renderPagerRemote = (matched, size, totalPages, go) => {
+                if (pagerInfo) {
+                    const from = matched === 0 ? 0 : ((page - 1) * size + 1);
+                    const to = Math.min(page * size, matched);
+                    pagerInfo.textContent = matched === 0
+                        ? '共 0 条'
+                        : ('第 ' + from + '–' + to + ' 条 · 共 ' + matched + ' 条 · 每页 ' + size + ' 条');
+                }
+                if (!pagerPages) return;
+                pagerPages.innerHTML = '';
+                if (totalPages <= 1) return;
+                const addBtn = (label, target, disabled, active) => {
+                    const li = document.createElement('li');
+                    li.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+                    const a = document.createElement('a');
+                    a.className = 'page-link';
+                    a.href = '#';
+                    a.textContent = label;
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (disabled || target === page) return;
+                        page = target;
+                        go();
+                    });
+                    li.appendChild(a);
+                    pagerPages.appendChild(li);
+                };
+                addBtn('上一页', Math.max(1, page - 1), page <= 1, false);
+                const windowSize = 5;
+                let start = Math.max(1, page - 2);
+                let end = Math.min(totalPages, start + windowSize - 1);
+                start = Math.max(1, end - windowSize + 1);
+                for (let p = start; p <= end; p++) addBtn(String(p), p, false, p === page);
+                addBtn('下一页', Math.min(totalPages, page + 1), page >= totalPages, false);
+            };
+
+            const fillSelect = (sel, options, keep) => {
+                const cur = keep != null ? keep : sel.value;
+                sel.replaceChildren();
+                const all = document.createElement('option');
+                all.value = '';
+                all.textContent = '全部';
+                sel.appendChild(all);
+                (options || []).forEach((o) => {
+                    const opt = document.createElement('option');
+                    const val = typeof o === 'object' ? String(o.value) : String(o);
+                    const text = typeof o === 'object' ? String(o.text) : String(o);
+                    opt.value = val;
+                    opt.textContent = text.length > 40 ? text.slice(0, 40) + '…' : text;
+                    sel.appendChild(opt);
+                });
+                if (cur) {
+                    const ok = Array.from(sel.options).some((o) => o.value === cur);
+                    if (ok) sel.value = cur;
+                }
+            };
+
+            const remoteRenderItems = (items) => {
+                if (tbody) tbody.innerHTML = '';
+                if (cardsGrid) cardsGrid.innerHTML = '';
+                const isAdmin = !!remote.isAdmin;
+                const isSuperAdmin = !!remote.isSuperAdmin;
+                (items || []).forEach((item) => {
+                    const data = item.data || [];
+                    if (tbody) {
+                        const tr = document.createElement('tr');
+                        tr.className = 'generic-list-item';
+                        tr.setAttribute('data-filters', String(item.filters || ''));
+                        data.forEach((cell, idx) => {
+                            const td = document.createElement('td');
+                            td.setAttribute('data-col', String(idx));
+                            td.innerHTML = cell == null ? '' : String(cell);
+                            tr.appendChild(td);
+                        });
+                        const act = document.createElement('td');
+                        const wrap = document.createElement('div');
+                        wrap.className = 'btn-group generic-list-actions';
+                        if (isAdmin) {
+                            wrap.innerHTML += '<a href="/match/edit/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i> 编辑</a>';
+                        }
+                        if (isSuperAdmin) {
+                            wrap.innerHTML += '<a href="/match/score/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-success" data-player1-name="' +
+                                String(item.player1Name || '').replace(/"/g, '&quot;') + '" data-player2-name="' +
+                                String(item.player2Name || '').replace(/"/g, '&quot;') + '"><i class="bi bi-pencil-square"></i> 录入比分</a>';
+                        }
+                        act.appendChild(wrap);
+                        tr.appendChild(act);
+                        tbody.appendChild(tr);
+                    }
+                    if (cardsGrid) {
+                        const col = document.createElement('div');
+                        col.className = 'col-12 col-sm-6 generic-list-item';
+                        const titles = ['ID', '赛事', '类别', '轮次', '对阵', '状态', '预定时间', '创建时间'];
+                        let rowsHtml = '';
+                        data.forEach((cell, idx) => {
+                            rowsHtml += '<div class="d-flex justify-content-between align-items-center mb-1"><div class="generic-card-label me-2">' +
+                                titles[idx] + '</div><div class="text-end flex-grow-1">' + (cell == null ? '' : String(cell)) + '</div></div>';
+                        });
+                        let acts = '';
+                        if (isAdmin) acts += '<a href="/match/edit/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i> 编辑</a>';
+                        if (isSuperAdmin) acts += '<a href="/match/score/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-success" data-player1-name="' +
+                            String(item.player1Name || '').replace(/"/g, '&quot;') + '" data-player2-name="' +
+                            String(item.player2Name || '').replace(/"/g, '&quot;') + '"><i class="bi bi-pencil-square"></i> 录入比分</a>';
+                        col.innerHTML = '<div class="card border-0 shadow-sm h-100" data-filters="' + String(item.filters || '').replace(/"/g, '&quot;') +
+                            '"><div class="card-body">' + rowsHtml +
+                            (acts ? '<div class="mt-3 d-flex flex-wrap gap-2 generic-list-actions">' + acts + '</div>' : '') +
+                            '</div></div>';
+                        cardsGrid.appendChild(col);
+                    }
+                });
+            };
+
+            if (remote) {
+                let facetsLoaded = false;
+                const ensureRemoteFilters = (facets) => {
+                    if (!table || table.querySelector('.generic-col-filters')) {
+                        if (facets && table) {
+                            const cat = table.querySelector('.generic-col-filter[data-remote="category"]');
+                            const st = table.querySelector('.generic-col-filter[data-remote="status"]');
+                            const rd = table.querySelector('.generic-col-filter[data-remote="round"]');
+                            const tn = table.querySelector('.generic-col-filter[data-remote="tournamentId"]');
+                            if (cat) fillSelect(cat, (facets.categories || []).map((c) => ({ value: c, text: c })));
+                            if (st) fillSelect(st, facets.statuses || []);
+                            if (rd) fillSelect(rd, (facets.rounds || []).map((r) => ({ value: String(r), text: '第' + r + '场' })));
+                            if (tn) fillSelect(tn, facets.tournaments || []);
+                        }
+                        return;
+                    }
+                    const n = table.querySelectorAll('thead tr:first-child th').length;
+                    const tr = document.createElement('tr');
+                    tr.className = 'generic-col-filters';
+                    const map = { 1: 'tournamentId', 2: 'category', 3: 'round', 5: 'status' };
+                    for (let i = 0; i < n; i++) {
+                        const th = document.createElement('th');
+                        const key = map[i];
+                        if (key && !(key === 'tournamentId' && remote.tournamentId)) {
+                            const sel = document.createElement('select');
+                            sel.className = 'form-select form-select-sm generic-col-filter';
+                            sel.dataset.remote = key;
+                            sel.innerHTML = '<option value="">全部</option>';
+                            sel.addEventListener('change', () => { page = 1; fetchRemote(); });
+                            th.appendChild(sel);
+                        }
+                        tr.appendChild(th);
+                    }
+                    table.querySelector('thead').appendChild(tr);
+                    if (facets) ensureRemoteFilters(facets);
+                };
+                const fetchRemote = async () => {
+                    const size = pageSize();
+                    lastPageSize = size;
+                    const params = new URLSearchParams();
+                    params.set('page', String(page));
+                    params.set('size', String(size));
+                    if (remote.tournamentId) params.set('tournamentId', String(remote.tournamentId));
+                    const kw = input ? input.value.trim() : '';
+                    if (kw) params.set('q', kw);
+                    document.querySelectorAll('.generic-col-filter[data-remote]').forEach((sel) => {
+                        if (sel.value) params.set(sel.dataset.remote, sel.value);
+                    });
+                    if (pagerInfo) pagerInfo.textContent = '加载中…';
+                    try {
+                        const res = await fetch(remote.url + '?' + params.toString());
+                        const data = await res.json();
+                        if (!data.success) throw new Error(data.message || '加载失败');
+                        page = Number(data.page) || 1;
+                        if (!facetsLoaded && data.facets) {
+                            ensureRemoteFilters(data.facets);
+                            facetsLoaded = true;
+                        } else {
+                            ensureRemoteFilters(null);
+                        }
+                        remoteRenderItems(data.items || []);
+                        const total = Number(data.total) || 0;
+                        const pages = Math.max(1, Number(data.pages) || 1);
+                        renderPagerRemote(total, size, pages, fetchRemote);
+                    } catch (e) {
+                        if (pagerInfo) pagerInfo.textContent = e.message || '加载失败';
+                        remoteRenderItems([]);
+                    }
+                };
+                if (input) {
+                    input.addEventListener('input', () => {
+                        page = 1;
+                        clearTimeout(searchTimer);
+                        searchTimer = setTimeout(fetchRemote, 300);
+                    });
+                }
+                window.addEventListener('resize', () => {
+                    const next = pageSize();
+                    if (next !== lastPageSize) {
+                        page = 1;
+                        fetchRemote();
+                    }
+                });
+                fetchRemote();
+                return;
+            }
+
+            const rows = Array.from(document.querySelectorAll('.generic-table-desktop tbody tr.generic-list-item'));
+            const cards = Array.from(document.querySelectorAll('.generic-cards-grid .generic-list-item'));
+            if (!rows.length && !cards.length) return;
+
+            const colCount = () => {
+                if (!table) return 0;
+                const ths = table.querySelectorAll('thead tr:first-child th');
+                return ths.length;
+            };
+
+            const actionColIndex = () => {
+                if (!table) return -1;
+                const ths = Array.from(table.querySelectorAll('thead tr:first-child th'));
+                const last = ths[ths.length - 1];
+                if (last && (last.textContent || '').trim() === '操作') return ths.length - 1;
+                return -1;
+            };
+
+            const cellText = (tr, colIdx) => {
+                if (!tr || colIdx == null) return '';
+                const td = tr.querySelector('td[data-col="' + colIdx + '"]') || tr.children[colIdx];
+                return td ? (td.textContent || '').replace(/\s+/g, ' ').trim() : '';
+            };
+
+            const ensureHeaderFilters = () => {
+                if (!table || table.querySelector('.generic-col-filters')) return;
+                const n = colCount();
+                const skip = actionColIndex();
+                const tr = document.createElement('tr');
+                tr.className = 'generic-col-filters';
+                for (let i = 0; i < n; i++) {
+                    const th = document.createElement('th');
+                    if (i !== skip) {
+                        const sel = document.createElement('select');
+                        sel.className = 'form-select form-select-sm generic-col-filter';
+                        sel.dataset.col = String(i);
+                        sel.setAttribute('aria-label', '筛选列');
+                        sel.innerHTML = '<option value="">全部</option>';
+                        sel.addEventListener('change', () => { page = 1; apply(); });
+                        th.appendChild(sel);
+                    }
+                    tr.appendChild(th);
+                }
+                const thead = table.querySelector('thead');
+                if (thead) thead.appendChild(tr);
+            };
+
+            const searchKw = () => input ? norm(input.value) : '';
+
+            const colFilters = () => {
+                const out = {};
+                document.querySelectorAll('.generic-col-filter').forEach((sel) => {
+                    const v = (sel.value || '').trim();
+                    if (v) out[sel.dataset.col] = v;
+                });
+                return out;
+            };
+
+            const rowMatches = (tr, exceptCol) => {
+                const kw = searchKw();
+                const text = norm(tr.textContent);
+                const meta = norm(tr.getAttribute('data-filters') || '');
+                if (kw && !(text + ' ' + meta).includes(kw)) return false;
+                const filters = colFilters();
+                for (const [col, val] of Object.entries(filters)) {
+                    if (exceptCol != null && String(exceptCol) === String(col)) continue;
+                    if (cellText(tr, col) !== val) return false;
+                }
+                return true;
+            };
+
+            const cardMatches = (col) => {
+                const idx = cards.indexOf(col);
+                if (idx >= 0 && rows[idx]) return rowMatches(rows[idx], null);
+                const kw = searchKw();
+                const card = col.querySelector('[data-filters]') || col;
+                const text = norm(card.textContent);
+                const meta = norm(card.getAttribute('data-filters') || '');
+                return !kw || (text + ' ' + meta).includes(kw);
+            };
+
+            const refreshFilterOptions = () => {
+                if (!isWide()) return;
+                document.querySelectorAll('.generic-col-filter').forEach((sel) => {
+                    const col = sel.dataset.col;
+                    const cur = sel.value;
+                    const set = new Set();
+                    rows.forEach((tr) => {
+                        if (!rowMatches(tr, col)) return;
+                        const t = cellText(tr, col);
+                        if (t) set.add(t);
+                    });
+                    const values = Array.from(set).sort((a, b) => a.localeCompare(b, 'zh'));
+                    sel.replaceChildren();
+                    const all = document.createElement('option');
+                    all.value = '';
+                    all.textContent = '全部';
+                    sel.appendChild(all);
+                    values.forEach((v) => {
+                        const opt = document.createElement('option');
+                        opt.value = v;
+                        opt.textContent = v.length > 40 ? v.slice(0, 40) + '…' : v;
+                        sel.appendChild(opt);
+                    });
+                    if (cur && values.indexOf(cur) >= 0) sel.value = cur;
+                });
+            };
+
+            const renderPager = (matched, size, totalPages) => {
+                if (pagerInfo) {
+                    const from = matched === 0 ? 0 : ((page - 1) * size + 1);
+                    const to = Math.min(page * size, matched);
+                    pagerInfo.textContent = matched === 0
+                        ? '共 0 条'
+                        : ('第 ' + from + '–' + to + ' 条 · 共 ' + matched + ' 条 · 每页 ' + size + ' 条');
+                }
+                if (!pagerPages) return;
+                pagerPages.innerHTML = '';
+                if (totalPages <= 1) return;
+                const addBtn = (label, target, disabled, active) => {
+                    const li = document.createElement('li');
+                    li.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+                    const a = document.createElement('a');
+                    a.className = 'page-link';
+                    a.href = '#';
+                    a.textContent = label;
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (disabled || target === page) return;
+                        page = target;
+                        apply();
+                    });
+                    li.appendChild(a);
+                    pagerPages.appendChild(li);
+                };
+                addBtn('上一页', Math.max(1, page - 1), page <= 1, false);
+                const windowSize = 5;
+                let start = Math.max(1, page - 2);
+                let end = Math.min(totalPages, start + windowSize - 1);
+                start = Math.max(1, end - windowSize + 1);
+                for (let p = start; p <= end; p++) addBtn(String(p), p, false, p === page);
+                addBtn('下一页', Math.min(totalPages, page + 1), page >= totalPages, false);
+            };
+
+            const apply = () => {
+                ensureHeaderFilters();
+                refreshFilterOptions();
+                const size = pageSize();
+                lastPageSize = size;
+                const matchedRows = rows.filter((tr) => rowMatches(tr, null));
+                const matchedCards = cards.filter((col) => cardMatches(col));
+                const matched = isWide() ? matchedRows : matchedCards;
+                const totalPages = Math.max(1, Math.ceil(matched.length / size) || 1);
+                if (page > totalPages) page = totalPages;
+                const start = (page - 1) * size;
+                const end = start + size;
+                rows.forEach((tr) => {
+                    const ok = rowMatches(tr, null);
+                    const idx = matchedRows.indexOf(tr);
+                    const onPage = ok && idx >= start && idx < end;
+                    tr.classList.toggle('d-none', !onPage);
+                });
+                cards.forEach((col) => {
+                    const ok = cardMatches(col);
+                    const idx = matchedCards.indexOf(col);
+                    const onPage = ok && idx >= start && idx < end;
+                    col.classList.toggle('d-none', !onPage);
+                });
+                renderPager(matched.length, size, totalPages);
+            };
+
+            if (input) input.addEventListener('input', () => { page = 1; apply(); });
+            window.addEventListener('resize', () => {
+                const next = pageSize();
+                if (next !== lastPageSize) {
+                    page = 1;
+                    apply();
+                }
+            });
+            apply();
+        })();
+    </script>
+</body>
+</html>

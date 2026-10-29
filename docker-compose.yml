@@ -58,6 +58,8 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - ./logs:/app/logs
+      - ./templates:/app/templates
+      - ./static:/app/static
   # redis:
   #   image: crpi-d81nvhgjqrzw3ppw.cn-hangzhou.aliyuncs.com/acs/redis:7-alpine
   #   ports:
