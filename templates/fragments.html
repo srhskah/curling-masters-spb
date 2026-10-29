@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<!-- 公共头部片段 -->
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${title + ' - Curling Masters'}">Curling Masters</title>
+    <!-- 站点图标：与 IpAddressAdvice#ipBgClass（body 背景）一致；非外网仍用冰壶 emoji data URI，外网用 /favicon.ico -->
+    <th:block th:if="${ipBgClass != 'bg-external'}">
+        <link rel="icon" type="image/svg+xml"
+              href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+        <link rel="shortcut icon"
+              href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Ctext%20x%3D%2750%25%27%20y%3D%2770%25%27%20font-size%3D%2772%27%20text-anchor%3D%27middle%27%3E%F0%9F%A5%8C%3C/text%3E%3C/svg%3E">
+    </th:block>
+    <th:block th:if="${ipBgClass == 'bg-external'}">
+        <link rel="icon" type="image/x-icon" th:href="@{/favicon.ico}">
+        <link rel="shortcut icon" th:href="@{/favicon.ico}">
+    </th:block>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link th:href="@{/css/main.css?v=2.2}" rel="stylesheet">
+</head>
+
+<!-- 主导航菜单内容：由外层 th:with="ms='' 或 'M'" 控制 id 后缀，避免桌面/侧栏重复 DOM 时 id 冲突 -->
+<th:block th:fragment="navbarMainMenusInner">
+    <ul class="navbar-nav me-auto mb-lg-0">
+        <li class="nav-item">
+            <a class="nav-link text-dark" href="/" data-i18n-key="nav.home">首页</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link text-dark" href="/ranking" data-i18n-key="nav.ranking"><i class="bi bi-list-ol"></i> 排名</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link text-dark" href="/leaderboard" data-i18n-key="nav.leaderboard"><i class="bi bi-trophy"></i> 数据</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link text-dark" href="/h2h" data-i18n-key="nav.h2h"><i class="bi bi-shuffle"></i> H2H</a>
+        </li>
+        <li class="nav-item"
+            th:if="${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}">
+            <a class="nav-link text-dark d-inline-flex align-items-center gap-1" href="/notification/list" data-i18n-key="nav.notifications">
+                <i class="bi bi-bell"></i> 消息通知
+                <span class="badge rounded-pill bg-danger"
+                      th:if="${notificationUnreadCount != null and notificationUnreadCount > 0}"
+                      th:text="${notificationUnreadCount}">0</span>
+            </a>
+        </li>
+        <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'') or hasRole(''ROLE_ADMIN'')')}" class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle text-dark" href="#"
+               th:id="${'managementDropdown' + ms}"
+               role="button" data-bs-toggle="dropdown" aria-expanded="false"
+               data-i18n-key="nav.systemManagement">
+                <i class="bi bi-gear"></i> 系统管理
+            </a>
+            <ul class="dropdown-menu" th:attr="aria-labelledby=${'managementDropdown' + ms}">
+                <li><h6 class="dropdown-header" data-i18n-key="nav.userManagement">用户管理</h6></li>
+                <li><a class="dropdown-item" href="/user/manage" data-i18n-key="nav.userManagement">
+                    <i class="bi bi-people"></i> 用户管理
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header" data-i18n-key="nav.tournamentManagement">赛事管理</h6></li>
+                <li><a class="dropdown-item" href="/season/management" data-i18n-key="nav.seasonManagement">
+                    <i class="bi bi-calendar3"></i> 赛季管理
+                </a></li>
+                <li><a class="dropdown-item" href="/tournamentLevel/list" data-i18n-key="nav.tournamentLevelManagement">
+                    <i class="bi bi-layers"></i> 赛事等级管理
+                </a></li>
+                <li><a class="dropdown-item" href="/series/list" data-i18n-key="nav.seriesManagement">
+                    <i class="bi bi-collection"></i> 赛事系列管理
+                </a></li>
+                <li><a class="dropdown-item" href="/tournament/list" data-i18n-key="nav.tournamentManagement">
+                    <i class="bi bi-trophy"></i> 赛事管理
+                </a></li>
+                <li><a class="dropdown-item" href="/match/list" data-i18n-key="nav.matchManagement">
+                    <i class="bi bi-controller"></i> 比赛管理
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">总控台</h6></li>
+                <li><a class="dropdown-item" href="/admin/console">
+                    <i class="bi bi-sliders2-vertical"></i> 总控台 · 排名参考优先级
+                </a></li>
+                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><hr class="dropdown-divider"></li>
+                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><h6 class="dropdown-header">系统配置</h6></li>
+                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><a class="dropdown-item" href="/admin/system-config">
+                    <i class="bi bi-sliders"></i> 赛制规则默认值
+                </a></li>
+            </ul>
+        </li>
+        <li th:if="${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}" class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle text-dark" href="#"
+               th:id="${'tournamentDropdown' + ms}"
+               role="button" data-bs-toggle="dropdown" aria-expanded="false"
+               data-i18n-key="nav.tournamentManagement">
+                <i class="bi bi-trophy"></i> 赛事
+            </a>
+            <ul class="dropdown-menu" th:attr="aria-labelledby=${'tournamentDropdown' + ms}">
+                <li><a class="dropdown-item" href="/tournament/list" data-i18n-key="nav.tournamentList">
+                    <i class="bi bi-list"></i> 赛事列表
+                </a></li>
+                <li><a class="dropdown-item" href="/season/list" data-i18n-key="nav.seasonList">
+                    <i class="bi bi-calendar3"></i> 赛季列表
+                </a></li>
+                <li><a class="dropdown-item" href="/ranking" data-i18n-key="nav.ranking">
+                    <i class="bi bi-list-ol"></i> 排名
+                </a></li>
+            </ul>
+        </li>
+    </ul>
+    <ul class="navbar-nav ms-lg-0 align-items-lg-center gap-2">
+        <li class="nav-item dropdown"
+            th:with="isLoggedIn=${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}">
+            <a class="nav-link dropdown-toggle text-dark" href="#"
+               th:id="${'userDropdown' + ms}"
+               role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-person-circle me-1"></i>
+                <span th:if="${isLoggedIn}" th:text="${#authentication != null ? #authentication.name : '用户'}">用户</span>
+                <span th:unless="${isLoggedIn}" data-i18n-key="nav.notLoggedIn">未登录</span>
+            </a>
+            <ul class="dropdown-menu" th:attr="aria-labelledby=${'userDropdown' + ms}">
+                <li th:if="${isLoggedIn}">
+                    <a class="dropdown-item" href="/user/profile" data-i18n-key="nav.userProfile">
+                        <i class="bi bi-person"></i> 个人资料
+                    </a>
+                </li>
+                <li th:if="${isLoggedIn}">
+                    <a class="dropdown-item" href="/user/reset-password" data-i18n-key="nav.changePassword">
+                        <i class="bi bi-key"></i> 修改密码
+                    </a>
+                </li>
+                <li th:if="${isLoggedIn}"><hr class="dropdown-divider"></li>
+                <li th:if="${isLoggedIn}">
+                    <a class="dropdown-item" href="#" onclick="document.getElementById('logoutForm').submit();" data-i18n-key="nav.logout">
+                        <i class="bi bi-box-arrow-right"></i> 退出登录
+                    </a>
+                </li>
+
+                <li th:if="${!isLoggedIn}">
+                    <a class="dropdown-item" href="/user/login" data-i18n-key="nav.login">
+                        <i class="bi bi-box-arrow-in-right"></i> 登录
+                    </a>
+                </li>
+                <li th:if="${!isLoggedIn}">
+                    <a class="dropdown-item" href="/user/register" data-i18n-key="nav.register">
+                        <i class="bi bi-person-plus"></i> 注册
+                    </a>
+                </li>
+            </ul>
+        </li>
+    </ul>
+</th:block>
+
+<!-- 导航栏片段：须与窄屏 offcanvas 同片段一并输出，否则各页 th:replace 只有 <nav>、无 #siteNavOffcanvas，汉堡会报错 -->
+<th:block th:fragment="navbar">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <img th:src="@{/images/Logo Trsp Stripe.png}" alt="Curling Masters Logo" style="height: 40px;">
+            </a>
+            <!-- 桌面端语言选择（窄屏隐藏，放到侧边栏） -->
+            <div class="d-none d-lg-flex align-items-center gap-2 ms-auto me-3" style="flex-shrink: 0;">
+                <label class="small text-muted mb-0" for="siteLanguageSelect" data-i18n-key="site.language">语言</label>
+                <select id="siteLanguageSelect" class="form-select form-select-sm" style="min-width: 150px;">
+                    <option value="zh-CN">简体中文</option>
+                    <option value="zh-TW">繁體中文</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="ru">Русский</option>
+                    <option value="es">Español</option>
+                    <option value="pt">Português</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </div>
+            <!-- 窄屏：侧栏 offcanvas（仅 Bootstrap 控制，避免与 main.js 二次切换冲突） -->
+            <button class="navbar-toggler d-lg-none border-0 px-2" type="button"
+                    data-bs-toggle="offcanvas" data-bs-target="#siteNavOffcanvas"
+                    aria-controls="siteNavOffcanvas" aria-label="打开菜单">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse d-none d-lg-flex flex-grow-1 align-items-lg-center" id="navbarNavDesktop">
+                <th:block th:with="ms=${''}">
+                    <th:block th:replace="~{fragments :: navbarMainMenusInner}"/>
+                </th:block>
+            </div>
+        </div>
+        <form id="logoutForm" th:action="@{/logout}" method="post" style="display: none;">
+            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        </form>
+    </nav>
+    <!-- 窄屏侧栏菜单（独立于顶栏折叠层，与 navbar 同片段保证每页都有 DOM 目标） -->
+    <div class="offcanvas offcanvas-start site-nav-offcanvas" tabindex="-1" id="siteNavOffcanvas"
+         aria-labelledby="siteNavOffcanvasLabel" style="z-index: 1919810;">
+        <!-- <div class="offcanvas-header border-bottom py-2">
+            <h5 class="offcanvas-title" id="siteNavOffcanvasLabel">菜单</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="关闭"></button>
+        </div> -->
+        <div class="offcanvas-body pt-2">
+            <!-- 窄屏语言选择（放在侧边栏顶部） -->
+            <div class="mb-3 pb-2 border-bottom">
+                <label class="small text-muted mb-1" for="siteLanguageSelectMobile" data-i18n-key="site.language">语言</label>
+                <select id="siteLanguageSelectMobile" class="form-select form-select-sm">
+                    <option value="zh-CN">简体中文</option>
+                    <option value="zh-TW">繁體中文</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="ru">Русский</option>
+                    <option value="es">Español</option>
+                    <option value="pt">Português</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </div>
+            <th:block th:with="ms='M'">
+                <th:block th:replace="~{fragments :: navbarMainMenusInner}"/>
+            </th:block>
+        </div>
+    </div>
+</th:block>
+
+<!-- 登录导航栏片段（未登录用户使用） -->
+<nav th:fragment="navbar-login" class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <img th:src="@{/images/Logo Trsp Stripe.png}" alt="Curling Masters Logo" style="height: 40px;">
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavLogin">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNavLogin">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/login" data-i18n-key="nav.login">登录</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/user/register" data-i18n-key="nav.register">注册</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- 页脚片段 -->
+<footer th:fragment="footer" class="footer">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <!-- <h5>Curling Masters</h5> -->
+                <a href="/">
+                    <img th:src="@{/images/Logo W2.png}" alt="Curling Masters Logo" style="height: 4.5em;">
+                </a>
+                <p data-i18n-key="footer.description">冰壶大师赛 统一赛事管理系统</p>
+                <p data-i18n-key="footer.copyright">&copy; 2026 Curling Masters. All rights reserved.</p>
+            </div>
+            <div class="col-md-6 text-end">
+                <!-- <p>&copy; 2026 Curling Masters. All rights reserved.</p> -->
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- 左下角返回顶部按钮（短按回顶，长按拖动） -->
+<button id="backToTopBtn" type="button" aria-label="返回顶部（长按拖动）" title="返回顶部（长按拖动）">↑</button>
+
+<!-- 公共脚本片段 -->
+<th:block th:fragment="scripts">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/site-i18n.js?v=1.0}"></script>
+    <script th:src="@{/js/main.js?v=1.4}"></script>
+</th:block>
+
+<!-- 消息提示片段 -->
+<div th:fragment="alert(message, type)" th:if="${message}" class="container mt-3">
+    <div th:class="'alert alert-' + ${type} + ' alert-dismissible fade show'" role="alert">
+        <span th:text="${message}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+</div>
+
+<!-- 错误消息片段 -->
+<div th:fragment="error-alert" th:if="${error}" class="container mt-3">
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <span th:text="${error}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+</div>
+
+<!-- 成功消息片段 -->
+<div th:fragment="success-alert" th:if="${message}" class="container mt-3">
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <span th:text="${message}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+</div>
+
+<!-- Cookie 同意横幅 -->
+<div th:fragment="cookie-banner" id="cookieBanner" class="cookie-banner" style="display: none;">
+    <div class="container">
+        <p class="mb-0" data-i18n-key="cookie.bannerText">
+            我们使用 Cookie 来改善您的浏览体验、分析网站使用情况并提供个性化内容。
+            继续使用本网站即表示您同意我们的 Cookie 政策。
+        </p>
+        <div class="btn-group">
+            <button type="button" class="btn btn-outline-light btn-sm" onclick="acceptAllCookies()" data-i18n-key="cookie.acceptAll">
+                接受全部
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="acceptEssentialCookies()" data-i18n-key="cookie.acceptEssential">
+                仅必需
+            </button>
+            <button type="button" class="btn btn-outline-info btn-sm" onclick="showCookieSettings()" data-i18n-key="cookie.settings">
+                设置
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Cookie 设置模态框 -->
+<div th:fragment="cookie-settings-modal" class="modal fade" id="cookieSettingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" data-i18n-key="cookie.modalTitle">Cookie 设置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="essentialCookies" checked disabled>
+                        <label class="form-check-label" for="essentialCookies">
+                            <strong data-i18n-key="cookie.essential">必需 Cookie</strong> - <span data-i18n-key="cookie.essentialDesc">网站正常运行所必需</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="preferenceCookies">
+                        <label class="form-check-label" for="preferenceCookies">
+                            <strong data-i18n-key="cookie.preference">偏好设置 Cookie</strong> - <span data-i18n-key="cookie.preferenceDesc">记住您的设置（主题、语言等）</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="analyticsCookies">
+                        <label class="form-check-label" for="analyticsCookies">
+                            <strong data-i18n-key="cookie.analytics">分析 Cookie</strong> - <span data-i18n-key="cookie.analyticsDesc">帮助我们改进网站</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="marketingCookies">
+                        <label class="form-check-label" for="marketingCookies">
+                            <strong data-i18n-key="cookie.marketing">营销 Cookie</strong> - <span data-i18n-key="cookie.marketingDesc">用于个性化广告</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n-key="common.cancel">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveCookieSettings()" data-i18n-key="cookie.saveSettings">保存设置</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 单场比赛卡片核心：验收居中 + 双栏对称比分与胜负/平局底色（小组赛、淘汰赛等共用；c 为 buildMatchCardForDetail 的 Map） -->
+<th:block th:fragment="matchScoreCardCore(c)">
+    <div class="match-card-accept-row px-3 pt-1 pb-2">
+        <span class="badge bg-success" th:if="${c.match.resultLocked}">已验收</span>
+        <span class="badge bg-warning text-dark" th:unless="${c.match.resultLocked}">待验收</span>
+    </div>
+    <div class="d-flex align-items-stretch match-card-pair-row px-2 pb-2 gap-1">
+        <div class="match-card-pair-side flex-fill text-start rounded-2 px-2 py-2"
+             th:classappend="${c.outcome == 'p1win'} ? ' match-card-pair-side--winner' : (${c.outcome == 'draw'} ? ' match-card-pair-side--draw')">
+            <div class="fw-semibold text-truncate" th:text="${c.player1Name}">甲</div>
+            <div class="small text-muted lh-sm"
+                 th:if="${c.player1GroupRankBadge != null and !#strings.isEmpty(c.player1GroupRankBadge)}"
+                 th:text="${c.player1GroupRankBadge}">(12) A1</div>
+            <div class="match-card-pair-score" th:text="${c.player1Total}">0</div>
+        </div>
+        <div class="match-card-pair-sep text-muted small align-self-center user-select-none">:</div>
+        <div class="match-card-pair-side flex-fill text-end rounded-2 px-2 py-2"
+             th:classappend="${c.outcome == 'p2win'} ? ' match-card-pair-side--winner' : (${c.outcome == 'draw'} ? ' match-card-pair-side--draw')">
+            <div class="fw-semibold text-truncate" th:text="${c.player2Name}">乙</div>
+            <div class="small text-muted lh-sm"
+                 th:if="${c.player2GroupRankBadge != null and !#strings.isEmpty(c.player2GroupRankBadge)}"
+                 th:text="${c.player2GroupRankBadge}">(8) B2</div>
+            <div class="match-card-pair-score" th:text="${c.player2Total}">0</div>
+        </div>
+    </div>
+</th:block>
+
+<!-- 表格/列表内嵌：与 matchScoreCardCore 相同，紧凑字号 -->
+<th:block th:fragment="matchScoreCardEmbedded(c)">
+    <div class="unified-match-score-card match-score-card--compact border rounded-2 overflow-hidden bg-white">
+        <th:block th:replace="~{fragments :: matchScoreCardCore(c=${c})}"/>
+    </div>
+</th:block>
+
+</html>

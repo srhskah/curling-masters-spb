@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{fragments :: head('登录')}">
+</head>
+
+<body th:classappend="${ipBgClass}">
+    <!-- 登录导航栏 -->
+    <div th:replace="~{fragments :: navbar-login}"></div>
+
+    <div class="container mt-4">
+        <div class="login-container">
+            <h2 class="text-center mb-4" data-i18n-key="page.login.title">登录 Curling Masters</h2>
+
+            <!-- 显示错误消息 -->
+            <div th:replace="~{fragments :: error-alert}"></div>
+
+            <!-- 显示成功消息 -->
+            <div th:replace="~{fragments :: success-alert}"></div>
+
+            <form th:action="@{/login}" method="post">
+                <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <div class="mb-3">
+                    <label for="username" class="form-label" data-i18n-key="page.login.username">用户名</label>
+                    <input type="text" class="form-control" id="username" name="username" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label" data-i18n-key="page.login.password">密码</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary" data-i18n-key="page.login.loginBtn">登录</button>
+                </div>
+            </form>
+
+            <div class="text-center mt-3">
+                <p><span data-i18n-key="page.login.noAccount">还没有账号？</span><a href="/user/register" data-i18n-key="page.login.registerNow">立即注册</a></p>
+                <p class="mt-2"><a href="/user/forgot-password" data-i18n-key="page.login.forgotPassword">忘记密码？</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <div th:replace="~{fragments :: footer}"></div>
+
+    <!-- 脚本 -->
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>
