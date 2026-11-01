@@ -43,17 +43,19 @@
 4. 表单绑定（th:object + th:field）时，确保 Controller 放入了对应对象，且字段名与 DTO 一致。
 5. 引用片段用 th:replace / th:insert / th:include 时，路径和片段名必须存在；片段参数传递语法正确。
 6. 模板中引用的静态资源统一用 @{...}，不要写死相对路径。
-7. 模板文件放在外置 templates/ 目录（容器内 /app/templates/），新增模板必须同时确认该目录下文件已创建，不能只改 JAR 内旧路径。
-8. 修改模板后提醒我：开发环境 spring.thymeleaf.cache=false 时刷新即可；生产环境需重启 app 容器。
+7. 【前端唯一真相源】工程根目录的 templates/、static/ 为前端权威目录（docker-compose 挂载到容器 /app/templates、/app/static；Thymeleaf/静态资源优先读外置路径）。改 HTML/CSS/JS/图片必须直接改这两个目录；禁止只改 src/main/resources/templates 或 src/main/resources/static 却不同步到根目录——本地 Docker 下那样 F5 看不到效果。
+8. 新增模板/静态文件：在根目录 templates/、static/ 创建后即生效；若还需打进 WAR（无挂载的生产镜像），发布前再把根目录同步回 src/main/resources 对应路径，或保证发布环境同样挂载根目录。
+9. 修改模板后提醒我：本地开发 spring.thymeleaf.cache=false 且已挂载外置目录时，浏览器 F5/强刷即可；纯 Java/配置/Flyway 改动才需要 ./gradlew build && docker-compose up --build -d。
+10. 页面级 <style> / 额外 <link> 不要写在 th:replace="~{fragments :: head(...)}" 的 <head> 内部——整段 head 会被替换，样式不会出现在最终 HTML。应像赛事详情页一样把 <style> 放在 <body> 内（navbar 之后），或写入 static/css 再用 @{...} 引入。覆盖内联 style="display:none" 时需用 display: … !important。
 
 六、避免前端样式错误
-1. 只改样式时，优先修改外置 static/css 下的文件，不要动 JAR 内资源路径。
+1. 只改样式时，必须修改工程根目录 static/（如 static/css、static/js），不要只改 src/main/resources/static 或指望 WAR 内资源热更新。
 2. 新增 CSS 类名要与现有命名风格一致，避免与已有类冲突；不要随意覆盖全局标签样式（如 body、table、button）。
 3. 使用项目已有的 CSS 框架/变量（如有），不要引入新的 CDN 或 UI 库。
 4. 布局改动要兼顾移动端：表格加 overflow-x:auto，按钮/输入框不要写死固定宽度导致小屏溢出。
 5. 修改 Thymeleaf 中嵌入的 style 时，确保不破坏原有选择器；不要使用内联 style 覆盖全局样式，除非必要。
 6. 图片/字体路径使用 @{...} 或相对 static 的正确路径，避免 404。
-7. 改完前端后，列出受影响的页面路径，方便我逐一 F5 验证。
+7. 改完前端后，列出受影响的页面路径，方便我逐一 F5 验证；并确认改动已落在根目录 templates/、static/。
 
 七、输出要求
 1. 修改完成后，用简短列表说明：改了哪些文件、每个文件改了什么、可能影响哪些页面/接口。
