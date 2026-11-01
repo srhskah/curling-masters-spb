@@ -46,23 +46,15 @@
         .qualify-to-ko-qualifier-pending:hover {
             background-color: #fbf5e1 !important;
         }
-        /* 移动端响应式样式 <768px */
+        /* 窄屏：标题栏按钮只留图标，不显示文字 */
         @media (max-width: 767px) {
-            .tournament-header-mobile-return .btn-text {
-                display: none;
+            .tournament-header-actions .btn-text,
+            .tournament-header-actions .btn-text-mobile {
+                display: none !important;
             }
-            .tournament-header-mobile-return .btn-text-mobile {
-                display: inline;
-            }
-            .tournament-header-mobile-reg .btn-text {
-                display: none;
-            }
-            .tournament-header-mobile-reg.registration-active {
+            .tournament-header-actions .tournament-header-mobile-reg.registration-active {
                 background-color: #28a745 !important;
                 border-color: #28a745 !important;
-            }
-            .tournament-header-mobile-admin .btn-text {
-                display: none;
             }
             .tournament-header-edition::before,
             .tournament-header-edition::after {
@@ -267,42 +259,44 @@
                               th:text="${tournamentInfo.edition}"></span>
                         <!-- <small class="opacity-75" th:text="${' - ' + tournamentInfo.levelName}"></small> -->
                     </h5>
-                    <div class="d-flex align-items-center gap-2">
-                        <button type="button" class="btn btn-outline-light btn-sm tournament-header-mobile-return"
+                    <div class="d-flex align-items-center gap-2 tournament-header-actions">
+                        <button type="button" class="btn btn-outline-light btn-sm"
                                 id="copyShortPathBtn"
                                 th:if="${shortDetailPath != null and shortDetailPath != '#'}"
                                 th:attr="data-short-path=${shortDetailPath}"
-                                title="复制当前域名下的短网址">
+                                title="生成短路径">
                             <i class="bi bi-link-45deg"></i>
                             <span class="btn-text">生成短路径</span>
-                            <span class="btn-text-mobile" style="display: none;">短链</span>
                         </button>
-                        <a class="btn btn-outline-light btn-sm tournament-header-mobile-return"
+                        <a class="btn btn-outline-light btn-sm"
                            th:if="${tournamentInfo.seasonId != null}"
-                           th:href="${@tournamentUrls.seasonDetailUrl(tournamentInfo.seasonId, tournamentInfo.tournament.seriesId)}">
+                           th:href="${@tournamentUrls.seasonDetailUrl(tournamentInfo.seasonId, tournamentInfo.tournament.seriesId)}"
+                           title="返回赛季">
                             <i class="bi bi-arrow-left"></i>
                             <span class="btn-text">返回赛季</span>
-                            <span class="btn-text-mobile" style="display: none;">赛季</span>
                         </a>
                         <a class="btn btn-success btn-sm tournament-header-mobile-reg"
                            th:classappend="${registrationOpen ? 'registration-active' : ''}"
                            th:if="${registrationModuleActive}"
-                           th:href="${@tournamentUrls.registrationUrl(tournamentInfo.tournament)}">
+                           th:href="${@tournamentUrls.registrationUrl(tournamentInfo.tournament)}"
+                           th:title="${registrationOpen ? '报名中' : '报名接龙'}">
                             <i class="bi bi-journal-text"></i>
                             <span class="btn-text" th:if="${registrationOpen}">报名中</span>
                             <span class="btn-text" th:unless="${registrationOpen}">报名接龙</span>
                         </a>
                         <span th:if="${registrationModuleActive and !registrationEnabled}"
                               class="badge bg-warning text-dark">待开启报名</span>
-                    <div th:if="${isAdmin or isHost}">
+                    <div th:if="${isAdmin or isHost}" class="d-flex align-items-center">
                         <a th:href="@{/tournament/edit/{id}(id=${tournamentInfo.tournament.id})}"
-                           class="btn btn-light btn-sm me-2 tournament-header-mobile-admin">
+                           class="btn btn-light btn-sm me-2"
+                           title="编辑">
                             <i class="bi bi-pencil"></i>
                             <span class="btn-text">编辑</span>
                         </a>
                         <div class="btn-group" role="group">
-                            <button type="button" class="btn btn-outline-light btn-sm dropdown-toggle tournament-header-mobile-admin"
-                                    data-bs-toggle="dropdown" aria-expanded="false">
+                            <button type="button" class="btn btn-outline-light btn-sm dropdown-toggle"
+                                    data-bs-toggle="dropdown" aria-expanded="false"
+                                    title="管理">
                                 <i class="bi bi-gear"></i>
                                 <span class="btn-text">管理</span>
                             </button>
