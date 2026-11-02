@@ -33,16 +33,21 @@
 
     <div class="ko-bracket-root card border-0 shadow-sm p-3 p-md-4"
          th:if="${bracketData != null and (bracketData.hasQualifiers or bracketData.hasRound16 or bracketData.hasRound8 or bracketData.hasRound4 or bracketData.hasFinal)}"
-         th:attr="data-fetch-url=@{/tournament/competition/knockout-bracket-data/{id}(id=${tournament.id})},data-export-title=|${tournament.levelCode} 淘汰赛对阵图|">
+         th:attr="data-fetch-url=@{/tournament/competition/knockout-bracket-data/{id}(id=${tournament.id})},
+                  data-export-title=|${tournament.levelCode} 淘汰赛对阵图|,
+                  data-season-label=${seasonName},
+                  data-series-label=${seriesName},
+                  data-level-label=${tournament.levelCode},
+                  data-export-logo=@{/images/Logo Trsp Stripe.png}">
     </div>
 </div>
 
 <div th:replace="~{fragments :: footer}"></div>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
 <th:block th:replace="~{fragments-group-match-score-modal :: groupMatchScoreModalAndSignature}"></th:block>
-<link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=21}">
+<link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=24}">
 <script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
-<script th:src="@{/js/knockout-bracket-view.js?v=27}"></script>
+<script th:src="@{/js/knockout-bracket-view.js?v=29}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const root = document.querySelector('.ko-bracket-root');

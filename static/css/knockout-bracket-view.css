@@ -31,24 +31,56 @@
   }
 }
 
+/* 不可用 display:none：导出前要量宽高/画导线；屏外可测、不闪屏 */
 #ko-bracket-print-stage {
-  display: none;
+  position: fixed;
+  left: -100vw;
+  top: 0;
+  width: min(1280px, 100vw);
+  z-index: -1;
+  overflow: visible;
+  padding: 12px 16px 24px;
+  background: #fff;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 body.ko-bracket-printing #ko-bracket-print-stage {
-  display: block;
-  position: fixed;
+  left: 0;
   inset: 0;
+  width: auto;
   z-index: 100000;
   overflow: auto;
-  padding: 12px 16px 24px;
-  background: #fff;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .ko-bracket-print-stage {
   width: 100%;
   max-width: 1280px;
   margin: 0 auto;
+}
+
+.ko-bracket-print-stage .ko-bracket-export-hd.meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.ko-bracket-print-stage .ko-bracket-export-hd .logo {
+  width: 28.6%;
+  max-width: 220px;
+  min-width: 120px;
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.ko-bracket-print-stage .ko-bracket-export-hd-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
 }
 
 .ko-bracket-print-stage .ko-bracket-export-hd h2 {
@@ -59,9 +91,10 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 }
 
 .ko-bracket-print-stage .ko-bracket-export-meta {
-  margin: 0 0 12px;
+  margin: 0;
   font-size: 12px;
   color: #64748b;
+  line-height: 1.45;
 }
 
 .ko-bracket-print-stage .ko-bracket-export-root {
@@ -189,9 +222,15 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 }
 
 @media print {
+  /* 强制横向（各端打印对话框默认建议横屏）；部分浏览器仍可能让用户再确认一次方向 */
   @page {
     size: A3 landscape;
     margin: 8mm;
+  }
+
+  body.ko-bracket-printing {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   body.ko-bracket-printing > *:not(#ko-bracket-print-stage) {
@@ -209,6 +248,35 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 
   body.ko-bracket-printing .ko-bracket-print-stage {
     max-width: none;
+    width: 100%;
+  }
+
+  body.ko-bracket-printing .ko-bracket-export-root {
+    /* 打印始终用宽屏左-中-右尺寸，不随窄屏切换上中下 */
+    --ko-card-w: 200px;
+    --ko-gap: 30px;
+  }
+
+  body.ko-bracket-printing .ko-bracket-export-root .bracket {
+    grid-template-columns: repeat(7, var(--ko-card-w)) !important;
+    width: max-content !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+
+  body.ko-bracket-printing .ko-bracket-export-root .bracket.ko-bracket--no-r16 {
+    grid-template-columns: repeat(5, var(--ko-card-w)) !important;
+  }
+
+  body.ko-bracket-printing .ko-bracket-export-root .ko-mcard:not(.qual-mini),
+  body.ko-bracket-printing .ko-bracket-export-root .ko-slot:not(.has-qual) {
+    width: var(--ko-card-w) !important;
+    max-width: none !important;
+  }
+
+  body.ko-bracket-printing .ko-bracket-export-hd .logo {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }
 

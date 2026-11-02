@@ -832,6 +832,36 @@
     return '淘汰赛对阵图';
   }
 
+  function exportMetaFromRoot(root) {
+    const attr = (...keys) => {
+      for (const k of keys) {
+        const v = (root.getAttribute(k) || '').trim();
+        if (v) return v;
+      }
+      return '';
+    };
+    const season = attr('data-season-label', 'data-export-season');
+    const series = attr('data-series-label', 'data-export-series');
+    const level = attr('data-level-label', 'data-export-level');
+    const editionRaw = attr('data-edition-label', 'data-export-edition');
+    const edition = editionRaw && /^\d+$/.test(editionRaw) ? `第${editionRaw}届` : editionRaw;
+    const logo = attr('data-export-logo') || '/images/Logo%20Trsp%20Stripe.png';
+    return { season, series, level, edition, logo };
+  }
+
+  function buildExportHeadline(root) {
+    const m = exportMetaFromRoot(root);
+    const parts = [];
+    if (m.season) parts.push(m.season);
+    if (m.series) parts.push(m.series);
+    const eventBits = [];
+    if (m.level) eventBits.push(m.level);
+    if (m.edition) eventBits.push(m.edition);
+    if (eventBits.length) parts.push(eventBits.join(' · '));
+    parts.push('淘汰赛对阵图');
+    return parts.join(' · ');
+  }
+
   function formatMatchTextLine(m) {
     if (!m || m.id == null) return null;
     const sc1 = m.sc1 != null && m.sc1 !== '' ? m.sc1 : '–';
@@ -843,10 +873,12 @@
     return `${n1}${mark1}  ${sc1}:${sc2}  ${n2}${mark2}`;
   }
 
-  function buildBracketText(state, title) {
+  function buildBracketText(state, title, metaInfo) {
     const L = state.labels;
     const lines = [];
     lines.push(title || '淘汰赛对阵图');
+    if (metaInfo?.season) lines.push(`赛季：${metaInfo.season}`);
+    if (metaInfo?.series) lines.push(`系列：${metaInfo.series}`);
     const total = state.progress.total || 0;
     const done = state.progress.done || 0;
     lines.push(total > 0 ? `进度：${done}/${total} 场已决出` : '进度：暂无场次');
@@ -900,7 +932,7 @@
       if (typeof global.showAlert === 'function') global.showAlert('对阵数据尚未加载', 'warning');
       return;
     }
-    const text = buildBracketText(state, exportTitle(root));
+    const text = buildBracketText(state, buildExportHeadline(root) || exportTitle(root), exportMetaFromRoot(root));
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
@@ -920,12 +952,25 @@
     }
   }
 
-  function buildPrintStageHtml(title, meta) {
+  function buildPrintStageHtml(opts) {
+    const title = opts.title || '淘汰赛对阵图';
+    const meta = opts.meta || '';
+    const season = opts.season || '';
+    const series = opts.series || '';
+    const logo = opts.logo || '/images/Logo%20Trsp%20Stripe.png';
+    const subParts = [];
+    if (season) subParts.push(`赛季：${season}`);
+    if (series) subParts.push(`系列：${series}`);
+    if (meta) subParts.push(meta);
+    const subLine = subParts.join('  ·  ');
     return `
       <div class="ko-bracket-print-stage">
-        <div class="ko-bracket-export-hd">
-          <h2>${escapeHtml(title)}</h2>
-          <p class="ko-bracket-export-meta">${escapeHtml(meta)}</p>
+        <div class="ko-bracket-export-hd meta">
+          <img class="logo" src="${escapeHtml(logo)}" alt="Curling Masters Logo"/>
+          <div class="ko-bracket-export-hd-text">
+            <h2>${escapeHtml(title)}</h2>
+            <p class="ko-bracket-export-meta">${escapeHtml(subLine)}</p>
+          </div>
         </div>
         <div class="ko-bracket-root ko-bracket-export-root ko-pdf-simple">
           <div class="bracket-wrap"><div class="bracket"></div></div>
@@ -950,8 +995,9 @@
     });
   }
 
-  function cleanupPrintStage(stage, btn) {
+  function cleanupPrintStage(stage, btn, prevTitle) {
     document.body.classList.remove('ko-bracket-printing');
+    if (prevTitle != null) document.title = prevTitle;
     stage?.remove();
     if (btn) btn.disabled = false;
   }
@@ -965,31 +1011,44 @@
     const btn = root.querySelector('[data-ko-export-pdf]');
     if (btn) btn.disabled = true;
 
-    const title = exportTitle(root);
+    const info = exportMetaFromRoot(root);
+    const title = buildExportHeadline(root) || exportTitle(root);
     const total = state.progress.total || 0;
     const done = state.progress.done || 0;
     const meta = total > 0
-        ? `进度 ${done}/${total} 场已决出 · ${new Date().toLocaleString('zh-CN')}`
-        : new Date().toLocaleString('zh-CN');
+        ? `进度 ${done}/${total} 场已决出 · 导出时间 ${new Date().toLocaleString('zh-CN')}`
+        : `导出时间 ${new Date().toLocaleString('zh-CN')}`;
 
     document.getElementById('ko-bracket-print-stage')?.remove();
     const stage = document.createElement('div');
     stage.id = 'ko-bracket-print-stage';
-    stage.innerHTML = buildPrintStageHtml(title, meta);
+    stage.innerHTML = buildPrintStageHtml({
+      title,
+      meta,
+      season: info.season,
+      series: info.series,
+      logo: info.logo,
+    });
     document.body.appendChild(stage);
 
     const exportRoot = stage.querySelector('.ko-bracket-export-root');
+    // 屏外可测：始终按宽屏左-中-右桌面布局导出（与设备无关）
     layoutDesktopBracketExport(exportRoot, state);
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // 再量一次导线（首帧偶发 0 宽）
+    layoutDesktopBracketExport(exportRoot, state);
+    await new Promise((r) => requestAnimationFrame(r));
 
     document.body.classList.add('ko-bracket-printing');
+    const prevTitle = document.title;
+    document.title = title;
     if (typeof global.showAlert === 'function') {
-      global.showAlert('请在打印窗口的目标打印机中选择「另存为 PDF」或「Microsoft Print to PDF」', 'info');
+      global.showAlert('请在打印窗口选择「横向 / Landscape」，目标打印机选「另存为 PDF」', 'info');
     }
 
     const onAfterPrint = () => {
       window.removeEventListener('afterprint', onAfterPrint);
-      cleanupPrintStage(stage, btn);
+      cleanupPrintStage(stage, btn, prevTitle);
     };
     window.addEventListener('afterprint', onAfterPrint);
 
@@ -998,13 +1057,13 @@
         global.print();
       } catch (e) {
         console.error(e);
-        cleanupPrintStage(stage, btn);
+        cleanupPrintStage(stage, btn, prevTitle);
         if (typeof global.showAlert === 'function') global.showAlert('无法打开打印对话框', 'danger');
         return;
       }
       setTimeout(() => {
         if (document.getElementById('ko-bracket-print-stage')) {
-          cleanupPrintStage(stage, btn);
+          cleanupPrintStage(stage, btn, prevTitle);
         }
       }, 8000);
     }, 400);
