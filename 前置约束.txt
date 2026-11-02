@@ -11,6 +11,7 @@
 5. 数据库表名 `match` 是 MySQL 保留字，SQL 中必须写成 `` `match` ``，MyBatis-Plus 实体上加 @TableName("`match`") 或确保生成的 SQL 带反引号。
 6. 时间字段统一用 LocalDateTime/LocalDate，JSON 序列化格式保持项目现有配置，不要混用 Date 和 LocalDateTime。
 7. 不要引入新的第三方依赖，除非我明确要求；不要升级 Spring Boot / MyBatis-Plus / Flyway 版本。
+8. 【前端只改外置目录】以后对前端页面的更改（HTML / CSS / JS / 图片 / favicon），一律只改工程根目录的 templates/、static/（即 @templates、@static）。不要改 src/main/resources/templates 或 src/main/resources/static——本地 Docker 挂载的是根目录这两处，改 classpath 里的副本刷新看不到。Java/配置/Flyway 仍改 src/。
 
 二、避免 500（服务端异常）
 1. 所有可能为 null 的查询结果、集合、Optional 必须先判空再使用，禁止直接 .get(0) / .stream() / .equals()。
@@ -43,13 +44,13 @@
 4. 表单绑定（th:object + th:field）时，确保 Controller 放入了对应对象，且字段名与 DTO 一致。
 5. 引用片段用 th:replace / th:insert / th:include 时，路径和片段名必须存在；片段参数传递语法正确。
 6. 模板中引用的静态资源统一用 @{...}，不要写死相对路径。
-7. 【前端唯一真相源】工程根目录的 templates/、static/ 为前端权威目录（docker-compose 挂载到容器 /app/templates、/app/static；Thymeleaf/静态资源优先读外置路径）。改 HTML/CSS/JS/图片必须直接改这两个目录；禁止只改 src/main/resources/templates 或 src/main/resources/static 却不同步到根目录——本地 Docker 下那样 F5 看不到效果。
-8. 新增模板/静态文件：在根目录 templates/、static/ 创建后即生效；若还需打进 WAR（无挂载的生产镜像），发布前再把根目录同步回 src/main/resources 对应路径，或保证发布环境同样挂载根目录。
+7. 【前端唯一真相源】工程根目录 templates/、static/（@templates、@static）为前端权威目录（docker-compose 挂载到容器 /app/templates、/app/static；Thymeleaf/静态资源优先读外置路径）。改页面必须直接改这两个目录，禁止改 src/main/resources 下对应副本。
+8. 新增模板/静态文件：只在根目录 templates/、static/ 创建即可生效。无挂载的生产镜像若仍打进 WAR，发布前再用根目录覆盖 src/main/resources，或保证发布环境同样挂载根目录；日常开发不要去改 classpath 副本。
 9. 修改模板后提醒我：本地开发 spring.thymeleaf.cache=false 且已挂载外置目录时，浏览器 F5/强刷即可；纯 Java/配置/Flyway 改动才需要 ./gradlew build && docker-compose up --build -d。
 10. 页面级 <style> / 额外 <link> 不要写在 th:replace="~{fragments :: head(...)}" 的 <head> 内部——整段 head 会被替换，样式不会出现在最终 HTML。应像赛事详情页一样把 <style> 放在 <body> 内（navbar 之后），或写入 static/css 再用 @{...} 引入。覆盖内联 style="display:none" 时需用 display: … !important。
 
 六、避免前端样式错误
-1. 只改样式时，必须修改工程根目录 static/（如 static/css、static/js），不要只改 src/main/resources/static 或指望 WAR 内资源热更新。
+1. 只改样式时，必须修改工程根目录 static/（如 static/css、static/js），不要改 src/main/resources/static，也不要指望 WAR 内资源热更新。
 2. 新增 CSS 类名要与现有命名风格一致，避免与已有类冲突；不要随意覆盖全局标签样式（如 body、table、button）。
 3. 使用项目已有的 CSS 框架/变量（如有），不要引入新的 CDN 或 UI 库。
 4. 布局改动要兼顾移动端：表格加 overflow-x:auto，按钮/输入框不要写死固定宽度导致小屏溢出。

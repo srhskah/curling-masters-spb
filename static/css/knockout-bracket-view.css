@@ -1,7 +1,8 @@
 /* 淘汰赛对阵图（参考 bracket_demo.html，作用域限定在 .ko-bracket-root） */
 .ko-bracket-root {
-  --ko-card-w: 200px;
-  --ko-gap: 30px;
+  --ko-card-w: 168px;
+  --ko-qual-w: 112px;
+  --ko-gap: 16px;
   --ko-r16: #3b82f6;
   --ko-qf: #8b5cf6;
   --ko-sf: #f97316;
@@ -297,14 +298,23 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 .ko-bracket-root .bracket {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(6, var(--ko-card-w));
-  grid-template-rows: 40px auto auto 26px auto auto;
+  grid-template-columns: repeat(7, var(--ko-card-w));
+  grid-template-rows: 40px auto auto 26px auto auto auto;
   column-gap: var(--ko-gap);
-  row-gap: 12px;
+  row-gap: 8px;
   min-width: max-content;
   width: max-content;
   padding: 2px 6px 24px;
   transform-origin: top left;
+}
+
+.ko-bracket-root .bracket.ko-bracket--no-r16 {
+  grid-template-columns: repeat(5, var(--ko-card-w));
+}
+
+.ko-bracket-root .bracket.ko-bracket--no-r16 .zc,
+.ko-bracket-root .bracket.ko-bracket--no-r16 .zd {
+  grid-column: 4 / span 2;
 }
 
 .ko-bracket-root .zone {
@@ -331,32 +341,39 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 
 .ko-bracket-root .zc {
   grid-row: 2 / span 2;
-  grid-column: 5 / span 2;
+  grid-column: 6 / span 2;
   background: linear-gradient(150deg, rgba(139, 92, 246, 0.09), rgba(139, 92, 246, 0.015));
   border-color: rgba(139, 92, 246, 0.24);
 }
 
 .ko-bracket-root .zd {
   grid-row: 5 / span 2;
-  grid-column: 5 / span 2;
+  grid-column: 6 / span 2;
   background: linear-gradient(150deg, rgba(249, 115, 22, 0.1), rgba(249, 115, 22, 0.02));
   border-color: rgba(249, 115, 22, 0.26);
 }
 
-.ko-bracket-root .final-row,
-.ko-bracket-root .third-row {
-  position: absolute;
-  left: 0;
-  right: 0;
+.ko-bracket-root .ko-center-medals {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  z-index: 4;
-  pointer-events: none;
+  gap: 14px;
+  z-index: 3;
+  position: relative;
+  align-self: start;
 }
 
-.ko-bracket-root .final-row .final-stack,
-.ko-bracket-root .third-row .ko-slot {
-  pointer-events: auto;
+.ko-bracket-root .ko-podium-block {
+  grid-column: 1 / -1;
+  grid-row: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 2;
+  padding: 12px 8px 8px;
+  position: relative;
 }
 
 .ko-bracket-root .final-stack {
@@ -374,7 +391,7 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 .ko-bracket-root .s-qual { --rc: var(--ko-third); }
 
 .ko-bracket-root .champ-hero {
-  width: 200px;
+  width: var(--ko-card-w);
   padding: 10px 10px 9px;
   border-radius: 14px;
   text-align: center;
@@ -470,6 +487,7 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 .ko-bracket-root .ch.h-r16 { color: #7f9bf4; }
 .ko-bracket-root .ch.h-qf { color: #a78bfa; }
 .ko-bracket-root .ch.h-sf { color: #fb923c; }
+.ko-bracket-root .ch.h-medal { color: #e11d48; letter-spacing: 1px; font-size: 13px; }
 
 .ko-bracket-root .wires {
   position: absolute;
@@ -508,6 +526,26 @@ body.ko-bracket-printing #ko-bracket-print-stage {
   gap: 8px;
 }
 
+.ko-bracket-root .ko-slot.has-qual {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+}
+
+.ko-bracket-root .ko-slot.has-qual.ko-qual-outer-l {
+  justify-self: end;
+}
+
+.ko-bracket-root .ko-slot.has-qual.ko-qual-outer-r {
+  justify-self: start;
+}
+
+.ko-bracket-root .bracket.ko-bracket--has-qual {
+  padding-left: calc(var(--ko-qual-w) + 12px);
+  padding-right: calc(var(--ko-qual-w) + 12px);
+}
+
 .ko-bracket-root .ko-mcard {
   position: relative;
   width: var(--ko-card-w);
@@ -541,9 +579,24 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 }
 
 .ko-bracket-root .ko-mcard.qual-mini {
-  width: calc(var(--ko-card-w) - 12px);
-  margin-left: 6px;
+  width: var(--ko-qual-w);
+  margin-left: 0;
   opacity: 0.95;
+  flex: 0 0 var(--ko-qual-w);
+}
+
+.ko-bracket-root .ko-mcard.qual-mini .round-tag {
+  padding: 3px 8px 0;
+  font-size: 10px;
+}
+
+.ko-bracket-root .ko-mcard.qual-mini .entrant {
+  min-height: 30px;
+  padding: 4px 7px;
+}
+
+.ko-bracket-root .ko-mcard.qual-mini .entrant .nm {
+  font-size: 12px;
 }
 
 .ko-bracket-root .ko-mcard .round-tag {
@@ -686,6 +739,93 @@ body.ko-bracket-printing #ko-bracket-print-stage {
   margin-top: 8px;
   text-align: center;
   line-height: 1.7;
+}
+
+@media (min-width: 768px) {
+  .ko-bracket-root:not(.ko-layout-mobile) .bracket {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-rows: 28px auto auto 14px auto auto auto;
+    column-gap: clamp(8px, 1.2vw, 22px);
+    row-gap: 6px;
+    padding: 2px 4px 10px;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .bracket.ko-bracket--no-r16 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .bracket.ko-bracket--has-qual {
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-slot {
+    width: 100%;
+    min-width: 0;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-slot.has-qual {
+    width: 100%;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-mcard {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-mcard.qual-mini {
+    width: auto;
+    flex: 1 1 0;
+    max-width: none;
+    min-width: 0;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-slot.has-qual .ko-mcard:not(.qual-mini) {
+    flex: 1.15 1 0;
+    min-width: 0;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .champ-hero {
+    width: 100%;
+    max-width: 220px;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .podium-row {
+    width: 100%;
+    max-width: 280px;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .entrant {
+    min-height: 28px;
+    padding: 3px 8px;
+    flex-wrap: nowrap;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .entrant .nm,
+  .ko-bracket-root:not(.ko-layout-mobile) .pd-col .pd-nm {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-mcard .round-tag {
+    padding: 6px 8px 3px;
+    font-size: 10px;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-podium-block {
+    padding: 4px 8px 0;
+    gap: 6px;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-bracket-hint {
+    margin-top: 4px;
+    line-height: 1.35;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-bracket-legend {
+    margin-top: 4px;
+    gap: 4px 8px;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-bracket-legend span {
+    padding: 2px 9px;
+    font-size: 11px;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-bracket-panel-hd {
+    margin-bottom: 8px;
+  }
 }
 
 .ko-bracket-root .ko-bracket-legend {

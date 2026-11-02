@@ -1401,6 +1401,7 @@
                                 <th:block th:with="hasKnockoutTabs=${competitionMatchTabs != null ? competitionMatchTabs.?[kind == 'KO' || kind == 'KO_QUALIFIER'].size() > 0 : false}">
                                     <!-- 第一行：小组赛和资格赛选项卡 -->
                                     <ul class="nav nav-pills mb-2 flex-nowrap overflow-auto gap-1" role="tablist"
+                                        id="groupMatchTabRow"
                                         th:if="${competitionMatchTabs != null and !#lists.isEmpty(competitionMatchTabs)}">
                                         <li class="nav-item text-nowrap" role="presentation"
                                             th:each="tab : ${competitionMatchTabs}"
@@ -1936,10 +1937,10 @@
     <div th:replace="~{fragments :: footer}"></div>
 
     <th:block th:replace="~{fragments :: scripts}"></th:block>
-    <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=12}">
+    <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=21}">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
-    <script th:src="@{/js/knockout-bracket-view.js?v=14}"></script>
+    <script th:src="@{/js/knockout-bracket-view.js?v=27}"></script>
     <script>
         function isPrimeGroupCount(n) {
             if (!Number.isInteger(n) || n <= 1) return false;
@@ -3584,6 +3585,8 @@
             function setCompetitionTabContentHiddenForBracket(hidden) {
                 document.getElementById('competitionMatchTabContent')
                     ?.classList.toggle('ko-bracket-mode', hidden);
+                document.getElementById('groupMatchTabRow')
+                    ?.classList.toggle('d-none', hidden);
             }
 
             function mountKnockoutBracket() {
@@ -3597,8 +3600,15 @@
                         window.KnockoutBracketView.ensure(koRoot);
                     }
                 };
+                const bar = document.getElementById('knockoutViewBar');
+                (bar || sharedBracket).scrollIntoView({ behavior: 'instant', block: 'start' });
                 requestAnimationFrame(() => requestAnimationFrame(load));
-                sharedBracket.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                setTimeout(() => {
+                    if (koRoot && typeof koRoot.__koReflow === 'function') koRoot.__koReflow();
+                }, 80);
+                setTimeout(() => {
+                    if (koRoot && typeof koRoot.__koReflow === 'function') koRoot.__koReflow();
+                }, 280);
             }
 
             function applyKnockoutMatchView(view) {

@@ -16,9 +16,16 @@
     return (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  function readHalf(s) {
+    if (!s) return null;
+    const h = s.knockoutHalf;
+    return h === 0 || h === 1 ? h : null;
+  }
+
   function fromSlot(s) {
+    const half = readHalf(s);
     if (!s || s.id == null) {
-      return { id: null, p1: null, p2: null, n1: '待定', n2: '待定', sc1: null, sc2: null, w: null };
+      return { id: null, p1: null, p2: null, n1: '待定', n2: '待定', sc1: null, sc2: null, w: null, half };
     }
     return {
       id: s.id,
@@ -29,16 +36,57 @@
       sc1: s.player1Score,
       sc2: s.player2Score,
       w: s.winnerId,
+      half,
     };
   }
 
-  function listFromPayload(arr, size) {
+  function listFromPayload(arr, fallbackSize) {
     const out = [];
     const src = Array.isArray(arr) ? arr : [];
+    const size = src.length > 0 ? src.length : (fallbackSize || 0);
     for (let i = 0; i < size; i++) {
       out.push(fromSlot(src[i]));
     }
     return out;
+  }
+
+  function hasMatch(m) {
+    return !!(m && (m.id || m.p1 != null || m.p2 != null));
+  }
+
+  function splitHalfIndices(list) {
+    const n = list.length;
+    const cut = Math.max(1, Math.floor(n / 2));
+    const upper = [];
+    const lower = [];
+    let markedU = 0;
+    let markedL = 0;
+    for (let i = 0; i < n; i++) {
+      if (!hasMatch(list[i])) continue;
+      const h = list[i].half;
+      if (h === 1) markedL += 1;
+      else if (h === 0) markedU += 1;
+    }
+    const useHalf = markedU > 0 && markedL > 0;
+    for (let i = 0; i < n; i++) {
+      if (!hasMatch(list[i])) continue;
+      if (useHalf) {
+        const h = list[i].half;
+        if (h === 1) lower.push(i);
+        else if (h === 0) upper.push(i);
+        else if (i < cut) upper.push(i);
+        else lower.push(i);
+      } else if (i < cut) {
+        upper.push(i);
+      } else {
+        lower.push(i);
+      }
+    }
+    return { upper, lower, cut };
+  }
+
+  function sfHalfLabel(m, fallbackIdx) {
+    return fallbackIdx === 1 ? '半决赛 · 下半区' : '半决赛 · 上半区';
   }
 
   function labelsForStart(sr) {
@@ -46,21 +94,50 @@
       return { r16: '1/8 决赛', qf: '1/4 决赛', sf: '半决赛', third: '三四名决赛', fin: '决赛' };
     }
     if (sr === 4) {
-      return { r16: '1/4 决赛', qf: '半决赛', sf: '半决赛', third: '三四名决赛', fin: '决赛' };
+      return { r16: '1/8 决赛', qf: '1/4 决赛', sf: '半决赛', third: '三四名决赛', fin: '决赛' };
+    }
+    if (sr === 2) {
+      return { r16: '1/8 决赛', qf: '1/4 决赛', sf: '半决赛', third: '三四名决赛', fin: '决赛' };
     }
     return { r16: '首轮', qf: '次轮', sf: '半决赛', third: '三四名决赛', fin: '决赛' };
+  }
+
+  /**
+   * 后端把「淘汰赛第一轮」放进 round16Matches。
+   * 若首轮就是 1/4（startRound=4）或半决赛（=2），要挪到对应视觉轮次，
+   * 否则 8 人签表会占着 1/8 列、半决赛列留空，上下半区也对不齐。
+   */
+  function mapRoundsFromPayload(payload) {
+    const sr = payload.knockoutStartRound || 8;
+    if (sr === 4) {
+      return {
+        r16: listFromPayload([], 0),
+        qf: listFromPayload(payload.round16Matches, 4),
+        sf: listFromPayload(payload.round8Matches, 2),
+      };
+    }
+    if (sr === 2) {
+      return {
+        r16: listFromPayload([], 0),
+        qf: listFromPayload([], 0),
+        sf: listFromPayload(payload.round16Matches, 2),
+      };
+    }
+    return {
+      r16: listFromPayload(payload.round16Matches, 8),
+      qf: listFromPayload(payload.round8Matches, 4),
+      sf: listFromPayload(payload.round4Matches, 2),
+    };
   }
 
   function buildState(payload) {
     const sr = payload.knockoutStartRound || 8;
     const labels = labelsForStart(sr);
-    const r16 = listFromPayload(payload.round16Matches, 8);
-    const qf = listFromPayload(payload.round8Matches, 4);
-    const sf = listFromPayload(payload.round4Matches, 2);
+    const rounds = mapRoundsFromPayload(payload);
     const third = fromSlot(payload.bronzeMatch);
     const fin = fromSlot(payload.goldMatch);
     const qualMap = payload.qualifierByKoSlot || {};
-    return { sr, labels, r16, qf, sf, third, fin, qualMap, progress: { done: payload.decidedMatchCount || 0, total: payload.totalMatchCount || 0 } };
+    return { sr, labels, r16: rounds.r16, qf: rounds.qf, sf: rounds.sf, third, fin, qualMap, progress: { done: payload.decidedMatchCount || 0, total: payload.totalMatchCount || 0 } };
   }
 
   function isLive(m) {
@@ -84,6 +161,18 @@
       <span class="tick">✔</span>
       ${scoreHtml(m, pid)}
     </div>`;
+  }
+
+  function qualCardHtml(idx, qual) {
+    if (!qual) return '';
+    return matchCardHtml('qual', idx, fromSlot(qual), '资格赛', 'qual-mini s-qual');
+  }
+
+  function firstRoundInnerHtml(roundKey, idx, m, tag, qual, outerLeft) {
+    const main = matchCardHtml(roundKey, idx, m, tag);
+    const q = qualCardHtml(idx, qual);
+    if (!q) return main;
+    return outerLeft ? `${q}${main}` : `${main}${q}`;
   }
 
   function matchCardHtml(roundKey, idx, m, tag, extraClass) {
@@ -129,43 +218,24 @@
     });
   }
 
-  function buildFinalStackHtml(state, opts = {}) {
-    const includeThird = opts.includeThird !== false;
-    const stackClass = opts.stackClass || '';
+  function hasSlot(m) {
+    return !!(m && (m.id || m.p1 || m.p2));
+  }
+
+  function buildPodiumHtml(state) {
     const T = state.third;
     const F = state.fin;
-    const L = state.labels;
-    const cardClass = stackClass ? 'ko-mcard--stack' : '';
     const champ = F.w;
     const runnerUp = champ != null && F.p1 != null ? (F.p1 === champ ? F.p2 : F.p1) : null;
     const thirdWin = T.w;
     const runnerName = runnerUp != null ? (runnerUp === F.p1 ? F.n1 : F.n2) : null;
     const thirdName = thirdWin != null ? (thirdWin === T.p1 ? T.n1 : T.n2) : null;
-    const medalRow = opts.medalRow === true;
-    let html = `<div class="final-stack ${stackClass}">`;
-    if (medalRow) {
-      const goldHtml = (F.id || F.p1 || F.p2)
-          ? `<div class="ko-slot s-fin">${matchCardHtml('final', 0, F, L.fin, cardClass)}</div>` : '';
-      const bronzeHtml = (T.id || T.p1 || T.p2)
-          ? `<div class="ko-slot s-third">${matchCardHtml('third', 0, T, L.third, cardClass)}</div>` : '';
-      if (goldHtml || bronzeHtml) {
-        html += `<div class="ko-mob-medal-row">
-          <div class="ko-mob-medal-col ko-mob-medal-gold">${goldHtml}</div>
-          <div class="ko-mob-medal-col ko-mob-medal-bronze">${bronzeHtml}</div>
-        </div>`;
-      }
-    } else {
-      if (includeThird && (T.id || T.p1 || T.p2)) {
-        html += `<div class="ko-slot s-third">${matchCardHtml('third', 0, T, L.third, cardClass)}</div>`;
-      }
-      html += `<div class="ko-slot s-fin">${matchCardHtml('final', 0, F, L.fin, cardClass)}</div>`;
-    }
-    html += `<div class="champ-hero ${champ != null ? 'lit' : ''}">
+    return `<div class="champ-hero ${champ != null ? 'lit' : ''}">
       <div class="champ-trophy">🏆</div>
       <div class="champ-name ${champ == null ? 'ph' : ''}">${champ != null ? escapeHtml(champ === F.p1 ? F.n1 : F.n2) : '虚位以待'}</div>
       <div class="champ-sub">CHAMPION · 冠军</div>
-    </div>`;
-    html += `<div class="podium-row">
+    </div>
+    <div class="podium-row">
       <div class="pd-col silver">
         <span class="pd-nm ${runnerUp == null ? 'tbd' : ''}">${runnerUp != null ? '🥈 ' + escapeHtml(runnerName) : '待定'}</span>
         <div class="pd-face" style="border:1.5px solid #c9d6e6;border-bottom:none;background:linear-gradient(160deg,#fbfdff,#e3eaf4);"><span style="font-size:11px;font-weight:800;color:#68798f;">亚军</span></div>
@@ -175,6 +245,35 @@
         <div class="pd-face" style="border:1.5px solid #ddb98f;border-bottom:none;background:linear-gradient(160deg,#fdf6ee,#f2dcc2);"><span style="font-size:11px;font-weight:800;color:#96703c;">季军</span></div>
       </div>
     </div>`;
+  }
+
+  function buildFinalStackHtml(state, opts = {}) {
+    const includeThird = opts.includeThird !== false;
+    const stackClass = opts.stackClass || '';
+    const T = state.third;
+    const F = state.fin;
+    const L = state.labels;
+    const cardClass = stackClass ? 'ko-mcard--stack' : '';
+    const medalRow = opts.medalRow === true;
+    let html = `<div class="final-stack ${stackClass}">`;
+    if (medalRow) {
+      const goldHtml = hasSlot(F)
+          ? `<div class="ko-slot s-fin">${matchCardHtml('final', 0, F, L.fin, cardClass)}</div>` : '';
+      const bronzeHtml = hasSlot(T)
+          ? `<div class="ko-slot s-third">${matchCardHtml('third', 0, T, L.third, cardClass)}</div>` : '';
+      if (goldHtml || bronzeHtml) {
+        html += `<div class="ko-mob-medal-row">
+          <div class="ko-mob-medal-col ko-mob-medal-gold">${goldHtml}</div>
+          <div class="ko-mob-medal-col ko-mob-medal-bronze">${bronzeHtml}</div>
+        </div>`;
+      }
+    } else {
+      if (includeThird && hasSlot(T)) {
+        html += `<div class="ko-slot s-third">${matchCardHtml('third', 0, T, L.third, cardClass)}</div>`;
+      }
+      html += `<div class="ko-slot s-fin">${matchCardHtml('final', 0, F, L.fin, cardClass)}</div>`;
+    }
+    html += buildPodiumHtml(state);
     html += '</div>';
     return html;
   }
@@ -220,13 +319,22 @@
     const S = state.sf;
     const qualMap = state.qualMap || {};
 
-    const upperR16 = mobItemsHtml('r16', [0, 1, 2, 3], R, qualMap, '', 'upper');
-    const upperQf = mobItemsHtml('qf', [0, 1], Q, null, L.qf, 'upper');
-    const upperSf = mobMatchItem('sf', 0, S[0], `半决赛 · 上半区`, null, 'upper');
+    const r16H = splitHalfIndices(R);
+    const qfH = splitHalfIndices(Q);
+    const sfH = splitHalfIndices(S);
+    const upperR16 = mobItemsHtml('r16', r16H.upper, R, qualMap, '', 'upper');
+    const upperQf = mobItemsHtml('qf', qfH.upper, Q, null, L.qf, 'upper');
+    let upperSf = '';
+    sfH.upper.forEach((i) => {
+      upperSf += mobMatchItem('sf', i, S[i], sfHalfLabel(S[i], 0), null, 'upper');
+    });
 
-    const lowerR16 = mobItemsHtml('r16', [4, 5, 6, 7], R, qualMap, '', 'lower');
-    const lowerQf = mobItemsHtml('qf', [2, 3], Q, null, L.qf, 'lower');
-    const lowerSf = mobMatchItem('sf', 1, S[1], `半决赛 · 下半区`, null, 'lower');
+    const lowerR16 = mobItemsHtml('r16', r16H.lower, R, qualMap, '', 'lower');
+    const lowerQf = mobItemsHtml('qf', qfH.lower, Q, null, L.qf, 'lower');
+    let lowerSf = '';
+    sfH.lower.forEach((i) => {
+      lowerSf += mobMatchItem('sf', i, S[i], sfHalfLabel(S[i], 1), null, 'lower');
+    });
 
     let html = '';
     html += `<section class="ko-mob-block ko-mob-upper" aria-label="上半区">
@@ -275,51 +383,72 @@
     const F = state.fin;
     const L = state.labels;
 
+    const hasR16 = R.some(hasMatch);
+    bracket.classList.toggle('ko-bracket--no-r16', !hasR16);
+    const colQfL = hasR16 ? 2 : 1;
+    const colSfL = hasR16 ? 3 : 2;
+    const colMedal = hasR16 ? 4 : 3;
+    const colSfR = hasR16 ? 5 : 4;
+    const colQfR = hasR16 ? 6 : 5;
+    const colR16R = 7;
+
     let html = '<svg class="wires" data-ko-wires xmlns="http://www.w3.org/2000/svg"></svg>';
     html += '<div class="zone za"></div><div class="zone zb"></div><div class="zone zc"></div><div class="zone zd"></div>';
 
-    const heads = [[L.r16, 'h-r16'], [L.qf, 'h-qf'], ['半决赛', 'h-sf'], ['半决赛', 'h-sf'], [L.qf, 'h-qf'], [L.r16, 'h-r16']];
+    const heads = hasR16
+      ? [[L.r16, 'h-r16'], [L.qf, 'h-qf'], ['半决赛', 'h-sf'], ['奖牌赛', 'h-medal'], ['半决赛', 'h-sf'], [L.qf, 'h-qf'], [L.r16, 'h-r16']]
+      : [[L.qf, 'h-qf'], ['半决赛', 'h-sf'], ['奖牌赛', 'h-medal'], ['半决赛', 'h-sf'], [L.qf, 'h-qf']];
     heads.forEach(([t, c], i) => {
       html += `<div class="ch ${c}" style="grid-area:1/${i + 1}">${escapeHtml(t)}</div>`;
     });
 
+    const hasAnyQual = !!(state.qualMap && Object.keys(state.qualMap).length);
+    bracket.classList.toggle('ko-bracket--has-qual', hasAnyQual);
+
+    const r16H = splitHalfIndices(R);
     R.forEach((m, i) => {
-      if (!m.id && m.p1 == null && m.p2 == null) return;
-      const col = i < 4 ? 1 : 6;
+      if (!hasMatch(m)) return;
+      const upper = r16H.upper.includes(i);
+      const col = upper ? 1 : colR16R;
+      const within = upper ? r16H.upper.indexOf(i) : r16H.lower.indexOf(i);
+      const row = ROW_OF[Math.max(0, within)];
       const qual = state.qualMap[String(i)];
-      let inner = '';
-      if (qual) {
-        const qm = fromSlot(qual);
-        inner += matchCardHtml('qual', i, qm, '资格赛', 'qual-mini s-qual');
-      }
-      inner += matchCardHtml('r16', i, m, '');
-      html += `<div class="ko-slot s-r16" data-slot="${i}" style="grid-row:${ROW_OF[i]};grid-column:${col}">${inner}</div>`;
+      const side = qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '';
+      html += `<div class="ko-slot s-r16${side}" data-slot="${i}" style="grid-row:${row};grid-column:${col}">${firstRoundInnerHtml('r16', i, m, '', qual, upper)}</div>`;
     });
 
+    const qfH = splitHalfIndices(Q);
     Q.forEach((m, i) => {
-      if (!m.id && m.p1 == null && m.p2 == null) return;
-      if (i >= 2) return;
-      html += `<div class="ko-slot s-qf" style="grid-row:${i === 0 ? 2 : 5}/span 2;grid-column:2">
-        ${matchCardHtml('qf', i, m, L.qf)}</div>`;
-    });
-    Q.forEach((m, i) => {
-      if (!m.id && m.p1 == null && m.p2 == null) return;
-      if (i < 2) return;
-      html += `<div class="ko-slot s-qf" style="grid-row:${i === 2 ? 2 : 5}/span 2;grid-column:5">
-        ${matchCardHtml('qf', i, m, L.qf)}</div>`;
+      if (!hasMatch(m)) return;
+      const upper = qfH.upper.includes(i);
+      const within = upper ? qfH.upper.indexOf(i) : qfH.lower.indexOf(i);
+      const col = upper ? colQfL : colQfR;
+      const row = within === 0 ? 2 : 5;
+      const qual = hasR16 ? null : state.qualMap[String(i)];
+      const side = qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '';
+      html += `<div class="ko-slot s-qf${side}" style="grid-row:${row}/span 2;grid-column:${col}">${firstRoundInnerHtml('qf', i, m, L.qf, qual, upper)}</div>`;
     });
 
+    const sfH = splitHalfIndices(S);
+    const qfHasMatch = Q.some(hasMatch);
     S.forEach((m, i) => {
-      if (!m.id && m.p1 == null && m.p2 == null) return;
-      html += `<div class="ko-slot s-sf" style="grid-row:2/span 5;grid-column:${i === 0 ? 3 : 4}">
-        ${matchCardHtml('sf', i, m, `半决赛 ${i + 1}`)}</div>`;
+      if (!hasMatch(m)) return;
+      const upper = sfH.upper.includes(i);
+      const col = upper ? colSfL : colSfR;
+      const qual = (!hasR16 && !qfHasMatch) ? state.qualMap[String(i)] : null;
+      const side = qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '';
+      html += `<div class="ko-slot s-sf${side}" style="grid-row:2/span 5;grid-column:${col}">${firstRoundInnerHtml('sf', i, m, sfHalfLabel(m, upper ? 0 : 1), qual, upper)}</div>`;
     });
 
-    if (T.id || T.p1 || T.p2) {
-      html += `<div class="third-row"><div class="ko-slot s-third">${matchCardHtml('third', 0, T, L.third)}</div></div>`;
+    html += `<div class="ko-center-medals" style="grid-column:${colMedal};grid-row:2/span 5">`;
+    if (hasSlot(T)) {
+      html += `<div class="ko-slot s-third">${matchCardHtml('third', 0, T, L.third)}</div>`;
     }
-
-    html += `<div class="final-row">${buildFinalStackHtml(state, { includeThird: false })}</div>`;
+    if (hasSlot(F)) {
+      html += `<div class="ko-slot s-fin">${matchCardHtml('final', 0, F, L.fin)}</div>`;
+    }
+    html += '</div>';
+    html += `<div class="ko-podium-block">${buildPodiumHtml(state)}</div>`;
 
     bracket.innerHTML = html;
   }
@@ -329,9 +458,10 @@
     const bracket = root.querySelector('.bracket');
     if (!wrap || !bracket) return;
     renderDesktopBracket(bracket, state);
+    resetDesktopCardVars(bracket);
     positionSemi(bracket);
-    positionThird(bracket);
-    positionFinal(bracket);
+    centerSemisInHalves(bracket);
+    positionCenterMedals(bracket);
     fitBracket(wrap, bracket);
     drawWires(bracket, state);
     fitNames(bracket);
@@ -416,84 +546,101 @@
     });
   }
 
-  function positionThird(br) {
-    const row = br.querySelector('.third-row');
-    const sf = br.querySelector('.ko-slot.s-sf .ko-mcard');
-    if (!row || !sf) return;
-    br.style.transform = 'none';
-    const base = br.getBoundingClientRect();
-    const k = base.width / (br.offsetWidth || 1) || 1;
-    const sfTop = (sf.getBoundingClientRect().top - base.top) / k;
-    const card = row.querySelector('.ko-mcard');
-    if (!card) return;
-    row.style.top = Math.max(4, Math.round(sfTop - 12 - card.offsetHeight)) + 'px';
-  }
-
-  function positionFinal(br) {
-    const row = br.querySelector('.final-row');
-    if (!row) return;
-    const stack = row.querySelector('.final-stack');
+  function positionCenterMedals(br) {
+    const stack = br.querySelector('.ko-center-medals');
     if (!stack) return;
     br.style.transform = 'none';
-    br.style.paddingTop = '';
+    stack.style.marginTop = '0px';
+    stack.style.alignSelf = 'start';
+    const medalCards = [...stack.querySelectorAll('.ko-mcard')];
+    const sfCards = [...br.querySelectorAll('.ko-slot.s-sf .ko-mcard')];
+    if (!medalCards.length || !sfCards.length) return;
+    const base = br.getBoundingClientRect();
+    const k = base.width / (br.offsetWidth || 1) || 1;
+    let mMin = Infinity;
+    let mMax = -Infinity;
+    medalCards.forEach((el) => {
+      const y = yRel(el, base, k);
+      mMin = Math.min(mMin, y.t);
+      mMax = Math.max(mMax, y.b);
+    });
+    let sMin = Infinity;
+    let sMax = -Infinity;
+    sfCards.forEach((el) => {
+      const y = yRel(el, base, k);
+      sMin = Math.min(sMin, y.t);
+      sMax = Math.max(sMax, y.b);
+    });
+    if (!Number.isFinite(mMin) || !Number.isFinite(sMin)) return;
+    stack.style.marginTop = `${Math.round((sMin + sMax) / 2 - (mMin + mMax) / 2)}px`;
+  }
+
+  function yRel(el, base, k) {
+    const r = el.getBoundingClientRect();
+    return { t: (r.top - base.top) / k, b: (r.bottom - base.top) / k };
+  }
+
+  function centerSemisInHalves(br) {
+    const sfSlots = [...br.querySelectorAll('.ko-slot.s-sf')];
+    const sfCards = [...br.querySelectorAll('.ko-slot.s-sf .ko-mcard')];
+    const zones = [...br.querySelectorAll('.zone')];
+    if (!sfSlots.length || !sfCards.length) return;
+    br.style.transform = 'none';
     const base = br.getBoundingClientRect();
     const k = base.width / (br.offsetWidth || 1) || 1;
 
-    let minT = Infinity;
-    let maxB = -Infinity;
-    let minL = Infinity;
-    let maxR = -Infinity;
-    const addRect = (el) => {
-      if (!el || row.contains(el)) return;
+    let cMin = Infinity;
+    let cMax = -Infinity;
+    sfCards.forEach((el) => {
+      const y = yRel(el, base, k);
+      cMin = Math.min(cMin, y.t);
+      cMax = Math.max(cMax, y.b);
+    });
+
+    let mMin = Infinity;
+    let mMax = -Infinity;
+    const modules = zones.length
+      ? zones
+      : [...br.querySelectorAll('.ko-slot.s-qf .ko-mcard, .ko-slot.s-r16 .ko-mcard')];
+    modules.forEach((el) => {
       const r = el.getBoundingClientRect();
-      if (!r.width && !r.height) return;
-      const t = (r.top - base.top) / k;
-      const b = (r.bottom - base.top) / k;
-      const l = (r.left - base.left) / k;
-      const rt = (r.right - base.left) / k;
-      minT = Math.min(minT, t);
-      maxB = Math.max(maxB, b);
-      minL = Math.min(minL, l);
-      maxR = Math.max(maxR, rt);
-    };
+      if (!r.height) return;
+      const y = yRel(el, base, k);
+      mMin = Math.min(mMin, y.t);
+      mMax = Math.max(mMax, y.b);
+    });
+    if (!Number.isFinite(cMin) || !Number.isFinite(mMin)) return;
 
-    br.querySelectorAll('.ch').forEach(addRect);
-    br.querySelectorAll('.ko-slot .ko-mcard').forEach(addRect);
-    br.querySelectorAll('.third-row .ko-mcard').forEach(addRect);
+    const delta = Math.round((mMin + mMax) / 2 - (cMin + cMax) / 2);
+    if (!delta) return;
+    sfSlots.forEach((slot) => {
+      const mt = parseFloat(slot.style.marginTop) || 0;
+      slot.style.marginTop = `${mt + delta}px`;
+    });
+  }
 
-    if (!Number.isFinite(minT) || !Number.isFinite(maxB)) return;
+  function desktopAvailWidth(wrap) {
+    const parent = wrap.parentElement;
+    return Math.max(wrap.clientWidth - 8, parent ? parent.clientWidth - 24 : 0, 280);
+  }
 
-    const cx = (minL + maxR) / 2;
-    const cy = (minT + maxB) / 2;
-    const stackH = stack.offsetHeight;
-    const top = Math.round(cy - stackH / 2);
-
-    row.style.left = '0';
-    row.style.right = '0';
-    row.style.width = '';
-    row.style.justifyContent = 'center';
-    row.style.top = `${top}px`;
-
-    const stackBottom = top + stackH;
-    const curPad = parseFloat(getComputedStyle(br).paddingBottom) || 0;
-    const contentH = br.offsetHeight - curPad;
-    const extra = Math.max(0, stackBottom + 18 - contentH, 18 - top);
-    br.style.paddingBottom = `${18 + extra}px`;
-    if (top < 4) {
-      br.style.paddingTop = `${4 - top}px`;
-    }
+  function resetDesktopCardVars(br) {
+    br.style.removeProperty('--ko-card-w');
+    br.style.removeProperty('--ko-qual-w');
+    br.style.removeProperty('--ko-gap');
   }
 
   function fitBracket(wrap, br, opts = {}) {
     br.style.transform = 'none';
     if (opts.export) {
+      resetDesktopCardVars(br);
       const natH = br.offsetHeight;
       wrap.style.height = Math.ceil((natH || 320) + 12) + 'px';
       wrap.style.overflow = 'visible';
       wrap.classList.remove('ko-bracket-wrap--scroll');
       return;
     }
-    const avail = Math.max(wrap.clientWidth - 4, wrap.parentElement ? wrap.parentElement.clientWidth - 32 : 0);
+    const avail = desktopAvailWidth(wrap);
     const natW = br.offsetWidth;
     const natH = br.offsetHeight;
     if (!natW || !natH) {
@@ -503,17 +650,18 @@
     const narrow = window.innerWidth < 768;
     let s = (avail - 2) / natW;
     if (!Number.isFinite(s) || s <= 0) {
-      s = narrow ? 0.62 : 0.4;
+      s = narrow ? 0.62 : 0.85;
     }
     if (narrow) {
       s = Math.max(s, 0.62);
     } else {
-      s = Math.min(1, s);
+      s = 1;
     }
     const scaledW = natW * s;
     const off = narrow && scaledW > avail ? 0 : Math.max(0, (avail - scaledW) / 2);
-    br.style.transform = `translateX(${off}px) scale(${s})`;
-    wrap.style.height = Math.ceil(natH * s + 8) + 'px';
+    br.style.transform = narrow ? `translateX(${off}px) scale(${s})` : 'none';
+    wrap.style.height = Math.ceil(natH * (narrow ? s : 1) + 8) + 'px';
+    wrap.style.overflow = narrow ? '' : 'hidden';
     wrap.classList.toggle('ko-bracket-wrap--scroll', narrow && scaledW > avail + 2);
     const root = wrap.closest('.ko-bracket-root');
     if (root) root.classList.toggle('ko-bracket-root--narrow', narrow);
@@ -590,29 +738,23 @@
       const t = box(dstCard);
       const tRows = [...dstCard.querySelectorAll('.entrant')];
 
-      if (slot === 'va' || slot === 'vb') {
-        const left = slot === 'va';
+      if (slot === 'va' || slot === 'vb' || slot === 'ta' || slot === 'tb') {
+        const left = slot === 'va' || slot === 'ta';
         const tRow = tRows[left ? 0 : 1] || tRows[0];
         const ty = tRow ? box(tRow).cy : t.cy;
-        const sx = s.cx;
-        const y0 = s.b + 2;
-        const tx = left ? t.l - 1 : t.rt + 1;
         const dir = left ? 1 : -1;
-        const d = `M ${sx} ${y0} V ${ty} H ${tx - dir * HEAD}`;
-        out.push(`<path class="wire ${cls}" d="${d}"/>`);
-        return;
-      }
-
-      if (slot === 'ta' || slot === 'tb') {
-        const left = slot === 'ta';
-        const tRow = tRows[left ? 0 : 1] || tRows[0];
-        const ty = tRow ? box(tRow).cy : t.cy;
-        const sx = s.cx;
-        const y0 = s.t - 2;
         const tx = left ? t.l - 1 : t.rt + 1;
-        const dir = left ? 1 : -1;
-        const d = `M ${sx} ${y0} V ${ty} H ${tx - dir * HEAD}`;
-        out.push(`<path class="wire ${cls}" d="${d}"/>`);
+        const destAbove = t.b <= s.t + 8;
+        const destBelow = t.t >= s.b - 8;
+        if (destAbove || destBelow) {
+          const sx = s.cx;
+          const y0 = destBelow ? s.b + 2 : s.t - 2;
+          out.push(`<path class="wire ${cls}" d="M ${sx} ${y0} V ${ty} H ${tx - dir * HEAD}"/>`);
+        } else {
+          const sx = left ? s.rt : s.l;
+          const fromY = slot === 'va' || slot === 'vb' ? sy : s.cy;
+          out.push(`<path class="wire ${cls}" d="${elbow(sx, fromY, tx, ty, dir)}"/>`);
+        }
         return;
       }
 
@@ -628,9 +770,13 @@
   }
 
   function fitNames(br) {
+    const mobile = !!(br.classList.contains('ko-bracket-mobile')
+      || br.closest('.ko-bracket-root')?.classList.contains('ko-layout-mobile'));
     br.querySelectorAll('.entrant .nm, .pd-col .pd-nm').forEach((nm) => {
-      nm.style.whiteSpace = '';
-      if (nm.scrollWidth > nm.clientWidth + 0.5) nm.style.whiteSpace = 'normal';
+      nm.style.whiteSpace = 'nowrap';
+      if (mobile && nm.scrollWidth > nm.clientWidth + 0.5) {
+        nm.style.whiteSpace = 'normal';
+      }
     });
   }
 
@@ -793,8 +939,8 @@
     if (!wrap || !bracket) return;
     renderDesktopBracket(bracket, state);
     positionSemi(bracket);
-    positionThird(bracket);
-    positionFinal(bracket);
+    centerSemisInHalves(bracket);
+    positionCenterMedals(bracket);
     fitBracket(wrap, bracket, { export: true });
     drawWires(bracket, state);
     fitNames(bracket);
@@ -894,28 +1040,35 @@
       renderInto(root, state);
       bindExportControls(root);
       const onResize = () => {
+        if (root.__koFitting) return;
         const cached = root.__koState;
         if (!cached) return;
-        const mode = useMobileBracketLayout() ? 'mobile' : 'desktop';
-        if (root.__koLayoutMode !== mode) {
-          root.__koLayoutMode = mode;
-          renderInto(root, cached);
-          return;
+        root.__koFitting = true;
+        try {
+          const mode = useMobileBracketLayout() ? 'mobile' : 'desktop';
+          if (root.__koLayoutMode !== mode) {
+            root.__koLayoutMode = mode;
+            renderInto(root, cached);
+            return;
+          }
+          if (mode === 'mobile') {
+            const mobile = root.querySelector('.ko-bracket-mobile');
+            if (mobile) fitNames(mobile);
+            return;
+          }
+          const wrap = root.querySelector('.bracket-wrap');
+          const br = root.querySelector('.bracket');
+          if (!wrap || !br) return;
+          resetDesktopCardVars(br);
+          positionSemi(br);
+          centerSemisInHalves(br);
+          positionCenterMedals(br);
+          fitBracket(wrap, br);
+          drawWires(br, cached);
+          fitNames(br);
+        } finally {
+          root.__koFitting = false;
         }
-        if (mode === 'mobile') {
-          const mobile = root.querySelector('.ko-bracket-mobile');
-          if (mobile) fitNames(mobile);
-          return;
-        }
-        const wrap = root.querySelector('.bracket-wrap');
-        const br = root.querySelector('.bracket');
-        if (!wrap || !br) return;
-        positionSemi(br);
-        positionThird(br);
-        positionFinal(br);
-        fitBracket(wrap, br);
-        drawWires(br, cached);
-        fitNames(br);
       };
       root.__koLayoutMode = useMobileBracketLayout() ? 'mobile' : 'desktop';
       root.__koReflow = onResize;
@@ -923,18 +1076,27 @@
         clearTimeout(root.__koRsz);
         root.__koRsz = setTimeout(onResize, 120);
       });
+      window.addEventListener('scroll', () => {
+        if (useMobileBracketLayout()) return;
+        clearTimeout(root.__koScr);
+        root.__koScr = setTimeout(onResize, 80);
+      }, { passive: true });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+          clearTimeout(root.__koRsz);
+          root.__koRsz = setTimeout(onResize, 80);
+        });
+      }
       root.dataset.koInited = '1';
       const scheduleReflow = (attempt) => {
         requestAnimationFrame(() => {
           onResize();
           if (root.__koLayoutMode === 'mobile') return;
-          const brEl = root.querySelector('.bracket');
-          if (attempt < 8 && brEl && (!brEl.offsetWidth || !brEl.offsetHeight)) {
-            scheduleReflow(attempt + 1);
-          }
+          if (attempt < 10) scheduleReflow(attempt + 1);
         });
       };
       scheduleReflow(0);
+      setTimeout(onResize, 220);
       root.__koRefresh = () => {
         dataCache.delete(fetchUrl);
         root.dataset.koInited = '0';
