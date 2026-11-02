@@ -12,6 +12,7 @@ import com.example.mapper.TournamentDisqualificationMapper;
 import com.example.mapper.TournamentGroupMapper;
 import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.service.*;
+import com.example.service.knockout.KnockoutBracketLayout;
 import com.example.util.MatchPhaseClassifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -1947,16 +1948,6 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 if (linked != null) {
                     qualifierByKoSlot.put(String.valueOf(linked), slot);
                 }
-                int koSlot = m.getKnockoutBracketSlot() == null ? -1 : m.getKnockoutBracketSlot();
-                boolean upperHalf = koSlot >= 0 && koSlot < 4;
-                if (linked != null) {
-                    upperHalf = linked < 4;
-                }
-                if (upperHalf) {
-                    qualifiersUpper.add(slot);
-                } else {
-                    qualifiersLower.add(slot);
-                }
                 data.setHasQualifiers(true);
             } else if ("FINAL".equals(phaseCode)) {
                 if (m.getCategory() != null && m.getCategory().contains("金牌")) {
@@ -1981,38 +1972,18 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 switch (relativeRound) {
                     case 1 -> {
                         firstRound.add(slot);
-                        if (isBracketUpperHalf(m)) {
-                            firstRoundUpper.add(slot);
-                        } else {
-                            firstRoundLower.add(slot);
-                        }
                         data.setHasRound16(true);
                     }
                     case 2 -> {
                         secondRound.add(slot);
-                        if (isBracketUpperHalf(m)) {
-                            secondRoundUpper.add(slot);
-                        } else {
-                            secondRoundLower.add(slot);
-                        }
                         data.setHasRound8(true);
                     }
                     case 3 -> {
                         thirdRound.add(slot);
-                        if (isBracketUpperHalf(m)) {
-                            thirdRoundUpper.add(slot);
-                        } else {
-                            thirdRoundLower.add(slot);
-                        }
                         data.setHasRound4(true);
                     }
                     case 4 -> {
                         thirdRound.add(slot);
-                        if (isBracketUpperHalf(m)) {
-                            thirdRoundUpper.add(slot);
-                        } else {
-                            thirdRoundLower.add(slot);
-                        }
                         data.setHasRound4(true);
                     }
                 }
@@ -2032,38 +2003,35 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             currentRoundLabel = "决赛";
         }
         
-        // 根据首轮轮次分配到对应字段
-        if (startRound == 16) {
-            data.setRound16Matches(padBracketRound(firstRound, 8));
-            data.setRound16MatchesUpper(sortBracketSlots(firstRoundUpper));
-            data.setRound16MatchesLower(sortBracketSlots(firstRoundLower));
-            data.setRound8Matches(padBracketRound(secondRound, 4));
-            data.setRound8MatchesUpper(sortBracketSlots(secondRoundUpper));
-            data.setRound8MatchesLower(sortBracketSlots(secondRoundLower));
-            data.setRound4Matches(padBracketRound(thirdRound, 2));
-            data.setRound4MatchesUpper(sortBracketSlots(thirdRoundUpper));
-            data.setRound4MatchesLower(sortBracketSlots(thirdRoundLower));
-        } else if (startRound == 8) {
-            data.setRound16Matches(padBracketRound(firstRound, 8));
-            data.setRound16MatchesUpper(sortBracketSlots(firstRoundUpper));
-            data.setRound16MatchesLower(sortBracketSlots(firstRoundLower));
-            data.setRound8Matches(padBracketRound(secondRound, 4));
-            data.setRound8MatchesUpper(sortBracketSlots(secondRoundUpper));
-            data.setRound8MatchesLower(sortBracketSlots(secondRoundLower));
-            data.setRound4Matches(padBracketRound(thirdRound, 2));
-            data.setRound4MatchesUpper(sortBracketSlots(thirdRoundUpper));
-            data.setRound4MatchesLower(sortBracketSlots(thirdRoundLower));
-        } else if (startRound == 4) {
-            data.setRound16Matches(padBracketRound(firstRound, 4));
-            data.setRound16MatchesUpper(sortBracketSlots(firstRoundUpper));
-            data.setRound16MatchesLower(sortBracketSlots(firstRoundLower));
-            data.setRound8Matches(padBracketRound(secondRound, 2));
-            data.setRound8MatchesUpper(sortBracketSlots(secondRoundUpper));
-            data.setRound8MatchesLower(sortBracketSlots(secondRoundLower));
-            data.setRound4Matches(padBracketRound(thirdRound, 2));
-            data.setRound4MatchesUpper(sortBracketSlots(thirdRoundUpper));
-            data.setRound4MatchesLower(sortBracketSlots(thirdRoundLower));
+        // 经典交叉未写入 half 的旧数据：按该轮场次对半切分（与首轮签位上下半区一致）
+        inferHalvesFromFirstRoundSplit(firstRound);
+        inferHalvesFromFirstRoundSplit(secondRound);
+        inferHalvesFromFirstRoundSplit(thirdRound);
+
+        // 根据首轮轮次分配到对应字段（视觉槽位按 knockoutHalf / 卡位对半切分）
+        int r16Size = startRound != null && startRound == 4 ? 4 : 8;
+        int r8Size = startRound != null && startRound == 4 ? 2 : 4;
+        int r4Size = 2;
+        if (startRound != null && (startRound == 16 || startRound == 8 || startRound == 4)) {
+            List<com.example.dto.KnockoutBracketData.MatchSlot> laid16 = layoutRoundByHalf(firstRound, r16Size);
+            List<com.example.dto.KnockoutBracketData.MatchSlot> laid8 = layoutRoundByHalf(secondRound, r8Size);
+            List<com.example.dto.KnockoutBracketData.MatchSlot> laid4 = layoutRoundByHalf(thirdRound, r4Size);
+            splitHalfLists(laid16, firstRoundUpper, firstRoundLower);
+            splitHalfLists(laid8, secondRoundUpper, secondRoundLower);
+            splitHalfLists(laid4, thirdRoundUpper, thirdRoundLower);
+            data.setRound16Matches(laid16);
+            data.setRound16MatchesUpper(firstRoundUpper);
+            data.setRound16MatchesLower(firstRoundLower);
+            data.setRound8Matches(laid8);
+            data.setRound8MatchesUpper(secondRoundUpper);
+            data.setRound8MatchesLower(secondRoundLower);
+            data.setRound4Matches(laid4);
+            data.setRound4MatchesUpper(thirdRoundUpper);
+            data.setRound4MatchesLower(thirdRoundLower);
+            qualifierByKoSlot = remapQualifierKeysToVisualSlots(qualifierByKoSlot, laid16);
         }
+
+        classifyQualifiersByHalf(qualifiers, firstRound, r16Size, qualifiersUpper, qualifiersLower);
         
         data.setQualifierMatches(sortBracketSlots(qualifiers));
         data.setQualifierMatchesUpper(sortBracketSlots(qualifiersUpper));
@@ -2111,14 +2079,118 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         return name == null || name.isBlank() ? "待定" : name;
     }
 
-    private static boolean isBracketUpperHalf(Match m) {
-        if (m.getKnockoutBracketSlot() != null) {
-            return m.getKnockoutBracketSlot() < 4;
+    private static void inferHalvesFromFirstRoundSplit(
+            List<com.example.dto.KnockoutBracketData.MatchSlot> round) {
+        if (round == null || round.isEmpty()) {
+            return;
         }
-        if (m.getKnockoutHalf() != null) {
-            return m.getKnockoutHalf() == 0;
+        int n = 0;
+        for (com.example.dto.KnockoutBracketData.MatchSlot s : round) {
+            if (s != null && s.getKnockoutBracketSlot() != null) {
+                n++;
+            }
         }
-        return true;
+        if (n <= 1) {
+            return;
+        }
+        for (com.example.dto.KnockoutBracketData.MatchSlot s : round) {
+            if (s == null || s.getKnockoutHalf() != null) {
+                continue;
+            }
+            Integer inferred = KnockoutBracketLayout.inferHalfFromFirstRoundSplit(s.getKnockoutBracketSlot(), n);
+            if (inferred != null) {
+                s.setKnockoutHalf(inferred);
+            }
+        }
+    }
+
+    private List<com.example.dto.KnockoutBracketData.MatchSlot> layoutRoundByHalf(
+            List<com.example.dto.KnockoutBracketData.MatchSlot> source, int expectedSize) {
+        return KnockoutBracketLayout.placeVisualSlots(
+                sortBracketSlots(source),
+                expectedSize,
+                com.example.dto.KnockoutBracketData.MatchSlot::getKnockoutHalf,
+                com.example.dto.KnockoutBracketData.MatchSlot::getKnockoutBracketSlot);
+    }
+
+    private static void splitHalfLists(List<com.example.dto.KnockoutBracketData.MatchSlot> laid,
+                                       List<com.example.dto.KnockoutBracketData.MatchSlot> upper,
+                                       List<com.example.dto.KnockoutBracketData.MatchSlot> lower) {
+        upper.clear();
+        lower.clear();
+        if (laid == null || laid.isEmpty()) {
+            return;
+        }
+        int n = laid.size();
+        int cut = Math.max(1, n / 2);
+        for (int i = 0; i < n; i++) {
+            com.example.dto.KnockoutBracketData.MatchSlot s = laid.get(i);
+            if (s == null) {
+                continue;
+            }
+            if (i < cut) {
+                upper.add(s);
+            } else {
+                lower.add(s);
+            }
+        }
+    }
+
+    private static Map<String, com.example.dto.KnockoutBracketData.MatchSlot> remapQualifierKeysToVisualSlots(
+            Map<String, com.example.dto.KnockoutBracketData.MatchSlot> qualifierByKoSlot,
+            List<com.example.dto.KnockoutBracketData.MatchSlot> visualFirstRound) {
+        if (qualifierByKoSlot == null || qualifierByKoSlot.isEmpty() || visualFirstRound == null) {
+            return qualifierByKoSlot == null ? new LinkedHashMap<>() : qualifierByKoSlot;
+        }
+        Map<String, com.example.dto.KnockoutBracketData.MatchSlot> remapped = new LinkedHashMap<>();
+        for (int vis = 0; vis < visualFirstRound.size(); vis++) {
+            com.example.dto.KnockoutBracketData.MatchSlot main = visualFirstRound.get(vis);
+            if (main == null || main.getKnockoutBracketSlot() == null) {
+                continue;
+            }
+            com.example.dto.KnockoutBracketData.MatchSlot q = qualifierByKoSlot.get(String.valueOf(main.getKnockoutBracketSlot()));
+            if (q != null) {
+                remapped.put(String.valueOf(vis), q);
+            }
+        }
+        if (remapped.isEmpty()) {
+            return qualifierByKoSlot;
+        }
+        return remapped;
+    }
+
+    private static void classifyQualifiersByHalf(
+            List<com.example.dto.KnockoutBracketData.MatchSlot> qualifiers,
+            List<com.example.dto.KnockoutBracketData.MatchSlot> firstRound,
+            int firstRoundSize,
+            List<com.example.dto.KnockoutBracketData.MatchSlot> upper,
+            List<com.example.dto.KnockoutBracketData.MatchSlot> lower) {
+        upper.clear();
+        lower.clear();
+        if (qualifiers == null || qualifiers.isEmpty()) {
+            return;
+        }
+        Map<Integer, Integer> halfBySlot = new HashMap<>();
+        if (firstRound != null) {
+            for (com.example.dto.KnockoutBracketData.MatchSlot s : firstRound) {
+                if (s != null && s.getKnockoutBracketSlot() != null) {
+                    halfBySlot.put(s.getKnockoutBracketSlot(), s.getKnockoutHalf());
+                }
+            }
+        }
+        int roundSize = firstRoundSize > 0 ? firstRoundSize : 8;
+        for (com.example.dto.KnockoutBracketData.MatchSlot q : qualifiers) {
+            if (q == null) {
+                continue;
+            }
+            Integer linked = q.getLinkedKoSlot();
+            Integer half = linked != null ? halfBySlot.get(linked) : q.getKnockoutHalf();
+            if (KnockoutBracketLayout.isUpper(half, linked, roundSize)) {
+                upper.add(q);
+            } else {
+                lower.add(q);
+            }
+        }
     }
 
     private static List<com.example.dto.KnockoutBracketData.MatchSlot> sortBracketSlots(

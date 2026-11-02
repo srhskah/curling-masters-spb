@@ -1634,11 +1634,14 @@ public class KnockoutBracketService {
         // 模式 0：只取小组赛总排名列表 rankedPlayers，与小组个数、奇偶无关
         if (mode == 0) {
             List<int[]> pairs = KnockoutPairingUtil.classicOverallRankPairs(n);
+            int pairCount = pairs.size();
+            int upperCount = pairCount / 2;
             int idx = 1;
             for (int[] pr : pairs) {
                 Long a = rankedPlayers.get(pr[0] - 1);
                 Long b = rankedPlayers.get(pr[1] - 1);
-                list.add(new PlannedKo(a, b, koRoundLabel(startField) + " 第" + idx + "场", null));
+                Integer half = pairCount <= 1 ? null : (idx - 1 < upperCount ? 0 : 1);
+                list.add(new PlannedKo(a, b, koRoundLabel(startField) + " 第" + idx + "场", half));
                 idx++;
             }
             return list;
@@ -1693,12 +1696,13 @@ public class KnockoutBracketService {
             // 与模式1一致：每个名次线 t 在相邻组对上各产 1 场，共 q×(组对数) 场（例：4 组 16 人 → 4×2=8 场）。
             // 勿按 half 再复制一轮，否则会重复 16 场并耗尽挂载资格赛名额。
             int matchNo = 1;
-            for (int t = 0; t < q; t++) {
-                int[] pr = KnockoutPairingUtil.worldCupCrossRankPair(t, q);
-                for (int p = 0; p < pairCount; p++) {
-                    TournamentGroup g0 = groups.get(2 * p);
-                    TournamentGroup g1 = groups.get(2 * p + 1);
-                    int half = p;
+            int upperPairs = Math.max(1, (pairCount + 1) / 2);
+            for (int p = 0; p < pairCount; p++) {
+                int half = p < upperPairs ? 0 : 1;
+                TournamentGroup g0 = groups.get(2 * p);
+                TournamentGroup g1 = groups.get(2 * p + 1);
+                for (int t = 0; t < q; t++) {
+                    int[] pr = KnockoutPairingUtil.worldCupCrossRankPair(t, q);
                     list.add(new PlannedKo(
                             userAtGroupRank(gr, g0.getId(), pr[0]),
                             userAtGroupRank(gr, g1.getId(), pr[1]),
