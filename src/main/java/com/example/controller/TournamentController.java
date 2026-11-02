@@ -3051,6 +3051,15 @@ public class TournamentController {
         model.addAttribute("tournament", tournament);
         model.addAttribute("pageTitle", tournament.getLevelCode() + " — 淘汰赛对阵图");
 
+        Series series = tournament.getSeriesId() != null ? seriesService.getById(tournament.getSeriesId()) : null;
+        Season season = series != null && series.getSeasonId() != null ? seasonService.getById(series.getSeasonId()) : null;
+        String seasonName = season != null
+                ? (season.getYear() + "年" + (Objects.equals(season.getHalf(), 1) ? "上半年" : "下半年"))
+                : "";
+        String seriesName = buildSeriesDisplayName(series);
+        model.addAttribute("seasonName", seasonName);
+        model.addAttribute("seriesName", seriesName != null ? seriesName : "");
+
         // 获取对阵图数据
         com.example.dto.KnockoutBracketData bracketData = tournamentCompetitionService.buildKnockoutBracketData(id);
         model.addAttribute("bracketData", bracketData);

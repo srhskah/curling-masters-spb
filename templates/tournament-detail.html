@@ -1468,7 +1468,13 @@
                              id="sharedKoBracketPanel"
                              th:attr="data-fetch-url=@{/tournament/competition/knockout-bracket-data/{id}(id=${tournamentInfo.tournament.id})}">
                             <div class="ko-bracket-root card border-0 shadow-sm p-3 p-md-4"
-                                 th:attr="data-fetch-url=@{/tournament/competition/knockout-bracket-data/{id}(id=${tournamentInfo.tournament.id})},data-export-title=|${tournamentInfo.tournament.levelCode} 淘汰赛对阵图|">
+                                 th:attr="data-fetch-url=@{/tournament/competition/knockout-bracket-data/{id}(id=${tournamentInfo.tournament.id})},
+                                          data-export-title=|${tournamentInfo.levelName != null ? tournamentInfo.levelName : tournamentInfo.tournament.levelCode} 淘汰赛对阵图|,
+                                          data-season-label=${tournamentInfo.seasonName},
+                                          data-series-label=${tournamentInfo.seriesName},
+                                          data-level-label=${tournamentInfo.levelName != null ? tournamentInfo.levelName : tournamentInfo.tournament.levelCode},
+                                          data-edition-label=${tournamentInfo.edition},
+                                          data-export-logo=@{/images/Logo Trsp Stripe.png}">
                             </div>
                         </div>
                         <div class="tab-content" id="competitionMatchTabContent" th:if="${competitionMatchTabs != null and !#lists.isEmpty(competitionMatchTabs)}">
@@ -1937,10 +1943,10 @@
     <div th:replace="~{fragments :: footer}"></div>
 
     <th:block th:replace="~{fragments :: scripts}"></th:block>
-    <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=21}">
+    <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=24}">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
-    <script th:src="@{/js/knockout-bracket-view.js?v=27}"></script>
+    <script th:src="@{/js/knockout-bracket-view.js?v=29}"></script>
     <script>
         function isPrimeGroupCount(n) {
             if (!Number.isInteger(n) || n <= 1) return false;
