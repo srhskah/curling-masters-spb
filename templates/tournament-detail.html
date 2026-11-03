@@ -1768,27 +1768,27 @@
                 <div class="modal-body">
                     <input type="hidden" id="saMatchIdInput">
                     <div class="mb-2 small text-muted" id="saMatchTitle"></div>
-                    <div class="row g-2 mb-2">
-                        <div class="col-md-4">
-                            <label class="form-label">开局后手</label>
-                            <select class="form-select" id="saFirstEndHammer">
-                                <option value="">不设置</option>
-                                <option value="1" id="saHammerPlayer1Option">player1</option>
-                                <option value="2" id="saHammerPlayer2Option">player2</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">局数</label>
-                            <input type="number" min="1" max="20" id="saSetCount" class="form-control" value="8">
-                        </div>
-                        <div class="col-md-4 d-flex align-items-end">
-                            <button type="button" class="btn btn-outline-primary w-100" onclick="renderSaScoreRows()">生成/重置局数</button>
-                        </div>
+                    <div class="group-match-meta-bar mb-2">
+                        <label class="group-match-meta-label" for="saFirstEndHammer">开局后手</label>
+                        <select class="form-select group-match-meta-hammer" id="saFirstEndHammer">
+                            <option value="">不设置</option>
+                            <option value="1" id="saHammerPlayer1Option">player1</option>
+                            <option value="2" id="saHammerPlayer2Option">player2</option>
+                        </select>
+                        <label class="group-match-meta-label" for="saSetCount">局数</label>
+                        <input type="number" min="1" max="20" id="saSetCount" class="form-control group-match-meta-sets" value="8" inputmode="numeric">
+                        <button type="button" class="btn btn-outline-primary group-match-meta-action" onclick="renderSaScoreRows()">生成/重置局数</button>
                     </div>
                     <div class="table-responsive score-entry-wrap match-score-mobile-optimized">
                         <table class="table table-sm table-bordered align-middle score-entry-table">
                             <thead class="table-light">
-                            <tr><th style="width: 26%">选手名称</th><th style="width: 18%">总比分</th><th>局次</th></tr>
+                            <tr>
+                                <th class="score-name-col-head">选手名称</th>
+                                <th class="score-total-col-head">总比分</th>
+                                <th class="score-ends-head-cell">
+                                    <div class="score-ends-grid" data-score-ends-header></div>
+                                </th>
+                            </tr>
                             </thead>
                             <tbody id="saScoreRows"></tbody>
                         </table>
@@ -1945,7 +1945,7 @@
     <th:block th:replace="~{fragments :: scripts}"></th:block>
     <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=24}">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-    <script th:src="@{/js/group-match-score-modal.js?v=1}"></script>
+    <script th:src="@{/js/group-match-score-modal.js?v=14}"></script>
     <script th:src="@{/js/knockout-bracket-view.js?v=29}"></script>
     <script>
         function isPrimeGroupCount(n) {
@@ -2792,8 +2792,10 @@
             const tbody = document.getElementById('saScoreRows');
             if (!tbody) return;
             const n = Number(document.getElementById('saSetCount').value || 0);
+            const headerEl = tbody.closest('table')?.querySelector('[data-score-ends-header]');
             if (!Number.isInteger(n) || n < 1) {
                 tbody.innerHTML = '';
+                if (headerEl) headerEl.innerHTML = '';
                 return;
             }
             const p1Name = document.getElementById('saHammerPlayer1Option').textContent || 'player1';
@@ -2804,14 +2806,34 @@
                 p1Vals.push(existing && existing[i - 1] ? window.scoreCellTokenFromRow(existing[i - 1], 1) : '0');
                 p2Vals.push(existing && existing[i - 1] ? window.scoreCellTokenFromRow(existing[i - 1], 2) : '0');
             }
+            tbody.dataset.p1Name = p1Name;
+            tbody.dataset.p2Name = p2Name;
+            if (headerEl) {
+                const items = [];
+                for (let i = 1; i <= n; i++) {
+                    items.push(
+                        `<div class="score-end-item score-end-head-item" data-end-index="${i}">`
+                        + `<span class="score-end-num">${i}</span>`
+                        + `<span class="score-end-head-hammer" data-end-hammer-label></span>`
+                        + `</div>`
+                    );
+                }
+                headerEl.innerHTML = items.join('');
+            }
             tbody.innerHTML = window.buildScoreRow(p1Name, p1Vals, n, 'sa-p1', 'sa-total-p1', '1')
                 + window.buildScoreRow(p2Name, p2Vals, n, 'sa-p2', 'sa-total-p2', '2');
             window.bindScoreTotal('saScoreRows', 'sa-p1', 'sa-total-p1');
             window.bindScoreTotal('saScoreRows', 'sa-p2', 'sa-total-p2');
             window.bindXCutoffForceZeros('saScoreRows', 'sa-p1', 'sa-p2', 'sa-total-p1', 'sa-total-p2');
+            if (typeof window.bindTotalOutcomePair === 'function') {
+                window.bindTotalOutcomePair('saScoreRows', 'sa-p1', 'sa-p2', 'sa-total-p1', 'sa-total-p2');
+            }
             window.bindNameDoubleTapHammerToggle('saScoreRows', 'saFirstEndHammer');
             window.bindHammerHighlightSync('saScoreRows', 'saFirstEndHammer');
             window.refreshHammerNameHighlight('saScoreRows', 'saFirstEndHammer');
+            if (typeof window.bindEndHammerMarksSync === 'function') {
+                window.bindEndHammerMarksSync('saScoreRows', 'saFirstEndHammer', 'sa-p1', 'sa-p2');
+            }
         }
 
         async function openSuperAdminScoreModal(btn) {
@@ -2876,10 +2898,12 @@
             // 每次打开取消资格弹窗都重置签名，避免误用上次数据
             window.__cmSharedSignatureData = '';
             window.clearSignatureCanvas();
-            const groupStatus = document.getElementById('groupSignatureStatus');
-            if (groupStatus) groupStatus.textContent = '未签名';
-            const dqStatus = document.getElementById('dqSignatureStatus');
-            if (dqStatus) dqStatus.textContent = '未签名';
+            if (typeof window.refreshSignatureButtonState === 'function') {
+                window.refreshSignatureButtonState();
+            } else {
+                const dqStatus = document.getElementById('dqSignatureStatus');
+                if (dqStatus) dqStatus.textContent = '未签名';
+            }
             disqualifyModal.show();
         }
 

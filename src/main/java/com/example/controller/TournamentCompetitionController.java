@@ -515,16 +515,27 @@ public class TournamentCompetitionController {
             logs = impl.listScoreEditLogs(matchId);
         }
         Map<Long, String> usernameById = userService.list().stream().collect(java.util.stream.Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
-        List<Map<String, Object>> acceptView = accepts.stream().map(a -> Map.<String, Object>of(
-                "userId", a.getUserId(),
-                "username", usernameById.getOrDefault(a.getUserId(), "未知"),
-                "signature", a.getSignature(),
-                "acceptedAt", a.getAcceptedAt()
-        )).toList();
+        // userId 必须用字符串：雪花 ID 超出 JS Number 安全整数，JSON number 会精度丢失导致前端无法匹配当前用户
+        List<Map<String, Object>> acceptView = new ArrayList<>();
+        String viewerSignature = "";
+        for (com.example.entity.MatchAcceptance a : accepts) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            String uidStr = a.getUserId() == null ? "" : String.valueOf(a.getUserId());
+            String sig = a.getSignature() == null ? "" : a.getSignature().trim();
+            row.put("userId", uidStr);
+            row.put("username", usernameById.getOrDefault(a.getUserId(), "未知"));
+            row.put("signature", sig);
+            row.put("acceptedAt", a.getAcceptedAt());
+            acceptView.add(row);
+            if (viewer != null && viewer.getId() != null && Objects.equals(viewer.getId(), a.getUserId())
+                    && sig.startsWith("data:image/") && viewerSignature.isEmpty()) {
+                viewerSignature = sig;
+            }
+        }
         List<Map<String, Object>> logView = logs.stream().map(l -> {
             Map<String, Object> row = new java.util.LinkedHashMap<>();
             row.put("setNumber", l.getSetNumber());
-            row.put("editorUserId", l.getEditorUserId());
+            row.put("editorUserId", l.getEditorUserId() == null ? null : String.valueOf(l.getEditorUserId()));
             row.put("editorUsername", usernameById.getOrDefault(l.getEditorUserId(), "未知"));
             row.put("oldPlayer1Score", l.getOldPlayer1Score());
             row.put("oldPlayer2Score", l.getOldPlayer2Score());
@@ -553,6 +564,9 @@ public class TournamentCompetitionController {
         body.put("canEditScore", canEdit);
         body.put("canAcceptScore", canAccept);
         body.put("viewerIsSuperAdmin", viewerIsSuperAdmin);
+        body.put("viewerUserId", viewer != null && viewer.getId() != null ? String.valueOf(viewer.getId()) : "");
+        body.put("viewerSignature", viewerSignature);
+        body.put("viewerHasHandwrittenSignature", !viewerSignature.isEmpty());
         return body;
     }
 
