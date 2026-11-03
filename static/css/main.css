@@ -1023,11 +1023,53 @@ table.table-hover.align-middle tbody tr > td {
  * 与赛事详情页原内联样式一致；窄屏下覆盖本文件中全局「score-entry-table 卡片化」规则。
  */
 .match-score-mobile-optimized .score-entry-table {
-    table-layout: fixed;
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+}
+.match-score-mobile-optimized.score-entry-wrap,
+.match-score-mobile-optimized {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.match-score-mobile-optimized .score-name-col-head,
+.match-score-mobile-optimized .score-total-col-head {
+    text-align: center;
+    vertical-align: middle;
+}
+.match-score-mobile-optimized .score-name-col-head,
+.match-score-mobile-optimized .score-player-name {
+    width: 5.5rem;
+    min-width: 5.5rem;
+    max-width: 7.5rem;
+}
+.match-score-mobile-optimized tbody .score-player-name,
+.match-score-mobile-optimized tbody .score-total-cell {
+    text-align: center !important;
+    vertical-align: middle !important;
+    height: 100%;
 }
 .match-score-mobile-optimized .score-player-name {
     white-space: nowrap;
     user-select: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.match-score-mobile-optimized .score-player-name-inner,
+.match-score-mobile-optimized .score-total-cell-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 3.35rem; /* 对齐局分：标记行 + 下拉高度 */
+    box-sizing: border-box;
+}
+.match-score-mobile-optimized .score-player-name-inner {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    display: inline-flex; /* 单行省略 + 居中 */
 }
 .match-score-mobile-optimized .score-player-name.score-player-name--tappable {
     cursor: pointer;
@@ -1037,44 +1079,327 @@ table.table-hover.align-middle tbody tr > td {
     color: #8a5300;
     box-shadow: inset 0 0 0 1px #ffe08a;
 }
+.match-score-mobile-optimized .score-total-col-head,
 .match-score-mobile-optimized .score-total-cell {
-    width: 5.2rem;
-    min-width: 5.2rem;
-    text-align: center;
-    vertical-align: top;
+    width: 4.2rem;
+    min-width: 4.2rem;
 }
 .match-score-mobile-optimized .score-total-box {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 2.75rem;
-    min-height: 2.2rem;
+    height: 2.4rem;
+    min-height: 2.4rem;
+    margin: 0;
     border: 1px solid #ced4da;
     border-radius: 0.55rem;
     background: #f8f9fa;
     font-weight: 600;
+    font-size: 1.05rem;
     line-height: 1;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
+/* 选手1领先：淡蓝；选手2领先：淡红；非 0-0 平局：双方淡绿 */
+.match-score-mobile-optimized .score-total-box.score-total-box--p1-win,
+.match-score-mobile-optimized .group-total-p1.score-total-box--p1-win,
+.match-score-mobile-optimized .sa-total-p1.score-total-box--p1-win {
+    background: #dbeafe;
+    border-color: #93c5fd;
+    color: #1e3a8a;
+}
+.match-score-mobile-optimized .score-total-box.score-total-box--p2-win,
+.match-score-mobile-optimized .group-total-p2.score-total-box--p2-win,
+.match-score-mobile-optimized .sa-total-p2.score-total-box--p2-win {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #7f1d1d;
+}
+.match-score-mobile-optimized .score-total-box.score-total-box--tie {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #14532d;
+}
+.match-score-mobile-optimized .score-ends-head-cell,
 .match-score-mobile-optimized .score-ends-cell {
-    overflow: hidden;
+    overflow: visible;
+    vertical-align: middle;
 }
+/* 表头局号 + 行内比分共用同一套列宽，整表横向滚动对齐 */
 .match-score-mobile-optimized .score-ends-grid {
     display: flex;
     flex-wrap: nowrap;
     gap: 0.4rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 0.15rem;
+    width: max-content;
+    overflow: visible;
+    padding-bottom: 0;
 }
 .match-score-mobile-optimized .score-end-item {
     flex: 0 0 auto;
+    width: 2.75rem;
     text-align: center;
 }
-.match-score-mobile-optimized .score-end-label {
+.match-score-mobile-optimized .score-end-head-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.12rem;
+    min-height: 2.35rem;
+}
+.match-score-mobile-optimized .score-end-num {
+    font-weight: 800;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+    color: #334155;
+    line-height: 1;
+}
+.match-score-mobile-optimized .score-end-head-hammer {
     display: block;
-    font-size: 0.72rem;
-    color: #6c757d;
-    margin-bottom: 0.15rem;
+    max-width: 100%;
+    min-height: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: transparent;
+}
+.match-score-mobile-optimized .score-end-head-item--hammer .score-end-num {
+    color: #8a5300;
+}
+.match-score-mobile-optimized .score-end-head-item--hammer .score-end-head-hammer {
+    color: #8a5300;
+}
+.match-score-mobile-optimized .score-end-head-item--x .score-end-num {
+    color: #9f1239;
+}
+.match-score-mobile-optimized .score-end-head-item--x .score-end-head-hammer {
+    color: #9f1239;
+}
+.match-score-mobile-optimized .score-end-cell-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0.85rem;
+    margin-bottom: 0.12rem;
+}
+/* 各局比分下拉：与弹窗控件同圆角；数字真正水平垂直居中 */
+.match-score-mobile-optimized .score-input {
+    box-sizing: border-box;
+    width: 2.75rem;
+    height: 2.4rem;
+    min-height: 2.4rem;
+    padding: 0 !important;
+    margin: 0;
+    border-radius: 0.55rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 2.4rem;
+    text-align: center;
+    text-align-last: center;
+    background-image: none !important;
+    background-position: unset;
+    background-size: unset;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+/* 该局后手：琥珀色高亮（与选手名后手一致） */
+.match-score-mobile-optimized .score-end-item--hammer .score-input {
+    border-color: #e6a800;
+    background-color: #fff8e1;
+    box-shadow: inset 0 0 0 1px #ffe08a;
+}
+/* X 当局：双方玫瑰色高亮；后续局不再高亮后手 */
+.match-score-mobile-optimized .score-end-item--x .score-input {
+    border-color: #e11d48;
+    background-color: #fff1f2;
+    box-shadow: inset 0 0 0 1px #fecdd3;
+}
+.match-score-mobile-optimized .score-end-mark-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0.9rem;
+    height: 0.9rem;
+    padding: 0 0.15rem;
+    border-radius: 0.25rem;
+    font-size: 0.58rem;
+    font-weight: 800;
+    line-height: 1;
+    vertical-align: middle;
+}
+.match-score-mobile-optimized .score-end-hammer-badge {
+    color: #8a5300;
+    background: #ffe08a;
+}
+.match-score-mobile-optimized .score-end-x-badge {
+    color: #9f1239;
+    background: #fecdd3;
+}
+
+/* 验收信息 / 比分修改记录：可左右滑动，默认从最左侧起 */
+#groupMatchScoreModal .match-score-h-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+#groupMatchScoreModal .match-score-h-scroll-table {
+    width: max-content;
+    min-width: 100%;
+    margin-bottom: 0;
+}
+#groupMatchScoreModal #groupAcceptanceTable th:nth-child(1),
+#groupMatchScoreModal #groupAcceptanceTable td:nth-child(1) {
+    min-width: 5.5rem;
+    white-space: nowrap;
+}
+#groupMatchScoreModal #groupAcceptanceTable th:nth-child(2),
+#groupMatchScoreModal #groupAcceptanceTable td:nth-child(2) {
+    min-width: 10rem;
+}
+#groupMatchScoreModal #groupAcceptanceTable th:nth-child(3),
+#groupMatchScoreModal #groupAcceptanceTable td:nth-child(3) {
+    min-width: 9rem;
+    white-space: nowrap;
+}
+#groupMatchScoreModal #groupEditLogTable th,
+#groupMatchScoreModal #groupEditLogTable td {
+    white-space: nowrap;
+}
+#groupMatchScoreModal #groupEditLogTable th:nth-child(1),
+#groupMatchScoreModal #groupEditLogTable td:nth-child(1) {
+    min-width: 3rem;
+    text-align: center;
+}
+#groupMatchScoreModal #groupEditLogTable th:nth-child(2),
+#groupMatchScoreModal #groupEditLogTable td:nth-child(2) {
+    min-width: 5.5rem;
+}
+#groupMatchScoreModal #groupEditLogTable th:nth-child(3),
+#groupMatchScoreModal #groupEditLogTable td:nth-child(3),
+#groupMatchScoreModal #groupEditLogTable th:nth-child(4),
+#groupMatchScoreModal #groupEditLogTable td:nth-child(4) {
+    min-width: 5.5rem;
+}
+#groupMatchScoreModal #groupEditLogTable th:nth-child(5),
+#groupMatchScoreModal #groupEditLogTable td:nth-child(5) {
+    min-width: 9rem;
+}
+
+/*
+ * 录分弹窗控件统一：圆角 / 高度 / 字号；
+ * 局数与各局比分为数字居中。
+ */
+#groupMatchScoreModal .form-select,
+#groupMatchScoreModal .form-control,
+#superAdminScoreModal .form-select,
+#superAdminScoreModal .form-control {
+    border-radius: 0.55rem;
+    font-size: 0.95rem;
+    min-height: 2.4rem;
+    line-height: 1.35;
+}
+
+#groupMatchScoreModal .btn:not(.btn-sm),
+#superAdminScoreModal .btn:not(.btn-sm) {
+    border-radius: 0.55rem;
+    min-height: 2.4rem;
+    font-size: 0.95rem;
+}
+
+/* 开局后手 | 下拉 | 局数 | 控件 | 按钮 — 尽量单行并排 */
+.group-match-meta-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.55rem;
+}
+.group-match-meta-bar .group-match-meta-label {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--bs-body-color);
+}
+.group-match-meta-bar .group-match-meta-hammer {
+    box-sizing: border-box;
+    width: auto;
+    min-width: 7.5rem;
+    max-width: 12rem;
+    flex: 1 1 7.5rem;
+    height: 2.4rem;
+    min-height: 2.4rem;
+    padding: 0.3rem 2rem 0.3rem 0.7rem;
+    border-radius: 0.55rem;
+    font-size: 0.95rem;
+    line-height: 1.35;
+    background-position: right 0.55rem center;
+    background-size: 12px 10px;
+}
+.group-match-meta-bar .group-match-meta-sets {
+    box-sizing: border-box;
+    width: 3.6rem;
+    flex: 0 0 3.6rem;
+    height: 2.4rem;
+    min-height: 2.4rem;
+    padding: 0 !important;
+    border-radius: 0.55rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 2.4rem;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+.group-match-meta-bar .group-match-meta-sets::-webkit-outer-spin-button,
+.group-match-meta-bar .group-match-meta-sets::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.group-match-meta-bar .group-match-meta-action {
+    white-space: nowrap;
+    flex: 0 0 auto;
+    margin-left: auto;
+    height: 2.4rem;
+    min-height: 2.4rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 0.55rem;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+@media (max-width: 576px) {
+    /* 窄屏也保持：开局后手 | 局数 | 生成/重置局数 同一行 */
+    .group-match-meta-bar {
+        flex-wrap: nowrap;
+        gap: 0.3rem 0.4rem;
+    }
+    .group-match-meta-bar .group-match-meta-label {
+        font-size: 0.8rem;
+    }
+    .group-match-meta-bar .group-match-meta-hammer {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: none;
+        padding-right: 1.6rem;
+        font-size: 0.85rem;
+    }
+    .group-match-meta-bar .group-match-meta-sets {
+        width: 3rem;
+        flex: 0 0 3rem;
+        font-size: 0.95rem;
+    }
+    .group-match-meta-bar .group-match-meta-action {
+        margin-left: 0;
+        width: auto;
+        flex: 0 0 auto;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.78rem;
+    }
 }
 
 #groupMatchScoreModal .modal-header {
@@ -1092,8 +1417,41 @@ table.table-hover.align-middle tbody tr > td {
     border-top: 1px solid var(--bs-border-color);
 }
 
+#groupMatchScoreModal #groupMatchTitle {
+    text-align: center;
+}
+#groupMatchScoreModal .group-match-action-bar {
+    justify-content: center;
+}
 #groupMatchScoreModal .group-match-action-bar .btn {
     white-space: nowrap;
+}
+/* 签名状态：不高亮文字，用高对比背景区分未签/已签 */
+#groupMatchScoreModal .group-sig-btn {
+    border: 1px solid transparent;
+    font-weight: 600;
+}
+#groupMatchScoreModal .group-sig-btn--unsigned {
+    color: #422006;
+    background: #fbbf24;
+    border-color: #d97706;
+}
+#groupMatchScoreModal .group-sig-btn--unsigned:hover,
+#groupMatchScoreModal .group-sig-btn--unsigned:focus {
+    color: #422006;
+    background: #f59e0b;
+    border-color: #b45309;
+}
+#groupMatchScoreModal .group-sig-btn--signed {
+    color: #fff;
+    background: #15803d;
+    border-color: #166534;
+}
+#groupMatchScoreModal .group-sig-btn--signed:hover,
+#groupMatchScoreModal .group-sig-btn--signed:focus {
+    color: #fff;
+    background: #166534;
+    border-color: #14532d;
 }
 
 @media (max-width: 576px) {
@@ -1112,13 +1470,15 @@ table.table-hover.align-middle tbody tr > td {
         font-size: 0.85rem;
     }
     #groupMatchScoreModal .group-match-action-bar {
-        display: grid !important;
-        grid-template-columns: 1fr 1fr;
+        display: flex !important;
+        flex-wrap: wrap;
+        justify-content: center !important;
         gap: 0.45rem !important;
     }
     #groupMatchScoreModal .group-match-action-bar .btn {
-        width: 100%;
-        font-size: 0.8rem;
+        width: auto;
+        flex: 1 1 auto;
+        font-size: 0.78rem;
     }
     .score-entry-table > thead th {
         font-size: 0.78rem;
@@ -1182,20 +1542,6 @@ table.table-hover.align-middle tbody tr > td {
     .match-score-mobile-optimized .score-player-name {
         width: 5rem;
         min-width: 5rem;
-    }
-    .match-score-mobile-optimized .score-end-item {
-        width: 2.75rem;
-    }
-    .match-score-mobile-optimized .score-input {
-        width: 2.75rem;
-        height: 2.2rem;
-        padding: 0.2rem 0.3rem;
-        border-radius: 0.55rem;
-        text-align: center;
-        font-size: 1rem;
-        background-image: none !important;
-        -webkit-appearance: none;
-        appearance: none;
     }
     .match-score-mobile-optimized .score-entry-table {
         border: 1px solid var(--bs-border-color) !important;
