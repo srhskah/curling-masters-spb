@@ -107,6 +107,72 @@ public final class MarkdownUtils {
     private MarkdownUtils() {
     }
 
+    /** 同一物理行里、前面至少两个空白隔开的列表标记，拆成新行。单空格不拆，避免破坏 {@code *强调*}。 */
+    private static final Pattern INLINE_ORDERED_MARKER = Pattern.compile("(?<=\\S)[ \\t]{2,}(\\d{1,3}\\.\\s+\\S)");
+    private static final Pattern INLINE_UNORDERED_MARKER = Pattern.compile("(?<=\\S)[ \\t]{2,}([-*+]\\s+\\S)");
+
+    private static String splitInlineListMarkersSeparatedBySpaces(String md) {
+        if (md == null || md.isEmpty()) {
+            return md == null ? "" : md;
+        }
+        String[] lines = md.split("\n", -1);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            String out = lines[i];
+            String prev;
+            do {
+                prev = out;
+                out = INLINE_ORDERED_MARKER.matcher(out).replaceAll("\n$1");
+                out = INLINE_UNORDERED_MARKER.matcher(out).replaceAll("\n$1");
+            } while (!out.equals(prev));
+            sb.append(out);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 有序项下一行紧跟的顶格无序列表，视为该条的子列表（WYSIWYG 里缩进在其下）。
+     * 中间有空行则保持为独立列表。
+     */
+    private static String nestTightUnorderedUnderPrecedingOrdered(String md) {
+        if (md == null || md.isEmpty()) {
+            return md == null ? "" : md;
+        }
+        String[] lines = md.split("\n", -1);
+        StringBuilder sb = new StringBuilder();
+        boolean underOrdered = false;
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            String line = lines[i];
+            if (line.isBlank()) {
+                underOrdered = false;
+                sb.append(line);
+                continue;
+            }
+            if (isRootOrderedMarkdownListLine(line)) {
+                underOrdered = true;
+                sb.append(line);
+                continue;
+            }
+            if (underOrdered && isRootUnorderedMarkdownListLine(line)) {
+                sb.append("    ").append(line.stripLeading());
+                continue;
+            }
+            if (underOrdered && line.startsWith("    ")) {
+                sb.append(line);
+                continue;
+            }
+            underOrdered = false;
+            sb.append(line);
+        }
+        return sb.toString();
+    }
+
     private static String splitJoinedUlStarItemsOnSamePhysicalLine(String md) {
         if (md == null || md.isEmpty()) {
             return md == null ? "" : md;
@@ -143,6 +209,9 @@ public final class MarkdownUtils {
         }
         String out = markdown.replace("\r\n", "\n").replace('\r', '\n');
         out = splitJoinedUlStarItemsOnSamePhysicalLine(out);
+        // Toast WYSIWYG 常把「4. …」和「* 子项」用多个空格粘在同一行，而不是换行
+        out = splitInlineListMarkersSeparatedBySpaces(out);
+        out = nestTightUnorderedUnderPrecedingOrdered(out);
         // ATX 标题：行首 {@code ###} 后必须有空格，否则 commonmark 不当作标题
         out = ATX_NEED_SPACE_AFTER_HASHES.matcher(out).replaceAll("$1 $2");
         // 多个 {@code ###} 被拼在同一物理行

@@ -78,6 +78,23 @@ class MarkdownUlSplitTest {
 
     /** 紧凑 {@code *内容*} 时强调更稳定，应出现 {@code em} */
     @Test
+    void wysiwygFlattenedOrderedItemAndNestedStars_splitAndNest() {
+        String md = "3. 定义仍属于自由保护区内  4. 上述规则如有出现犯规的情况      * 第一次出现可予以警告\n"
+                + "* 若在6壶范围内则继续维持。      * 犯规第二次开始扣分";
+        String html = MarkdownUtils.markdownToSafeHtml(md);
+        // 列表从 3. 起，CommonMark 输出 <ol start="3">，不能按字面 "<ol>" 判断
+        assertTrue(html.contains("<ol"), html);
+        assertTrue(html.contains("上述规则如有出现犯规的情况"), html);
+        assertFalse(html.contains("区内  4."), html);
+        assertFalse(html.contains("情况      *"), html);
+        assertTrue(countOccurrences(html, "<li>") >= 5, html);
+        int ol = html.indexOf("<ol");
+        int nestedUl = html.indexOf("<ul>", ol);
+        assertTrue(nestedUl > ol, html);
+        assertTrue(html.indexOf("</ol>") > nestedUl, html);
+    }
+
+    @Test
     void dashList_tightStarEmphasis_rendersEm() {
         String md = "- *内容1* 内容2\n";
         String html = MarkdownUtils.markdownToSafeHtml(md);

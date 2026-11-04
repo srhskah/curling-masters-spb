@@ -18,6 +18,8 @@ import com.example.service.UserService;
 import com.example.service.UserTournamentPointsService;
 import com.example.service.ITournamentLevelService;
 import com.example.service.TournamentUrlService;
+import com.example.service.impl.DrawManagementService;
+import com.example.entity.TournamentRegistrationSetting;
 import com.example.entity.Tournament;
 import com.example.entity.Series;
 import com.example.service.impl.TournamentRankingRosterService;
@@ -61,6 +63,7 @@ public class HomeController {
     @Autowired private INotificationService notificationService;
     @Autowired private TournamentMedalStandingsService tournamentMedalStandingsService;
     @Autowired private TournamentUrlService tournamentUrlService;
+    @Autowired private DrawManagementService drawManagementService;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model, HttpServletRequest request) {
@@ -244,11 +247,49 @@ public class HomeController {
             return String.valueOf(b.getOrDefault("seasonLabel", "")).compareTo(String.valueOf(a.getOrDefault("seasonLabel", "")));
         });
         model.addAttribute("homeActiveSeriesRows", activeSeriesRows);
+        model.addAttribute("drawingEntryUrls", buildDrawingEntryUrls(activeTournaments, LocalDateTime.now()));
         
         // 验证时区设置
         TimezoneUtil.logTimezoneInfo();
         
         return "home";
+    }
+
+    /**
+     * 报名已截止且抽签窗口仍开（未完成）的赛事 → 抽签页地址。
+     * 与首页「报名接龙」按钮同一套：只给仍在该阶段的赛事。
+     */
+    private Map<Long, String> buildDrawingEntryUrls(List<Tournament> tournaments, LocalDateTime now) {
+        if (tournaments == null || tournaments.isEmpty() || now == null) {
+            return Map.of();
+        }
+        List<Long> ids = tournaments.stream().map(Tournament::getId).filter(Objects::nonNull).toList();
+        Map<Long, String> pools = drawManagementService.openDrawingPools(ids, now);
+        if (pools.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> urls = new HashMap<>();
+        for (Tournament t : tournaments) {
+            if (t == null || t.getId() == null || !pools.containsKey(t.getId())) {
+                continue;
+            }
+            if (tournamentRegistrationService.isRegistrationOpen(t, now)) {
+                continue;
+            }
+            TournamentRegistrationSetting setting = tournamentRegistrationService.getSetting(t.getId());
+            if (setting == null || !Boolean.TRUE.equals(setting.getEnabled()) || setting.getDeadline() == null) {
+                continue;
+            }
+            if (now.isBefore(setting.getDeadline())) {
+                continue;
+            }
+            String url = tournamentUrlService.drawUrl(t);
+            if ("QUALIFIER".equalsIgnoreCase(pools.get(t.getId()))) {
+                url = url + "?pool=QUALIFIER";
+            }
+            urls.put(t.getId(), url);
+        }
+        return urls;
     }
 
     @GetMapping("/ranking/api/home/medal-contributions")

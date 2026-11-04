@@ -132,6 +132,39 @@ public class DrawManagementService {
         }
     }
 
+    /**
+     * 仍在抽签中的池：窗口已开且状态不是 COMPLETED。
+     * 同一赛事两个池都在抽时优先 MAIN（返回值不含 query，由调用方拼 URL）。
+     *
+     * @return tournamentId → drawPool（MAIN / QUALIFIER）
+     */
+    public Map<Long, String> openDrawingPools(Collection<Long> tournamentIds, LocalDateTime now) {
+        if (tournamentIds == null || tournamentIds.isEmpty() || now == null) {
+            return Map.of();
+        }
+        List<Long> ids = tournamentIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        List<TournamentDraw> draws = drawMapper.selectList(Wrappers.<TournamentDraw>lambdaQuery()
+                .in(TournamentDraw::getTournamentId, ids)
+                .in(TournamentDraw::getStatus, List.of("PENDING", "IN_PROGRESS")));
+        Map<Long, String> out = new LinkedHashMap<>();
+        for (TournamentDraw d : draws) {
+            if (d == null || d.getTournamentId() == null || !isDrawWindowOpen(d, now)) {
+                continue;
+            }
+            String pool = d.getDrawPool() == null || d.getDrawPool().isBlank()
+                    ? DrawPool.MAIN.name()
+                    : d.getDrawPool().trim().toUpperCase(Locale.ROOT);
+            String existing = out.get(d.getTournamentId());
+            if (existing == null || DrawPool.MAIN.name().equals(pool)) {
+                out.put(d.getTournamentId(), pool);
+            }
+        }
+        return out;
+    }
+
     /** 抽签是否已开放（报名截止后写入 draw_opened_at，或截止前手动保存则截止时自动写入） */
     public boolean isDrawWindowOpen(TournamentDraw draw, LocalDateTime now) {
         if (draw == null || draw.getDrawOpenedAt() == null) {
