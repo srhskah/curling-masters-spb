@@ -613,14 +613,24 @@ table.table-hover.align-middle tbody tr > td {
     }
 }
 
-/* 窄屏侧栏：独立于顶栏 banner，下拉在侧栏内展开（不浮到视窗外） */
+/* 窄屏侧栏：贴在顶栏下，高度不超过视口，内容在菜单内部滚动 */
 .site-nav-offcanvas {
     --bs-offcanvas-width: min(92vw, 20rem);
     width: 15rem !important;
     z-index: 1055;
     background: linear-gradient(180deg, #eeee, #eeec);
-    top:4em;
+    top: 4em;
+    /* height: auto; */
     height: fit-content;
+    max-height: calc(100dvh - 4em);
+    overflow: hidden;
+}
+.site-nav-offcanvas .offcanvas-body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    max-height: calc(100dvh - 4em);
 }
 .site-nav-offcanvas .navbar-nav {
     flex-direction: column;

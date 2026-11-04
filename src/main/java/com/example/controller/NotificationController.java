@@ -61,7 +61,7 @@ public class NotificationController {
         NotificationMessage m = detail.get();
         model.addAttribute("isManager", notificationService.canManage(me));
         model.addAttribute("canEditThis", notificationService.canEditNotification(me, m));
-        model.addAttribute("message", m);
+        model.addAttribute("notice", m);
         model.addAttribute("copyText", notificationService.buildCopyText(m));
         return "notification/detail";
     }
