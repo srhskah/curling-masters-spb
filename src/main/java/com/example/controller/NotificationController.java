@@ -41,6 +41,7 @@ public class NotificationController {
     public String list(Model model, Principal principal) {
         User me = currentUser(principal);
         model.addAttribute("isManager", notificationService.canManage(me));
+        model.addAttribute("unreadCount", me == null ? 0L : notificationService.unreadCount(me.getId()));
         if (notificationService.canManage(me)) {
             model.addAttribute("items", notificationService.listManage(80));
         } else {
@@ -125,6 +126,26 @@ public class NotificationController {
             ra.addFlashAttribute("error", "操作失败：" + e.getMessage());
         }
         return "redirect:/notification/detail/" + id;
+    }
+
+    @PostMapping("/mark-all-read")
+    public String markAllRead(Principal principal, RedirectAttributes ra) {
+        User me = currentUser(principal);
+        if (me == null) {
+            ra.addFlashAttribute("error", "请先登录");
+            return "redirect:/user/login";
+        }
+        try {
+            int updated = notificationService.markAllRead(me.getId());
+            if (updated <= 0) {
+                ra.addFlashAttribute("message", "当前没有未读消息");
+            } else {
+                ra.addFlashAttribute("message", "已将 " + updated + " 条消息标为已读");
+            }
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", "操作失败：" + (e.getMessage() == null ? "未知错误" : e.getMessage()));
+        }
+        return "redirect:/notification/list";
     }
 
     @GetMapping("/reset-password-status/{id}")

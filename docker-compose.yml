@@ -58,8 +58,10 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       - ./logs:/app/logs
-      - ./templates:/app/templates
-      - ./static:/app/static
+      # 必须用宿主机绝对路径（或下方 HOST_FRONTEND_DIR），不能只用 ./templates：
+      # webhook 在容器内路径是 /compose，经 docker.sock 建容器时 ./ 会变成宿主机空目录 /compose/templates
+      - ${HOST_FRONTEND_DIR:-.}/templates:/app/templates
+      - ${HOST_FRONTEND_DIR:-.}/static:/app/static
   # redis:
   #   image: crpi-d81nvhgjqrzw3ppw.cn-hangzhou.aliyuncs.com/acs/redis:7-alpine
   #   ports:

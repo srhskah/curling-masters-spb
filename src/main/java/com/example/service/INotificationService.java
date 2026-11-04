@@ -16,6 +16,8 @@ public interface INotificationService {
     Optional<NotificationMessage> getManageDetail(Long messageId, User operator);
     void markRead(Long messageId, Long userId);
     void markUnread(Long messageId, Long userId);
+    /** 将当前用户所有未读收件记录标为已读，返回更新条数 */
+    int markAllRead(Long userId);
     long unreadCount(Long userId);
     boolean canManage(User user);
     /** 是否可修改该条通知（创建者本人；历史数据 author 为空时仅超级管理员可改） */

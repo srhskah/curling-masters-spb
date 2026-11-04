@@ -250,7 +250,11 @@
                             <tr th:each="user : ${users}" class="user-row" th:data-username="${user.username}" th:data-email="${user.email}" th:data-role="${user.role}" th:data-user-id="${user.id}">
                                 <td><input type="checkbox" class="user-checkbox form-check-input" th:value="${user.id}"></td>
                                 <td th:text="${user.id}"></td>
-                                <td th:text="${user.username}" th:href="@{'/user/profile/' + ${user.id}}"></td>
+                                <td>
+                                    <a th:href="@{/user/profile/{uid}(uid=${user.id})}"
+                                       class="text-decoration-none"
+                                       th:text="${user.username}">用户名</a>
+                                </td>
                                 <td th:text="${user.email}"></td>
                                 <td>
                                     <span th:if="${user.role == 0}" class="badge bg-danger">超级管理员</span>
@@ -313,7 +317,11 @@
                         <div class="d-flex align-items-center gap-2">
                             <input type="checkbox" class="user-checkbox form-check-input" th:value="${user.id}">
                             <div>
-                                <h5 class="mb-1" th:text="${user.username}">用户名</h5>
+                                <h5 class="mb-1">
+                                    <a th:href="@{/user/profile/{uid}(uid=${user.id})}"
+                                       class="text-decoration-none"
+                                       th:text="${user.username}">用户名</a>
+                                </h5>
                                 <small class="text-muted">ID: <span th:text="${user.id}"></span></small>
                             </div>
                         </div>

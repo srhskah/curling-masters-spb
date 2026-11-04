@@ -157,3 +157,8 @@ tasks.register('integrationTest', Test) {
 		}
 	}
 }
+
+processResources {
+    exclude 'templates/**'
+    exclude 'static/**'
+}

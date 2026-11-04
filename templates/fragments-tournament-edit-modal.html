@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+
+<!-- 弹窗壳：表单控件加载进 modal-body，不是 iframe -->
+<th:block th:fragment="tournamentEditModal">
+    <div class="modal fade" id="tournamentEditModal" tabindex="-1" aria-labelledby="tournamentEditModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tournamentEditModalTitle">编辑赛事</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body" id="tournamentEditModalBody">
+                    <div class="text-center text-muted py-5" id="tournamentEditModalLoading">加载中…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function () {
+            let tournamentEditModal;
+            function getModal() {
+                const el = document.getElementById('tournamentEditModal');
+                if (!el || typeof bootstrap === 'undefined') return null;
+                if (!tournamentEditModal) tournamentEditModal = bootstrap.Modal.getOrCreateInstance(el);
+                return tournamentEditModal;
+            }
+
+            function runScripts(container) {
+                container.querySelectorAll('script').forEach((old) => {
+                    const s = document.createElement('script');
+                    if (old.src) s.src = old.src;
+                    else s.textContent = old.textContent || '';
+                    old.replaceWith(s);
+                });
+            }
+
+            function bindModalForm(body) {
+                const form = body.querySelector('#tournamentEditModalForm');
+                if (!form) return;
+                const alertBox = body.querySelector('#tournamentEditModalAlert');
+                const showErr = (msg) => {
+                    if (!alertBox) {
+                        alert(msg || '保存失败');
+                        return;
+                    }
+                    alertBox.textContent = msg || '保存失败';
+                    alertBox.classList.remove('d-none');
+                };
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const submitBtn = form.querySelector('button[type="submit"]');
+                    if (submitBtn) submitBtn.disabled = true;
+                    if (alertBox) alertBox.classList.add('d-none');
+                    try {
+                        const fd = new FormData(form);
+                        const res = await fetch(form.action, {
+                            method: 'POST',
+                            body: fd,
+                            credentials: 'same-origin',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        });
+                        const data = await res.json().catch(() => null);
+                        if (!data || data.success !== true) {
+                            showErr((data && data.message) || ('保存失败（HTTP ' + res.status + '）'));
+                            return;
+                        }
+                        const modal = getModal();
+                        if (modal) modal.hide();
+                        window.location.reload();
+                    } catch (err) {
+                        showErr(err && err.message ? err.message : '保存失败');
+                    } finally {
+                        if (submitBtn) submitBtn.disabled = false;
+                    }
+                });
+            }
+
+            window.openTournamentEditModal = async function (url, title) {
+                if (!url) return;
+                const modal = getModal();
+                const body = document.getElementById('tournamentEditModalBody');
+                const titleEl = document.getElementById('tournamentEditModalTitle');
+                if (titleEl) titleEl.textContent = title || '编辑赛事';
+                if (!modal || !body) {
+                    window.location.href = String(url).replace(/\/modal-form(?:\?.*)?$/, '');
+                    return;
+                }
+
+                let formUrl = String(url);
+                if (!/\/modal-form(?:\?|$)/.test(formUrl)) {
+                    formUrl = formUrl.replace(/\/edit\/(\d+)(?:\?|$)/, '/edit/$1/modal-form');
+                    if (!/\/modal-form/.test(formUrl)) {
+                        formUrl = formUrl.replace(/\/?(\?.*)?$/, '/modal-form$1');
+                    }
+                }
+
+                body.innerHTML = '<div class="text-center text-muted py-5">加载中…</div>';
+                modal.show();
+                try {
+                    const res = await fetch(formUrl, { credentials: 'same-origin', headers: { 'Accept': 'text/html' } });
+                    if (!res.ok) throw new Error('加载编辑表单失败（HTTP ' + res.status + '）');
+                    const html = await res.text();
+                    body.innerHTML = html;
+                    runScripts(body);
+                    bindModalForm(body);
+                } catch (err) {
+                    body.innerHTML = '<div class="alert alert-danger mb-0">' + (err.message || '加载失败') + '</div>';
+                }
+            };
+
+            document.addEventListener('click', (ev) => {
+                const btn = ev.target.closest('[data-tournament-edit-url]');
+                if (!btn) return;
+                ev.preventDefault();
+                openTournamentEditModal(
+                    btn.getAttribute('data-tournament-edit-url'),
+                    btn.getAttribute('data-tournament-edit-title') || '编辑赛事'
+                );
+            });
+
+            const modalEl = document.getElementById('tournamentEditModal');
+            if (modalEl) {
+                modalEl.addEventListener('hidden.bs.modal', () => {
+                    const body = document.getElementById('tournamentEditModalBody');
+                    if (body) body.innerHTML = '<div class="text-center text-muted py-5">加载中…</div>';
+                });
+            }
+        })();
+    </script>
+</th:block>
+
+<!-- 弹窗内表单：与 generic-form 的 card-body 控件一致 -->
+<div th:fragment="tournamentEditFormBody">
+    <div id="tournamentEditModalAlert" class="alert alert-danger d-none" role="alert"></div>
+    <form id="tournamentEditModalForm" th:action="${saveUrl}" method="post" th:object="${formData}">
+        <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" th:if="*{id != null}" th:field="*{id}"/>
+        <input type="hidden" name="modal" value="1"/>
+
+        <div th:each="field : ${fields}">
+            <input th:if="${field['type'] == 'hidden'}"
+                   type="hidden"
+                   th:id="${field['id']}"
+                   th:name="${field['name']}"
+                   th:value="${field['value']}"/>
+
+            <div th:if="${field['type'] == 'text' or field['type'] == 'number' or field['type'] == 'date' or field['type'] == 'datetime-local'}"
+                 class="mb-3">
+                <label th:for="${field['id']}" class="form-label">
+                    <span th:text="${field['label']}"></span>
+                    <span th:if="${field['required']}" class="text-danger">*</span>
+                </label>
+                <input th:type="${field['type']}"
+                       class="form-control"
+                       th:id="${field['id']}"
+                       th:field="*{__${field['name']}__}"
+                       th:placeholder="${field['placeholder']}"
+                       th:min="${field['min']}"
+                       th:max="${field['max']}"
+                       th:step="${field['step']}"
+                       th:required="${field['required'] == true}">
+                <div th:if="${field['help']}" class="form-text" th:text="${field['help']}"></div>
+            </div>
+
+            <div th:if="${field['type'] == 'select'}" class="mb-3">
+                <label th:for="${field['id']}" class="form-label">
+                    <span th:text="${field['label']}"></span>
+                    <span th:if="${field['required']}" class="text-danger">*</span>
+                </label>
+                <select class="form-select"
+                        th:id="${field['id']}"
+                        th:field="*{__${field['name']}__}"
+                        th:required="${field['required'] == true}">
+                    <option value="" th:text="${field['placeholder']}"></option>
+                    <option th:each="option : ${field['options']}"
+                            th:value="${option['value']}"
+                            th:text="${option['text']}"
+                            th:selected="${option['selected']}"
+                            th:data-default-champion-points-ratio="${option['defaultChampionPointsRatio']}">
+                    </option>
+                </select>
+                <div th:if="${field['help']}" class="form-text" th:text="${field['help']}"></div>
+            </div>
+
+            <div th:if="${field['type'] == 'textarea'}" class="mb-3">
+                <label th:for="${field['id']}" class="form-label">
+                    <span th:text="${field['label']}"></span>
+                    <span th:if="${field['required']}" class="text-danger">*</span>
+                </label>
+                <textarea class="form-control"
+                          th:id="${field['id']}"
+                          th:field="*{__${field['name']}__}"
+                          th:placeholder="${field['placeholder']}"
+                          th:rows="${field['rows'] ?: 3}"
+                          th:required="${field['required'] == true}"></textarea>
+                <div th:if="${field['help']}" class="form-text" th:text="${field['help']}"></div>
+            </div>
+
+            <div th:if="${field['type'] == 'row'}" class="row">
+                <div th:each="subField : ${field['fields']}"
+                     th:class="${subField['colClass'] ?: 'col-md-6'}"
+                     class="mb-3">
+                    <div th:if="${subField['type'] == 'text' or subField['type'] == 'number' or subField['type'] == 'date' or subField['type'] == 'datetime-local'}">
+                        <label th:for="${subField['id']}" class="form-label">
+                            <span th:text="${subField['label']}"></span>
+                            <span th:if="${subField['required']}" class="text-danger">*</span>
+                        </label>
+                        <input th:type="${subField['type']}"
+                               class="form-control"
+                               th:id="${subField['id']}"
+                               th:field="*{__${subField['name']}__}"
+                               th:placeholder="${subField['placeholder']}"
+                               th:min="${subField['min']}"
+                               th:max="${subField['max']}"
+                               th:step="${subField['step']}"
+                               th:required="${subField['required'] == true}">
+                        <div th:if="${subField['help']}" class="form-text" th:text="${subField['help']}"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between pt-2">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                <i class="bi bi-x-lg"></i> 关闭
+            </button>
+            <div>
+                <button type="reset" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-arrow-clockwise"></i> 重置
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> 保存
+                </button>
+            </div>
+        </div>
+    </form>
+    <script th:if="${customScript != null}" th:utext="${customScript}"></script>
+</div>
+
+<div th:fragment="tournamentEditFormError" class="alert alert-danger mb-0" th:text="${error}">加载失败</div>
+</html>
