@@ -278,17 +278,27 @@
     return html;
   }
 
+  function mobQualAdvance(dir) {
+    const up = dir === 'up';
+    const cls = up ? 'ko-mob-qual-advance ko-mob-qual-advance--up' : 'ko-mob-qual-advance';
+    const mark = up ? '↑ ' : '↓ ';
+    return `<div class="${cls}" aria-hidden="true"><span>${mark}晋级</span></div>`;
+  }
+
   function mobMatchItem(roundKey, idx, m, tag, qualMap, half) {
     if (!m || (!m.id && m.p1 == null && m.p2 == null)) return '';
-    const qual = qualMap && roundKey === 'r16' ? qualMap[String(idx)] : null;
+    const qual = qualMap ? qualMap[String(idx)] : null;
     const mainHtml = matchCardHtml(roundKey, idx, m, tag, 'ko-mcard--stack');
     if (!qual) {
       return `<div class="ko-mob-item">${mainHtml}</div>`;
     }
     const qualHtml = matchCardHtml('qual', idx, fromSlot(qual), '资格赛', 'qual-mini s-qual ko-mcard--stack');
-    const pairClass = half === 'lower' ? 'ko-mob-pair ko-mob-pair--lower' : 'ko-mob-pair ko-mob-pair--upper';
-    const inner = half === 'lower' ? `${mainHtml}${qualHtml}` : `${qualHtml}${mainHtml}`;
-    return `<div class="ko-mob-item ${pairClass}">${inner}</div>`;
+    const lower = half === 'lower';
+    const stack = lower
+      ? `${mainHtml}${mobQualAdvance('up')}${qualHtml}`
+      : `${qualHtml}${mobQualAdvance('down')}${mainHtml}`;
+    const pairClass = lower ? 'ko-mob-pair ko-mob-pair--lower' : 'ko-mob-pair ko-mob-pair--upper';
+    return `<div class="ko-mob-item ${pairClass}">${stack}</div>`;
   }
 
   function mobItemsHtml(roundKey, indices, list, qualMap, tag, half) {
@@ -299,9 +309,10 @@
     return html;
   }
 
-  function mobRoundBlock(title, tone, itemsHtml) {
+  function mobRoundBlock(title, tone, itemsHtml, extraClass) {
     if (!itemsHtml) return '';
-    return `<div class="ko-mob-round ko-mob-tone-${tone}">
+    const extra = extraClass ? ` ${extraClass}` : '';
+    return `<div class="ko-mob-round ko-mob-tone-${tone}${extra}">
       <div class="ko-mob-round-hd">${escapeHtml(title)}</div>
       <div class="ko-mob-matches">${itemsHtml}</div>
     </div>`;
@@ -319,34 +330,47 @@
     const S = state.sf;
     const qualMap = state.qualMap || {};
 
+    const hasR16 = R.some(hasMatch);
+    const hasQf = Q.some(hasMatch);
+    const firstKey = hasR16 ? 'r16' : (hasQf ? 'qf' : 'sf');
+    const r16Qual = firstKey === 'r16' ? qualMap : null;
+    const qfQual = firstKey === 'qf' ? qualMap : null;
+    const sfQual = firstKey === 'sf' ? qualMap : null;
+    const firstUpperCls = 'ko-mob-round--first ko-mob-round--first-upper';
+    const firstLowerCls = 'ko-mob-round--first ko-mob-round--first-lower';
+
     const r16H = splitHalfIndices(R);
     const qfH = splitHalfIndices(Q);
     const sfH = splitHalfIndices(S);
-    const upperR16 = mobItemsHtml('r16', r16H.upper, R, qualMap, '', 'upper');
-    const upperQf = mobItemsHtml('qf', qfH.upper, Q, null, L.qf, 'upper');
+    const upperR16 = mobItemsHtml('r16', r16H.upper, R, r16Qual, '', 'upper');
+    const upperQf = mobItemsHtml('qf', qfH.upper, Q, qfQual, L.qf, 'upper');
     let upperSf = '';
     sfH.upper.forEach((i) => {
-      upperSf += mobMatchItem('sf', i, S[i], sfHalfLabel(S[i], 0), null, 'upper');
+      upperSf += mobMatchItem('sf', i, S[i], sfHalfLabel(S[i], 0), sfQual, 'upper');
     });
 
-    const lowerR16 = mobItemsHtml('r16', r16H.lower, R, qualMap, '', 'lower');
-    const lowerQf = mobItemsHtml('qf', qfH.lower, Q, null, L.qf, 'lower');
+    const lowerR16 = mobItemsHtml('r16', r16H.lower, R, r16Qual, '', 'lower');
+    const lowerQf = mobItemsHtml('qf', qfH.lower, Q, qfQual, L.qf, 'lower');
     let lowerSf = '';
     sfH.lower.forEach((i) => {
-      lowerSf += mobMatchItem('sf', i, S[i], sfHalfLabel(S[i], 1), null, 'lower');
+      lowerSf += mobMatchItem('sf', i, S[i], sfHalfLabel(S[i], 1), sfQual, 'lower');
     });
 
     let html = '';
     html += `<section class="ko-mob-block ko-mob-upper" aria-label="上半区">
       <header class="ko-mob-block-hd"><span class="ko-mob-block-ic">⬆️</span><h3>上半区</h3></header>`;
-    html += mobRoundBlock(L.r16, 'r16', upperR16);
+    html += mobRoundBlock(L.r16, 'r16', upperR16, firstKey === 'r16' ? firstUpperCls : '');
     if (upperQf) {
       html += mobFlow('晋级');
-      html += mobRoundBlock(L.qf, 'qf', upperQf);
+      html += mobRoundBlock(L.qf, 'qf', upperQf, firstKey === 'qf' ? firstUpperCls : '');
     }
     if (upperSf) {
       html += mobFlow('晋级');
-      html += `<div class="ko-mob-round ko-mob-tone-sf"><div class="ko-mob-matches">${upperSf}</div></div>`;
+      if (firstKey === 'sf') {
+        html += mobRoundBlock(L.sf, 'sf', upperSf, firstUpperCls);
+      } else {
+        html += `<div class="ko-mob-round ko-mob-tone-sf"><div class="ko-mob-matches">${upperSf}</div></div>`;
+      }
     }
     html += '</section>';
 
@@ -360,15 +384,19 @@
     html += `<section class="ko-mob-block ko-mob-lower" aria-label="下半区">
       <header class="ko-mob-block-hd"><span class="ko-mob-block-ic">⬇️</span><h3>下半区</h3></header>`;
     if (lowerSf) {
-      html += `<div class="ko-mob-round ko-mob-tone-sf"><div class="ko-mob-matches">${lowerSf}</div></div>`;
+      if (firstKey === 'sf') {
+        html += mobRoundBlock(L.sf, 'sf', lowerSf, firstLowerCls);
+      } else {
+        html += `<div class="ko-mob-round ko-mob-tone-sf"><div class="ko-mob-matches">${lowerSf}</div></div>`;
+      }
     }
     if (lowerQf) {
       html += mobFlow('晋级', 'up');
-      html += mobRoundBlock(L.qf, 'qf', lowerQf);
+      html += mobRoundBlock(L.qf, 'qf', lowerQf, firstKey === 'qf' ? firstLowerCls : '');
     }
     if (lowerR16) {
       html += mobFlow('晋级', 'up');
-      html += mobRoundBlock(L.r16, 'r16', lowerR16);
+      html += mobRoundBlock(L.r16, 'r16', lowerR16, firstKey === 'r16' ? firstLowerCls : '');
     }
     html += '</section>';
 
