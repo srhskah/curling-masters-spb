@@ -216,6 +216,18 @@ public class NotificationMessageServiceImpl implements INotificationService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int markAllRead(Long userId) {
+        if (userId == null) {
+            return 0;
+        }
+        return recipientMapper.update(null, Wrappers.<NotificationRecipient>lambdaUpdate()
+                .eq(NotificationRecipient::getUserId, userId)
+                .isNull(NotificationRecipient::getReadAt)
+                .set(NotificationRecipient::getReadAt, LocalDateTime.now()));
+    }
+
+    @Override
     public long unreadCount(Long userId) {
         if (userId == null) return 0L;
         return recipientMapper.selectCount(Wrappers.<NotificationRecipient>lambdaQuery()

@@ -147,17 +147,17 @@
                 <span th:if="${drawUserHints['seedLabel'] != null}" th:text="${drawUserHints['seedLabel']}">种子</span>
             </div>
             <div th:if="${drawWindowOpen}" class="alert alert-light border small mb-3" th:switch="${draw.drawType}">
-                <span th:case="'TIERED'">点击下方「随机抽签」，系统将在<strong>本档对应小组</strong>的空位中<strong>随机</strong>分配您。办赛端：当各未完成档位都只剩 1 人时会自动补录，并可一键导入小组名单。</span>
-                <span th:case="'SEED'">点击下方「随机抽签」，系统将根据您的身份（<strong>种子/非种子</strong>）在对应空位中<strong>随机</strong>分配您。</span>
-                <span th:case="'RANDOM'">点击下方「随机抽签」，系统将在尚有空位的小组中<strong>随机</strong>分配您。</span>
+                <span th:case="'TIERED'">点击下方「抽签」，系统将在<strong>本档对应小组</strong>的空位中<strong>随机</strong>分配您。当各未完成档位都只剩 1 人时会自动补录，并可一键导入小组名单。</span>
+                <span th:case="'SEED'">点击下方「抽签」，系统将根据您的身份（<strong>种子/非种子</strong>）在对应空位中<strong>随机</strong>分配您。</span>
+                <span th:case="'RANDOM'">点击下方「抽签」，系统将在尚有空位的小组中<strong>随机</strong>分配您。</span>
             </div>
             <div th:if="${drawWindowOpen}" class="mb-3">
-                <div class="d-flex flex-wrap gap-2 justify-content-center mb-3">
+                <!-- <div class="d-flex flex-wrap gap-2 justify-content-center mb-3">
                     <span th:each="group : ${groups}" class="badge rounded-pill bg-light text-dark border px-3 py-2" th:text="${group.groupName}">A</span>
-                </div>
+                </div> -->
                 <div class="text-center">
                     <button type="button" id="randomDrawBtn" class="btn btn-success btn-lg" onclick="performRandomDraw()">
-                        <i class="bi bi-shuffle"></i> 随机抽签
+                        <i class="bi bi-shuffle"></i> 抽签
                     </button>
                 </div>
             </div>

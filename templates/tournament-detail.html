@@ -287,12 +287,13 @@
                         <span th:if="${registrationModuleActive and !registrationEnabled}"
                               class="badge bg-warning text-dark">待开启报名</span>
                     <div th:if="${isAdmin or isHost}" class="d-flex align-items-center">
-                        <a th:href="@{/tournament/edit/{id}(id=${tournamentInfo.tournament.id})}"
-                           class="btn btn-light btn-sm me-2"
-                           title="编辑">
+                        <button type="button"
+                                class="btn btn-light btn-sm me-2"
+                                title="编辑"
+                                th:attr="data-tournament-edit-url=@{/tournament/edit/{id}/modal-form(id=${tournamentInfo.tournament.id})},data-tournament-edit-title=|编辑赛事|">
                             <i class="bi bi-pencil"></i>
                             <span class="btn-text">编辑</span>
-                        </a>
+                        </button>
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-outline-light btn-sm dropdown-toggle"
                                     data-bs-toggle="dropdown" aria-expanded="false"
@@ -1498,9 +1499,13 @@
                                             </button>
                                         </form>
                                         <button type="button" class="btn btn-outline-secondary btn-sm group-copy-btn"
-                                                th:attr="data-tournament-id=${tournamentInfo.tournament.id},data-group-id=${g.id}">📄文本</button>
+                                                th:attr="data-tournament-id=${tournamentInfo.tournament.id},data-group-id=${g.id}">
+                                                <i class="bi bi-clipboard"></i> 复制文本
+                                        </button>
                                         <a class="btn btn-outline-secondary btn-sm"
-                                           th:href="@{/ranking/export/pdf/tournament/{tid}/group/{gid}/ranking(tid=${tournamentInfo.tournament.id},gid=${g.id})}">🖨️PDF</a>
+                                           th:href="@{/ranking/export/pdf/tournament/{tid}/group/{gid}/ranking(tid=${tournamentInfo.tournament.id},gid=${g.id})}">
+                                           <i class="bi bi-file-pdf"></i> PDF
+                                        </a>
                                     </div>
                                 </div>
                                 <div class="group-unique-tie-mode"
@@ -1599,7 +1604,7 @@
 
                                 <div class="d-flex align-items-center gap-2 mb-2 match-filter-bar flex-wrap">
                                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                                        <label class="form-label mb-0 small text-muted">筛选选手</label>
+                                        <label class="form-label mb-0 small text-muted">选手</label>
                                         <select class="form-select form-select-sm match-player-filter"
                                                 th:attr="data-tab-id=${tab.tabId}"
                                                 style="max-width: 14rem;">
@@ -1656,7 +1661,7 @@
                                     <details class="mb-2" th:attr="open=${(tab['qualifierRound'] != null and tab['qualifierRound'] == tab['qualifierLatestRound']) or tab['qualifierInProgress'] == true}">
                                         <summary class="small text-muted user-select-none">赛果与对阵</summary>
                                         <div class="d-flex align-items-center gap-2 mb-2 match-filter-bar mt-2">
-                                            <label class="form-label mb-0 small text-muted">筛选选手</label>
+                                            <label class="form-label mb-0 small text-muted">选手</label>
                                             <select class="form-select form-select-sm match-player-filter"
                                                     th:attr="data-tab-id=${tab.tabId}">
                                                 <option value="">全部选手</option>
@@ -1684,7 +1689,7 @@
                                 <th:block th:if="${tab.kind.equals('KO')}">
                                     <div class="fw-bold mb-2"><i class="bi bi-trophy"></i> <span th:text="${tab.label}">淘汰赛</span></div>
                                     <div class="d-flex align-items-center gap-2 mb-2 match-filter-bar">
-                                        <label class="form-label mb-0 small text-muted">筛选选手</label>
+                                        <label class="form-label mb-0 small text-muted">选手</label>
                                         <select class="form-select form-select-sm match-player-filter"
                                                 th:attr="data-tab-id=${tab.tabId}">
                                             <option value="">全部选手</option>
@@ -1726,6 +1731,7 @@
     </div>
 
     <th:block th:replace="~{fragments-group-match-score-modal :: groupMatchScoreModalAndSignature}"/>
+    <th:block th:replace="~{fragments-tournament-edit-modal :: tournamentEditModal}"/>
 
     <div class="modal fade" id="groupRankDetailModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">

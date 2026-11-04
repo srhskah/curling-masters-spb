@@ -34,19 +34,23 @@ public class WebConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 外置 /app/static 优先（docker-compose 挂载工程根目录 static/），否则改 CSS/JS 刷新无效
         registry.addResourceHandler("/static/**")
-                .addResourceLocations("file:/app/static/", "classpath:/static/")
+                // .addResourceLocations("file:/app/static/", "classpath:/static/")
+                .addResourceLocations("file:/app/static/")
                 .setCachePeriod(0);
         
         registry.addResourceHandler("/css/**")
-                .addResourceLocations("file:/app/static/css/", "classpath:/static/css/")
+                // .addResourceLocations("file:/app/static/css/", "classpath:/static/css/")
+                .addResourceLocations("file:/app/static/css/")
                 .setCachePeriod(0);
         
         registry.addResourceHandler("/js/**")
-                .addResourceLocations("file:/app/static/js/", "classpath:/static/js/")
+                // .addResourceLocations("file:/app/static/js/", "classpath:/static/js/")
+                .addResourceLocations("file:/app/static/js/")
                 .setCachePeriod(0);
         
         registry.addResourceHandler("/images/**")
-                .addResourceLocations("file:/app/static/images/", "classpath:/static/images/")
+                // .addResourceLocations("file:/app/static/images/", "classpath:/static/images/")
+                .addResourceLocations("file:/app/static/images/")
                 .setCachePeriod(0);
     }
     

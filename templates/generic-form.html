@@ -33,6 +33,13 @@
                             <input type="hidden" th:if="*{id != null}" th:field="*{id}"/>
                             
                             <div th:each="field : ${fields}">
+                                <!-- 隐藏字段 -->
+                                <input th:if="${field['type'] == 'hidden'}"
+                                       type="hidden"
+                                       th:id="${field['id']}"
+                                       th:name="${field['name']}"
+                                       th:value="${field['value']}"/>
+
                                 <!-- 文本输入 -->
                                 <div th:if="${field['type'] == 'text' or field['type'] == 'number' or field['type'] == 'date' or field['type'] == 'datetime-local'}" 
                                      class="mb-3">

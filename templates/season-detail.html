@@ -279,11 +279,12 @@
                                                    th:href="@{/ranking/export/pdf/tournament/{id}(id=${t.id})}">
                                                     导出PDF
                                                 </a>
-                                                <a th:if="${isAdmin}"
-                                                   th:href="@{/tournament/edit/{id}(id=${t.id})}"
-                                                   class="btn btn-sm btn-outline-warning">
+                                                <button th:if="${isAdmin}"
+                                                        type="button"
+                                                        class="btn btn-sm btn-outline-warning"
+                                                        th:attr="data-tournament-edit-url=@{/tournament/edit/{id}/modal-form(id=${t.id})},data-tournament-edit-title=|编辑赛事|">
                                                     <i class="bi bi-pencil"></i> 编辑
-                                                </a>
+                                                </button>
                                                 <form th:if="${isAdmin}"
                                                       th:action="@{/tournament/delete/{id}(id=${t.id})}"
                                                       method="post" style="display:inline;"
@@ -537,11 +538,12 @@
                                                    th:href="@{/ranking/export/pdf/tournament/{id}(id=${t.id})}">
                                                     导出PDF
                                                 </a>
-                                                    <a th:if="${isAdmin}"
-                                                       th:href="@{/tournament/edit/{id}(id=${t.id})}"
-                                                       class="btn btn-sm btn-outline-warning">
+                                                    <button th:if="${isAdmin}"
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-warning"
+                                                            th:attr="data-tournament-edit-url=@{/tournament/edit/{id}/modal-form(id=${t.id})},data-tournament-edit-title=|编辑赛事|">
                                                         <i class="bi bi-pencil"></i> 编辑
-                                                    </a>
+                                                    </button>
                                                     <form th:if="${isAdmin}"
                                                           th:action="@{/tournament/delete/{id}(id=${t.id})}"
                                                           method="post" style="display:inline;"
@@ -568,6 +570,7 @@
     </div>
     
     <th:block th:replace="~{fragments :: scripts}"></th:block>
+    <th:block th:replace="~{fragments-tournament-edit-modal :: tournamentEditModal}"></th:block>
 
     <!-- 赛季详情页：本赛季排名复制为文本弹窗 -->
     <div class="modal fade" id="seasonDetailTextModal" tabindex="-1" aria-hidden="true">
