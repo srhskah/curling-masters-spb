@@ -14,36 +14,84 @@
         .tournament-detail-section-tabs .nav-link {
             white-space: nowrap;
         }
-        /* 直接晋级首轮淘汰赛 - 较深的高亮 */
+        /*
+         * Bootstrap 5 表格背景画在 td（--bs-table-bg）上，只给 tr 设 background 会被盖住，
+         * 只剩 border-left 可见。须同时改单元格背景 / 表格 CSS 变量。
+         */
         .qualify-to-knockout {
+            --bs-table-bg: #a4e8ba;
+            --bs-table-accent-bg: #a4e8ba;
+            --bs-table-bg-state: #a4e8ba;
+            --bs-table-hover-bg: #c3e6cb;
+            --bs-table-hover-color: inherit;
+        }
+        .qualify-to-knockout > td,
+        .qualify-to-knockout > th {
             background-color: #a4e8ba !important;
+        }
+        .qualify-to-knockout > td:first-child,
+        .qualify-to-knockout > th:first-child {
             border-left: 4px solid #28a745 !important;
         }
-        /* 晋级首轮淘汰赛的资格赛 - 较浅的高亮 */
         .qualify-to-ko-qualifier {
+            --bs-table-bg: #e4f0e8;
+            --bs-table-accent-bg: #e4f0e8;
+            --bs-table-bg-state: #e4f0e8;
+            --bs-table-hover-bg: #e9ecef;
+            --bs-table-hover-color: inherit;
+        }
+        .qualify-to-ko-qualifier > td,
+        .qualify-to-ko-qualifier > th {
             background-color: #e4f0e8 !important;
+        }
+        .qualify-to-ko-qualifier > td:first-child,
+        .qualify-to-ko-qualifier > th:first-child {
             border-left: 4px solid #6c757d !important;
         }
-        /* 小组赛未结束时的“暂定晋级” - 明显区分于最终晋级色 */
         .qualify-to-knockout-pending {
+            --bs-table-bg: #f6d9b5;
+            --bs-table-accent-bg: #f6d9b5;
+            --bs-table-bg-state: #f6d9b5;
+            --bs-table-hover-bg: #f8e5cf;
+            --bs-table-hover-color: inherit;
+        }
+        .qualify-to-knockout-pending > td,
+        .qualify-to-knockout-pending > th {
             background-color: #f6d9b5 !important;
+        }
+        .qualify-to-knockout-pending > td:first-child,
+        .qualify-to-knockout-pending > th:first-child {
             border-left: 4px solid #ff8c00 !important;
         }
         .qualify-to-ko-qualifier-pending {
+            --bs-table-bg: #f7f0d9;
+            --bs-table-accent-bg: #f7f0d9;
+            --bs-table-bg-state: #f7f0d9;
+            --bs-table-hover-bg: #fbf5e1;
+            --bs-table-hover-color: inherit;
+        }
+        .qualify-to-ko-qualifier-pending > td,
+        .qualify-to-ko-qualifier-pending > th {
             background-color: #f7f0d9 !important;
+        }
+        .qualify-to-ko-qualifier-pending > td:first-child,
+        .qualify-to-ko-qualifier-pending > th:first-child {
             border-left: 4px solid #c58c00 !important;
         }
-        /* hover效果 */
-        .qualify-to-knockout:hover {
+        .qualify-to-knockout:hover > td,
+        .qualify-to-knockout:hover > th {
             background-color: #c3e6cb !important;
         }
-        .qualify-to-ko-qualifier:hover {
+        .qualify-to-ko-qualifier:hover > td,
+        .qualify-to-ko-qualifier:hover > th {
             background-color: #e9ecef !important;
         }
-        .qualify-to-knockout-pending:hover {
+        .qualify-to-knockout-pending:hover > td,
+        .qualify-to-knockout-pending:hover > th {
             background-color: #f8e5cf !important;
         }
-        .qualify-to-ko-qualifier-pending:hover {
+        .qualify-to-ko-qualifier-pending:hover > td,
+        .qualify-to-ko-qualifier-pending:hover > th {
             background-color: #fbf5e1 !important;
         }
         /* 窄屏：标题栏按钮只留图标，不显示文字 */
@@ -187,6 +235,18 @@
         .ranking-priority-list .sortable-ghost { opacity: 0.45; }
         .ranking-priority-list .list-group-item { cursor: grab; user-select: none; }
         .ranking-priority-list .list-group-item:active { cursor: grabbing; }
+        .ranking-priority-list--candidates {
+            min-height: 220px;
+            max-height: 360px;
+            overflow: auto;
+        }
+        @media (max-width: 767.98px) {
+            .ranking-priority-list--candidates {
+                min-height: 0;
+                max-height: none;
+                overflow: visible;
+            }
+        }
         #tournamentRankingPriorityCard .ranking-priority-card-header {
             flex-wrap: nowrap;
             gap: 0.4rem;
@@ -1133,8 +1193,7 @@
                                                     <span class="badge bg-secondary" id="tournamentCandidateCount"
                                                           th:text="${#lists.size(rankingPriorityCandidates)}">0</span>
                                                 </div>
-                                                <ul id="tournamentCandidateList" class="list-group ranking-priority-list"
-                                                    style="min-height: 220px; max-height: 360px; overflow:auto;">
+                                                <ul id="tournamentCandidateList" class="list-group ranking-priority-list ranking-priority-list--candidates">
                                                     <li th:each="c : ${rankingPriorityCandidates}"
                                                         class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
                                                         th:attr="data-code=${c.code}, data-label=${c.label}">
@@ -1408,7 +1467,7 @@
                                             th:each="tab : ${competitionMatchTabs}"
                                             th:if="${tab.kind.equals('GROUP') or tab.kind.equals('ENTRY_QUALIFIER')}">
                                             <button type="button" class="nav-link py-2 px-3" role="tab"
-                                                    th:classappend="${(tab.active ? ' active' : '') + ((tab.kind.equals('GROUP') and tab.groupCompleted) ? ' border border-warning text-warning-emphasis fw-semibold' : '')}"
+                                                    th:classappend="${(tab.active ? ' active' : '') + ((tab.kind.equals('GROUP') and tab.groupCompleted) ? ' border border-warning fw-semibold' : '')}"
                                                     data-bs-toggle="pill"
                                                     th:attr="aria-selected=${tab.active}"
                                                     th:id="${'match-tab-btn-' + tab.tabId}"
@@ -1547,8 +1606,7 @@
                                             <td th:text="${r.overallRank}">1</td>
                                             <td th:text="${r.groupRank}">1</td>
                                             <td><a th:if="${r.userId != null}" th:href="@{/user/profile/{uid}(uid=${r.userId})}" class="text-decoration-none" onclick="event.stopPropagation();" th:text="${r.username}"></a><span th:if="${r.userId == null}" th:text="${r.username}"></span></td>
-                                            <td th:with="exp=${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0},pl=${r.played != null ? r.played : 0}"
-                                                th:classappend="${exp > 0 and pl == exp} ? ' group-ranking-matches-complete'"
+                                            <td th:classappend="${groupStageComplete} ? ' group-ranking-matches-complete'"
                                                 th:text="|${pl}/${exp}|">0/0</td>
                                             <td th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'POINTS')}" th:text="${r.points}">0</td>
                                             <td th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'NET')}" th:text="${r.net}">0</td>
@@ -1950,7 +2008,7 @@
 
     <th:block th:replace="~{fragments :: scripts}"></th:block>
     <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=26}">
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+    <script th:src="@{/js/Sortable.min.js}"></script>
     <script th:src="@{/js/group-match-score-modal.js?v=14}"></script>
     <script th:src="@{/js/knockout-bracket-view.js?v=31}"></script>
     <script>

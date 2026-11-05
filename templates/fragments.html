@@ -78,12 +78,7 @@
                 <li><hr class="dropdown-divider"></li>
                 <li><h6 class="dropdown-header">总控台</h6></li>
                 <li><a class="dropdown-item" href="/admin/console">
-                    <i class="bi bi-sliders2-vertical"></i> 总控台 · 排名参考优先级
-                </a></li>
-                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><hr class="dropdown-divider"></li>
-                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><h6 class="dropdown-header">系统配置</h6></li>
-                <li th:if="${#authorization.expression('hasRole(''ROLE_SUPER_ADMIN'')')}"><a class="dropdown-item" href="/admin/system-config">
-                    <i class="bi bi-sliders"></i> 赛制规则默认值
+                    <i class="bi bi-sliders2-vertical"></i> 总控台
                 </a></li>
             </ul>
         </li>
@@ -190,7 +185,7 @@
     </nav>
     <!-- 窄屏侧栏菜单（独立于顶栏折叠层，与 navbar 同片段保证每页都有 DOM 目标） -->
     <div class="offcanvas offcanvas-start site-nav-offcanvas" tabindex="-1" id="siteNavOffcanvas"
-         aria-labelledby="siteNavOffcanvasLabel" style="z-index: 1919810;">
+         aria-labelledby="siteNavOffcanvasLabel" style="z-index: 1919810;top:4rem;">
         <!-- <div class="offcanvas-header border-bottom py-2">
             <h5 class="offcanvas-title" id="siteNavOffcanvasLabel">菜单</h5>
             <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="关闭"></button>
@@ -373,7 +368,7 @@
     <div class="d-flex align-items-stretch match-card-pair-row px-2 pb-2 gap-1">
         <div class="match-card-pair-side flex-fill text-start rounded-2 px-2 py-2"
              th:classappend="${c.outcome == 'p1win'} ? ' match-card-pair-side--winner' : (${c.outcome == 'draw'} ? ' match-card-pair-side--draw')">
-            <div class="fw-semibold text-truncate" th:text="${c.player1Name}">甲</div>
+            <div class="text-truncate" th:text="${c.player1Name}">甲</div>
             <div class="small text-muted lh-sm"
                  th:if="${c.player1GroupRankBadge != null and !#strings.isEmpty(c.player1GroupRankBadge)}"
                  th:text="${c.player1GroupRankBadge}">(12) A1</div>
@@ -382,7 +377,7 @@
         <div class="match-card-pair-sep text-muted small align-self-center user-select-none">:</div>
         <div class="match-card-pair-side flex-fill text-end rounded-2 px-2 py-2"
              th:classappend="${c.outcome == 'p2win'} ? ' match-card-pair-side--winner' : (${c.outcome == 'draw'} ? ' match-card-pair-side--draw')">
-            <div class="fw-semibold text-truncate" th:text="${c.player2Name}">乙</div>
+            <div class="text-truncate" th:text="${c.player2Name}">乙</div>
             <div class="small text-muted lh-sm"
                  th:if="${c.player2GroupRankBadge != null and !#strings.isEmpty(c.player2GroupRankBadge)}"
                  th:text="${c.player2GroupRankBadge}">(8) B2</div>
