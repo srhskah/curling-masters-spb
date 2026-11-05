@@ -30,12 +30,11 @@ public class SystemConfigController {
         return false;
     }
 
+    /** 旧入口：合并进总控台后重定向，保留书签兼容 */
     @GetMapping("/system-config")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public String systemConfigPage(Model model) {
-        model.addAttribute("defaultCenterLineLimit", systemConfigService.getDefaultCenterLineLimit());
-        model.addAttribute("defaultDeadStoneLimit", systemConfigService.getDefaultDeadStoneLimit());
-        return "system-config";
+    public String systemConfigPage() {
+        return "redirect:/admin/console#competition-rule-defaults";
     }
 
     @PostMapping("/system-config/save")
@@ -45,24 +44,24 @@ public class SystemConfigController {
             @RequestParam Integer defaultDeadStoneLimit,
             RedirectAttributes redirectAttributes) {
         try {
-            if (defaultCenterLineLimit < 0 || defaultCenterLineLimit > 16) {
+            if (defaultCenterLineLimit == null || defaultCenterLineLimit < 0 || defaultCenterLineLimit > 16) {
                 redirectAttributes.addFlashAttribute("error", "不允许磕中线壶的数量必须在0-16之间");
-                return "redirect:/admin/system-config";
+                return "redirect:/admin/console#competition-rule-defaults";
             }
-            if (defaultDeadStoneLimit < 0 || defaultDeadStoneLimit > 16) {
+            if (defaultDeadStoneLimit == null || defaultDeadStoneLimit < 0 || defaultDeadStoneLimit > 16) {
                 redirectAttributes.addFlashAttribute("error", "不允许打成死壶的数量必须在0-16之间");
-                return "redirect:/admin/system-config";
+                return "redirect:/admin/console#competition-rule-defaults";
             }
 
-            systemConfigService.setConfigValue("competition_rule_default_center_line_limit", 
+            systemConfigService.setConfigValue("competition_rule_default_center_line_limit",
                 String.valueOf(defaultCenterLineLimit), "默认不允许磕中线壶的数量");
-            systemConfigService.setConfigValue("competition_rule_default_dead_stone_limit", 
+            systemConfigService.setConfigValue("competition_rule_default_dead_stone_limit",
                 String.valueOf(defaultDeadStoneLimit), "默认不允许打成死壶的数量");
 
-            redirectAttributes.addFlashAttribute("success", "赛制规则默认值设置成功");
+            redirectAttributes.addFlashAttribute("message", "赛制规则默认值设置成功");
         } catch (Exception e) {
-            redirectAttributes.addFlashAttribute("error", "设置失败：" + e.getMessage());
+            redirectAttributes.addFlashAttribute("error", "设置失败：" + (e.getMessage() == null ? "未知错误" : e.getMessage()));
         }
-        return "redirect:/admin/system-config";
+        return "redirect:/admin/console#competition-rule-defaults";
     }
 }

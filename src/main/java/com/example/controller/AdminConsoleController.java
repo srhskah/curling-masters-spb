@@ -5,6 +5,7 @@ import com.example.entity.Series;
 import com.example.service.RankingPriorityService;
 import com.example.service.SeasonService;
 import com.example.service.SeriesService;
+import com.example.service.SystemConfigService;
 import com.example.util.SeriesDisplayNames;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
@@ -31,13 +32,16 @@ public class AdminConsoleController {
     private final RankingPriorityService rankingPriorityService;
     private final SeriesService seriesService;
     private final SeasonService seasonService;
+    private final SystemConfigService systemConfigService;
 
     public AdminConsoleController(RankingPriorityService rankingPriorityService,
                                   SeriesService seriesService,
-                                  SeasonService seasonService) {
+                                  SeasonService seasonService,
+                                  SystemConfigService systemConfigService) {
         this.rankingPriorityService = rankingPriorityService;
         this.seriesService = seriesService;
         this.seasonService = seasonService;
+        this.systemConfigService = systemConfigService;
     }
 
     @GetMapping("/console")
@@ -46,6 +50,8 @@ public class AdminConsoleController {
         model.addAttribute("candidates", rankingPriorityService.listCandidates());
         model.addAttribute("applyToNewSeries", rankingPriorityService.applyToNewSeries());
         model.addAttribute("seriesOptions", buildSeriesOptions());
+        model.addAttribute("defaultCenterLineLimit", systemConfigService.getDefaultCenterLineLimit());
+        model.addAttribute("defaultDeadStoneLimit", systemConfigService.getDefaultDeadStoneLimit());
         return "admin-console";
     }
 
