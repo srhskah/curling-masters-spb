@@ -1574,7 +1574,7 @@
                                             th:id="${'groupRankTieMode-' + g.id}"
                                             th:attr="data-tournament-id=${tournamentInfo.tournament.id},data-group-id=${g.id}">
                                         <option value="PSEUDO"
-                                                th:selected="${g.rankTieMode == null or #strings.equalsIgnoreCase(g.rankTieMode, 'PSEUDO')}">单独拆出伪小组，以当前伪小组的排名逻辑为准</option>
+                                                th:selected="${g.rankTieMode == null or #strings.equalsIgnoreCase(g.rankTieMode, 'PSEUDO')}">单独拆出伪小组，按本届排名依据在伪小组内计算</option>
                                         <option value="GROUP"
                                                 th:selected="${g.rankTieMode != null and #strings.equalsIgnoreCase(g.rankTieMode, 'GROUP')}">直接以当前小组内的数据作为排名依据</option>
                                     </select>
@@ -3236,12 +3236,24 @@
                     }
                     out.push('');
                 }
+                const criteria = Array.isArray(data.rankingCriteria) ? data.rankingCriteria : null;
+                const showCrit = (code) => criteria == null || criteria.indexOf(code) >= 0;
                 if (pseudo.length) {
                     out.push(`===== ${siteText('pseudoGroup', 'Pseudo group')} =====`);
                     for (const pg of pseudo) {
                         out.push(`${pg.groupName}（${siteText('source', 'Source')}${pg.fromGroup}，${siteText('samePoints', 'same points')}${pg.points}）`);
                         const rs = pg.ranking || [];
-                        for (const r of rs) out.push(`  ${r.groupRank}. ${r.username} ${siteText('points', 'Points')}${r.points} ${siteText('netScore', 'Net score')}${r.net} ${siteText('totalScore', 'Total score')}${r.totalScore}`);
+                        for (const r of rs) {
+                            const bits = [`  ${r.groupRank}. ${r.username}`];
+                            if (showCrit('POINTS')) bits.push(`${siteText('points', 'Points')}${r.points}`);
+                            if (showCrit('NET')) bits.push(`${siteText('netScore', 'Net score')}${r.net}`);
+                            if (showCrit('TOTAL_SCORE')) bits.push(`${siteText('totalScore', 'Total score')}${r.totalScore}`);
+                            if (showCrit('MATCH_GE2')) bits.push(`${siteText('ge2Count', '≥2 set count')}${r.matchGe2Count || 0}`);
+                            if (showCrit('MATCH_MAX')) bits.push(`${siteText('singleMatchMax', 'Single match max')}${r.matchMaxScore || 0}`);
+                            if (showCrit('STEAL_COUNT')) bits.push(`${siteText('stealCount', 'Steal count')}${r.stealCount || 0}`);
+                            if (showCrit('STEAL_MAX')) bits.push(`${siteText('stealMax', 'Steal max')}${r.stealMax || 0}`);
+                            out.push(bits.join(' '));
+                        }
                         const ms = pg.matches || [];
                         out.push(`  ${siteText('relatedMatches', 'Related matches')}：`);
                         if (!ms.length) out.push(`    ${siteText('none', 'None')}`);

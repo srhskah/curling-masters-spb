@@ -3,6 +3,7 @@ package com.example.service;
 import com.example.entity.Match;
 import com.example.entity.SetScore;
 import com.example.entity.TournamentGroup;
+import com.example.ranking.RankingCriterion;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -138,6 +139,47 @@ class GroupRankingCalculatorPseudoGroupTest {
         calculator.buildPseudoGroupExportRowsAndApplyMainRanks(
                 List.of(group), byGroup, List.of(), Map.of(), Map.of(), names, true, 8);
         assertEquals(List.of("头名", "胖虎", "Lonely", "卍"), namesInOrder(byGroup.get(group.getId())));
+    }
+
+    @Test
+    void pseudoGroupUsesOnlyCriteriaStillEnabledForTournament() {
+        // A>B>C>A 循环且都赢了 D。去掉交锋和净胜后，只按积分再按用户名，不能按净胜把高净胜者提前。
+        TournamentGroup group = group(5L, "E组");
+        Map<Long, String> names = Map.of(1L, "Zed", 2L, "Mid", 3L, "Ann", 4L, "Dee");
+        Map<Long, List<SetScore>> scores = new HashMap<>();
+        List<Match> matches = new ArrayList<>();
+        long mid = 300L;
+        mid = add(matches, scores, mid, group.getId(), 1L, 2L, 8, 1);
+        mid = add(matches, scores, mid, group.getId(), 2L, 3L, 6, 1);
+        mid = add(matches, scores, mid, group.getId(), 3L, 1L, 3, 2);
+        mid = add(matches, scores, mid, group.getId(), 1L, 4L, 2, 0);
+        mid = add(matches, scores, mid, group.getId(), 2L, 4L, 2, 0);
+        add(matches, scores, mid, group.getId(), 3L, 4L, 2, 0);
+
+        List<Map<String, Object>> ranking = List.of(
+                row(1L, "Zed", 6, 1),
+                row(2L, "Mid", 6, 2),
+                row(3L, "Ann", 6, 3),
+                row(4L, "Dee", 6, 4)
+        );
+        Map<Long, List<Map<String, Object>>> byGroup = new HashMap<>();
+        byGroup.put(group.getId(), new ArrayList<>(ranking));
+
+        calculator.buildPseudoGroupExportRowsAndApplyMainRanks(
+                List.of(group), byGroup, matches, scores, Map.of(), names, true, 8,
+                List.of(RankingCriterion.POINTS, RankingCriterion.USERNAME));
+        assertEquals(List.of("Ann", "Mid", "Zed", "Dee"), namesInOrder(byGroup.get(group.getId())));
+
+        byGroup.put(group.getId(), new ArrayList<>(List.of(
+                row(1L, "Zed", 6, 1),
+                row(2L, "Mid", 6, 2),
+                row(3L, "Ann", 6, 3),
+                row(4L, "Dee", 6, 4)
+        )));
+        calculator.buildPseudoGroupExportRowsAndApplyMainRanks(
+                List.of(group), byGroup, matches, scores, Map.of(), names, true, 8,
+                List.of(RankingCriterion.POINTS, RankingCriterion.NET));
+        assertEquals(List.of("Zed", "Mid", "Ann", "Dee"), namesInOrder(byGroup.get(group.getId())));
     }
 
     private static TournamentGroup group(Long id, String name) {

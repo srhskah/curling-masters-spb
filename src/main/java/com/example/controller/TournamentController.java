@@ -2559,7 +2559,7 @@ public class TournamentController {
             ok.put("mode", mode);
             ok.put("message", "GROUP".equals(mode)
                     ? "已改为以当前小组内数据作为排名依据"
-                    : "已改为单独拆出伪小组，按伪小组排名逻辑");
+                    : "已改为单独拆出伪小组，按本届排名依据计算");
             return ok;
         } catch (Exception e) {
             return Map.of("success", false, "message", e.getMessage() == null ? "保存失败" : e.getMessage());

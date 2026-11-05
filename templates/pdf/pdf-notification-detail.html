@@ -4,7 +4,8 @@
     <meta charset="UTF-8"/>
     <title th:text="${title}">消息通知</title>
     <style>
-        body { font-family: "WenQuanYi Micro Hei", "WenQuanYi Zen Hei", "DejaVu Sans", sans-serif; font-size: 14px; color: #222; }
+        @page { size: A4 landscape; margin: 12mm; }
+                body { font-family: "WenQuanYi Micro Hei", "WenQuanYi Zen Hei", "DejaVu Sans", sans-serif; font-size: 14px; color: #222; }
         h2 { margin: 0; font-size: 18px; }
         .muted { color: #666; font-size: 12px; }
         .meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 0 0 16px; }
@@ -35,7 +36,7 @@
 </head>
 <body>
 <div class="meta">
-    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <img th:if="${logoDataUri != null}" class="logo" th:attr="src=${logoDataUri}" alt="logo"/>
     <div style="flex: 1 1 auto;">
         <h2 th:text="${message != null ? message.title : '消息通知'}">消息通知</h2>
         <div class="muted" th:if="${message != null and message.publishedAt != null}"

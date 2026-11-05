@@ -1,6 +1,7 @@
 package com.example.controller;
 
 import com.example.dto.*;
+import com.example.ranking.RankingCriterion;
 import com.example.entity.*;
 import com.example.mapper.MatchAcceptanceMapper;
 import com.example.mapper.MatchScoreEditLogMapper;
@@ -746,11 +747,15 @@ public class RankingApiController {
             return row;
         }).toList();
 
+        List<String> rankingCriteria = rankingPriority == null
+                ? RankingCriterion.DEFAULT_ORDER.stream().map(RankingCriterion::getCode).toList()
+                : rankingPriority.stream().map(RankingCriterion::getCode).toList();
         return Map.of(
                 "tournamentId", tournamentId,
                 "groups", groupRows,
                 "pseudoGroups", pseudoGroupRows,
-                "groupMatches", groupMatchRows
+                "groupMatches", groupMatchRows,
+                "rankingCriteria", rankingCriteria
         );
     }
 
@@ -777,7 +782,11 @@ public class RankingApiController {
         }
         var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         List<Map<String, Object>> rows = groupRankingCalculator.buildOverallRanking(byGroup, rankingPriority);
-        return Map.of("tournamentId", tournamentId, "overallRanking", rows);
+        return Map.of(
+                "tournamentId", tournamentId,
+                "overallRanking", rows,
+                "rankingCriteria", data.getOrDefault("rankingCriteria", List.of())
+        );
     }
 
     @GetMapping("/tournament/{tournamentId}/group/{groupId}/ranking")
@@ -806,7 +815,8 @@ public class RankingApiController {
                 "groupName", groupName,
                 "ranking", group.getOrDefault("ranking", List.of()),
                 "pseudoGroups", thisPseudo,
-                "matches", thisMatches
+                "matches", thisMatches,
+                "rankingCriteria", data.getOrDefault("rankingCriteria", List.of())
         );
     }
 

@@ -3,6 +3,7 @@ package com.example.service;
 import com.example.dto.h2h.H2hPayload;
 import com.example.dto.h2h.H2hUserOption;
 import com.example.entity.Match;
+import com.example.entity.SetScore;
 import com.example.entity.Tournament;
 import com.example.entity.User;
 import com.example.mapper.MatchAcceptanceMapper;
@@ -46,7 +47,12 @@ class HeadToHeadQueryServiceTest {
         m.setPlayer2Id(2001L);
 
         when(matchService.list(any(Wrapper.class))).thenReturn(List.of(m));
-        when(setScoreService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+        SetScore scored = new SetScore();
+        scored.setMatchId(1L);
+        scored.setSetNumber(1);
+        scored.setPlayer1Score(2);
+        scored.setPlayer2Score(0);
+        when(setScoreService.list(any(LambdaQueryWrapper.class))).thenReturn(List.of(scored));
         Tournament t = new Tournament();
         t.setId(99L);
         when(tournamentService.listByIds(eq(Set.of(99L)))).thenReturn(List.of(t));

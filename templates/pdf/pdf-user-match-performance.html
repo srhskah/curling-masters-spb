@@ -5,7 +5,7 @@
     <title th:text="${title}">选手战绩明细</title>
     <style>
         @page {
-            size: A4 portrait;
+            size: A4 landscape;
             margin: 12mm;
         }
         html, body { margin: 0; padding: 0; }
@@ -39,7 +39,7 @@
 </head>
 <body>
 <div class="meta">
-    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <img th:if="${logoDataUri != null}" class="logo" th:attr="src=${logoDataUri}" alt="logo"/>
     <div style="flex: 1 1 auto;">
         <h2 th:text="${title}">选手战绩明细</h2>
         <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>

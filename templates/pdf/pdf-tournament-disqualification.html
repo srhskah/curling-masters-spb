@@ -4,7 +4,8 @@
     <meta charset="UTF-8"/>
     <title th:text="${title}">取消资格记录</title>
     <style>
-        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        @page { size: A4 landscape; margin: 12mm; }
+                body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
         .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
         .logo { width: 28.6%; max-width: 220px; min-width: 120px; height: auto; }
         .muted { color: #666; }
@@ -15,7 +16,7 @@
 </head>
 <body>
 <div class="meta">
-    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
+    <img th:if="${logoDataUri != null}" class="logo" th:attr="src=${logoDataUri}" alt="logo"/>
     <div style="flex: 1 1 auto;">
         <h2 th:text="${title}">取消资格记录</h2>
         <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
