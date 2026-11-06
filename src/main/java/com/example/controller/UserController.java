@@ -1,0 +1,597 @@
+package com.example.controller;
+
+import java.util.Map;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.example.dto.UserMedalByLevelDto;
+import com.example.dto.UserMedalEventDto;
+import com.example.dto.UserTournamentPlacementHistoryDto;
+import com.example.entity.User;
+import com.example.service.TournamentMedalStandingsService;
+import com.example.service.UserService;
+import com.example.util.CookieUtil;
+import com.example.util.UsernameValidator;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.time.LocalDateTime;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.List;
+
+/**
+ * <p>
+ *  前端控制器
+ * </p>
+ *
+ * @author Curling Masters
+ * @since 2026-03-04
+ */
+@Controller
+@RequestMapping("/user")
+public class UserController {
+
+    private final UserService userService;
+    private final PasswordEncoder passwordEncoder;
+    private final TournamentMedalStandingsService tournamentMedalStandingsService;
+    private final com.example.service.INotificationService notificationService;
+
+    public UserController(UserService userService, PasswordEncoder passwordEncoder,
+                          TournamentMedalStandingsService tournamentMedalStandingsService,
+                          com.example.service.INotificationService notificationService) {
+        this.userService = userService;
+        this.passwordEncoder = passwordEncoder;
+        this.tournamentMedalStandingsService = tournamentMedalStandingsService;
+        this.notificationService = notificationService;
+    }
+
+    @GetMapping("/test")
+    @ResponseBody
+    public String test(){
+        return "ok";
+    }
+
+    // 显示登录页面
+    @GetMapping("/login")
+    public String loginPage(@RequestParam(value = "error", required = false) String error,
+                           @RequestParam(value = "logout", required = false) String logout,
+                           Model model, HttpServletRequest request) {
+        if (error != null) {
+            model.addAttribute("error", "用户名或密码错误");
+        }
+        if (logout != null) {
+            model.addAttribute("message", "您已成功退出登录");
+        }
+        
+        // 从Cookie读取记住的用户名
+        String rememberedUsername = CookieUtil.getCookie(request, "remembered_username");
+        if (rememberedUsername != null) {
+            model.addAttribute("rememberedUsername", rememberedUsername);
+            model.addAttribute("rememberMe", true);
+        }
+        
+        // 读取用户偏好设置
+        String theme = CookieUtil.getCookie(request, "user_theme");
+        String language = CookieUtil.getCookie(request, "user_language");
+        if (theme != null) {
+            model.addAttribute("userTheme", theme);
+        }
+        if (language != null) {
+            model.addAttribute("userLanguage", language);
+        }
+        
+        return "login";
+    }
+
+    // 显示注册页面
+    @GetMapping("/register")
+    public String registerPage() {
+        return "register-cookie";
+    }
+
+    // 处理注册
+    @PostMapping("/register")
+    public String register(@RequestParam String username,
+                          @RequestParam String password,
+                          @RequestParam String email,
+                          @RequestParam(value = "rememberMe", required = false, defaultValue = "false") Boolean rememberMe,
+                          @RequestParam(value = "theme", required = false) String theme,
+                          @RequestParam(value = "language", required = false) String language,
+                          HttpServletResponse response,
+                          RedirectAttributes redirectAttributes) {
+        try {
+            userService.register(username, password, email);
+            
+            // 保存用户偏好设置到Cookie
+            CookieUtil.saveUserPreferences(response, theme, language, rememberMe);
+            
+            redirectAttributes.addFlashAttribute("success", "注册成功，请登录");
+            return "redirect:/user/login";
+        } catch (RuntimeException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/user/register";
+        }
+    }
+
+    // 显示忘记密码页面
+    @GetMapping("/forgot-password")
+    public String forgotPasswordPage() {
+        return "forgot-password";
+    }
+
+    // 处理忘记密码请求
+    @PostMapping("/forgot-password")
+    public String forgotPassword(@RequestParam String username,
+                                 RedirectAttributes redirectAttributes) {
+        try {
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("username", username);
+            User user = userService.getOne(queryWrapper);
+            
+            if (user == null) {
+                redirectAttributes.addFlashAttribute("error", "用户不存在");
+                return "redirect:/user/forgot-password";
+            }
+            
+            // 发送忘记密码通知给所有管理员
+            notificationService.sendForgotPasswordNotification(user.getId());
+            
+            redirectAttributes.addFlashAttribute("success", "忘记密码请求已提交，请等待管理员处理");
+            return "redirect:/user/login";
+        } catch (IllegalStateException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/user/forgot-password";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "提交失败：" + e.getMessage());
+            return "redirect:/user/forgot-password";
+        }
+    }
+
+    // 登录成功处理
+    @PostMapping("/login-success")
+    public String loginSuccess(@RequestParam(value = "rememberMe", required = false, defaultValue = "false") Boolean rememberMe,
+                              @RequestParam(value = "theme", required = false) String theme,
+                              @RequestParam(value = "language", required = false) String language,
+                              HttpServletRequest request,
+                              HttpServletResponse response) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = auth.getName();
+            
+            // 如果选择记住我，保存用户名到Cookie
+            if (rememberMe) {
+                CookieUtil.addCookie(response, "remembered_username", username, 7 * 24 * 60 * 60); // 7天
+            } else {
+                CookieUtil.removeCookie(response, "remembered_username");
+            }
+            
+            // 保存用户偏好设置
+            CookieUtil.saveUserPreferences(response, theme, language, rememberMe);
+            
+            // 保存登录状态
+            String token = java.util.UUID.randomUUID().toString();
+            CookieUtil.saveLoginCookie(response, username, token);
+            
+        } catch (Exception e) {
+            // 记录日志但不影响登录流程
+            System.err.println("保存Cookie失败: " + e.getMessage());
+        }
+        
+        return "redirect:/";
+    }
+
+    // 显示修改密码页面
+    @GetMapping("/change-password")
+    public String changePasswordPage(Model model) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated()) {
+            model.addAttribute("username", auth.getName());
+        }
+        return "change-password";
+    }
+
+    // 处理修改密码
+    @PostMapping("/change-password")
+    public String changePassword(@RequestParam String newPassword,
+                               @RequestParam String confirmPassword,
+                               RedirectAttributes redirectAttributes) {
+        try {
+            if (!newPassword.equals(confirmPassword)) {
+                redirectAttributes.addFlashAttribute("error", "两次输入的密码不一致");
+                return "redirect:/user/change-password";
+            }
+            
+            if (newPassword.length() < 6) {
+                redirectAttributes.addFlashAttribute("error", "密码长度不能少于6位");
+                return "redirect:/user/change-password";
+            }
+            
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = auth.getName();
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("username", username);
+            User user = userService.getOne(queryWrapper);
+
+            // 检查新密码是否与当前密码相同
+            if (passwordEncoder.matches(newPassword, user.getPassword())) {
+                redirectAttributes.addFlashAttribute("error", "新密码不能与当前密码相同");
+                return "redirect:/user/change-password";
+            }
+
+            user.setPassword(passwordEncoder.encode(newPassword));
+            user.setPasswordChanged(false); // 标记为已修改密码
+            user.setUpdatedAt(LocalDateTime.now());
+            
+            userService.updateById(user);
+            
+            redirectAttributes.addFlashAttribute("success", "密码修改成功！");
+            return "redirect:/";
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "修改密码失败：" + e.getMessage());
+            return "redirect:/user/change-password";
+        }
+    }
+
+    // 显示重置密码页面
+    @GetMapping("/reset-password")
+    public String resetPasswordPage() {
+        return "reset-password";
+    }
+
+    // 处理重置密码
+    @PostMapping("/reset-password")
+    public String resetPassword(@RequestParam String newPassword,
+                               RedirectAttributes redirectAttributes) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = auth.getName();
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("username", username);
+            User user = userService.getOne(queryWrapper);
+
+            userService.resetPassword(user.getId(), newPassword);
+            redirectAttributes.addFlashAttribute("success", "密码重置成功");
+            return "redirect:/";
+        } catch (RuntimeException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+            return "redirect:/user/reset-password";
+        }
+    }
+
+    // 用户管理页面（仅限超级管理员和普通管理员）
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN')")
+    @GetMapping("/manage")
+    public String manageUsers(@RequestParam(required = false) String search, Model model) {
+        List<User> users;
+        if (search != null && !search.trim().isEmpty()) {
+            // 模糊搜索：用户名、邮箱、角色
+            QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+            queryWrapper.like("username", search.trim())
+                       .or()
+                       .like("email", search.trim());
+            users = userService.list(queryWrapper);
+        } else {
+            users = userService.list();
+        }
+        model.addAttribute("users", users);
+        model.addAttribute("searchQuery", search);
+        return "user-manage";
+    }
+
+    // 编辑用户页面（仅限超级管理员）
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @GetMapping("/edit/{id}")
+    public String editUserPage(@PathVariable Long id, Model model) {
+        User user = userService.getById(id);
+        model.addAttribute("user", user);
+        return "user-edit";
+    }
+
+    // 更新用户信息（仅限超级管理员）
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PostMapping("/edit/{id}")
+    public String updateUser(@PathVariable Long id,
+                            @RequestParam String email,
+                            @RequestParam Integer role,
+                            @RequestParam(value = "includeInTotalRanking", required = false) Boolean includeInTotalRanking,
+                            RedirectAttributes redirectAttributes) {
+        try {
+            User user = userService.getById(id);
+            if (user == null) {
+                redirectAttributes.addFlashAttribute("error", "用户不存在");
+                return "redirect:/user/manage";
+            }
+
+            // 检查超级管理员数量限制
+            if (role == 0 && user.getRole() != 0 && userService.existsSuperAdmin()) {
+                redirectAttributes.addFlashAttribute("error", "已存在超级管理员，不能设置多个超级管理员");
+                return "redirect:/user/manage";
+            }
+
+            user.setEmail(email);
+            user.setRole(role);
+            user.setIncludeInTotalRanking(includeInTotalRanking != null ? includeInTotalRanking : Boolean.FALSE);
+            userService.updateById(user);
+            redirectAttributes.addFlashAttribute("success", "用户信息更新成功");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "更新失败：" + e.getMessage());
+        }
+        return "redirect:/user/manage";
+    }
+
+    // 删除用户（仅限超级管理员）
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PostMapping("/delete/{id}")
+    public String deleteUser(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        try {
+            userService.removeById(id);
+            redirectAttributes.addFlashAttribute("success", "用户删除成功");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "删除失败：" + e.getMessage());
+        }
+        return "redirect:/user/manage";
+    }
+
+    // 重置用户密码（超级管理员和普通管理员都可以使用）
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN')")
+    @PostMapping("/reset-password/{id}")
+    public String resetUserPassword(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        try {
+            User user = userService.getById(id);
+            if (user == null) {
+                redirectAttributes.addFlashAttribute("error", "用户不存在");
+                return "redirect:/user/manage";
+            }
+
+            // 重置密码为123456
+            String defaultPassword = "123456";
+            user.setPassword(passwordEncoder.encode(defaultPassword));
+            user.setPasswordChanged(true); // 设置为需要修改密码
+            user.setUpdatedAt(LocalDateTime.now());
+            
+            userService.updateById(user);
+            
+            redirectAttributes.addFlashAttribute("success", 
+                String.format("用户 %s 的密码已重置为：123456，该用户下次登录时必须修改密码", user.getUsername()));
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("error", "重置密码失败：" + e.getMessage());
+        }
+        return "redirect:/user/manage";
+    }
+
+    // 批量添加用户（超级管理员和普通管理员都可以使用）
+    @PostMapping("/batch-add")
+    @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN')")
+    @ResponseBody
+    public List<String> batchAddUsers(@RequestBody Map<String, String> request) {
+        String usernames = request.get("usernames");
+        if (usernames == null || usernames.trim().isEmpty()) {
+            throw new RuntimeException("用户名不能为空");
+        }
+        return userService.batchAddUsers(usernames);
+    }
+
+    // 个人中心页面（所有登录用户都可以访问）
+    // @GetMapping("/profile/{id}")
+    // public String userProfile(@PathVariable Long id, Model model) {
+    //     User user = userService.getById(id);
+    //     if (user == null) {
+    //         return "redirect:/";
+    //     }
+        
+    //     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    //     String currentUsername = auth.getName();
+    //     User currentUser = userService.findByUsername(currentUsername);
+        
+    //     model.addAttribute("user", user);
+    //     model.addAttribute("isOwner", currentUser.getId().equals(id));
+        
+    //     return "user-profile";
+    // }
+
+    // 修复 userProfile 方法
+    @GetMapping("/profile")
+    public String myProfile() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth.getName() == null
+                || "anonymousUser".equals(auth.getName())) {
+            return "redirect:/user/login";
+        }
+        User currentUser = userService.findByUsername(auth.getName());
+        if (currentUser == null || currentUser.getId() == null) {
+            return "redirect:/user/login";
+        }
+        return "redirect:/user/profile/" + currentUser.getId();
+    }
+
+    @GetMapping("/profile/{id}")
+    public String userProfile(@PathVariable Long id, Model model) {
+        try {
+            User user = userService.getById(id);
+            if (user == null) {
+                return "redirect:/";
+            }
+            
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getName() == null) {
+                return "redirect:/user/login";
+            }
+            
+            String currentUsername = auth.getName();
+            User currentUser = userService.findByUsername(currentUsername);
+            
+            // 检查当前用户是否存在
+            if (currentUser == null) {
+                return "redirect:/user/login";
+            }
+            
+            model.addAttribute("user", user);
+            model.addAttribute("isOwner", currentUser.getId().equals(id));
+            model.addAttribute("viewerRole", currentUser.getRole());
+
+            List<UserMedalByLevelDto> medalsByLevel = tournamentMedalStandingsService.summarizeUserMedalsByLevel(id);
+            List<UserMedalEventDto> medalEvents = tournamentMedalStandingsService.listUserMedalEvents(id);
+            List<UserTournamentPlacementHistoryDto> tournamentHistory =
+                    tournamentMedalStandingsService.buildUserTournamentPlacementHistory(id);
+            model.addAttribute("userMedalsByLevel", medalsByLevel);
+            model.addAttribute("userMedalEvents", medalEvents);
+            model.addAttribute("userTournamentHistory", tournamentHistory);
+            model.addAttribute("userProfileCopyText",
+                    buildUserProfileCopyText(user, medalsByLevel, medalEvents, tournamentHistory));
+
+            return "user-profile";
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "redirect:/";
+        }
+    }
+
+
+    // 更新个人信息（只能修改自己的信息）
+    // @PostMapping("/profile/update")
+    // public String updateProfile(@RequestParam String username,
+    //                            @RequestParam String email,
+    //                            RedirectAttributes redirectAttributes) {
+    //     User currentUser = null;
+    //     try {
+    //         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    //         String currentUsername = auth.getName();
+    //         currentUser = userService.findByUsername(currentUsername);
+            
+    //         // 检查用户名是否已被其他用户使用
+    //         if (!currentUser.getUsername().equals(username)) {
+    //             User existingUser = userService.findByUsername(username);
+    //             if (existingUser != null) {
+    //                 redirectAttributes.addFlashAttribute("error", "该用户名已被使用");
+    //                 return "redirect:/user/profile/" + currentUser.getId();
+    //             }
+    //         }
+            
+    //         currentUser.setUsername(username);
+    //         currentUser.setEmail(email);
+    //         currentUser.setUpdatedAt(LocalDateTime.now());
+            
+    //         userService.updateById(currentUser);
+    //         redirectAttributes.addFlashAttribute("success", "个人信息更新成功");
+            
+    //     } catch (Exception e) {
+    //         redirectAttributes.addFlashAttribute("error", "更新失败：" + e.getMessage());
+    //     }
+        
+    //     return "redirect:/user/profile/" + currentUser.getId();
+    // }
+    @PostMapping("/profile/update")
+    public String updateProfile(@RequestParam String username,
+                            @RequestParam String email,
+                            RedirectAttributes redirectAttributes) {
+        // 1. 提前获取当前用户，并进行空值检查
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String currentUsername = auth.getName();
+        User currentUser = userService.findByUsername(currentUsername);
+        
+        if (currentUser == null) {
+            redirectAttributes.addFlashAttribute("error", "当前用户不存在或未登录");
+            return "redirect:/user/login";  // 或返回错误页面
+        }
+        
+        try {
+            // 用户名更新走严格校验，避免绕过 UsernameValidator（注册/批量新增已做）
+            UsernameValidator.ValidationResult validation = UsernameValidator.validateUsername(username);
+            if (!validation.isValid()) {
+                redirectAttributes.addFlashAttribute("error", validation.getMessage());
+                return "redirect:/user/profile/" + currentUser.getId();
+            }
+            String cleanUsername = UsernameValidator.sanitizeUsername(username);
+
+            // 2. 检查用户名是否被其他用户占用
+            if (!currentUser.getUsername().equals(cleanUsername)) {
+                User existingUser = userService.findByUsername(cleanUsername);
+                if (existingUser != null) {
+                    redirectAttributes.addFlashAttribute("error", "该用户名已被使用");
+                    return "redirect:/user/profile/" + currentUser.getId();
+                }
+            }
+            
+            // 3. 更新用户信息
+            currentUser.setUsername(cleanUsername);
+            currentUser.setEmail(email);
+            currentUser.setUpdatedAt(LocalDateTime.now());
+            userService.updateById(currentUser);
+            
+            redirectAttributes.addFlashAttribute("message", "个人信息更新成功");
+            return "redirect:/user/profile/" + currentUser.getId();
+            
+        } catch (Exception e) {
+            // 4. 异常时，currentUser 仍然可用，返回原页面并提示错误
+            redirectAttributes.addFlashAttribute("error", "更新失败：" + e.getMessage());
+            return "redirect:/user/profile/" + currentUser.getId();
+        }
+    }
+
+    private static String buildUserProfileCopyText(User user,
+                                                   List<UserMedalByLevelDto> byLevel,
+                                                   List<UserMedalEventDto> events,
+                                                   List<UserTournamentPlacementHistoryDto> history) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("用户：").append(user.getUsername()).append(" (ID ").append(user.getId()).append(")\n\n");
+
+        sb.append("【各级别奖牌汇总】（与全站奖牌榜规则一致）\n");
+        if (byLevel == null || byLevel.isEmpty()) {
+            sb.append("（暂无）\n");
+        } else {
+            for (UserMedalByLevelDto r : byLevel) {
+                sb.append(r.levelLabel())
+                        .append("\t金 ").append(r.gold())
+                        .append(" 银 ").append(r.silver())
+                        .append(" 铜 ").append(r.bronze())
+                        .append("\n");
+            }
+        }
+
+        sb.append("\n【奖牌明细】\n");
+        if (events == null || events.isEmpty()) {
+            sb.append("（暂无）\n");
+        } else {
+            sb.append("奖牌\t级别\t赛季与系列\t赛事（级别·日期）\n");
+            for (UserMedalEventDto e : events) {
+                sb.append(e.medalLabel())
+                        .append("\t")
+                        .append(e.levelLabel())
+                        .append("\t")
+                        .append(e.seasonSeriesLine())
+                        .append("\t")
+                        .append(e.tournamentName())
+                        .append("\n");
+            }
+        }
+
+        sb.append("\n【历届赛事名次与积分】\n");
+        if (history == null || history.isEmpty()) {
+            sb.append("（暂无）\n");
+        } else {
+            sb.append("赛事（级别·日期）\t级别\t赛季与系列\t最终名次\t积分\t奖牌\n");
+            for (UserTournamentPlacementHistoryDto h : history) {
+                sb.append(h.tournamentName())
+                        .append("\t")
+                        .append(h.levelLabel())
+                        .append("\t")
+                        .append(h.seasonSeriesLine())
+                        .append("\t")
+                        .append(h.finalRank() != null ? h.finalRank().toString() : "—")
+                        .append("\t")
+                        .append(h.points() != null ? h.points().toString() : "—")
+                        .append("\t")
+                        .append(h.medalLabel() != null && !h.medalLabel().isEmpty() ? h.medalLabel() : "—")
+                        .append("\n");
+            }
+        }
+
+        return sb.toString();
+    }
+}
