@@ -52,22 +52,7 @@ public class AdminConsoleController {
         model.addAttribute("seriesOptions", buildSeriesOptions());
         model.addAttribute("defaultCenterLineLimit", systemConfigService.getDefaultCenterLineLimit());
         model.addAttribute("defaultDeadStoneLimit", systemConfigService.getDefaultDeadStoneLimit());
-        String pdfOrientation = systemConfigService.getConfigValue("pdf_default_orientation", "landscape");
-        model.addAttribute("pdfDefaultOrientation", "portrait".equalsIgnoreCase(pdfOrientation) ? "portrait" : "landscape");
         return "admin-console";
-    }
-
-    @PostMapping("/console/pdf-orientation")
-    @ResponseBody
-    public Map<String, Object> savePdfOrientation(@RequestBody Map<String, Object> body) {
-        String raw = body == null || body.get("orientation") == null ? "" : String.valueOf(body.get("orientation")).trim();
-        if (!"portrait".equalsIgnoreCase(raw) && !"landscape".equalsIgnoreCase(raw)) {
-            return Map.of("success", false, "message", "方向只能是横版或竖版");
-        }
-        String orientation = "portrait".equalsIgnoreCase(raw) ? "portrait" : "landscape";
-        systemConfigService.setConfigValue("pdf_default_orientation", orientation, "全站 PDF 默认页面方向");
-        return Map.of("success", true, "orientation", orientation,
-                "message", "portrait".equals(orientation) ? "已改为竖版。再点横版即可改回去。" : "已改为横版。再点竖版即可改回去。");
     }
 
     @PostMapping("/console/ranking-priority/save")

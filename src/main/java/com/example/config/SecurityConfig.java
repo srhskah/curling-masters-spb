@@ -82,6 +82,7 @@ public class SecurityConfig {
                 .requestMatchers(
                         "/",
                         "/ranking", "/ranking/**",
+                        "/medals",
                         "/h2h", "/h2h/**",
                         "/season/list", "/season/detail/**",
                         "/tournament/list", "/tournament/detail/**",

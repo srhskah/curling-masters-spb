@@ -1,9 +1,6 @@
 package com.example.service.impl;
 
-import com.example.service.SystemConfigService;
-import com.example.util.PdfOrientationHolder;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
-import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.PageSizeUnits;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -16,20 +13,10 @@ import java.util.Map;
 @Service
 public class RankingExportPdfService {
 
-    static final String ORIENTATION_KEY = "pdf_default_orientation";
-
     private final TemplateEngine templateEngine;
-    private final SystemConfigService systemConfigService;
 
-    public RankingExportPdfService(TemplateEngine templateEngine, SystemConfigService systemConfigService) {
+    public RankingExportPdfService(TemplateEngine templateEngine) {
         this.templateEngine = templateEngine;
-        this.systemConfigService = systemConfigService;
-    }
-
-    /** 总控台保存的全局默认。H2H 不走这里。 */
-    public String currentDefaultOrientation() {
-        String cfg = systemConfigService.getConfigValue(ORIENTATION_KEY, "landscape");
-        return "portrait".equalsIgnoreCase(cfg) ? "portrait" : "landscape";
     }
 
     public byte[] renderPdf(String templateName, Map<String, Object> model) {
@@ -38,15 +25,12 @@ public class RankingExportPdfService {
             context.setVariables(model);
         }
 
-        String orientation = resolveOrientation(templateName);
+        // 先渲染为 HTML，再交给 openhtmltopdf 转 PDF
         String html = templateEngine.process(templateName, context);
-        html = injectPageOrientation(html, orientation);
 
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             PdfRendererBuilder builder = new PdfRendererBuilder();
-            boolean portrait = "portrait".equals(orientation);
-            builder.useDefaultPageSize(portrait ? 210 : 297, portrait ? 297 : 210, PageSizeUnits.MM);
             // baseUrl 使用 file:/ 以便模板可引用系统字体/本地资源
             builder.withHtmlContent(html, "file:/");
             registerFonts(builder);
@@ -56,28 +40,6 @@ public class RankingExportPdfService {
         } catch (Exception e) {
             throw new RuntimeException("PDF 渲染失败：" + e.getMessage(), e);
         }
-    }
-
-    private String resolveOrientation(String templateName) {
-        if ("pdf/pdf-h2h-export".equals(templateName)) {
-            return "portrait";
-        }
-        String once = PdfOrientationHolder.get();
-        if ("portrait".equals(once) || "landscape".equals(once)) {
-            return once;
-        }
-        return currentDefaultOrientation();
-    }
-
-    /** 写在 head 末尾，盖过模板里写死的 @page size。 */
-    private static String injectPageOrientation(String html, String orientation) {
-        String safe = "portrait".equals(orientation) ? "portrait" : "landscape";
-        String style = "<style>@page { size: A4 " + safe + "; margin: 12mm; }</style>";
-        int head = html == null ? -1 : html.toLowerCase(Locale.ROOT).lastIndexOf("</head>");
-        if (head < 0) {
-            return style + (html == null ? "" : html);
-        }
-        return html.substring(0, head) + style + html.substring(head);
     }
 
     /**

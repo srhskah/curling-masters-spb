@@ -19,7 +19,7 @@
     </th:block>
     <link href="/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/bootstrap-icons.css">
-    <link th:href="@{/css/main.css?v=2.17}" rel="stylesheet">
+    <link th:href="@{/css/main.css?v=2.25}" rel="stylesheet">
 </head>
 
 <!-- 主导航菜单内容：由外层 th:with="ms='' 或 'M'" 控制 id 后缀，避免桌面/侧栏重复 DOM 时 id 冲突 -->
@@ -30,6 +30,9 @@
         </li>
         <li class="nav-item">
             <a class="nav-link text-dark" href="/ranking" data-i18n-key="nav.ranking"><i class="bi bi-list-ol"></i> 排名</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link text-dark" href="/medals" data-i18n-key="nav.medals"><i class="bi bi-award"></i> 奖牌榜</a>
         </li>
         <li class="nav-item">
             <a class="nav-link text-dark" href="/leaderboard" data-i18n-key="nav.leaderboard"><i class="bi bi-trophy"></i> 数据</a>
@@ -98,6 +101,9 @@
                 </a></li>
                 <li><a class="dropdown-item" href="/ranking" data-i18n-key="nav.ranking">
                     <i class="bi bi-list-ol"></i> 排名
+                </a></li>
+                <li><a class="dropdown-item" href="/medals" data-i18n-key="nav.medals">
+                    <i class="bi bi-award"></i> 奖牌榜
                 </a></li>
             </ul>
         </li>

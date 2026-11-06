@@ -47,13 +47,6 @@ public class RankingExportPdfController {
         return m;
     }
 
-    @GetMapping("/orientation")
-    public LinkedHashMap<String, String> pdfOrientation() {
-        LinkedHashMap<String, String> out = new LinkedHashMap<>();
-        out.put("orientation", rankingExportPdfService.currentDefaultOrientation());
-        return out;
-    }
-
     @GetMapping(value = "/total", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> exportTotalPdf(
             @RequestParam(required = false) String limit,
@@ -206,8 +199,7 @@ public class RankingExportPdfController {
                 editionTitle + "-小组赛排名与对阵明细",
                 data.get("groups"),
                 data.get("pseudoGroups"),
-                data.get("groupMatches"),
-                data.get("rankingCriteria")
+                data.get("groupMatches")
         );
         return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-小组赛排名与对阵明细.pdf");
     }
@@ -219,7 +211,6 @@ public class RankingExportPdfController {
         LinkedHashMap<String, Object> model = basePdfModel();
         model.put("title", editionTitle + "-小组赛总排名");
         model.put("rows", data.get("overallRanking"));
-        model.put("rankingCriteria", data.get("rankingCriteria"));
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-group-overall-ranking", model);
         return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-小组赛总排名.pdf");
     }
@@ -233,8 +224,7 @@ public class RankingExportPdfController {
                 editionTitle + "-" + groupName + "排名与对阵明细",
                 java.util.List.of(java.util.Map.of("groupName", groupName, "ranking", data.get("ranking"))),
                 data.get("pseudoGroups"),
-                data.get("matches"),
-                data.get("rankingCriteria")
+                data.get("matches")
         );
         return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-" + groupName + "-排名与对阵明细.pdf");
     }
@@ -250,7 +240,7 @@ public class RankingExportPdfController {
     }
 
     /**
-     * H2H 页面导出：版式与单场战绩 PDF 一致（LOGO、字体、表头风格），固定 A4 竖版。不收录总比分 0:0 的未赛场次。
+     * H2H 页面导出：版式与单场战绩 PDF 一致（LOGO、字体、表头风格），A4 纵向，由模板 {@code pdf/pdf-h2h-export} 控制。
      *
      * @param statsPerspective 双方 H2H 时：1 = userId1 对 userId2 视角；2 = userId2 对 userId1（与页面「交换视角」一致）
      */
@@ -282,11 +272,11 @@ public class RankingExportPdfController {
         String statsIntro;
         if (userId2 == null) {
             title = "H2H 交手记录 - " + name1;
-            subtitle = "导出范围：该选手已赛场次（总比分 0:0 的未赛场次不收录）";
+            subtitle = "导出范围：该选手在系统中的全部历史场次（与 H2H 页面列表一致）";
             statsIntro = "以下汇总为该选手在上述场次的合计统计。";
         } else {
             title = "H2H 交手记录 - " + name1 + " vs " + name2;
-            subtitle = "导出范围：双方已赛的直接交手（总比分 0:0 的未赛场次不收录）";
+            subtitle = "导出范围：双方直接交手场次（与 H2H 页面列表一致）";
             if (pv == 1) {
                 statsIntro = "汇总视角：" + name1 + " 对 " + name2 + "（胜/平/负为前者相对后者）。";
             } else {
@@ -349,7 +339,7 @@ public class RankingExportPdfController {
                         continue;
                     }
                     for (H2hMatchRow row : lvl.matches()) {
-                        if (row == null || (row.totalPlayer1() == 0 && row.totalPlayer2() == 0)) {
+                        if (row == null) {
                             continue;
                         }
                         LinkedHashMap<String, Object> detail = assembler.buildDetailMapForMatchId(row.matchId());
@@ -427,13 +417,12 @@ public class RankingExportPdfController {
         return PdfExportSupport.attachmentPdf(pdfBytes, u.getUsername() + "-生涯战绩.pdf");
     }
 
-    private byte[] renderGroupRankingPdf(String title, Object groups, Object pseudoGroups, Object groupMatches, Object rankingCriteria) {
+    private byte[] renderGroupRankingPdf(String title, Object groups, Object pseudoGroups, Object groupMatches) {
         LinkedHashMap<String, Object> model = basePdfModel();
         model.put("title", title);
         model.put("groups", groups);
         model.put("pseudoGroups", pseudoGroups);
         model.put("groupMatches", groupMatches);
-        model.put("rankingCriteria", rankingCriteria);
         return rankingExportPdfService.renderPdf("pdf/pdf-tournament-group-ranking", model);
     }
 

@@ -27,68 +27,135 @@ public class RankingServiceImpl implements RankingService {
     private static final List<String> FINALS_LEVEL_CODES = List.of("CM Fi-A", "CM Fi-B", "CM An-Fi");
 
     @Override
+    public TotalRankingSeriesWindow resolveTotalRankingSeriesWindow() {
+        List<Series> allSeries = seriesService.list();
+        if (allSeries == null || allSeries.isEmpty()) {
+            return new TotalRankingSeriesWindow(List.of(), List.of());
+        }
+        List<Long> allIds = allSeries.stream()
+                .map(Series::getId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        List<Long> finalsIdList = allIds.isEmpty()
+                ? List.of()
+                : rankingMapper.selectSeriesIdsHavingLevels(allIds, FINALS_LEVEL_CODES);
+        Set<Long> finalsIdSet = new HashSet<>(finalsIdList == null ? List.of() : finalsIdList);
+
+        Set<Long> seasonIds = allSeries.stream()
+                .map(Series::getSeasonId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Season> seasonById = seasonIds.isEmpty()
+                ? Map.of()
+                : seasonService.listByIds(seasonIds).stream()
+                .filter(Objects::nonNull)
+                .filter(s -> s.getId() != null)
+                .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+
+        List<Series> ordered = new ArrayList<>(allSeries);
+        ordered.sort(Comparator
+                .comparing((Series s) -> {
+                    Season se = seasonById.get(s.getSeasonId());
+                    return se == null || se.getYear() == null ? Integer.MIN_VALUE : se.getYear();
+                }, Comparator.reverseOrder())
+                .thenComparing(s -> {
+                    Season se = seasonById.get(s.getSeasonId());
+                    return se == null || se.getHalf() == null ? Integer.MIN_VALUE : se.getHalf();
+                }, Comparator.reverseOrder())
+                .thenComparing(s -> s.getSequence() == null ? Integer.MIN_VALUE : s.getSequence(), Comparator.reverseOrder())
+                .thenComparing(s -> s.getId() == null ? Long.MIN_VALUE : s.getId(), Comparator.reverseOrder()));
+
+        List<Series> regular = new ArrayList<>();
+        List<Long> skippedFinals = new ArrayList<>();
+        for (Series s : ordered) {
+            if (s == null || s.getId() == null) {
+                continue;
+            }
+            if (finalsIdSet.contains(s.getId())) {
+                skippedFinals.add(s.getId());
+                continue;
+            }
+            regular.add(s);
+            if (regular.size() >= 20) {
+                break;
+            }
+        }
+        return new TotalRankingSeriesWindow(regular, skippedFinals);
+    }
+
+    @Override
     public List<RankingEntry> getTotalRanking(Integer limit) {
         // 总排名：
-        // - 取“总体最近20个系列”范围内，各选手“最佳10个系列”累加（同系列取最高 max）
-        // - 排除“赛季总决赛 / 年终总决赛所在系列”后取 Top10（避免占用名额）
-        // - 决赛/年终加分：仅取最高值 MAX【max(A,B), 年终】
-        List<Series> recentSeries = seriesService.lambdaQuery()
-                .orderByDesc(Series::getCreatedAt)
-                .last("LIMIT 20")
-                .list();
-        List<Long> seriesIds = recentSeries.stream().map(Series::getId).collect(Collectors.toList());
-        if (seriesIds.isEmpty()) return List.of();
-
-        // 1) 排除“总决赛/年终总决赛所在系列”
-        List<Long> finalsSeriesIds = rankingMapper.selectSeriesIdsHavingLevels(seriesIds, FINALS_LEVEL_CODES);
-
-        // 2) 常规系列：同系列取最高，再取最佳10个系列累加
-        List<Map<String, Object>> rows = rankingMapper.selectUserSeriesMaxPointsExcludingSeriesIds(seriesIds, finalsSeriesIds);
-        Map<Long, List<Integer>> userSeriesPoints = new HashMap<>();
-        for (Map<String, Object> row : rows) {
-            Long userId = toLong(row.get("userId"));
-            Integer seriesPoints = toInt(row.get("seriesPoints"));
-            if (userId == null || seriesPoints == null) continue;
-            userSeriesPoints.computeIfAbsent(userId, k -> new ArrayList<>()).add(seriesPoints);
+        // - 按赛季/系列从新到旧，跳过总决赛系列，取最近 20 个常规系列；其中最佳 10 个系列累加（同系列取最高 max）
+        // - 截取过程中跳过的赛季总决赛/年终总决赛积分仍计入：MAX【max(A,B), 年终】
+        TotalRankingSeriesWindow window = resolveTotalRankingSeriesWindow();
+        List<Long> seriesIds = window.regularSeries().stream()
+                .map(Series::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        List<Long> finalsSeriesIds = window.skippedFinalsSeriesIds();
+        if (seriesIds.isEmpty() && (finalsSeriesIds == null || finalsSeriesIds.isEmpty())) {
+            return List.of();
         }
 
         Map<Long, Integer> userTotal = new HashMap<>();
-        for (Map.Entry<Long, List<Integer>> e : userSeriesPoints.entrySet()) {
-            List<Integer> pts = e.getValue();
-            pts.sort(Comparator.reverseOrder());
-            int sum = 0;
-            for (int i = 0; i < Math.min(10, pts.size()); i++) {
-                sum += pts.get(i);
+
+        // 1) 常规系列：同系列取最高，再取最佳10个系列累加（窗口内已无总决赛系列）
+        if (!seriesIds.isEmpty()) {
+            List<Map<String, Object>> rows = rankingMapper.selectUserSeriesMaxPointsExcludingSeriesIds(seriesIds, List.of());
+            Map<Long, List<Integer>> userSeriesPoints = new HashMap<>();
+            if (rows != null) {
+                for (Map<String, Object> row : rows) {
+                    Long userId = toLong(row.get("userId"));
+                    Integer seriesPoints = toInt(row.get("seriesPoints"));
+                    if (userId == null || seriesPoints == null) continue;
+                    userSeriesPoints.computeIfAbsent(userId, k -> new ArrayList<>()).add(seriesPoints);
+                }
             }
-            userTotal.put(e.getKey(), sum);
+            for (Map.Entry<Long, List<Integer>> e : userSeriesPoints.entrySet()) {
+                List<Integer> pts = e.getValue();
+                pts.sort(Comparator.reverseOrder());
+                int sum = 0;
+                for (int i = 0; i < Math.min(10, pts.size()); i++) {
+                    sum += pts.get(i);
+                }
+                userTotal.put(e.getKey(), sum);
+            }
         }
 
-        // 3) 决赛/年终：只取最大的一项加分（不占10系列名额）
+        // 2) 决赛/年终：只取最大的一项加分（不占20/10系列名额）
         Map<Long, Integer> finalsABMax = new HashMap<>();
-        List<Map<String, Object>> finalsA = rankingMapper.selectUserTotalPointsForLevels(seriesIds, List.of("CM Fi-A"));
-        for (Map<String, Object> row : finalsA) {
-            Long userId = toLong(row.get("userId"));
-            Integer pts = toInt(row.get("totalPoints"));
-            if (userId == null || pts == null) continue;
-            finalsABMax.merge(userId, pts, Math::max);
-        }
-        List<Map<String, Object>> finalsB = rankingMapper.selectUserTotalPointsForLevels(seriesIds, List.of("CM Fi-B"));
-        for (Map<String, Object> row : finalsB) {
-            Long userId = toLong(row.get("userId"));
-            Integer pts = toInt(row.get("totalPoints"));
-            if (userId == null || pts == null) continue;
-            finalsABMax.merge(userId, pts, Math::max);
-        }
-
         Map<Long, Integer> yearFinalPoints = new HashMap<>();
-        List<Map<String, Object>> yearFinal = rankingMapper.selectUserTotalPointsForLevels(seriesIds, List.of("CM An-Fi"));
-        for (Map<String, Object> row : yearFinal) {
-            Long userId = toLong(row.get("userId"));
-            Integer pts = toInt(row.get("totalPoints"));
-            if (userId == null || pts == null) continue;
-            yearFinalPoints.put(userId, pts);
+        if (finalsSeriesIds != null && !finalsSeriesIds.isEmpty()) {
+            List<Map<String, Object>> finalsA = rankingMapper.selectUserTotalPointsForLevels(finalsSeriesIds, List.of("CM Fi-A"));
+            if (finalsA != null) {
+                for (Map<String, Object> row : finalsA) {
+                    Long userId = toLong(row.get("userId"));
+                    Integer pts = toInt(row.get("totalPoints"));
+                    if (userId == null || pts == null) continue;
+                    finalsABMax.merge(userId, pts, Math::max);
+                }
+            }
+            List<Map<String, Object>> finalsB = rankingMapper.selectUserTotalPointsForLevels(finalsSeriesIds, List.of("CM Fi-B"));
+            if (finalsB != null) {
+                for (Map<String, Object> row : finalsB) {
+                    Long userId = toLong(row.get("userId"));
+                    Integer pts = toInt(row.get("totalPoints"));
+                    if (userId == null || pts == null) continue;
+                    finalsABMax.merge(userId, pts, Math::max);
+                }
+            }
+            List<Map<String, Object>> yearFinal = rankingMapper.selectUserTotalPointsForLevels(finalsSeriesIds, List.of("CM An-Fi"));
+            if (yearFinal != null) {
+                for (Map<String, Object> row : yearFinal) {
+                    Long userId = toLong(row.get("userId"));
+                    Integer pts = toInt(row.get("totalPoints"));
+                    if (userId == null || pts == null) continue;
+                    yearFinalPoints.put(userId, pts);
+                }
+            }
         }
-
         Set<Long> bonusUserIds = new HashSet<>();
         bonusUserIds.addAll(finalsABMax.keySet());
         bonusUserIds.addAll(yearFinalPoints.keySet());

@@ -323,9 +323,6 @@ public class HeadToHeadQueryService {
             User u2 = pid2 != null ? usersById.get(pid2) : null;
             User uw = m.getWinnerId() != null ? usersById.get(m.getWinnerId()) : null;
             int[] tot = totalsByMatch.getOrDefault(m.getId(), new int[]{0, 0});
-            if (tot[0] == 0 && tot[1] == 0) {
-                continue;
-            }
 
             String scheduled = m.getScheduledTime() != null ? DT_FMT.format(m.getScheduledTime()) : "";
 
@@ -509,9 +506,6 @@ public class HeadToHeadQueryService {
             }
             Integer side = sideOnMatch(m, focusUserId);
             int[] tot = totalsByMatch.getOrDefault(m.getId(), new int[]{0, 0});
-            if (tot[0] == 0 && tot[1] == 0) {
-                continue;
-            }
             int myTotal;
             int oppTotal;
             if (side != null) {

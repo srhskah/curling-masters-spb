@@ -196,31 +196,10 @@ public class GroupRankingCalculator {
             }
         }
         if (criteriaOrder != null && !order.contains(RankingCriterion.USERNAME)) {
-            return compareUserId(a, b);
+            return String.valueOf(a.getOrDefault("username", ""))
+                    .compareTo(String.valueOf(b.getOrDefault("username", "")));
         }
         return 0;
-    }
-
-    /** 显式队列里已去掉「用户名」时，只按用户 ID 保持稳定，不再把用户名加回比较。 */
-    private static int compareUserId(Map<String, Object> a, Map<String, Object> b) {
-        Long ida = a.get("userId") instanceof Long l ? l : null;
-        Long idb = b.get("userId") instanceof Long l ? l : null;
-        if (ida == null && idb == null) {
-            return 0;
-        }
-        if (ida == null) {
-            return 1;
-        }
-        if (idb == null) {
-            return -1;
-        }
-        return ida.compareTo(idb);
-    }
-
-    /** null 表示沿用默认全套决胜项。 */
-    private static boolean criteriaIncludes(List<RankingCriterion> criteriaOrder, RankingCriterion criterion) {
-        List<RankingCriterion> order = criteriaOrder != null ? criteriaOrder : RankingCriterion.DEFAULT_ORDER;
-        return order.contains(criterion);
     }
 
     private int compareHeadToHeadTwo(Map<String, Object> a, Map<String, Object> b, List<Match> groupMatches) {
@@ -320,13 +299,10 @@ public class GroupRankingCalculator {
                         pseudoGroup, pseudoMember, usernameById, tieMatches, setByMatch, allowDraw, regularSets, criteriaOrder
                 ).getOrDefault(g.getId(), List.of());
 
-                // 嵌套拆分只看相互胜负，属于「交锋」。本届队列已去掉交锋时不再做这一步。
-                if (criteriaIncludes(criteriaOrder, RankingCriterion.HEAD_TO_HEAD)) {
-                    List<Long> recursiveOrder = orderMemberIdsRecursively(
-                            new ArrayList<>(tieIds), tieMatches, setByMatch, usernameById,
-                            allowDraw, regularSets, criteriaOrder, g.getId(), 0);
-                    pseudoRanking = reorderRowsByUserIds(pseudoRanking, recursiveOrder);
-                }
+                List<Long> recursiveOrder = orderMemberIdsRecursively(
+                        new ArrayList<>(tieIds), tieMatches, setByMatch, usernameById,
+                        allowDraw, regularSets, criteriaOrder, g.getId(), 0);
+                pseudoRanking = reorderRowsByUserIds(pseudoRanking, recursiveOrder);
 
                 remapMainGroupRanksFromPseudoOrder(tie, pseudoRanking);
 
@@ -404,7 +380,9 @@ public class GroupRankingCalculator {
             }
         }
         if (withoutH2h.isEmpty()) {
-            return;
+            withoutH2h.add(RankingCriterion.NET);
+            withoutH2h.add(RankingCriterion.TOTAL_SCORE);
+            withoutH2h.add(RankingCriterion.USERNAME);
         }
         block.sort((a, b) -> compareByCriteria(a, b, null, withoutH2h, true));
         for (int i = 0; i < block.size(); i++) {

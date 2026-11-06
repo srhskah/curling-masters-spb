@@ -2,6 +2,7 @@ window.SITE_UI_TEXTS = {
     'zh-CN': {
         'nav.home': '首页',
         'nav.ranking': '排名',
+        'nav.medals': '奖牌榜',
         'nav.h2h': 'H2H',
         'nav.notifications': '消息通知',
         'nav.systemManagement': '系统管理',
@@ -160,6 +161,7 @@ window.SITE_UI_TEXTS = {
     'zh-TW': {
         'nav.home': '首頁',
         'nav.ranking': '排名',
+        'nav.medals': '獎牌榜',
         'nav.h2h': 'H2H',
         'nav.notifications': '訊息通知',
         'nav.systemManagement': '系統管理',
@@ -318,6 +320,7 @@ window.SITE_UI_TEXTS = {
     'en': {
         'nav.home': 'Home',
         'nav.ranking': 'Ranking',
+        'nav.medals': 'Medals',
         'nav.h2h': 'H2H',
         'nav.notifications': 'Notifications',
         'nav.systemManagement': 'System Management',
@@ -476,6 +479,7 @@ window.SITE_UI_TEXTS = {
     'fr': {
         'nav.home': 'Accueil',
         'nav.ranking': 'Classement',
+        'nav.medals': 'Médailles',
         'nav.h2h': 'H2H',
         'nav.notifications': 'Notifications',
         'nav.systemManagement': 'Gestion du système',
@@ -634,6 +638,7 @@ window.SITE_UI_TEXTS = {
     'ru': {
         'nav.home': 'Главная',
         'nav.ranking': 'Рейтинг',
+        'nav.medals': 'Медали',
         'nav.h2h': 'H2H',
         'nav.notifications': 'Уведомления',
         'nav.systemManagement': 'Управление системой',
@@ -792,6 +797,7 @@ window.SITE_UI_TEXTS = {
     'es': {
         'nav.home': 'Inicio',
         'nav.ranking': 'Clasificación',
+        'nav.medals': 'Medallero',
         'nav.h2h': 'H2H',
         'nav.notifications': 'Notificaciones',
         'nav.systemManagement': 'Gestión del sistema',
@@ -950,6 +956,7 @@ window.SITE_UI_TEXTS = {
     'pt': {
         'nav.home': 'Início',
         'nav.ranking': 'Classificação',
+        'nav.medals': 'Medalhas',
         'nav.h2h': 'H2H',
         'nav.notifications': 'Notificações',
         'nav.systemManagement': 'Gestão do sistema',
@@ -1108,6 +1115,7 @@ window.SITE_UI_TEXTS = {
     'ja': {
         'nav.home': 'ホーム',
         'nav.ranking': 'ランキング',
+        'nav.medals': 'メダル',
         'nav.h2h': 'H2H',
         'nav.notifications': '通知',
         'nav.systemManagement': 'システム管理',
@@ -1266,6 +1274,7 @@ window.SITE_UI_TEXTS = {
     'ko': {
         'nav.home': '홈',
         'nav.ranking': '순위',
+        'nav.medals': '메달',
         'nav.h2h': 'H2H',
         'nav.notifications': '알림',
         'nav.systemManagement': '시스템 관리',

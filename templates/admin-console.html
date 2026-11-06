@@ -10,7 +10,7 @@
 <div class="container mt-4 mb-5">
     <div class="mb-3">
         <h3 class="mb-1"><i class="bi bi-sliders2-vertical"></i> 总控台</h3>
-        <p class="text-muted mb-0 small">集中管理系统级默认策略：排名参考优先级、PDF 导出方向、赛制规则默认值（超管）。</p>
+        <p class="text-muted mb-0 small">集中管理系统级默认策略：排名参考优先级、赛制规则默认值（超管）。</p>
     </div>
 
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
@@ -114,46 +114,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="border rounded-3 bg-white p-3 p-md-4 mb-4" id="pdf-export">
-        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
-            <div>
-                <h5 class="mb-1"><i class="bi bi-file-earmark-pdf"></i> 导出为PDF</h5>
-                <p class="text-muted small mb-0">
-                    下面是站内所有能导出 PDF 的入口。全局默认
-                    <strong id="pdfOrientLabel" th:text="${pdfDefaultOrientation == 'portrait'} ? '竖版' : '横版'">横版</strong>。
-                    可随时改成另一种，再点回去即恢复。单次导出在地址后加
-                    <code>orientation=portrait</code> 或 <code>orientation=landscape</code>，只影响这一次。
-                    H2H 固定竖版。
-                </p>
-            </div>
-            <div class="btn-group" role="group" aria-label="PDF 默认方向">
-                <button type="button" class="btn btn-sm" id="pdfOrientLandscape"
-                        th:classappend="${pdfDefaultOrientation != 'portrait'} ? ' btn-primary' : ' btn-outline-primary'">横版</button>
-                <button type="button" class="btn btn-sm" id="pdfOrientPortrait"
-                        th:classappend="${pdfDefaultOrientation == 'portrait'} ? ' btn-primary' : ' btn-outline-primary'">竖版</button>
-            </div>
-        </div>
-        <div id="pdfOrientAlert" class="alert d-none" role="alert"></div>
-        <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-                <thead><tr><th>导出内容</th><th>入口</th><th>方向</th></tr></thead>
-                <tbody>
-                <tr><td>总排名 / 当前赛季排名</td><td><a th:href="@{/ranking}">排名页</a></td><td>跟随全局</td></tr>
-                <tr><td>系列摘要、系列内赛事排名</td><td><a th:href="@{/season/list}">赛季列表</a></td><td>跟随全局</td></tr>
-                <tr><td>赛事排名、小组排名、小组总排名、禁赛名单、选手战绩、赛制配置</td><td><a th:href="@{/tournament/list}">赛事列表</a></td><td>跟随全局</td></tr>
-                <tr><td>报名名单</td><td><a th:href="@{/tournament/list}">赛事列表 → 报名页</a></td><td>跟随全局</td></tr>
-                <tr><td>抽签结果</td><td><a th:href="@{/tournament/list}">赛事列表 → 抽签页</a></td><td>跟随全局</td></tr>
-                <tr><td>消息通知</td><td><a href="/notification/list">通知列表</a></td><td>跟随全局</td></tr>
-                <tr><td>用户生涯</td><td><a th:href="@{/ranking}">从排名进入选手主页</a></td><td>跟随全局</td></tr>
-                <tr><td>单场战绩</td><td><a th:href="@{/h2h}">从对阵或 H2H 打开单场</a></td><td>跟随全局</td></tr>
-                <tr><td>数据榜（胜率、单局最高、偷分）</td><td><a th:href="@{/leaderboard}">数据榜</a></td><td>跟随全局</td></tr>
-                <tr><td>淘汰赛签表（浏览器打印）</td><td><a th:href="@{/tournament/list}">赛事详情 / 签表页</a></td><td>横版</td></tr>
-                <tr><td>H2H 交手记录</td><td><a th:href="@{/h2h}">H2H</a></td><td>固定竖版，不含总比分 0:0 的未赛场次</td></tr>
-                </tbody>
-            </table>
         </div>
     </div>
 
@@ -325,52 +285,6 @@
     });
 
     refreshRanks();
-
-    const pdfLandscapeBtn = document.getElementById('pdfOrientLandscape');
-    const pdfPortraitBtn = document.getElementById('pdfOrientPortrait');
-    const pdfOrientAlert = document.getElementById('pdfOrientAlert');
-    const pdfOrientLabel = document.getElementById('pdfOrientLabel');
-    async function savePdfOrientation(orientation) {
-        if (!pdfLandscapeBtn || !pdfPortraitBtn) return;
-        pdfLandscapeBtn.disabled = true;
-        pdfPortraitBtn.disabled = true;
-        try {
-            const headers = { 'Content-Type': 'application/json' };
-            if (csrfToken) headers[csrfHeader] = csrfToken;
-            const xsrf = document.cookie.split(';').map(s => s.trim()).find(s => s.startsWith('XSRF-TOKEN='));
-            if (xsrf) headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrf.substring('XSRF-TOKEN='.length));
-            const res = await fetch('/admin/console/pdf-orientation', {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({ orientation })
-            });
-            const data = await res.json();
-            if (pdfOrientAlert) {
-                pdfOrientAlert.classList.remove('d-none', 'alert-success', 'alert-danger');
-                pdfOrientAlert.classList.add(data.success ? 'alert-success' : 'alert-danger');
-                pdfOrientAlert.textContent = data.message || (data.success ? '已保存' : '保存失败');
-            }
-            if (data.success) {
-                const portrait = data.orientation === 'portrait';
-                pdfLandscapeBtn.classList.toggle('btn-primary', !portrait);
-                pdfLandscapeBtn.classList.toggle('btn-outline-primary', portrait);
-                pdfPortraitBtn.classList.toggle('btn-primary', portrait);
-                pdfPortraitBtn.classList.toggle('btn-outline-primary', !portrait);
-                if (pdfOrientLabel) pdfOrientLabel.textContent = portrait ? '竖版' : '横版';
-            }
-        } catch (e) {
-            if (pdfOrientAlert) {
-                pdfOrientAlert.classList.remove('d-none', 'alert-success');
-                pdfOrientAlert.classList.add('alert-danger');
-                pdfOrientAlert.textContent = '保存失败';
-            }
-        } finally {
-            pdfLandscapeBtn.disabled = false;
-            pdfPortraitBtn.disabled = false;
-        }
-    }
-    if (pdfLandscapeBtn) pdfLandscapeBtn.addEventListener('click', () => savePdfOrientation('landscape'));
-    if (pdfPortraitBtn) pdfPortraitBtn.addEventListener('click', () => savePdfOrientation('portrait'));
 })();
 </script>
 </body>

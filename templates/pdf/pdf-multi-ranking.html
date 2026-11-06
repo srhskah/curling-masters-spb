@@ -4,8 +4,7 @@
     <meta charset="UTF-8"/>
     <title th:text="${title}">排名导出</title>
     <style>
-        @page { size: A4 landscape; margin: 12mm; }
-                body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
         h2 { margin: 18px 0 8px; font-size: 16px; }
         h3 { margin: 12px 0 6px; font-size: 14px; }
         .rule { margin: 4px 0 12px; color: #555; }
@@ -27,7 +26,7 @@
 </head>
 <body>
 <div class="meta">
-    <img th:if="${logoDataUri != null}" class="logo" th:attr="src=${logoDataUri}" alt="logo"/>
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
     <div style="flex: 1 1 auto;">
         <h2 style="margin:0;" th:text="${title}">排名导出</h2>
         <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
