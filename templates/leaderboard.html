@@ -377,15 +377,7 @@
     }
 
     // 导出为PDF（带logo和样式）
-    async function exportToPDF(cardId, filename) {
-        let pageOrientation = 'landscape';
-        try {
-            const orientRes = await fetch('/ranking/export/pdf/orientation');
-            if (orientRes.ok) {
-                const orientData = await orientRes.json();
-                if (orientData.orientation === 'portrait') pageOrientation = 'portrait';
-            }
-        } catch (e) {}
+    function exportToPDF(cardId, filename) {
         const element = document.getElementById(cardId);
         
         // 创建临时包装器用于PDF导出
@@ -393,32 +385,29 @@
         wrapper.style.padding = '20px';
         wrapper.style.fontFamily = '"WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif';
         
-        const header = document.createElement('div');
-        header.style.display = 'flex';
-        header.style.alignItems = 'center';
-        header.style.gap = '12px';
-        header.style.marginBottom = '15px';
+        // 添加logo
         const logoImg = document.createElement('img');
-        logoImg.alt = 'logo';
-        logoImg.src = '/images/Logo%20Trsp%20Stripe.png';
-        logoImg.style.width = '220px';
+        logoImg.src = '/images/Logo Trsp Stripe.png';
+        logoImg.style.maxWidth = '200px';
         logoImg.style.height = 'auto';
-        logoImg.style.flex = '0 0 auto';
-        const titleBox = document.createElement('div');
+        logoImg.style.marginBottom = '15px';
+        wrapper.appendChild(logoImg);
+        
+        // 添加标题
         const title = document.createElement('h2');
         title.textContent = filename;
-        title.style.margin = '0 0 6px 0';
+        title.style.margin = '0 0 15px 0';
         title.style.fontSize = '18px';
         title.style.fontWeight = 'bold';
+        wrapper.appendChild(title);
+        
+        // 添加导出时间
         const timeLabel = document.createElement('div');
         timeLabel.textContent = '导出时间：' + new Date().toLocaleString('zh-CN');
         timeLabel.style.color = '#666';
+        timeLabel.style.marginBottom = '15px';
         timeLabel.style.fontSize = '12px';
-        titleBox.appendChild(title);
-        titleBox.appendChild(timeLabel);
-        header.appendChild(logoImg);
-        header.appendChild(titleBox);
-        wrapper.appendChild(header);
+        wrapper.appendChild(timeLabel);
         
         // 克隆表格内容
         const clonedElement = element.cloneNode(true);
@@ -457,24 +446,17 @@
             margin: 10,
             filename: filename + '.pdf',
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: pageOrientation }
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
-
-        const savePdf = () => {
-            html2pdf().set(opt).from(wrapper).save().then(() => {
-                document.body.removeChild(wrapper);
-            }).catch(err => {
-                console.error('PDF导出失败:', err);
-                document.body.removeChild(wrapper);
-            });
-        };
-        if (logoImg.complete && logoImg.naturalWidth > 0) {
-            savePdf();
-        } else {
-            logoImg.onload = savePdf;
-            logoImg.onerror = savePdf;
-        }
+        
+        html2pdf().set(opt).from(wrapper).save().then(() => {
+            // 移除临时元素
+            document.body.removeChild(wrapper);
+        }).catch(err => {
+            console.error('PDF导出失败:', err);
+            document.body.removeChild(wrapper);
+        });
     }
 </script>
 </body>

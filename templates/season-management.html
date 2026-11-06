@@ -61,6 +61,12 @@
                                placeholder="模糊搜索（ID、年份、半年度、创建时间）">
                     </div>
                 </div>
+                <div class="admin-action-legend text-muted mb-2">
+                    <span class="legend-item fw-semibold">操作图例</span>
+                    <span class="legend-item"><i class="bi bi-eye"></i> 详情</span>
+                    <span class="legend-item"><i class="bi bi-pencil"></i> 编辑</span>
+                    <span class="legend-item"><i class="bi bi-trash"></i> 删除</span>
+                </div>
 
                 <div th:if="${#lists.isEmpty(seasons)}" class="text-center py-4">
                     <i class="bi bi-calendar3 fs-1 text-muted"></i>
@@ -101,19 +107,19 @@
 
                                             <div class="mt-3 d-flex flex-wrap gap-2 generic-list-actions">
                                                 <a th:href="${@tournamentUrls.seasonDetailUrl(season)}"
-                                                   class="btn btn-sm btn-outline-info">
-                                                    <i class="bi bi-eye"></i> 详情
+                                                   class="btn btn-sm btn-outline-info" title="详情" aria-label="详情">
+                                                    <i class="bi bi-eye"></i><span class="generic-action-label"> 详情</span>
                                                 </a>
                                                 <a th:if="${isAdmin}" th:href="@{/season/edit/{id}(id=${season.id})}"
-                                                   class="btn btn-sm btn-outline-warning">
-                                                    <i class="bi bi-pencil"></i> 编辑
+                                                   class="btn btn-sm btn-outline-warning" title="编辑" aria-label="编辑">
+                                                    <i class="bi bi-pencil"></i><span class="generic-action-label"> 编辑</span>
                                                 </a>
                                                 <form th:if="${isAdmin}" th:action="@{/season/delete/{id}(id=${season.id})}"
                                                       method="post" style="display: inline;"
                                                       onsubmit="return confirm('确定要删除这个赛季吗？')">
                                                     <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                            style="border: 1px #dc3545 solid;">
-                                                        <i class="bi bi-trash"></i> 删除
+                                                            title="删除" aria-label="删除">
+                                                        <i class="bi bi-trash"></i><span class="generic-action-label"> 删除</span>
                                                     </button>
                                                 </form>
                                             </div>
@@ -125,9 +131,9 @@
                     </div>
 
                     <!-- 桌面：表格 -->
-                    <div class="d-none d-md-block">
-                        <div class="table-responsive generic-table-desktop">
-                            <table class="table table-hover align-middle">
+                    <div class="d-none d-md-block generic-table-desktop">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle admin-mgmt-table">
                                 <thead class="table-light">
                             <tr>
                                 <th>ID</th>
@@ -145,22 +151,24 @@
                                 <td th:text="${season.half == 1 ? '上半年' : '下半年'}"></td>
                                     <td th:text="${season.createdAt != null ? #temporals.format(season.createdAt, 'yyyy-MM-dd HH:mm') : '-'}"></td>
                                     <td>
+                                        <div class="btn-group generic-list-actions" role="group">
                                         <a th:href="${@tournamentUrls.seasonDetailUrl(season)}"
-                                           class="btn btn-sm btn-outline-info me-1">
-                                            <i class="bi bi-eye"></i> 详情
+                                           class="btn btn-sm btn-outline-info" title="详情" aria-label="详情">
+                                            <i class="bi bi-eye"></i><span class="generic-action-label"> 详情</span>
                                         </a>
                                         <a th:if="${isAdmin}" th:href="@{/season/edit/{id}(id=${season.id})}"
-                                           class="btn btn-sm btn-outline-warning me-1">
-                                            <i class="bi bi-pencil"></i> 编辑
+                                           class="btn btn-sm btn-outline-warning" title="编辑" aria-label="编辑">
+                                            <i class="bi bi-pencil"></i><span class="generic-action-label"> 编辑</span>
                                         </a>
                                         <form th:if="${isAdmin}" th:action="@{/season/delete/{id}(id=${season.id})}"
                                           method="post" style="display: inline;" 
                                           onsubmit="return confirm('确定要删除这个赛季吗？')">
                                             <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                    style="border: 1px #dc3545 solid;">
-                                                <i class="bi bi-trash"></i> 删除
+                                                    title="删除" aria-label="删除">
+                                                <i class="bi bi-trash"></i><span class="generic-action-label"> 删除</span>
                                         </button>
                                     </form>
+                                        </div>
                                 </td>
                             </tr>
                         </tbody>

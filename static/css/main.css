@@ -427,6 +427,94 @@ input[type=number] {
     padding-inline: 0.9rem;
 }
 
+/* 系统管理列表：表头/操作按钮尽量单行 */
+.admin-mgmt-table,
+.generic-table-desktop table {
+    --admin-line: 1.25;
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+}
+.admin-mgmt-table > thead > tr > th,
+.generic-table-desktop table > thead > tr:first-child > th {
+    white-space: nowrap;
+    line-height: var(--admin-line);
+    vertical-align: middle;
+    font-size: 0.875rem;
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+/* 内容单元格尽量单行；列宽随内容伸展，横向由 table-responsive 滚动 */
+.generic-table-desktop .admin-mgmt-table > tbody > tr > td,
+.generic-table-desktop table > tbody > tr > td {
+    white-space: nowrap;
+    line-height: var(--admin-line, 1.25);
+    vertical-align: middle;
+    max-width: 18rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.generic-table-desktop .admin-mgmt-table > tbody > tr > td > *,
+.generic-table-desktop table > tbody > tr > td > * {
+    white-space: nowrap;
+    line-height: inherit;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+.generic-table-desktop .admin-mgmt-table > tbody > tr > td .badge,
+.generic-table-desktop table > tbody > tr > td .badge {
+    display: inline-block;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+}
+.admin-action-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.85rem;
+    line-height: 1.25;
+    font-size: 0.8125rem;
+}
+.admin-action-legend .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    line-height: 1.25;
+}
+.admin-action-legend .legend-item i {
+    font-size: 0.9rem;
+}
+/* 桌面表格：操作列仅图标，文案靠 title/图例 */
+@media (min-width: 768px) {
+    .generic-table-desktop .generic-list-actions .btn,
+    .admin-mgmt-table .generic-list-actions .btn {
+        border-radius: 0.375rem;
+        padding: 0.2rem 0.42rem;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+    .generic-table-desktop .generic-list-actions .generic-action-label,
+    .admin-mgmt-table .generic-list-actions .generic-action-label {
+        display: none;
+    }
+    .generic-table-desktop .generic-list-actions,
+    .admin-mgmt-table .generic-list-actions {
+        flex-wrap: nowrap;
+    }
+}
+@media (max-width: 767.98px) {
+    .generic-cards-mobile .generic-list-actions .btn {
+        line-height: 1.25;
+        white-space: nowrap;
+        border-radius: 0.375rem;
+        padding: 0.35rem 0.65rem;
+    }
+}
+
 /**/
 .list-group-item{
     background: transparent !important;
@@ -1986,6 +2074,132 @@ td.group-ranking-matches-complete {
     min-width: 0;
     max-width: 100%;
     font-size: 0.8125rem;
+}
+.generic-col-filters .generic-multi-filter {
+    width: 100%;
+    min-width: 6.5rem;
+}
+.generic-col-filter-multi-btn {
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    padding: 0.28rem 0.55rem;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    background: #fff;
+    color: #212529;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.generic-col-filter-multi-btn:hover,
+.generic-col-filter-multi-btn:focus,
+.generic-col-filter-multi-btn.show {
+    background: #fff;
+    border-color: #86b7fe;
+    color: #212529;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+/* 横向滚动即可；禁止纵向撑出滚动条（下拉挂到 body） */
+.generic-table-desktop .table-responsive {
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+/* 表头始终压在表格内容之上 */
+.generic-table-desktop .admin-mgmt-table > thead > tr > th {
+    position: sticky;
+    z-index: 30;
+    background: #f8fafc;
+}
+.generic-table-desktop .admin-mgmt-table > thead > tr:first-child > th {
+    top: 0;
+}
+.generic-table-desktop .admin-mgmt-table > thead > tr.generic-col-filters > th {
+    top: 2.35rem;
+    z-index: 31;
+    background: #f8fafc;
+}
+.generic-multi-filter-menu {
+    /* 按内容收窄，勿用 100%（fixed/portal 时会撑成整表宽） */
+    min-width: 10.5rem;
+    width: max-content;
+    max-width: 14.5rem;
+    max-height: none;
+    overflow: visible;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.65rem !important;
+    /* 高于 .footer / 布局偏移相关层，避免被盖住 */
+    z-index: 2000000 !important;
+}
+body > .generic-multi-filter-menu.show {
+    z-index: 2000000 !important;
+}
+/* 比赛列表「赛事」嵌套筛选：三行紧凑下拉，别撑太宽 */
+.match-tournament-filter-menu {
+    min-width: 13rem !important;
+    max-width: 16.5rem !important;
+    width: 16rem !important;
+}
+.match-tn-nested {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.match-tn-nested-row {
+    display: grid;
+    grid-template-columns: 2.2rem 1fr;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 1.35rem;
+}
+.match-tn-nested-row .form-select {
+    font-size: 0.75rem;
+    line-height: 1.25;
+    padding: 0.15rem 1.6rem 0.15rem 0.4rem;
+    min-height: 1.35rem;
+    height: 1.35rem;
+    max-width: 100%;
+}
+.match-tn-checks {
+    max-height: none;
+}
+.match-tournament-filter-menu .form-check-label {
+    max-width: 13rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 比赛列表：对阵/赛事等稍放宽，仍单行 */
+.generic-table-desktop .match-list-table > tbody > tr > td[data-col="1"],
+.generic-table-desktop .match-list-table > tbody > tr > td[data-col="4"] {
+    max-width: 22rem;
+}
+.generic-multi-filter-mode .btn {
+    font-size: 0.75rem;
+    line-height: 1.25;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.35rem;
+}
+.generic-multi-filter-menu .form-check {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 1.35rem;
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
+}
+.generic-multi-filter-menu .form-check:last-child {
+    margin-bottom: 0;
+}
+.generic-multi-filter-menu .form-check-input {
+    margin-top: 0;
+    flex: 0 0 auto;
+}
+.generic-multi-filter-menu .form-check-label {
+    margin-bottom: 0;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: visible;
 }
 .generic-list-pager {
     width: 100%;

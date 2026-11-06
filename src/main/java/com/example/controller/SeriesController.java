@@ -82,12 +82,17 @@ public class SeriesController {
         
         List<Season> seasons = seasonService.list();
         model.addAttribute("seasons", seasons);
-        
+
         List<Series> seriesList;
         if (seasonId != null) {
-            seriesList = seriesService.lambdaQuery().eq(Series::getSeasonId, seasonId).orderByAsc(Series::getSequence).list();
+            seriesList = seriesService.lambdaQuery().eq(Series::getSeasonId, seasonId).list();
         } else {
             seriesList = seriesService.list();
+        }
+        if (seriesList == null) {
+            seriesList = List.of();
+        } else {
+            seriesList = new ArrayList<>(seriesList);
         }
 
         Map<String, String> levelNameByCode = new LinkedHashMap<>();
@@ -103,6 +108,8 @@ public class SeriesController {
         }
         Map<Long, LinkedHashSet<String>> levelsBySeriesId = new LinkedHashMap<>();
         Map<Long, Long> tournamentCountBySeriesId = new HashMap<>();
+        Set<Long> seasonFinalSeriesIds = new HashSet<>();
+        Set<Long> yearFinalSeriesIds = new HashSet<>();
         List<Tournament> allTournaments = tournamentService.list();
         if (allTournaments != null) {
             for (Tournament t : allTournaments) {
@@ -113,26 +120,59 @@ public class SeriesController {
                 if (t.getLevelCode() == null || t.getLevelCode().isBlank()) {
                     continue;
                 }
-                String label = levelNameByCode.getOrDefault(t.getLevelCode(), t.getLevelCode());
+                String code = t.getLevelCode().trim();
+                String label = levelNameByCode.getOrDefault(code, code);
                 levelsBySeriesId.computeIfAbsent(t.getSeriesId(), k -> new LinkedHashSet<>()).add(label);
+                if ("CM An-Fi".equals(code)) {
+                    yearFinalSeriesIds.add(t.getSeriesId());
+                } else if ("CM Fi-A".equals(code) || "CM Fi-B".equals(code)) {
+                    seasonFinalSeriesIds.add(t.getSeriesId());
+                }
             }
         }
-        
+
+        Set<Long> seasonIds = seriesList.stream()
+                .map(Series::getSeasonId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, Season> seasonById = seasonIds.isEmpty()
+                ? Map.of()
+                : seasonService.listByIds(seasonIds).stream()
+                .filter(Objects::nonNull)
+                .filter(s -> s.getId() != null)
+                .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+
+        // 默认：赛季(新→旧) → 常规系列(序号升序不变) → 赛季总决赛 → 年终总决赛
+        seriesList.sort(Comparator
+                .comparing((Series s) -> {
+                    Season se = seasonById.get(s.getSeasonId());
+                    return se == null || se.getYear() == null ? Integer.MIN_VALUE : se.getYear();
+                }, Comparator.reverseOrder())
+                .thenComparing(s -> {
+                    Season se = seasonById.get(s.getSeasonId());
+                    return se == null || se.getHalf() == null ? Integer.MIN_VALUE : se.getHalf();
+                }, Comparator.reverseOrder())
+                .thenComparingInt(s -> seriesFinalsSortBucket(s, seasonFinalSeriesIds, yearFinalSeriesIds))
+                .thenComparing(s -> s.getSequence() == null ? Integer.MAX_VALUE : s.getSequence())
+                .thenComparing(s -> s.getId() == null ? Long.MAX_VALUE : s.getId()));
+
         // 使用Map来存储额外信息
         List<Map<String, Object>> seriesInfoList = new ArrayList<>();
         for (Series s : seriesList) {
             Map<String, Object> seriesInfo = new HashMap<>();
             seriesInfo.put("series", s);
-            
-            Season season = seasonService.getById(s.getSeasonId());
-            seriesInfo.put("seasonName", season != null ? season.getYear() + "年" + (season.getHalf() == 1 ? "上半年" : "下半年") : "未知");
+
+            Season season = seasonById.get(s.getSeasonId());
+            seriesInfo.put("seasonName", season != null
+                    ? season.getYear() + "年" + (Objects.equals(season.getHalf(), 1) ? "上半年" : "下半年")
+                    : "未知");
             long tournamentCount = tournamentCountBySeriesId.getOrDefault(s.getId(), 0L);
             seriesInfo.put("tournamentCount", tournamentCount);
             LinkedHashSet<String> seriesLevels = s.getId() != null
                     ? levelsBySeriesId.getOrDefault(s.getId(), new LinkedHashSet<>())
                     : new LinkedHashSet<>();
             seriesInfo.put("levelLabels", new ArrayList<>(seriesLevels));
-            
+
             seriesInfoList.add(seriesInfo);
         }
         
@@ -182,12 +222,17 @@ public class SeriesController {
                 createTimeStr
             ));
             item.put("filters", (seasonName != null ? seasonName : "") + " " + (seriesName != null ? seriesName : "") + " " + levelPlain);
+            item.put("levelLabelsJoined", levelLabels.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.joining("|")));
             item.put("id", series.getId());
             item.put("seasonDetailUrl", tournamentUrlService.seasonDetailBySeriesUrl(series.getId()));
-            
+
             dataList.add(item);
         }
-        
+
         // 构建列配置
         List<Map<String, Object>> columns = new ArrayList<>();
         columns.add(Map.of("title", "ID", "type", "text"));
@@ -196,18 +241,18 @@ public class SeriesController {
         columns.add(Map.of("title", "序列号", "type", "text"));
         columns.add(Map.of("title", "状态", "type", "custom"));
         columns.add(Map.of("title", "赛事数量", "type", "custom"));
-        columns.add(Map.of("title", "该系列下的赛事等级", "type", "custom"));
+        columns.add(Map.of("title", "赛事等级", "type", "custom"));
         columns.add(Map.of("title", "创建时间", "type", "text"));
-        
+
         // 构建操作按钮
         List<Map<String, Object>> actions = new ArrayList<>();
         actions.add(Map.of("urlField", "seasonDetailUrl", "urlPrefix", "/season/detail/by-series/", "btnClass", "btn btn-sm btn-outline-info", "icon", "bi bi-eye", "text", "详情"));
         actions.add(Map.of("urlPrefix", "/series/edit/", "btnClass", "btn btn-sm btn-outline-warning", "icon", "bi bi-pencil", "text", "编辑"));
         actions.add(Map.of("urlPrefix", "/series/delete/", "method", "post", "btnClass", "btn btn-sm btn-outline-danger", "icon", "bi bi-trash", "text", "删除", "confirm", "确定要删除这个赛事系列吗？"));
-        
+
         User currentUser = getCurrentUser();
         boolean admin = isAdmin();
-        
+
         // 通用列表参数
         model.addAttribute("pageTitle", "赛事系列列表");
         model.addAttribute("pageIcon", "bi bi-collection");
@@ -221,8 +266,37 @@ public class SeriesController {
         model.addAttribute("emptyMessage", "暂无赛事系列数据");
         model.addAttribute("isAdmin", admin);
         model.addAttribute("currentUser", currentUser);
-        
+        // 「赛事等级」列（index=6）支持复选框多选筛选
+        model.addAttribute("multiFilterCols", List.of(6));
+        model.addAttribute("listLegendExtra", "赛事等级=该系列下出现过的赛事等级");
+
         return "generic-list";
+    }
+
+    /**
+     * 同赛季内排序桶：0=常规系列，1=赛季总决赛，2=年终总决赛（二者并存时年终更靠后）。
+     */
+    private static int seriesFinalsSortBucket(Series series,
+                                             Set<Long> seasonFinalSeriesIds,
+                                             Set<Long> yearFinalSeriesIds) {
+        if (series == null) {
+            return 0;
+        }
+        Long id = series.getId();
+        if (id != null && yearFinalSeriesIds != null && yearFinalSeriesIds.contains(id)) {
+            return 2;
+        }
+        if (id != null && seasonFinalSeriesIds != null && seasonFinalSeriesIds.contains(id)) {
+            return 1;
+        }
+        String name = series.getName() == null ? "" : series.getName().trim();
+        if (name.contains("年终总决赛")) {
+            return 2;
+        }
+        if (name.contains("赛季总决赛")) {
+            return 1;
+        }
+        return 0;
     }
     
     @PreAuthorize("hasRole('SUPER_ADMIN') or hasRole('ADMIN')")

@@ -138,8 +138,6 @@ public class HomeController {
         model.addAttribute("currentSeason", currentSeason);
         model.addAttribute("currentSeasonRankingTop24",
                 currentSeason == null ? java.util.List.of() : rankingService.getSeasonRanking(currentSeason.getId(), 24));
-        model.addAttribute("homeTotalMedalBoard", buildTotalMedalBoard());
-        model.addAttribute("homeSeasonMedalBoard", buildSeasonMedalBoard(currentSeason));
 
         List<Tournament> openReg = tournamentRegistrationService.listOpenRegistrationTournaments(12, LocalDateTime.now());
         model.addAttribute("openRegistrationTournaments", openReg);
@@ -253,6 +251,20 @@ public class HomeController {
         TimezoneUtil.logTimezoneInfo();
         
         return "home";
+    }
+
+    /** 奖牌榜独立页（公开只读，无需登录） */
+    @GetMapping("/medals")
+    public String medals(Model model) {
+        Season currentSeason = seasonService.lambdaQuery()
+                .orderByDesc(Season::getYear)
+                .orderByDesc(Season::getHalf)
+                .last("LIMIT 1")
+                .one();
+        model.addAttribute("currentSeason", currentSeason);
+        model.addAttribute("homeTotalMedalBoard", buildTotalMedalBoard());
+        model.addAttribute("homeSeasonMedalBoard", buildSeasonMedalBoard(currentSeason));
+        return "medal-board";
     }
 
     /**
@@ -395,60 +407,27 @@ public class HomeController {
         }
     }
 
+    /**
+     * 首页「覆盖起始赛事系列」：与总排名同一窗口（按赛季/系列倒序跳过总决赛凑满 20 个常规系列）的最旧一项。
+     */
     private Map<String, Object> resolveTotalRankingEarliestSeries() {
-        List<UserTournamentPoints> utpRows = userTournamentPointsService.list();
-        if (utpRows == null || utpRows.isEmpty()) {
+        List<Series> recent = rankingService.listRecentSeriesForTotalRanking();
+        if (recent == null || recent.isEmpty()) {
             return Map.of();
         }
-        Set<Long> tournamentIds = utpRows.stream()
-                .map(UserTournamentPoints::getTournamentId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (tournamentIds.isEmpty()) {
+        // regularSeries 为新→旧；窗口起始 = 末项
+        Series earliest = null;
+        for (int i = recent.size() - 1; i >= 0; i--) {
+            Series s = recent.get(i);
+            if (s != null && s.getId() != null) {
+                earliest = s;
+                break;
+            }
+        }
+        if (earliest == null) {
             return Map.of();
         }
-        List<Tournament> tournaments = tournamentService.listByIds(tournamentIds);
-        if (tournaments == null || tournaments.isEmpty()) {
-            return Map.of();
-        }
-        Set<Long> seriesIds = tournaments.stream()
-                .map(Tournament::getSeriesId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        if (seriesIds.isEmpty()) {
-            return Map.of();
-        }
-        Map<Long, Series> seriesById = seriesService.listByIds(seriesIds).stream()
-                .collect(Collectors.toMap(Series::getId, s -> s, (a, b) -> a));
-        Set<Long> seasonIds = seriesById.values().stream()
-                .map(Series::getSeasonId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<Long, Season> seasonById = seasonIds.isEmpty() ? Map.of() : seasonService.listByIds(seasonIds).stream()
-                .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
-
-        Series earliest = seriesById.values().stream()
-                .min((a, b) -> {
-                    Season sa = seasonById.get(a.getSeasonId());
-                    Season sb = seasonById.get(b.getSeasonId());
-                    int ya = sa == null || sa.getYear() == null ? Integer.MAX_VALUE : sa.getYear();
-                    int yb = sb == null || sb.getYear() == null ? Integer.MAX_VALUE : sb.getYear();
-                    if (ya != yb) return Integer.compare(ya, yb);
-                    int ha = sa == null || sa.getHalf() == null ? Integer.MAX_VALUE : sa.getHalf();
-                    int hb = sb == null || sb.getHalf() == null ? Integer.MAX_VALUE : sb.getHalf();
-                    if (ha != hb) return Integer.compare(ha, hb);
-                    int qa = a.getSequence() == null ? Integer.MAX_VALUE : a.getSequence();
-                    int qb = b.getSequence() == null ? Integer.MAX_VALUE : b.getSequence();
-                    if (qa != qb) return Integer.compare(qa, qb);
-                    Long ia = a.getId() == null ? Long.MAX_VALUE : a.getId();
-                    Long ib = b.getId() == null ? Long.MAX_VALUE : b.getId();
-                    return ia.compareTo(ib);
-                })
-                .orElse(null);
-        if (earliest == null || earliest.getId() == null) {
-            return Map.of();
-        }
-        Season season = seasonById.get(earliest.getSeasonId());
+        Season season = earliest.getSeasonId() == null ? null : seasonService.getById(earliest.getSeasonId());
         String seasonLabel = season == null
                 ? ""
                 : (season.getYear() + "年" + (Objects.equals(season.getHalf(), 1) ? "上半年" : "下半年"));

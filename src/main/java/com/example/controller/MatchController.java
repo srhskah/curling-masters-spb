@@ -4,6 +4,7 @@ import com.example.entity.*;
 import com.example.service.*;
 import com.example.util.IpAddressUtil;
 import com.example.util.HtmlEscaper;
+import com.example.util.SeriesDisplayNames;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -30,6 +31,7 @@ public class MatchController {
     @Autowired private ISetScoreService setScoreService;
     @Autowired private UserService userService;
     @Autowired private ITournamentCompetitionService tournamentCompetitionService;
+    @Autowired private TournamentUrlService tournamentUrlService;
 
     private boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -98,7 +100,7 @@ public class MatchController {
         List<Map<String, Object>> actions = new ArrayList<>();
         actions.add(Map.of("urlPrefix", "/match/edit/", "btnClass", "btn btn-sm btn-outline-warning", "icon", "bi bi-pencil", "text", "编辑"));
         if (superAdmin) {
-            actions.add(Map.of("urlPrefix", "/match/score/", "btnClass", "btn btn-sm btn-outline-success", "icon", "bi bi-pencil-square", "text", "录入比分"));
+            actions.add(Map.of("urlPrefix", "/match/score/", "btnClass", "btn btn-sm btn-outline-success", "icon", "bi bi-pencil-square", "text", "比分"));
         }
         
         // 通用列表参数
@@ -329,12 +331,19 @@ public class MatchController {
     @GetMapping("/list-page")
     @ResponseBody
     public Map<String, Object> matchListPage(@RequestParam(required = false) Long tournamentId,
+                                             @RequestParam(required = false) String tournamentIds,
                                              @RequestParam(required = false) Integer page,
                                              @RequestParam(required = false) Integer size,
                                              @RequestParam(required = false) String q,
                                              @RequestParam(required = false) String category,
+                                             @RequestParam(required = false) String categories,
+                                             @RequestParam(required = false) String categoryMode,
                                              @RequestParam(required = false) Integer status,
-                                             @RequestParam(required = false) Integer round) {
+                                             @RequestParam(required = false) String statuses,
+                                             @RequestParam(required = false) String statusMode,
+                                             @RequestParam(required = false) Integer round,
+                                             @RequestParam(required = false) String rounds,
+                                             @RequestParam(required = false) String roundMode) {
         Map<String, Object> out = new LinkedHashMap<>();
         try {
             int pageNo = page == null || page < 1 ? 1 : page;
@@ -345,18 +354,29 @@ public class MatchController {
             if (pageSize > 100) {
                 pageSize = 100;
             }
-            Byte statusByte = null;
-            if (status != null && status >= 0 && status <= 3) {
-                statusByte = status.byteValue();
+            List<Long> tidList = parseTournamentIds(tournamentIds);
+            List<String> categoryList = parseCsvStrings(categories);
+            if (categoryList.isEmpty() && category != null && !category.isBlank() && !"-".equals(category.trim())) {
+                categoryList = List.of(category.trim());
             }
-            LambdaQueryWrapper<Match> countW = buildMatchListWrapper(tournamentId, q, category, statusByte, round);
-            long total = matchService.count(countW);
+            List<Byte> statusList = parseStatusList(statuses, status);
+            List<Integer> roundList = parseRoundList(rounds, round);
+            // 单值字段「和」选多项时不可能同时命中
+            boolean forceEmpty = (isAndMode(categoryMode) && categoryList.size() > 1)
+                    || (isAndMode(statusMode) && statusList.size() > 1)
+                    || (isAndMode(roundMode) && roundList.size() > 1);
+            LambdaQueryWrapper<Match> countW = forceEmpty
+                    ? Wrappers.<Match>lambdaQuery().eq(Match::getId, -1L)
+                    : buildMatchListWrapper(tournamentId, tidList, q, categoryList, statusList, roundList);
+            long total = forceEmpty ? 0 : matchService.count(countW);
             long pages = total <= 0 ? 1 : ((total + pageSize - 1) / pageSize);
             if (pageNo > pages) {
                 pageNo = (int) pages;
             }
             int offset = (pageNo - 1) * pageSize;
-            LambdaQueryWrapper<Match> pageW = buildMatchListWrapper(tournamentId, q, category, statusByte, round);
+            LambdaQueryWrapper<Match> pageW = forceEmpty
+                    ? Wrappers.<Match>lambdaQuery().eq(Match::getId, -1L)
+                    : buildMatchListWrapper(tournamentId, tidList, q, categoryList, statusList, roundList);
             pageW.last("LIMIT " + offset + "," + pageSize);
             List<Match> matches = matchService.list(pageW);
             if (matches == null) {
@@ -380,6 +400,91 @@ public class MatchController {
             out.put("items", List.of());
             return out;
         }
+    }
+
+    private static List<Long> parseTournamentIds(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        List<Long> out = new ArrayList<>();
+        for (String part : raw.split(",")) {
+            if (part == null || part.isBlank()) {
+                continue;
+            }
+            try {
+                out.add(Long.parseLong(part.trim()));
+            } catch (NumberFormatException ignored) {
+                // skip invalid
+            }
+        }
+        return out;
+    }
+
+    private static boolean isAndMode(String mode) {
+        return mode == null || mode.isBlank() || "and".equalsIgnoreCase(mode.trim());
+    }
+
+    private static List<String> parseCsvStrings(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+        List<String> out = new ArrayList<>();
+        for (String part : raw.split(",")) {
+            if (part == null) {
+                continue;
+            }
+            String t = part.trim();
+            if (!t.isEmpty() && !"-".equals(t)) {
+                out.add(t);
+            }
+        }
+        return out;
+    }
+
+    private static List<Byte> parseStatusList(String statuses, Integer status) {
+        List<Byte> out = new ArrayList<>();
+        if (statuses != null && !statuses.isBlank()) {
+            for (String part : statuses.split(",")) {
+                if (part == null || part.isBlank()) {
+                    continue;
+                }
+                try {
+                    int v = Integer.parseInt(part.trim());
+                    if (v >= 0 && v <= 3) {
+                        out.add((byte) v);
+                    }
+                } catch (NumberFormatException ignored) {
+                    // skip
+                }
+            }
+        }
+        if (out.isEmpty() && status != null && status >= 0 && status <= 3) {
+            out.add(status.byteValue());
+        }
+        return out;
+    }
+
+    private static List<Integer> parseRoundList(String rounds, Integer round) {
+        List<Integer> out = new ArrayList<>();
+        if (rounds != null && !rounds.isBlank()) {
+            for (String part : rounds.split(",")) {
+                if (part == null || part.isBlank()) {
+                    continue;
+                }
+                try {
+                    int v = Integer.parseInt(part.trim());
+                    if (v > 0) {
+                        out.add(v);
+                    }
+                } catch (NumberFormatException ignored) {
+                    // skip
+                }
+            }
+        }
+        if (out.isEmpty() && round != null && round > 0) {
+            out.add(round);
+        }
+        return out;
     }
 
     @GetMapping("/detail/{id}")
@@ -799,20 +904,35 @@ public class MatchController {
         }
     }
 
-    private LambdaQueryWrapper<Match> buildMatchListWrapper(Long tournamentId, String q, String category,
-                                                            Byte status, Integer round) {
+    private LambdaQueryWrapper<Match> buildMatchListWrapper(Long tournamentId, List<Long> tournamentIds,
+                                                            String q, List<String> categories,
+                                                            List<Byte> statuses, List<Integer> rounds) {
         LambdaQueryWrapper<Match> w = Wrappers.lambdaQuery();
         if (tournamentId != null) {
             w.eq(Match::getTournamentId, tournamentId);
+        } else if (tournamentIds != null && !tournamentIds.isEmpty()) {
+            w.in(Match::getTournamentId, tournamentIds);
         }
-        if (category != null && !category.isBlank() && !"-".equals(category.trim())) {
-            w.eq(Match::getCategory, category.trim());
+        if (categories != null && !categories.isEmpty()) {
+            if (categories.size() == 1) {
+                w.eq(Match::getCategory, categories.get(0));
+            } else {
+                w.in(Match::getCategory, categories);
+            }
         }
-        if (status != null) {
-            w.eq(Match::getStatus, status);
+        if (statuses != null && !statuses.isEmpty()) {
+            if (statuses.size() == 1) {
+                w.eq(Match::getStatus, statuses.get(0));
+            } else {
+                w.in(Match::getStatus, statuses);
+            }
         }
-        if (round != null && round > 0) {
-            w.eq(Match::getRound, round);
+        if (rounds != null && !rounds.isEmpty()) {
+            if (rounds.size() == 1) {
+                w.eq(Match::getRound, rounds.get(0));
+            } else {
+                w.in(Match::getRound, rounds);
+            }
         }
         String kw = q == null ? "" : q.trim();
         if (!kw.isEmpty()) {
@@ -825,14 +945,14 @@ public class MatchController {
                     .filter(Objects::nonNull)
                     .distinct()
                     .toList();
-            List<Long> tournamentIds = new ArrayList<>();
+            List<Long> keywordTournamentIds = new ArrayList<>();
             List<Tournament> tHits = tournamentService.lambdaQuery()
                     .like(Tournament::getLevelCode, kw)
                     .list();
             if (tHits != null) {
                 for (Tournament t : tHits) {
                     if (t != null && t.getId() != null) {
-                        tournamentIds.add(t.getId());
+                        keywordTournamentIds.add(t.getId());
                     }
                 }
             }
@@ -852,8 +972,8 @@ public class MatchController {
                     x.or().in(Match::getPlayer1Id, userIds);
                     x.or().in(Match::getPlayer2Id, userIds);
                 }
-                if (!tournamentIds.isEmpty()) {
-                    x.or().in(Match::getTournamentId, tournamentIds);
+                if (!keywordTournamentIds.isEmpty()) {
+                    x.or().in(Match::getTournamentId, keywordTournamentIds);
                 }
             });
         }
@@ -902,21 +1022,56 @@ public class MatchController {
                 continue;
             }
             Tournament tournament = match.getTournamentId() == null ? null : tMap.get(match.getTournamentId());
-            String tournamentName = "";
-            if (tournament != null) {
-                Series series = tournament.getSeriesId() == null ? null : sMap.get(tournament.getSeriesId());
-                Season season = series != null && series.getSeasonId() != null ? seasonMap.get(series.getSeasonId()) : null;
-                tournamentName = (season != null ? season.getYear() + "年" : "")
-                        + (tournament.getLevelCode() != null ? tournament.getLevelCode() : "");
-            }
+            Series series = tournament != null && tournament.getSeriesId() != null ? sMap.get(tournament.getSeriesId()) : null;
+            Season season = series != null && series.getSeasonId() != null ? seasonMap.get(series.getSeasonId()) : null;
+            String tournamentLabel = formatTournamentLabel(season, series, tournament);
+            String tournamentHtml = buildTournamentCellHtml(tournament, tournamentLabel);
             String player1Name = uname.getOrDefault(match.getPlayer1Id(), "待定");
             String player2Name = uname.getOrDefault(match.getPlayer2Id(), "待定");
-            dataList.add(toMatchListItem(match, tournamentName, player1Name, player2Name));
+            dataList.add(toMatchListItem(match, tournamentHtml, player1Name, player2Name));
         }
         return dataList;
     }
 
-    private Map<String, Object> toMatchListItem(Match match, String tournamentName, String player1Name, String player2Name) {
+    private String formatTournamentLabel(Season season, Series series, Tournament tournament) {
+        String seasonLabel = "";
+        if (season != null && season.getYear() != null) {
+            seasonLabel = season.getYear() + "年" + (Objects.equals(season.getHalf(), 1) ? "上半年" : "下半年");
+        }
+        String seriesLabel = SeriesDisplayNames.seriesDisplayName(seriesService, series);
+        String level = tournament == null || tournament.getLevelCode() == null
+                ? ""
+                : tournament.getLevelCode().trim();
+        List<String> parts = new ArrayList<>();
+        if (!seasonLabel.isBlank()) {
+            parts.add(seasonLabel);
+        }
+        if (seriesLabel != null && !seriesLabel.isBlank()) {
+            parts.add(seriesLabel);
+        }
+        if (!level.isBlank()) {
+            parts.add(level);
+        }
+        if (parts.isEmpty()) {
+            return tournament != null && tournament.getId() != null ? ("赛事" + tournament.getId()) : "-";
+        }
+        return String.join(" · ", parts);
+    }
+
+    private String buildTournamentCellHtml(Tournament tournament, String label) {
+        String safe = HtmlEscaper.escapeHtml(label == null ? "-" : label);
+        if (tournament == null || tournament.getId() == null) {
+            return "<span>" + safe + "</span>";
+        }
+        String url = tournamentUrlService.detailUrl(tournament);
+        if (url == null || url.isBlank() || "#".equals(url)) {
+            return "<strong>" + safe + "</strong>";
+        }
+        return "<a href=\"" + HtmlEscaper.escapeHtml(url) + "\" class=\"text-decoration-none\" title=\""
+                + safe + "\"><strong>" + safe + "</strong></a>";
+    }
+
+    private Map<String, Object> toMatchListItem(Match match, String tournamentHtml, String player1Name, String player2Name) {
         Map<String, Object> item = new HashMap<>();
         String statusBadge = "<span class=\"badge bg-secondary\">未开始</span>";
         Byte st = match.getStatus();
@@ -941,7 +1096,7 @@ public class MatchController {
                 : "-";
         item.put("data", Arrays.asList(
                 match.getId(),
-                "<strong>" + HtmlEscaper.escapeHtml(tournamentName == null ? "" : tournamentName) + "</strong>",
+                tournamentHtml == null ? "-" : tournamentHtml,
                 match.getCategory() != null ? match.getCategory() : "-",
                 match.getRound() != null ? "第" + match.getRound() + "场" : "-",
                 matchDisplay,
@@ -1008,6 +1163,9 @@ public class MatchController {
         facets.put("rounds", rounds);
 
         List<Map<String, Object>> tournaments = new ArrayList<>();
+        List<Map<String, Object>> seasonsFacet = new ArrayList<>();
+        List<Map<String, Object>> seriesFacet = new ArrayList<>();
+        List<Map<String, Object>> levelsFacet = new ArrayList<>();
         if (tournamentId == null) {
             List<Tournament> allT = tournamentService.list();
             if (allT != null) {
@@ -1019,21 +1177,79 @@ public class MatchController {
                 Map<Long, Season> seasonMap = seasonIds.isEmpty() ? Map.of() : seasonService.listByIds(seasonIds).stream()
                         .filter(Objects::nonNull)
                         .collect(Collectors.toMap(Season::getId, s -> s, (a, b) -> a));
+
+                Map<Long, String> seasonText = new LinkedHashMap<>();
+                List<Season> seasonOrdered = new ArrayList<>(seasonMap.values());
+                seasonOrdered.sort(Comparator
+                        .comparing((Season s) -> s.getYear() == null ? Integer.MIN_VALUE : s.getYear(), Comparator.reverseOrder())
+                        .thenComparing(s -> s.getHalf() == null ? Integer.MIN_VALUE : s.getHalf(), Comparator.reverseOrder()));
+                for (Season season : seasonOrdered) {
+                    if (season == null || season.getId() == null) {
+                        continue;
+                    }
+                    String text = season.getYear() + "年" + (Objects.equals(season.getHalf(), 1) ? "上半年" : "下半年");
+                    seasonText.put(season.getId(), text);
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("value", String.valueOf(season.getId()));
+                    row.put("text", text);
+                    seasonsFacet.add(row);
+                }
+
+                List<Series> seriesOrdered = new ArrayList<>(sMap.values());
+                seriesOrdered.sort(Comparator
+                        .comparing((Series s) -> {
+                            Season se = seasonMap.get(s.getSeasonId());
+                            return se == null || se.getYear() == null ? Integer.MIN_VALUE : se.getYear();
+                        }, Comparator.reverseOrder())
+                        .thenComparing(s -> {
+                            Season se = seasonMap.get(s.getSeasonId());
+                            return se == null || se.getHalf() == null ? Integer.MIN_VALUE : se.getHalf();
+                        }, Comparator.reverseOrder())
+                        .thenComparing(s -> s.getSequence() == null ? Integer.MAX_VALUE : s.getSequence()));
+                Set<Long> seriesSeen = new HashSet<>();
+                for (Series series : seriesOrdered) {
+                    if (series == null || series.getId() == null || !seriesSeen.add(series.getId())) {
+                        continue;
+                    }
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("value", String.valueOf(series.getId()));
+                    row.put("text", SeriesDisplayNames.seriesDisplayName(seriesService, series));
+                    row.put("seasonId", series.getSeasonId() == null ? "" : String.valueOf(series.getSeasonId()));
+                    seriesFacet.add(row);
+                }
+
+                Set<String> levelSeen = new LinkedHashSet<>();
                 for (Tournament t : allT) {
                     if (t == null || t.getId() == null) {
                         continue;
                     }
                     Series series = t.getSeriesId() == null ? null : sMap.get(t.getSeriesId());
                     Season season = series != null && series.getSeasonId() != null ? seasonMap.get(series.getSeasonId()) : null;
-                    String name = (season != null ? season.getYear() + "年" : "")
-                            + (t.getLevelCode() != null ? t.getLevelCode() : ("赛事" + t.getId()));
+                    String label = formatTournamentLabel(season, series, t);
+                    String level = t.getLevelCode() == null ? "" : t.getLevelCode().trim();
+                    if (!level.isBlank()) {
+                        levelSeen.add(level);
+                    }
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("value", String.valueOf(t.getId()));
-                    row.put("text", name);
+                    row.put("text", label);
+                    row.put("seasonId", season != null && season.getId() != null ? String.valueOf(season.getId()) : "");
+                    row.put("seriesId", t.getSeriesId() == null ? "" : String.valueOf(t.getSeriesId()));
+                    row.put("levelCode", level);
                     tournaments.add(row);
                 }
+                for (String lv : levelSeen) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("value", lv);
+                    row.put("text", lv);
+                    levelsFacet.add(row);
+                }
+                levelsFacet.sort(Comparator.comparing(m -> String.valueOf(m.get("text")), Comparator.nullsLast(String::compareTo)));
             }
         }
+        facets.put("seasons", seasonsFacet);
+        facets.put("series", seriesFacet);
+        facets.put("levels", levelsFacet);
         facets.put("tournaments", tournaments);
         return facets;
     }

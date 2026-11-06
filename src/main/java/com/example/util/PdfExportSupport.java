@@ -7,13 +7,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -26,41 +23,14 @@ public final class PdfExportSupport {
     private PdfExportSupport() {
     }
 
-    /**
-     * 横条 Logo。部署时图片在挂载的 {@code /app/static}，不在 WAR 的 classpath 里，
-     * 只读 classpath 会让导出 PDF 的 Logo 整段消失。
-     */
     public static String buildLogoDataUri() {
-        byte[] bytes = readLogoBytes();
-        if (bytes == null || bytes.length == 0) {
+        try {
+            ClassPathResource r = new ClassPathResource("static/images/Logo Trsp Stripe.png");
+            byte[] bytes = r.getInputStream().readAllBytes();
+            return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
+        } catch (Exception e) {
             return null;
         }
-        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
-    }
-
-    private static byte[] readLogoBytes() {
-        String fileName = "Logo Trsp Stripe.png";
-        List<Path> candidates = List.of(
-                Path.of("/app/static/images", fileName),
-                Path.of("static/images", fileName),
-                Path.of(System.getProperty("user.dir", "."), "static/images", fileName)
-        );
-        for (Path path : candidates) {
-            try {
-                if (Files.isRegularFile(path)) {
-                    return Files.readAllBytes(path);
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        try {
-            ClassPathResource r = new ClassPathResource("static/images/" + fileName);
-            if (r.exists()) {
-                return r.getInputStream().readAllBytes();
-            }
-        } catch (Exception ignored) {
-        }
-        return null;
     }
 
     public static String exportedAtShanghai() {

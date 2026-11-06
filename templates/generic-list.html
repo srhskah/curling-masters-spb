@@ -41,6 +41,22 @@
             max-width: 100%;
             font-size: 0.8125rem;
         }
+        .generic-col-filters .generic-multi-filter {
+            width: 100%;
+        }
+        .generic-col-filters .generic-multi-filter .btn {
+            font-size: 0.8125rem;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .generic-multi-filter-menu .form-check {
+            margin-bottom: 0.25rem;
+        }
+        .generic-multi-filter-menu .form-check:last-child {
+            margin-bottom: 0;
+        }
         .generic-list-pager {
             width: 100%;
         }
@@ -109,6 +125,16 @@
                                placeholder="模糊搜索（名称、备注等）">
                     </div>
                 </div>
+                <div th:if="${(hasActions and actions != null and !#lists.isEmpty(actions)) or (listLegendExtra != null and !#strings.isEmpty(listLegendExtra))}"
+                     class="admin-action-legend text-muted mb-2">
+                    <span class="legend-item fw-semibold" th:if="${hasActions and actions != null and !#lists.isEmpty(actions)}">操作图例</span>
+                    <span class="legend-item" th:each="action : ${actions}" th:if="${hasActions and actions != null}">
+                        <i th:class="${action['icon']}"></i>
+                        <span th:text="${action['text']}">操作</span>
+                    </span>
+                    <span class="legend-item" th:if="${listLegendExtra != null and !#strings.isEmpty(listLegendExtra)}"
+                          th:text="${listLegendExtra}">说明</span>
+                </div>
                 
                 <!-- 空数据提示 -->
                 <div th:if="${remoteListUrl == null and (dataList == null or #lists.isEmpty(dataList))}" class="text-center py-4">
@@ -165,9 +191,9 @@
                                                     <a th:if="${(action['method'] == null or action['method'] == 'get') and (isAdmin or action['public'] == true) and (action['requireRegistrationOpen'] == null or action['requireRegistrationOpen'] == false or item['registrationOpen'] == true) and (action['requireRegistrationNavVisible'] == null or action['requireRegistrationNavVisible'] == false or item['registrationNavVisible'] == true)}"
                                                        th:href="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
                                                        th:class="${action['btnClass']}"
-                                                       th:attr="data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
+                                                       th:attr="title=${action['text']},aria-label=${action['text']},data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
                                                        onclick="return !this.dataset.confirm || confirm(this.dataset.confirm)">
-                                                        <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
+                                                        <i th:class="${action['icon']}"></i><span class="generic-action-label" th:text="${' ' + action['text']}"></span>
                                                     </a>
                                                     <form th:if="${action['method'] == 'post' and isAdmin}"
                                                           th:action="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
@@ -179,8 +205,9 @@
                                                                th:if="${_csrf != null}"
                                                                th:name="${_csrf.parameterName}"
                                                                th:value="${_csrf.token}" />
-                                                        <button type="submit" th:class="${action['btnClass']}">
-                                                            <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
+                                                        <button type="submit" th:class="${action['btnClass']}"
+                                                                th:attr="title=${action['text']},aria-label=${action['text']}">
+                                                            <i th:class="${action['icon']}"></i><span class="generic-action-label" th:text="${' ' + action['text']}"></span>
                                                         </button>
                                                     </form>
                                                 </th:block>
@@ -196,7 +223,7 @@
                     <div class="d-none d-md-block generic-table-desktop">
                         <!-- 宽屏表格（可横向滚动） -->
                             <div class="table-responsive">
-                                <table class="table table-hover align-middle">
+                                <table class="table table-hover align-middle admin-mgmt-table" th:classappend="${remoteListUrl != null} ? ' match-list-table' : ''">
                                     <thead class="table-light">
                                     <tr>
                                         <th th:each="column : ${columns}" th:text="${column['title']}"></th>
@@ -206,7 +233,8 @@
                                     <tbody id="genericListDesktopBody">
                                     <tr class="generic-list-item" th:each="item : ${dataList}" 
                                     th:with="itemData=${item.data}"
-                                    th:attr="data-filters=${item.filters + ' ' + #strings.arrayJoin(itemData, ' ')}">
+                                    th:attr="data-filters=${item.filters + ' ' + #strings.arrayJoin(itemData, ' ')},
+                                             data-levels=${item['levelLabelsJoined'] != null ? item['levelLabelsJoined'] : ''}">
                                         <td th:each="column, colStat : ${columns}"
                                             th:with="cellValue=${itemData[colStat.index]}"
                                             th:attr="data-col=${colStat.index}">
@@ -234,9 +262,9 @@
                                                     <a th:if="${(action['method'] == null or action['method'] == 'get') and (isAdmin or action['public'] == true) and (action['requireRegistrationOpen'] == null or action['requireRegistrationOpen'] == false or item['registrationOpen'] == true) and (action['requireRegistrationNavVisible'] == null or action['requireRegistrationNavVisible'] == false or item['registrationNavVisible'] == true)}"
                                                        th:href="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
                                                        th:class="${action['btnClass']}"
-                                                       th:attr="data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
+                                                       th:attr="title=${action['text']},aria-label=${action['text']},data-confirm=${action['confirm']},data-player1-name=${item['player1Name']},data-player2-name=${item['player2Name']}"
                                                        onclick="return !this.dataset.confirm || confirm(this.dataset.confirm)">
-                                                        <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
+                                                        <i th:class="${action['icon']}"></i><span class="generic-action-label" th:text="${' ' + action['text']}"></span>
                                                     </a>
                                                     <form th:if="${action['method'] == 'post' and isAdmin}"
                                                           th:action="${action['urlField'] != null and item[action['urlField']] != null ? item[action['urlField']] : (action['urlPrefix'] + item.id + (action['urlSuffix'] != null ? action['urlSuffix'] : ''))}"
@@ -248,8 +276,9 @@
                                                                th:if="${_csrf != null}"
                                                                th:name="${_csrf.parameterName}"
                                                                th:value="${_csrf.token}" />
-                                                        <button type="submit" th:class="${action['btnClass']}">
-                                                            <i th:class="${action['icon']}"></i> <span th:text="${action['text']}"></span>
+                                                        <button type="submit" th:class="${action['btnClass']}"
+                                                                th:attr="title=${action['text']},aria-label=${action['text']}">
+                                                            <i th:class="${action['icon']}"></i><span class="generic-action-label" th:text="${' ' + action['text']}"></span>
                                                         </button>
                                                     </form>
                                                 </th:block>
@@ -288,6 +317,9 @@
             emptyMessage: /*[[${emptyMessage}]]*/ '暂无数据'
         };
     </script>
+    <script th:inline="javascript">
+        window.__genericMultiFilterCols = /*[[${multiFilterCols}]]*/ [];
+    </script>
 
     <!-- 通用列表：模糊搜索 + 宽屏列筛选 + 分页 -->
     <script>
@@ -300,6 +332,10 @@
             const pagerInfo = document.querySelector('.generic-list-pager-info');
             const pagerPages = document.querySelector('.generic-list-pager-pages');
             const remote = window.__genericListRemote && window.__genericListRemote.url ? window.__genericListRemote : null;
+            const multiFilterCols = new Set(
+                (Array.isArray(window.__genericMultiFilterCols) ? window.__genericMultiFilterCols : [])
+                    .map((n) => String(n))
+            );
             const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
             const pageSize = () => (window.innerWidth < MD ? 10 : 20);
             const isWide = () => window.innerWidth >= MD;
@@ -385,12 +421,12 @@
                         const wrap = document.createElement('div');
                         wrap.className = 'btn-group generic-list-actions';
                         if (isAdmin) {
-                            wrap.innerHTML += '<a href="/match/edit/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i> 编辑</a>';
+                            wrap.innerHTML += '<a href="/match/edit/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-warning" title="编辑" aria-label="编辑"><i class="bi bi-pencil"></i><span class="generic-action-label"> 编辑</span></a>';
                         }
                         if (isSuperAdmin) {
-                            wrap.innerHTML += '<a href="/match/score/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-success" data-player1-name="' +
+                            wrap.innerHTML += '<a href="/match/score/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-success" title="比分" aria-label="比分" data-player1-name="' +
                                 String(item.player1Name || '').replace(/"/g, '&quot;') + '" data-player2-name="' +
-                                String(item.player2Name || '').replace(/"/g, '&quot;') + '"><i class="bi bi-pencil-square"></i> 录入比分</a>';
+                                String(item.player2Name || '').replace(/"/g, '&quot;') + '"><i class="bi bi-pencil-square"></i><span class="generic-action-label"> 比分</span></a>';
                         }
                         act.appendChild(wrap);
                         tr.appendChild(act);
@@ -406,10 +442,10 @@
                                 titles[idx] + '</div><div class="text-end flex-grow-1">' + (cell == null ? '' : String(cell)) + '</div></div>';
                         });
                         let acts = '';
-                        if (isAdmin) acts += '<a href="/match/edit/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i> 编辑</a>';
-                        if (isSuperAdmin) acts += '<a href="/match/score/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-success" data-player1-name="' +
+                        if (isAdmin) acts += '<a href="/match/edit/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-warning" title="编辑"><i class="bi bi-pencil"></i><span class="generic-action-label"> 编辑</span></a>';
+                        if (isSuperAdmin) acts += '<a href="/match/score/' + encodeURIComponent(item.id) + '" class="btn btn-sm btn-outline-success" title="比分" data-player1-name="' +
                             String(item.player1Name || '').replace(/"/g, '&quot;') + '" data-player2-name="' +
-                            String(item.player2Name || '').replace(/"/g, '&quot;') + '"><i class="bi bi-pencil-square"></i> 录入比分</a>';
+                            String(item.player2Name || '').replace(/"/g, '&quot;') + '"><i class="bi bi-pencil-square"></i><span class="generic-action-label"> 比分</span></a>';
                         col.innerHTML = '<div class="card border-0 shadow-sm h-100" data-filters="' + String(item.filters || '').replace(/"/g, '&quot;') +
                             '"><div class="card-body">' + rowsHtml +
                             (acts ? '<div class="mt-3 d-flex flex-wrap gap-2 generic-list-actions">' + acts + '</div>' : '') +
@@ -421,34 +457,395 @@
 
             if (remote) {
                 let facetsLoaded = false;
+                let tournamentFacetState = {
+                    seasons: [],
+                    series: [],
+                    levels: [],
+                    tournaments: [],
+                    mode: 'and'
+                };
+
+                const updateTournamentFilterBtn = (wrap) => {
+                    const btn = wrap.querySelector('.generic-col-filter-multi-btn');
+                    const menu = wrap._gfMenu || wrap.querySelector('.generic-multi-filter-menu');
+                    if (!btn || !menu) return;
+                    const checked = Array.from(menu.querySelectorAll('.match-tn-check:checked')).map((c) => c.value);
+                    const mode = (wrap.dataset.mode || 'and') === 'or' ? '或' : '和';
+                    if (!checked.length) {
+                        const seasonV = menu.querySelector('.match-tn-season')?.value || '';
+                        const seriesV = menu.querySelector('.match-tn-series')?.value || '';
+                        const levelV = menu.querySelector('.match-tn-level')?.value || '';
+                        if (!seasonV && !seriesV && !levelV) {
+                            btn.textContent = '全部';
+                            btn.title = '全部赛事';
+                            return;
+                        }
+                        btn.textContent = '已筛 · ' + mode;
+                        btn.title = '按赛季/系列/等级筛选（' + mode + '）';
+                        return;
+                    }
+                    btn.textContent = (checked.length <= 1 ? '1项' : (checked.length + '项')) + ' · ' + mode;
+                    btn.title = '已选 ' + checked.length + ' 个赛事（' + mode + '）';
+                };
+
+                const filteredTournaments = (wrap, menu) => {
+                    const seasonV = menu.querySelector('.match-tn-season')?.value || '';
+                    const seriesV = menu.querySelector('.match-tn-series')?.value || '';
+                    const levelV = menu.querySelector('.match-tn-level')?.value || '';
+                    const mode = (wrap && wrap.dataset.mode === 'or') ? 'or' : 'and';
+                    const dims = [];
+                    if (seasonV) dims.push((t) => String(t.seasonId || '') === seasonV);
+                    if (seriesV) dims.push((t) => String(t.seriesId || '') === seriesV);
+                    if (levelV) dims.push((t) => String(t.levelCode || '') === levelV);
+                    const all = tournamentFacetState.tournaments || [];
+                    if (!dims.length) return all;
+                    if (mode === 'or') {
+                        return all.filter((t) => dims.some((fn) => fn(t)));
+                    }
+                    return all.filter((t) => dims.every((fn) => fn(t)));
+                };
+
+                const refreshTournamentChecks = (wrap) => {
+                    const menu = wrap._gfMenu || wrap.querySelector('.generic-multi-filter-menu');
+                    if (!menu) return;
+                    const box = menu.querySelector('.match-tn-checks');
+                    if (!box) return;
+                    const prev = new Set(Array.from(box.querySelectorAll('.match-tn-check:checked')).map((c) => c.value));
+                    const list = filteredTournaments(wrap, menu);
+                    box.replaceChildren();
+                    if (!list.length) {
+                        const empty = document.createElement('div');
+                        empty.className = 'text-muted small px-1';
+                        empty.textContent = '无匹配赛事';
+                        box.appendChild(empty);
+                    } else {
+                        list.forEach((t, idx) => {
+                            const id = 'match-tn-' + idx + '-' + t.value;
+                            const row = document.createElement('div');
+                            row.className = 'form-check';
+                            const cb = document.createElement('input');
+                            cb.type = 'checkbox';
+                            cb.className = 'form-check-input match-tn-check';
+                            cb.id = id;
+                            cb.value = String(t.value);
+                            if (prev.has(String(t.value))) cb.checked = true;
+                            cb.addEventListener('change', () => {
+                                updateTournamentFilterBtn(wrap);
+                                page = 1;
+                                fetchRemote();
+                            });
+                            const lab = document.createElement('label');
+                            lab.className = 'form-check-label';
+                            lab.htmlFor = id;
+                            lab.textContent = t.text || ('赛事' + t.value);
+                            lab.title = lab.textContent;
+                            row.appendChild(cb);
+                            row.appendChild(lab);
+                            box.appendChild(row);
+                        });
+                    }
+                    updateTournamentFilterBtn(wrap);
+                };
+
+                const refreshSeriesOptions = (menu) => {
+                    const seasonSel = menu.querySelector('.match-tn-season');
+                    const seriesSel = menu.querySelector('.match-tn-series');
+                    if (!seriesSel) return;
+                    const seasonV = seasonSel ? seasonSel.value : '';
+                    const cur = seriesSel.value;
+                    const opts = (tournamentFacetState.series || []).filter((s) =>
+                        !seasonV || String(s.seasonId || '') === seasonV
+                    );
+                    fillSelect(seriesSel, opts.map((s) => ({ value: s.value, text: s.text })), cur);
+                };
+
+                const createRemoteTournamentFilter = () => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'dropdown generic-multi-filter';
+                    wrap.dataset.remoteTournament = '1';
+                    wrap.dataset.mode = 'and';
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm dropdown-toggle w-100 text-start generic-col-filter-multi-btn';
+                    btn.setAttribute('data-bs-toggle', 'dropdown');
+                    btn.setAttribute('data-bs-auto-close', 'outside');
+                    btn.setAttribute('data-bs-popper-config', JSON.stringify({ strategy: 'fixed' }));
+                    btn.textContent = '全部';
+                    const menu = document.createElement('div');
+                    menu.className = 'dropdown-menu p-2 generic-multi-filter-menu match-tournament-filter-menu';
+                    menu.dataset.gfCol = 'tournament';
+                    wrap._gfMenu = menu;
+                    menu.addEventListener('click', (e) => e.stopPropagation());
+                    wrap.addEventListener('show.bs.dropdown', () => {
+                        if (menu.parentElement !== document.body) document.body.appendChild(menu);
+                    });
+                    wrap.addEventListener('hidden.bs.dropdown', () => {
+                        if (menu.parentElement === document.body) wrap.appendChild(menu);
+                    });
+
+                    const modeBox = document.createElement('div');
+                    modeBox.className = 'generic-multi-filter-mode mb-2';
+                    modeBox.innerHTML = '<div class="small text-muted mb-1">多选关系</div>';
+                    const modeGroup = document.createElement('div');
+                    modeGroup.className = 'btn-group btn-group-sm w-100';
+                    const andId = 'match-tn-mode-and';
+                    const orId = 'match-tn-mode-or';
+                    modeGroup.innerHTML =
+                        '<input type="radio" class="btn-check" name="match-tn-mode" id="' + andId + '" value="and" checked>' +
+                        '<label class="btn btn-outline-secondary" for="' + andId + '">和</label>' +
+                        '<input type="radio" class="btn-check" name="match-tn-mode" id="' + orId + '" value="or">' +
+                        '<label class="btn btn-outline-secondary" for="' + orId + '">或</label>';
+                    modeBox.appendChild(modeGroup);
+                    modeGroup.querySelectorAll('input').forEach((inp) => {
+                        inp.addEventListener('change', () => {
+                            wrap.dataset.mode = modeGroup.querySelector('input:checked')?.value === 'or' ? 'or' : 'and';
+                            refreshTournamentChecks(wrap);
+                            page = 1;
+                            fetchRemote();
+                        });
+                    });
+
+                    const nest = document.createElement('div');
+                    nest.className = 'match-tn-nested mb-2';
+                    const mkSel = (cls, label) => {
+                        const wrapSel = document.createElement('div');
+                        wrapSel.className = 'match-tn-nested-row';
+                        const lab = document.createElement('label');
+                        lab.className = 'small text-muted mb-0';
+                        lab.textContent = label;
+                        const sel = document.createElement('select');
+                        sel.className = 'form-select form-select-sm ' + cls;
+                        sel.innerHTML = '<option value="">全部</option>';
+                        wrapSel.appendChild(lab);
+                        wrapSel.appendChild(sel);
+                        return { wrapSel, sel };
+                    };
+                    const season = mkSel('match-tn-season', '赛季');
+                    const series = mkSel('match-tn-series', '系列');
+                    const level = mkSel('match-tn-level', '等级');
+                    nest.appendChild(season.wrapSel);
+                    nest.appendChild(series.wrapSel);
+                    nest.appendChild(level.wrapSel);
+
+                    const onNestChange = () => {
+                        refreshSeriesOptions(menu);
+                        refreshTournamentChecks(wrap);
+                        page = 1;
+                        fetchRemote();
+                    };
+                    season.sel.addEventListener('change', () => {
+                        series.sel.value = '';
+                        onNestChange();
+                    });
+                    series.sel.addEventListener('change', onNestChange);
+                    level.sel.addEventListener('change', onNestChange);
+
+                    const checksTitle = document.createElement('div');
+                    checksTitle.className = 'small text-muted mb-1';
+                    checksTitle.textContent = '符合条件的赛事（可复选）';
+                    const checks = document.createElement('div');
+                    checks.className = 'match-tn-checks generic-multi-filter-options';
+
+                    menu.appendChild(modeBox);
+                    menu.appendChild(nest);
+                    menu.appendChild(checksTitle);
+                    menu.appendChild(checks);
+                    wrap.appendChild(btn);
+                    wrap.appendChild(menu);
+                    return wrap;
+                };
+
+                const fillTournamentFacetControls = (facets) => {
+                    tournamentFacetState.seasons = facets.seasons || [];
+                    tournamentFacetState.series = facets.series || [];
+                    tournamentFacetState.levels = facets.levels || [];
+                    tournamentFacetState.tournaments = facets.tournaments || [];
+                    const wrap = table.querySelector('.generic-multi-filter[data-remote-tournament]');
+                    if (!wrap) return;
+                    const menu = wrap._gfMenu || wrap.querySelector('.generic-multi-filter-menu');
+                    if (!menu) return;
+                    fillSelect(menu.querySelector('.match-tn-season'), tournamentFacetState.seasons);
+                    refreshSeriesOptions(menu);
+                    fillSelect(menu.querySelector('.match-tn-level'), tournamentFacetState.levels);
+                    refreshTournamentChecks(wrap);
+                };
+
+                const collectRemoteTournamentIds = () => {
+                    const wrap = table.querySelector('.generic-multi-filter[data-remote-tournament]');
+                    if (!wrap) return '';
+                    const menu = wrap._gfMenu || wrap.querySelector('.generic-multi-filter-menu');
+                    if (!menu) return '';
+                    const checked = Array.from(menu.querySelectorAll('.match-tn-check:checked')).map((c) => c.value).filter(Boolean);
+                    if (checked.length) return checked.join(',');
+                    const seasonV = menu.querySelector('.match-tn-season')?.value || '';
+                    const seriesV = menu.querySelector('.match-tn-series')?.value || '';
+                    const levelV = menu.querySelector('.match-tn-level')?.value || '';
+                    if (!seasonV && !seriesV && !levelV) return '';
+                    return filteredTournaments(wrap, menu).map((t) => String(t.value)).filter(Boolean).join(',');
+                };
+
+                const updateRemoteMultiBtn = (wrap) => {
+                    const btn = wrap.querySelector('.generic-col-filter-multi-btn');
+                    const menu = wrap._gfMenu || wrap.querySelector('.generic-multi-filter-menu');
+                    if (!btn || !menu) return;
+                    const checked = Array.from(menu.querySelectorAll('.remote-multi-check:checked'))
+                        .map((c) => c.value)
+                        .filter(Boolean);
+                    const mode = wrap.dataset.mode === 'or' ? '或' : '和';
+                    if (!checked.length) {
+                        btn.textContent = '全部';
+                        btn.title = '全部';
+                        return;
+                    }
+                    const texts = checked.map((v) => {
+                        const lab = menu.querySelector('.remote-multi-check[value="' + String(v).replace(/"/g, '') + '"]')
+                            ?.parentElement?.querySelector('label');
+                        return (lab && lab.textContent) ? lab.textContent.trim() : v;
+                    });
+                    const label = texts.length <= 2 ? texts.join('、') : (texts.length + '项');
+                    btn.textContent = label + ' · ' + mode;
+                    btn.title = texts.join('、') + '（' + mode + '）';
+                };
+
+                const fillRemoteMultiOptions = (wrap, options) => {
+                    const menu = wrap._gfMenu || wrap.querySelector('.generic-multi-filter-menu');
+                    if (!menu) return;
+                    const box = menu.querySelector('.remote-multi-checks');
+                    if (!box) return;
+                    const prev = new Set(Array.from(box.querySelectorAll('.remote-multi-check:checked')).map((c) => c.value));
+                    const key = wrap.dataset.remoteKey || 'x';
+                    box.replaceChildren();
+                    (options || []).forEach((o) => {
+                        const val = typeof o === 'object' ? String(o.value) : String(o);
+                        const text = typeof o === 'object' ? String(o.text) : String(o);
+                        if (!val) return;
+                        const id = 'rmc-' + key + '-' + val;
+                        const row = document.createElement('div');
+                        row.className = 'form-check';
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.className = 'form-check-input remote-multi-check';
+                        cb.id = id;
+                        cb.value = val;
+                        if (prev.has(val)) cb.checked = true;
+                        cb.addEventListener('change', () => {
+                            updateRemoteMultiBtn(wrap);
+                            page = 1;
+                            fetchRemote();
+                        });
+                        const lab = document.createElement('label');
+                        lab.className = 'form-check-label';
+                        lab.htmlFor = id;
+                        lab.textContent = text;
+                        lab.title = text;
+                        row.appendChild(cb);
+                        row.appendChild(lab);
+                        box.appendChild(row);
+                    });
+                    updateRemoteMultiBtn(wrap);
+                };
+
+                /** 与「赛事」同款：和/或 + 复选框 */
+                const createRemoteMultiFilter = (remoteKey) => {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'dropdown generic-multi-filter';
+                    wrap.dataset.remoteKey = remoteKey;
+                    wrap.dataset.mode = 'and';
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm dropdown-toggle w-100 text-start generic-col-filter-multi-btn';
+                    btn.setAttribute('data-bs-toggle', 'dropdown');
+                    btn.setAttribute('data-bs-auto-close', 'outside');
+                    btn.setAttribute('data-bs-popper-config', JSON.stringify({ strategy: 'fixed' }));
+                    btn.textContent = '全部';
+                    const menu = document.createElement('div');
+                    menu.className = 'dropdown-menu p-2 generic-multi-filter-menu';
+                    menu.dataset.gfCol = remoteKey;
+                    wrap._gfMenu = menu;
+                    menu.addEventListener('click', (e) => e.stopPropagation());
+                    wrap.addEventListener('show.bs.dropdown', () => {
+                        if (menu.parentElement !== document.body) document.body.appendChild(menu);
+                    });
+                    wrap.addEventListener('hidden.bs.dropdown', () => {
+                        if (menu.parentElement === document.body) wrap.appendChild(menu);
+                    });
+
+                    const modeBox = document.createElement('div');
+                    modeBox.className = 'generic-multi-filter-mode mb-2';
+                    modeBox.innerHTML = '<div class="small text-muted mb-1">多选关系</div>';
+                    const modeGroup = document.createElement('div');
+                    modeGroup.className = 'btn-group btn-group-sm w-100';
+                    const andId = 'rm-mode-and-' + remoteKey;
+                    const orId = 'rm-mode-or-' + remoteKey;
+                    modeGroup.innerHTML =
+                        '<input type="radio" class="btn-check" name="rm-mode-' + remoteKey + '" id="' + andId + '" value="and" checked>' +
+                        '<label class="btn btn-outline-secondary" for="' + andId + '">和</label>' +
+                        '<input type="radio" class="btn-check" name="rm-mode-' + remoteKey + '" id="' + orId + '" value="or">' +
+                        '<label class="btn btn-outline-secondary" for="' + orId + '">或</label>';
+                    modeBox.appendChild(modeGroup);
+                    modeGroup.querySelectorAll('input').forEach((inp) => {
+                        inp.addEventListener('change', () => {
+                            wrap.dataset.mode = modeGroup.querySelector('input:checked')?.value === 'or' ? 'or' : 'and';
+                            updateRemoteMultiBtn(wrap);
+                            page = 1;
+                            fetchRemote();
+                        });
+                    });
+
+                    const checks = document.createElement('div');
+                    checks.className = 'remote-multi-checks generic-multi-filter-options';
+                    menu.appendChild(modeBox);
+                    menu.appendChild(checks);
+                    wrap.appendChild(btn);
+                    wrap.appendChild(menu);
+                    return wrap;
+                };
+
+                const collectRemoteMultiValues = (remoteKey) => {
+                    const wrap = table.querySelector('.generic-multi-filter[data-remote-key="' + remoteKey + '"]');
+                    if (!wrap) return { values: '', mode: 'and' };
+                    const menu = wrap._gfMenu || wrap.querySelector('.generic-multi-filter-menu');
+                    if (!menu) return { values: '', mode: 'and' };
+                    const values = Array.from(menu.querySelectorAll('.remote-multi-check:checked'))
+                        .map((c) => c.value)
+                        .filter(Boolean)
+                        .join(',');
+                    return { values, mode: wrap.dataset.mode === 'or' ? 'or' : 'and' };
+                };
+
                 const ensureRemoteFilters = (facets) => {
                     if (!table || table.querySelector('.generic-col-filters')) {
                         if (facets && table) {
-                            const cat = table.querySelector('.generic-col-filter[data-remote="category"]');
-                            const st = table.querySelector('.generic-col-filter[data-remote="status"]');
-                            const rd = table.querySelector('.generic-col-filter[data-remote="round"]');
-                            const tn = table.querySelector('.generic-col-filter[data-remote="tournamentId"]');
-                            if (cat) fillSelect(cat, (facets.categories || []).map((c) => ({ value: c, text: c })));
-                            if (st) fillSelect(st, facets.statuses || []);
-                            if (rd) fillSelect(rd, (facets.rounds || []).map((r) => ({ value: String(r), text: '第' + r + '场' })));
-                            if (tn) fillSelect(tn, facets.tournaments || []);
+                            const catWrap = table.querySelector('.generic-multi-filter[data-remote-key="category"]');
+                            const stWrap = table.querySelector('.generic-multi-filter[data-remote-key="status"]');
+                            const rdWrap = table.querySelector('.generic-multi-filter[data-remote-key="round"]');
+                            if (catWrap) {
+                                fillRemoteMultiOptions(catWrap, (facets.categories || []).map((c) => ({ value: c, text: c })));
+                            }
+                            if (stWrap) fillRemoteMultiOptions(stWrap, facets.statuses || []);
+                            if (rdWrap) {
+                                fillRemoteMultiOptions(rdWrap, (facets.rounds || []).map((r) => ({
+                                    value: String(r),
+                                    text: '第' + r + '场'
+                                })));
+                            }
+                            if (!remote.tournamentId) fillTournamentFacetControls(facets);
                         }
                         return;
                     }
                     const n = table.querySelectorAll('thead tr:first-child th').length;
                     const tr = document.createElement('tr');
                     tr.className = 'generic-col-filters';
-                    const map = { 1: 'tournamentId', 2: 'category', 3: 'round', 5: 'status' };
+                    const map = { 2: 'category', 3: 'round', 5: 'status' };
                     for (let i = 0; i < n; i++) {
                         const th = document.createElement('th');
-                        const key = map[i];
-                        if (key && !(key === 'tournamentId' && remote.tournamentId)) {
-                            const sel = document.createElement('select');
-                            sel.className = 'form-select form-select-sm generic-col-filter';
-                            sel.dataset.remote = key;
-                            sel.innerHTML = '<option value="">全部</option>';
-                            sel.addEventListener('change', () => { page = 1; fetchRemote(); });
-                            th.appendChild(sel);
+                        if (i === 1 && !remote.tournamentId) {
+                            th.appendChild(createRemoteTournamentFilter());
+                        } else {
+                            const key = map[i];
+                            if (key) {
+                                th.appendChild(createRemoteMultiFilter(key));
+                            }
                         }
                         tr.appendChild(th);
                     }
@@ -464,9 +861,23 @@
                     if (remote.tournamentId) params.set('tournamentId', String(remote.tournamentId));
                     const kw = input ? input.value.trim() : '';
                     if (kw) params.set('q', kw);
-                    document.querySelectorAll('.generic-col-filter[data-remote]').forEach((sel) => {
-                        if (sel.value) params.set(sel.dataset.remote, sel.value);
-                    });
+                    const cat = collectRemoteMultiValues('category');
+                    if (cat.values) {
+                        params.set('categories', cat.values);
+                        params.set('categoryMode', cat.mode);
+                    }
+                    const st = collectRemoteMultiValues('status');
+                    if (st.values) {
+                        params.set('statuses', st.values);
+                        params.set('statusMode', st.mode);
+                    }
+                    const rd = collectRemoteMultiValues('round');
+                    if (rd.values) {
+                        params.set('rounds', rd.values);
+                        params.set('roundMode', rd.mode);
+                    }
+                    const tids = collectRemoteTournamentIds();
+                    if (tids) params.set('tournamentIds', tids);
                     if (pagerInfo) pagerInfo.textContent = '加载中…';
                     try {
                         const res = await fetch(remote.url + '?' + params.toString());
@@ -530,6 +941,140 @@
                 return td ? (td.textContent || '').replace(/\s+/g, ' ').trim() : '';
             };
 
+            const rowLevels = (tr) => {
+                const raw = (tr.getAttribute('data-levels') || '').trim();
+                if (!raw) return [];
+                return raw.split('|').map((s) => s.trim()).filter(Boolean);
+            };
+
+            /** 列筛选取值：多值列用 data-levels，其余用单元格整段文本 */
+            const rowTokensForCol = (tr, col) => {
+                if (multiFilterCols.has(String(col))) {
+                    return rowLevels(tr);
+                }
+                const t = cellText(tr, col);
+                return t ? [t] : [];
+            };
+
+            /** 菜单可能被挂到 body，不能只用 wrap.querySelector */
+            const getMultiFilterMenu = (wrap) => {
+                if (!wrap) return null;
+                if (wrap._gfMenu && document.contains(wrap._gfMenu)) return wrap._gfMenu;
+                const col = wrap.dataset.col;
+                return wrap.querySelector('.generic-multi-filter-menu')
+                    || document.querySelector('body > .generic-multi-filter-menu[data-gf-col="' + col + '"]');
+            };
+
+            const updateMultiFilterButton = (wrap) => {
+                const btn = wrap.querySelector('.generic-col-filter-multi-btn');
+                if (!btn) return;
+                const menu = getMultiFilterMenu(wrap);
+                const checked = menu
+                    ? Array.from(menu.querySelectorAll('.generic-multi-filter-options input[type="checkbox"]:checked'))
+                        .map((c) => c.value)
+                        .filter(Boolean)
+                    : [];
+                const mode = (wrap.dataset.mode || 'and') === 'or' ? '或' : '和';
+                if (!checked.length) {
+                    btn.textContent = '全部';
+                    btn.title = '全部（多选默认「' + mode + '」）';
+                    return;
+                }
+                const label = checked.length <= 2
+                    ? checked.join('、')
+                    : (checked.slice(0, 2).join('、') + ' +' + (checked.length - 2));
+                btn.textContent = label + ' · ' + mode;
+                btn.title = checked.join('、') + '（' + mode + '）';
+            };
+
+            const createMultiFilter = (colIdx) => {
+                const wrap = document.createElement('div');
+                wrap.className = 'dropdown generic-multi-filter';
+                wrap.dataset.col = String(colIdx);
+                wrap.dataset.mode = 'and';
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-sm dropdown-toggle w-100 text-start generic-col-filter-multi-btn';
+                btn.setAttribute('data-bs-toggle', 'dropdown');
+                btn.setAttribute('data-bs-auto-close', 'outside');
+                // fixed：菜单脱离 .table-responsive，避免撑高 card 出现纵向滚动条
+                btn.setAttribute('data-bs-popper-config', JSON.stringify({ strategy: 'fixed' }));
+                btn.setAttribute('aria-expanded', 'false');
+                btn.setAttribute('aria-label', '多选筛选');
+                btn.textContent = '全部';
+                const menu = document.createElement('div');
+                menu.className = 'dropdown-menu p-2 generic-multi-filter-menu';
+                menu.dataset.gfCol = String(colIdx);
+                wrap._gfMenu = menu;
+                menu.addEventListener('click', (e) => e.stopPropagation());
+                // 打开时挂到 body，避免被 table-responsive / footer 盖住或裁切
+                wrap.addEventListener('show.bs.dropdown', () => {
+                    if (menu.parentElement !== document.body) {
+                        document.body.appendChild(menu);
+                    }
+                });
+                wrap.addEventListener('hidden.bs.dropdown', () => {
+                    if (menu.parentElement === document.body) {
+                        wrap.appendChild(menu);
+                    }
+                });
+
+                const modeBox = document.createElement('div');
+                modeBox.className = 'generic-multi-filter-mode mb-2';
+                const modeLabel = document.createElement('div');
+                modeLabel.className = 'small text-muted mb-1';
+                modeLabel.textContent = '多选关系';
+                const modeGroup = document.createElement('div');
+                modeGroup.className = 'btn-group btn-group-sm w-100';
+                modeGroup.setAttribute('role', 'group');
+                const andId = 'gf-mode-and-' + colIdx;
+                const orId = 'gf-mode-or-' + colIdx;
+                const andInput = document.createElement('input');
+                andInput.type = 'radio';
+                andInput.className = 'btn-check';
+                andInput.name = 'gf-mode-' + colIdx;
+                andInput.id = andId;
+                andInput.value = 'and';
+                andInput.checked = true;
+                const andLab = document.createElement('label');
+                andLab.className = 'btn btn-outline-secondary';
+                andLab.htmlFor = andId;
+                andLab.textContent = '和';
+                const orInput = document.createElement('input');
+                orInput.type = 'radio';
+                orInput.className = 'btn-check';
+                orInput.name = 'gf-mode-' + colIdx;
+                orInput.id = orId;
+                orInput.value = 'or';
+                const orLab = document.createElement('label');
+                orLab.className = 'btn btn-outline-secondary';
+                orLab.htmlFor = orId;
+                orLab.textContent = '或';
+                const onModeChange = () => {
+                    wrap.dataset.mode = andInput.checked ? 'and' : 'or';
+                    updateMultiFilterButton(wrap);
+                    page = 1;
+                    apply();
+                };
+                andInput.addEventListener('change', onModeChange);
+                orInput.addEventListener('change', onModeChange);
+                modeGroup.appendChild(andInput);
+                modeGroup.appendChild(andLab);
+                modeGroup.appendChild(orInput);
+                modeGroup.appendChild(orLab);
+                modeBox.appendChild(modeLabel);
+                modeBox.appendChild(modeGroup);
+
+                const options = document.createElement('div');
+                options.className = 'generic-multi-filter-options';
+
+                menu.appendChild(modeBox);
+                menu.appendChild(options);
+                wrap.appendChild(btn);
+                wrap.appendChild(menu);
+                return wrap;
+            };
+
             const ensureHeaderFilters = () => {
                 if (!table || table.querySelector('.generic-col-filters')) return;
                 const n = colCount();
@@ -539,13 +1084,7 @@
                 for (let i = 0; i < n; i++) {
                     const th = document.createElement('th');
                     if (i !== skip) {
-                        const sel = document.createElement('select');
-                        sel.className = 'form-select form-select-sm generic-col-filter';
-                        sel.dataset.col = String(i);
-                        sel.setAttribute('aria-label', '筛选列');
-                        sel.innerHTML = '<option value="">全部</option>';
-                        sel.addEventListener('change', () => { page = 1; apply(); });
-                        th.appendChild(sel);
+                        th.appendChild(createMultiFilter(i));
                     }
                     tr.appendChild(th);
                 }
@@ -557,11 +1096,29 @@
 
             const colFilters = () => {
                 const out = {};
-                document.querySelectorAll('.generic-col-filter').forEach((sel) => {
-                    const v = (sel.value || '').trim();
-                    if (v) out[sel.dataset.col] = v;
+                document.querySelectorAll('.generic-multi-filter').forEach((wrap) => {
+                    const menu = getMultiFilterMenu(wrap);
+                    if (!menu) return;
+                    const values = Array.from(menu.querySelectorAll('.generic-multi-filter-options input[type="checkbox"]:checked'))
+                        .map((c) => (c.value || '').trim())
+                        .filter(Boolean);
+                    if (values.length) {
+                        out[wrap.dataset.col] = {
+                            values,
+                            mode: (wrap.dataset.mode || 'and') === 'or' ? 'or' : 'and'
+                        };
+                    }
                 });
                 return out;
+            };
+
+            const tokensMatch = (tokens, selected, mode) => {
+                if (!selected || !selected.length) return true;
+                const set = tokens || [];
+                if (mode === 'or') {
+                    return selected.some((v) => set.indexOf(v) >= 0);
+                }
+                return selected.every((v) => set.indexOf(v) >= 0);
             };
 
             const rowMatches = (tr, exceptCol) => {
@@ -570,9 +1127,10 @@
                 const meta = norm(tr.getAttribute('data-filters') || '');
                 if (kw && !(text + ' ' + meta).includes(kw)) return false;
                 const filters = colFilters();
-                for (const [col, val] of Object.entries(filters)) {
+                for (const [col, spec] of Object.entries(filters)) {
                     if (exceptCol != null && String(exceptCol) === String(col)) continue;
-                    if (cellText(tr, col) !== val) return false;
+                    if (!spec) continue;
+                    if (!tokensMatch(rowTokensForCol(tr, col), spec.values, spec.mode)) return false;
                 }
                 return true;
             };
@@ -589,28 +1147,61 @@
 
             const refreshFilterOptions = () => {
                 if (!isWide()) return;
-                document.querySelectorAll('.generic-col-filter').forEach((sel) => {
-                    const col = sel.dataset.col;
-                    const cur = sel.value;
+                document.querySelectorAll('.generic-multi-filter').forEach((wrap) => {
+                    const col = wrap.dataset.col;
+                    const menu = getMultiFilterMenu(wrap);
+                    const options = menu ? menu.querySelector('.generic-multi-filter-options') : null;
+                    if (!menu || !options) return;
+                    const prevChecked = new Set(
+                        Array.from(options.querySelectorAll('input[type="checkbox"]:checked'))
+                            .map((c) => c.value)
+                    );
+                    const mode = (wrap.dataset.mode || 'and') === 'or' ? 'or' : 'and';
+                    wrap.dataset.mode = mode;
+                    const andInput = menu.querySelector('input[value="and"]');
+                    const orInput = menu.querySelector('input[value="or"]');
+                    if (andInput) andInput.checked = mode === 'and';
+                    if (orInput) orInput.checked = mode === 'or';
+
                     const set = new Set();
                     rows.forEach((tr) => {
                         if (!rowMatches(tr, col)) return;
-                        const t = cellText(tr, col);
-                        if (t) set.add(t);
+                        rowTokensForCol(tr, col).forEach((tok) => set.add(tok));
                     });
                     const values = Array.from(set).sort((a, b) => a.localeCompare(b, 'zh'));
-                    sel.replaceChildren();
-                    const all = document.createElement('option');
-                    all.value = '';
-                    all.textContent = '全部';
-                    sel.appendChild(all);
-                    values.forEach((v) => {
-                        const opt = document.createElement('option');
-                        opt.value = v;
-                        opt.textContent = v.length > 40 ? v.slice(0, 40) + '…' : v;
-                        sel.appendChild(opt);
-                    });
-                    if (cur && values.indexOf(cur) >= 0) sel.value = cur;
+                    options.replaceChildren();
+                    if (!values.length) {
+                        const empty = document.createElement('div');
+                        empty.className = 'text-muted small px-1';
+                        empty.textContent = '无可选项';
+                        options.appendChild(empty);
+                    } else {
+                        values.forEach((v, idx) => {
+                            const id = 'gf-tok-' + col + '-' + idx;
+                            const row = document.createElement('div');
+                            row.className = 'form-check';
+                            const cb = document.createElement('input');
+                            cb.type = 'checkbox';
+                            cb.className = 'form-check-input';
+                            cb.id = id;
+                            cb.value = v;
+                            if (prevChecked.has(v)) cb.checked = true;
+                            cb.addEventListener('change', () => {
+                                updateMultiFilterButton(wrap);
+                                page = 1;
+                                apply();
+                            });
+                            const lab = document.createElement('label');
+                            lab.className = 'form-check-label';
+                            lab.htmlFor = id;
+                            lab.textContent = v;
+                            lab.title = v;
+                            row.appendChild(cb);
+                            row.appendChild(lab);
+                            options.appendChild(row);
+                        });
+                    }
+                    updateMultiFilterButton(wrap);
                 });
             };
 

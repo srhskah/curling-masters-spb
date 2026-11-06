@@ -68,7 +68,7 @@ public class TournamentLevelController {
         columns.add(Map.of("title", "ID", "type", "text"));
         columns.add(Map.of("title", "等级代码", "type", "custom"));
         columns.add(Map.of("title", "等级名称", "type", "text"));
-        columns.add(Map.of("title", "冠军积分/人数比率", "type", "text"));
+        columns.add(Map.of("title", "冠军比率", "type", "text"));
         columns.add(Map.of("title", "垫底积分", "type", "text"));
         columns.add(Map.of("title", "描述", "type", "text"));
         
@@ -97,6 +97,7 @@ public class TournamentLevelController {
         model.addAttribute("columns", columns);
         model.addAttribute("actions", actions);
         model.addAttribute("hasActions", true);
+        model.addAttribute("listLegendExtra", "冠军比率=冠军积分/人数比率");
         model.addAttribute("emptyIcon", "bi bi-layers");
         model.addAttribute("emptyMessage", "暂无赛事等级数据");
         model.addAttribute("isAdmin", isAdmin);

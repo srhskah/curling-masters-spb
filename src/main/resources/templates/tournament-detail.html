@@ -1040,11 +1040,11 @@
                                                                             <input type="hidden"
                                                                                    class="group-member-slot-input"
                                                                                    th:value="${curName}"
-                                                                                    th:attr="data-group-id=${g.id},
-                                                                                             data-slot-index=${st.index},
+                                                                                   th:attr="data-group-id=${g.id},
+                                                                                            data-slot-index=${st.index},
                                                                                             data-source=${groupPickerUseQualifierRules ? 'static' : 'all-users'},
-                                                                                             data-slot-kind=${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup ? 'qualifier' : 'main'},
-                                                                                             data-slot-flex=${groupPickerUseQualifierRules and groupQualifierFlexibleSlotPerGroup and st.index == 0 ? 'true' : 'false'}">
+                                                                                            data-slot-kind=${groupPickerUseQualifierRules and st.index < groupQualifierSlotsPerGroup ? 'qualifier' : 'main'},
+                                                                                            data-slot-flex=${groupPickerUseQualifierRules and groupQualifierFlexibleSlotPerGroup and st.index == 0 ? 'true' : 'false'}">
                                                                             <div class="d-flex gap-1">
                                                                                 <button type="button"
                                                                                         class="btn btn-outline-secondary btn-sm flex-grow-1 text-start group-slot-display"
@@ -2369,7 +2369,7 @@
                 if (saveSection) saveSection.classList.remove('d-none');
                 if (mode === 'picker') {
                     manualAreas.forEach((el) => el.classList.add('d-none'));
-                        pickerAreas.forEach((el) => el.classList.remove('d-none'));
+                    pickerAreas.forEach((el) => el.classList.remove('d-none'));
                     if (pickerAreas.length === 0 && toolbar) {
                         let hint = document.getElementById('groupPickerMissingHint');
                         if (!hint) {
@@ -2403,17 +2403,17 @@
                     const next = modeSelect.value;
                     applyGroupListEntryMode(next);
                     try {
-                    if (prev === 'picker' && next === 'manual') {
-                        syncGroupSlotsToTextarea();
-                    }
-                    if (next === 'picker' && prev !== 'picker') {
-                        fillSlotsFromTextarea();
+                        if (prev === 'picker' && next === 'manual') {
+                            syncGroupSlotsToTextarea();
+                        }
+                        if (next === 'picker' && prev !== 'picker') {
+                            fillSlotsFromTextarea();
                             document.querySelectorAll('.group-member-card').forEach((card) => {
                                 const empty = Array.from(card.querySelectorAll('.group-member-slot-input'))
                                     .find((inp) => !(inp.value || '').trim());
                                 markTargetSlot(card, empty || card.querySelector('.group-member-slot-input'));
                             });
-                        refreshGroupPickerUniqueOptions();
+                            refreshGroupPickerUniqueOptions();
                         }
                     } catch (e) {
                         console.warn('切换小组名单录入模式时附加逻辑失败', e);
@@ -3613,7 +3613,7 @@
 
                 koCurrentMatchView = view;
                 syncKoViewToggleButtons(view);
-                    if (view === 'card') {
+                if (view === 'card') {
                     setKoCardsVisible(true);
                     sharedBracket.classList.remove('active');
                     setCompetitionTabContentHiddenForBracket(false);

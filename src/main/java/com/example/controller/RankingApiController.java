@@ -1,7 +1,6 @@
 package com.example.controller;
 
 import com.example.dto.*;
-import com.example.ranking.RankingCriterion;
 import com.example.entity.*;
 import com.example.mapper.MatchAcceptanceMapper;
 import com.example.mapper.MatchScoreEditLogMapper;
@@ -747,15 +746,11 @@ public class RankingApiController {
             return row;
         }).toList();
 
-        List<String> rankingCriteria = rankingPriority == null
-                ? RankingCriterion.DEFAULT_ORDER.stream().map(RankingCriterion::getCode).toList()
-                : rankingPriority.stream().map(RankingCriterion::getCode).toList();
         return Map.of(
                 "tournamentId", tournamentId,
                 "groups", groupRows,
                 "pseudoGroups", pseudoGroupRows,
-                "groupMatches", groupMatchRows,
-                "rankingCriteria", rankingCriteria
+                "groupMatches", groupMatchRows
         );
     }
 
@@ -782,11 +777,7 @@ public class RankingApiController {
         }
         var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         List<Map<String, Object>> rows = groupRankingCalculator.buildOverallRanking(byGroup, rankingPriority);
-        return Map.of(
-                "tournamentId", tournamentId,
-                "overallRanking", rows,
-                "rankingCriteria", data.getOrDefault("rankingCriteria", List.of())
-        );
+        return Map.of("tournamentId", tournamentId, "overallRanking", rows);
     }
 
     @GetMapping("/tournament/{tournamentId}/group/{groupId}/ranking")
@@ -815,8 +806,7 @@ public class RankingApiController {
                 "groupName", groupName,
                 "ranking", group.getOrDefault("ranking", List.of()),
                 "pseudoGroups", thisPseudo,
-                "matches", thisMatches,
-                "rankingCriteria", data.getOrDefault("rankingCriteria", List.of())
+                "matches", thisMatches
         );
     }
 
@@ -840,29 +830,37 @@ public class RankingApiController {
     }
 
     /**
-     * 总排名：导出单个选手在“最近20个系列”中的战绩（Top10 常规系列 + 决赛/年终系列另外标记）
+     * 总排名：导出单个选手在“最近20个常规系列”中的战绩（Top10 常规系列 + 截取过程中跳过的决赛/年终系列另外标记）
      */
     @GetMapping("/user/{userId}/total/performance")
     public Map<String, Object> getUserTotalPerformance(@PathVariable Long userId) {
-        List<Series> recentSeries = seriesService.lambdaQuery()
-                .orderByDesc(Series::getCreatedAt)
-                .last("LIMIT 20")
-                .list();
-        List<Long> seriesIds = recentSeries.stream().map(Series::getId).filter(Objects::nonNull).toList();
-        return buildUserPerformance(userId, seriesIds, "总排名（最近20系列）");
+        return buildUserPerformance(userId, collectTotalRankingPerformanceSeriesIds(), "总排名（最近20系列）");
     }
 
     @GetMapping("/username/{username}/total/performance")
     public Map<String, Object> getUserTotalPerformanceByUsername(@PathVariable String username) {
         User u = userService.findByUsername(username);
         Long userId = u != null ? u.getId() : null;
+        return buildUserPerformance(userId, collectTotalRankingPerformanceSeriesIds(), "总排名（最近20系列）");
+    }
 
-        List<Series> recentSeries = seriesService.lambdaQuery()
-                .orderByDesc(Series::getCreatedAt)
-                .last("LIMIT 20")
-                .list();
-        List<Long> seriesIds = recentSeries.stream().map(Series::getId).filter(Objects::nonNull).toList();
-        return buildUserPerformance(userId, seriesIds, "总排名（最近20系列）");
+    /** 总排名战绩：20 个常规系列 + 窗口截取时跳过的总决赛系列 */
+    private List<Long> collectTotalRankingPerformanceSeriesIds() {
+        RankingService.TotalRankingSeriesWindow window = rankingService.resolveTotalRankingSeriesWindow();
+        LinkedHashSet<Long> ids = new LinkedHashSet<>();
+        if (window != null) {
+            if (window.regularSeries() != null) {
+                for (Series s : window.regularSeries()) {
+                    if (s != null && s.getId() != null) {
+                        ids.add(s.getId());
+                    }
+                }
+            }
+            if (window.skippedFinalsSeriesIds() != null) {
+                ids.addAll(window.skippedFinalsSeriesIds());
+            }
+        }
+        return new ArrayList<>(ids);
     }
 
     /**

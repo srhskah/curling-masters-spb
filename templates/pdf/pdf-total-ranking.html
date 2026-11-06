@@ -4,8 +4,7 @@
     <meta charset="UTF-8"/>
     <title th:text="${title}">总排名</title>
     <style>
-        @page { size: A4 landscape; margin: 12mm; }
-                body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
+        body { font-family: "WenQuanYi Micro Hei","WenQuanYi Zen Hei","Noto Emoji","DejaVu Sans",sans-serif; font-size: 12px; color: #111; }
         h2 { margin: 0; font-size: 16px; }
         .muted { color: #666; }
         .meta { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 12px; }
@@ -19,14 +18,14 @@
 </head>
 <body>
 <div class="meta">
-    <img th:if="${logoDataUri != null}" class="logo" th:attr="src=${logoDataUri}" alt="logo"/>
+    <img th:if="${logoDataUri != null}" class="logo" th:src="${logoDataUri}" alt="logo"/>
     <div style="flex: 1 1 auto;">
         <h2 th:text="${title}">总排名</h2>
         <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
     </div>
 </div>
 <div class="rule">
-    规则：总排名取最近20个系列中每个选手系列积分（同系列取最高）前10个系列累加。
+    规则：按赛季/系列从新到旧跳过总决赛凑满最近20个常规系列，取其中最佳10个系列积分累加；总决赛/年终积分另计最高一项。
 </div>
 
 <table>
