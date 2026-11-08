@@ -22,17 +22,29 @@
         <div class="muted" th:if="${exportedAt != null}" th:text="${'导出时间：' + exportedAt}">导出时间</div>
     </div>
 </div>
-<table>
+<table th:with="showPoints=${rankingCriteria == null or #lists.contains(rankingCriteria, 'POINTS')},showNet=${rankingCriteria == null or #lists.contains(rankingCriteria, 'NET')},showTotal=${rankingCriteria == null or #lists.contains(rankingCriteria, 'TOTAL_SCORE')},showGe2=${rankingCriteria == null or #lists.contains(rankingCriteria, 'MATCH_GE2')},showMax=${rankingCriteria == null or #lists.contains(rankingCriteria, 'MATCH_MAX')},showSteal=${rankingCriteria == null or #lists.contains(rankingCriteria, 'STEAL_COUNT')},showStealMax=${rankingCriteria == null or #lists.contains(rankingCriteria, 'STEAL_MAX')},showDraw=${groupAllowDraw == null or groupAllowDraw}">
     <thead>
-    <tr><th>总排</th><th>组内</th><th>分组</th><th>选手</th><th>已赛/应赛</th><th>积分</th><th>净胜分</th><th>总得分</th><th>胜</th><th>平</th><th>负</th><th>≥2局数总和</th><th>单局最高</th><th>偷分次数</th><th>偷分单次最高</th></tr>
+    <tr>
+        <th>总排</th><th>组内</th><th>分组</th><th>选手</th><th>已赛/应赛</th><th>胜</th><th th:if="${showDraw}">平</th><th>负</th>
+        <th th:if="${showPoints}">积分</th><th th:if="${showNet}">净胜分</th><th th:if="${showTotal}">总得分</th>
+        <th th:if="${showGe2}">≥2局数总和</th><th th:if="${showMax}">单局最高</th><th th:if="${showSteal}">偷分次数</th><th th:if="${showStealMax}">偷分单次最高</th>
+    </tr>
     </thead>
     <tbody>
     <tr th:each="r : ${rows}">
         <td th:text="${r.overallRank}">1</td><td th:text="${r.groupRank}">1</td><td th:text="${r.groupName}">A组</td><td th:text="${r.username}">选手</td>
         <td th:classappend="${r.expectedGroupMatches != null and r.expectedGroupMatches > 0 and r.played != null and r.played == r.expectedGroupMatches} ? ' cell-matches-full'"
             th:text="|${r.played != null ? r.played : 0}/${r.expectedGroupMatches != null ? r.expectedGroupMatches : 0}|">0/0</td>
-        <td th:text="${r.points}">0</td><td th:text="${r.net}">0</td><td th:text="${r.totalScore}">0</td><td th:text="${r.wins}">0</td><td th:text="${r.draws}">0</td><td th:text="${r.losses}">0</td>
-        <td th:text="${r.matchGe2Count}">0</td><td th:text="${r.matchMaxScore}">0</td><td th:text="${r.stealCount}">0</td><td th:text="${r.stealMax}">0</td>
+        <td th:text="${r.wins}">0</td>
+        <td th:if="${showDraw}" th:text="${r.draws}">0</td>
+        <td th:text="${r.losses}">0</td>
+        <td th:if="${showPoints}" th:text="${r.points}">0</td>
+        <td th:if="${showNet}" th:text="${r.net}">0</td>
+        <td th:if="${showTotal}" th:text="${r.totalScore}">0</td>
+        <td th:if="${showGe2}" th:text="${r.matchGe2Count}">0</td>
+        <td th:if="${showMax}" th:text="${r.matchMaxScore}">0</td>
+        <td th:if="${showSteal}" th:text="${r.stealCount}">0</td>
+        <td th:if="${showStealMax}" th:text="${r.stealMax}">0</td>
     </tr>
     <tr th:if="${rows == null or #lists.isEmpty(rows)}"><td colspan="15" class="muted">暂无数据</td></tr>
     </tbody>

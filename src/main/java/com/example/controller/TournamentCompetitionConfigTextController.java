@@ -44,16 +44,7 @@ public class TournamentCompetitionConfigTextController {
         sb.append("\n");
         
         sb.append("--- 赛制规则 ---\n");
-        String ruleType = (String) data.get("competitionRuleType");
-        sb.append("赛制规则: ").append("NORMAL".equals(ruleType) ? "正常5壶保护制" : "自定义").append("\n");
-        if ("CUSTOM".equals(ruleType)) {
-            Integer centerLimit = (Integer) data.get("customCenterLineLimit");
-            Integer deadLimit = (Integer) data.get("customDeadStoneLimit");
-            if (centerLimit != null || deadLimit != null) {
-                sb.append("中线壶限制: ").append(centerLimit != null ? centerLimit : "默认5").append("\n");
-                sb.append("死壶限制: ").append(deadLimit != null ? deadLimit : "默认5").append("\n");
-            }
-        }
+        sb.append("赛制规则: ").append(data.get("competitionRuleText")).append("\n");
         sb.append("\n");
         
         sb.append("--- 比赛配置 ---\n");
@@ -61,10 +52,12 @@ public class TournamentCompetitionConfigTextController {
         sb.append("报名模式: ").append(data.get("entryModeText")).append("\n");
         sb.append("赛事模式: ").append(data.get("matchModeText")).append("\n");
         sb.append("淘汰赛首轮: ").append(data.get("knockoutStartRoundText")).append("\n");
-        sb.append("淘汰赛种子模式: ").append(data.get("knockoutBracketModeText")).append("\n");
+        sb.append("淘汰赛对阵模式: ").append(data.get("knockoutBracketModeText")).append("\n");
         sb.append("小组赛自动生成淘汰赛: ").append(data.get("knockoutAutoFromGroup") != null && (Boolean) data.get("knockoutAutoFromGroup") ? "是" : "否").append("\n");
-        sb.append("首轮淘汰赛附加资格赛: ").append(data.get("qualifierRoundText")).append("\n");
-        if (data.get("entryModeText").toString().contains("资格赛")) {
+        if (data.get("qualifierRound") != null) {
+            sb.append("首轮淘汰赛附加资格赛: ").append(data.get("qualifierRoundText")).append("\n");
+        }
+        if (data.get("entryModeText") != null && data.get("entryModeText").toString().contains("资格赛")) {
             sb.append("正赛资格赛晋级名额: ").append(data.get("knockoutQualifyCount")).append("\n");
         }
         sb.append("小组赛模式: ").append(data.get("groupModeText")).append("\n");
@@ -74,8 +67,9 @@ public class TournamentCompetitionConfigTextController {
         sb.append("小组赛局数: ").append(data.get("groupStageSets")).append("\n");
         sb.append("淘汰赛局数: ").append(data.get("knockoutStageSets") != null ? data.get("knockoutStageSets") : "-").append("\n");
         sb.append("决赛局数: ").append(data.get("finalStageSets") != null ? data.get("finalStageSets") : "-").append("\n");
-        sb.append("资格赛局数: ").append(data.get("qualifierSets")).append("\n");
-        sb.append("手动锁定: ").append(data.get("manualLocked") != null && (Boolean) data.get("manualLocked") ? "是" : "否").append("\n");
+        if (data.get("entryModeText") != null && data.get("entryModeText").toString().contains("资格赛")) {
+            sb.append("资格赛局数: ").append(data.get("qualifierSets")).append("\n");
+        }
         
         return sb.toString();
     }

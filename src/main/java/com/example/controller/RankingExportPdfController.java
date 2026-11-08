@@ -199,7 +199,9 @@ public class RankingExportPdfController {
                 editionTitle + "-小组赛排名与对阵明细",
                 data.get("groups"),
                 data.get("pseudoGroups"),
-                data.get("groupMatches")
+                data.get("groupMatches"),
+                data.get("rankingCriteria"),
+                data.get("groupAllowDraw")
         );
         return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-小组赛排名与对阵明细.pdf");
     }
@@ -211,6 +213,8 @@ public class RankingExportPdfController {
         LinkedHashMap<String, Object> model = basePdfModel();
         model.put("title", editionTitle + "-小组赛总排名");
         model.put("rows", data.get("overallRanking"));
+        model.put("rankingCriteria", data.get("rankingCriteria"));
+        model.put("groupAllowDraw", data.get("groupAllowDraw"));
         byte[] pdfBytes = rankingExportPdfService.renderPdf("pdf/pdf-tournament-group-overall-ranking", model);
         return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-小组赛总排名.pdf");
     }
@@ -224,7 +228,9 @@ public class RankingExportPdfController {
                 editionTitle + "-" + groupName + "排名与对阵明细",
                 java.util.List.of(java.util.Map.of("groupName", groupName, "ranking", data.get("ranking"))),
                 data.get("pseudoGroups"),
-                data.get("matches")
+                data.get("matches"),
+                data.get("rankingCriteria"),
+                data.get("groupAllowDraw")
         );
         return PdfExportSupport.attachmentPdf(pdfBytes, editionTitle + "-" + groupName + "-排名与对阵明细.pdf");
     }
@@ -417,12 +423,15 @@ public class RankingExportPdfController {
         return PdfExportSupport.attachmentPdf(pdfBytes, u.getUsername() + "-生涯战绩.pdf");
     }
 
-    private byte[] renderGroupRankingPdf(String title, Object groups, Object pseudoGroups, Object groupMatches) {
+    private byte[] renderGroupRankingPdf(String title, Object groups, Object pseudoGroups, Object groupMatches,
+                                         Object rankingCriteria, Object groupAllowDraw) {
         LinkedHashMap<String, Object> model = basePdfModel();
         model.put("title", title);
         model.put("groups", groups);
         model.put("pseudoGroups", pseudoGroups);
         model.put("groupMatches", groupMatches);
+        model.put("rankingCriteria", rankingCriteria);
+        model.put("groupAllowDraw", groupAllowDraw);
         return rankingExportPdfService.renderPdf("pdf/pdf-tournament-group-ranking", model);
     }
 

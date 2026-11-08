@@ -1,5 +1,6 @@
 package com.example.controller;
 
+import com.example.dto.ViewerTournamentProgress;
 import com.example.entity.*;
 import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.service.*;
@@ -52,6 +53,7 @@ public class TournamentController {
     @Autowired private com.example.mapper.TournamentDisqualificationMapper tournamentDisqualificationMapper;
     @Autowired private SystemConfigService systemConfigService;
     @Autowired private TournamentUrlService tournamentUrlService;
+    @Autowired private com.example.service.impl.ViewerTournamentProgressService viewerTournamentProgressService;
 
     private boolean isAdmin() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -1406,6 +1408,10 @@ public class TournamentController {
             model.addAttribute("rankingPriorityCandidates", List.of());
         }
         model.addAttribute("currentUser", currentUser);
+        ViewerTournamentProgress viewerProgress = currentUser == null || currentUser.getId() == null
+                ? null
+                : viewerTournamentProgressService.forUser(currentUser.getId(), List.of(id)).get(id);
+        model.addAttribute("viewerProgress", viewerProgress);
         java.time.LocalDateTime nowReg = java.time.LocalDateTime.now();
         model.addAttribute("registrationOpen", tournamentRegistrationService.isRegistrationOpen(tournament, nowReg));
         model.addAttribute("registrationModuleActive", tournamentRegistrationService.registrationModuleActive(tournament, nowReg));
@@ -2559,7 +2565,7 @@ public class TournamentController {
             ok.put("mode", mode);
             ok.put("message", "GROUP".equals(mode)
                     ? "已改为以当前小组内数据作为排名依据"
-                    : "已改为单独拆出伪小组，按伪小组排名逻辑");
+                    : "已改为单独拆出伪小组，按本届小组排名优先级计算");
             return ok;
         } catch (Exception e) {
             return Map.of("success", false, "message", e.getMessage() == null ? "保存失败" : e.getMessage());

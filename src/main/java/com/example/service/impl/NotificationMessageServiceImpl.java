@@ -353,6 +353,48 @@ public class NotificationMessageServiceImpl implements INotificationService {
         }
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void sendPersonalNotification(String title, String markdown, String sourceType, Long sourceRefId, Long userId) {
+        if (userId == null || sourceType == null || sourceType.isBlank() || sourceRefId == null) {
+            return;
+        }
+        List<NotificationMessage> existing = messageMapper.selectList(Wrappers.<NotificationMessage>lambdaQuery()
+                .eq(NotificationMessage::getSourceType, sourceType)
+                .eq(NotificationMessage::getSourceRefId, sourceRefId)
+                .eq(NotificationMessage::getPublished, true));
+        for (NotificationMessage old : existing) {
+            if (old == null || old.getId() == null) {
+                continue;
+            }
+            Long cnt = recipientMapper.selectCount(Wrappers.<NotificationRecipient>lambdaQuery()
+                    .eq(NotificationRecipient::getMessageId, old.getId())
+                    .eq(NotificationRecipient::getUserId, userId));
+            if (cnt != null && cnt > 0) {
+                return;
+            }
+        }
+        User superAdmin = userService.lambdaQuery()
+                .eq(User::getRole, ROLE_SUPER_ADMIN)
+                .last("LIMIT 1")
+                .one();
+        NotificationMessage m = new NotificationMessage();
+        m.setTitle(title == null || title.isBlank() ? "系统通知" : title.trim());
+        m.setContentMarkdown(MarkdownUtils.normalizeMarkdownLineBreaks(markdown == null ? "" : markdown.trim()));
+        m.setContentHtml(renderHtml(m.getContentMarkdown()));
+        m.setPublished(true);
+        m.setPublishToHome(false);
+        m.setAuthorUserId(superAdmin != null ? superAdmin.getId() : null);
+        m.setSourceType(sourceType);
+        m.setSourceRefId(sourceRefId);
+        m.setPublishedAt(LocalDateTime.now());
+        messageMapper.insert(m);
+        NotificationRecipient nr = new NotificationRecipient();
+        nr.setMessageId(m.getId());
+        nr.setUserId(userId);
+        recipientMapper.insert(nr);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public void ensureRecipients(Long messageId) {
         if (messageId == null) return;

@@ -616,6 +616,16 @@
                 </div>
             </div>
 
+            <div class="col-12 mt-3" th:if="${viewerProgress != null and viewerProgress.participating}">
+                <a class="cm-stage-banner"
+                   th:href="${viewerProgress.matchesUrl != null and !#strings.isEmpty(viewerProgress.matchesUrl) ? viewerProgress.matchesUrl : '#'}">
+                    <span class="badge bg-success-subtle text-success border flex-shrink-0">我的赛程</span>
+                    <span class="fw-semibold text-break" th:text="${viewerProgress.stageLabel}">小组</span>
+                    <span class="cm-pending-chip" th:each="opp : ${viewerProgress.pendingOpponents}" th:text="${opp}">vs 对手</span>
+                    <span class="text-muted" th:if="${!viewerProgress.hasPending}">本阶段没有待完成场次</span>
+                </a>
+            </div>
+
             <div class="col-12 mt-4">
                 <div class="card border-0 shadow-sm tournament-detail-section-tabs">
                     <div class="card-body d-flex align-items-center justify-content-center py-3">
@@ -915,7 +925,11 @@
                                             </div>
                                             <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutStartRound != null}">
                                                 <strong>淘汰赛首轮：</strong>
-                                                <span th:text="${competitionConfig.knockoutStartRound}"></span>
+                                                <span th:if="${competitionConfig.knockoutStartRound == 16}">1/16决赛</span>
+                                                <span th:if="${competitionConfig.knockoutStartRound == 8}">1/8决赛</span>
+                                                <span th:if="${competitionConfig.knockoutStartRound == 4}">1/4决赛</span>
+                                                <span th:if="${competitionConfig.knockoutStartRound == 2}">半决赛</span>
+                                                <span th:if="${competitionConfig.knockoutStartRound != 16 and competitionConfig.knockoutStartRound != 8 and competitionConfig.knockoutStartRound != 4 and competitionConfig.knockoutStartRound != 2}" th:text="${competitionConfig.knockoutStartRound}"></span>
                                             </div>
                                             <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.groupMode != null}">
                                                 <strong>小组赛模式：</strong>
@@ -1574,7 +1588,7 @@
                                             th:id="${'groupRankTieMode-' + g.id}"
                                             th:attr="data-tournament-id=${tournamentInfo.tournament.id},data-group-id=${g.id}">
                                         <option value="PSEUDO"
-                                                th:selected="${g.rankTieMode == null or #strings.equalsIgnoreCase(g.rankTieMode, 'PSEUDO')}">单独拆出伪小组，以当前伪小组的排名逻辑为准</option>
+                                                th:selected="${g.rankTieMode == null or #strings.equalsIgnoreCase(g.rankTieMode, 'PSEUDO')}">单独拆出伪小组，按本届小组排名优先级计算</option>
                                         <option value="GROUP"
                                                 th:selected="${g.rankTieMode != null and #strings.equalsIgnoreCase(g.rankTieMode, 'GROUP')}">直接以当前小组内的数据作为排名依据</option>
                                     </select>
@@ -2011,6 +2025,10 @@
     <script th:src="@{/js/Sortable.min.js}"></script>
     <script th:src="@{/js/group-match-score-modal.js?v=14}"></script>
     <script th:src="@{/js/knockout-bracket-view.js?v=31}"></script>
+    <script th:inline="javascript">
+        window.rankingVisibleColumns = /*[[${rankingPriorityVisibleColumns}]]*/ null;
+        window.groupStageAllowsDraw = /*[[${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}]]*/ true;
+    </script>
     <script>
         function isPrimeGroupCount(n) {
             if (!Number.isInteger(n) || n <= 1) return false;
@@ -2797,6 +2815,12 @@
             return true;
         }
 
+        const rankingVisibleColumns = window.rankingVisibleColumns;
+        const groupStageAllowsDraw = window.groupStageAllowsDraw !== false;
+        function rankingColumnVisible(code) {
+            if (!rankingVisibleColumns) return true;
+            return rankingVisibleColumns.indexOf(code) >= 0;
+        }
         function openGroupRankDetailModal(row) {
             if (!groupRankDetailModal) groupRankDetailModal = new bootstrap.Modal(document.getElementById('groupRankDetailModal'));
             const d = row.dataset;
@@ -2804,21 +2828,25 @@
             const copyBtn = document.getElementById('groupRankUserCopyBtn');
             const pdfBtn = document.getElementById('groupRankUserExportPdfBtn');
             if (!body) return;
+            const statLine = (code, html) => rankingColumnVisible(code) ? html : '';
+            const wdl = groupStageAllowsDraw
+                ? `${d.wins || 0}/${d.draws || 0}/${d.losses || 0}`
+                : `${d.wins || 0}/${d.losses || 0}`;
             body.innerHTML = `
                 <div class="mb-1"><strong>选手：</strong>${d.username || '-'}</div>
                 <div class="mb-1"><strong>分组：</strong>${d.groupName || '-'}</div>
                 <div class="mb-1"><strong>总排名：</strong>${d.rank || '-'}</div>
                 <div class="mb-1"><strong>小组排名：</strong>${d.groupRank || '-'}</div>
                 <hr class="my-2"/>
-                <div class="mb-1"><strong>积分：</strong>${(d.points != null && d.points !== '') ? d.points : ''}</div>
-                <div class="mb-1"><strong>净胜分：</strong>${d.net || 0}</div>
-                <div class="mb-1"><strong>总得分：</strong>${d.total || 0}</div>
-                <div class="mb-1"><strong>胜/平/负：</strong>${d.wins || 0}/${d.draws || 0}/${d.losses || 0}</div>
+                ${statLine('POINTS', `<div class="mb-1"><strong>积分：</strong>${(d.points != null && d.points !== '') ? d.points : ''}</div>`)}
+                ${statLine('NET', `<div class="mb-1"><strong>净胜分：</strong>${d.net || 0}</div>`)}
+                ${statLine('TOTAL_SCORE', `<div class="mb-1"><strong>总得分：</strong>${d.total || 0}</div>`)}
+                <div class="mb-1"><strong>${groupStageAllowsDraw ? '胜/平/负' : '胜/负'}：</strong>${wdl}</div>
                 <div class="mb-1"><strong>小组赛已赛/应赛：</strong>${d.played != null && d.played !== '' ? d.played : 0}/${d.exp != null && d.exp !== '' ? d.exp : 0}</div>
-                <div class="mb-1"><strong>≥2局数总和：</strong>${d.mge2 || 0}<span class="text-muted small">（每场得分≥2的局数累加至全场）</span></div>
-                <div class="mb-1"><strong>单局最高得分：</strong>${d.mmax || 0}</div>
-                <div class="mb-1"><strong>偷分次数：</strong>${d.stealC || 0}</div>
-                <div class="mb-1"><strong>偷分单次最高：</strong>${d.stealM || 0}</div>
+                ${statLine('MATCH_GE2', `<div class="mb-1"><strong>≥2局数总和：</strong>${d.mge2 || 0}<span class="text-muted small">（每场得分≥2的局数累加至全场）</span></div>`)}
+                ${statLine('MATCH_MAX', `<div class="mb-1"><strong>单局最高得分：</strong>${d.mmax || 0}</div>`)}
+                ${statLine('STEAL_COUNT', `<div class="mb-1"><strong>偷分次数：</strong>${d.stealC || 0}</div>`)}
+                ${statLine('STEAL_MAX', `<div class="mb-1"><strong>偷分单次最高：</strong>${d.stealM || 0}</div>`)}
             `;
             const uid = d.userId ? String(d.userId) : '';
             if (copyBtn) copyBtn.dataset.userId = uid;
@@ -3215,10 +3243,28 @@
                 window.open(`${base}${sep}includeMatchDetails=${includeMatchDetails}`, '_blank');
             });
 
-            const formatGroupRankingPlain = (data) => {
+                const rankingShows = (data, code) => {
+                    const crit = data && data.rankingCriteria;
+                    return !crit || crit.indexOf(code) >= 0;
+                };
+                const formatGroupRankingPlain = (data) => {
                 const groups = data && data.groups ? data.groups : [];
                 const pseudo = data && data.pseudoGroups ? data.pseudoGroups : [];
                 const matches = data && data.groupMatches ? data.groupMatches : [];
+                const showDraw = !data || data.groupAllowDraw !== false;
+                const stat = (r) => {
+                    const parts = [`${siteText('wins', 'Wins')}${r.wins}`];
+                    if (showDraw) parts.push(`${siteText('draws', 'Draws')}${r.draws}`);
+                    parts.push(`${siteText('losses', 'Losses')}${r.losses}`);
+                    if (rankingShows(data, 'POINTS')) parts.push(`${siteText('points', 'Points')}${r.points}`);
+                    if (rankingShows(data, 'NET')) parts.push(`${siteText('netScore', 'Net score')}${r.net}`);
+                    if (rankingShows(data, 'TOTAL_SCORE')) parts.push(`${siteText('totalScore', 'Total score')}${r.totalScore}`);
+                    if (rankingShows(data, 'MATCH_GE2')) parts.push(`${siteText('ge2Count', '≥2 set count')}${r.matchGe2Count}`);
+                    if (rankingShows(data, 'MATCH_MAX')) parts.push(`${siteText('singleMatchMax', 'Single match max')}${r.matchMaxScore}`);
+                    if (rankingShows(data, 'STEAL_COUNT')) parts.push(`${siteText('stealCount', 'Steal count')}${r.stealCount}`);
+                    if (rankingShows(data, 'STEAL_MAX')) parts.push(`${siteText('stealMax', 'Steal max')}${r.stealMax}`);
+                    return parts.join(' ');
+                };
                 const out = [siteText('groupRankingAndMatchesTitle', 'Group ranking and match details')];
                 out.push('');
                 out.push(`===== ${siteText('groupRankingLabel', 'Group ranking')} =====`);
@@ -3232,7 +3278,7 @@
                     out.push(`${g.groupName}`);
                     const rs = g.ranking || [];
                     for (const r of rs) {
-                        out.push(`  ${siteText('overallRank', 'Overall rank')}${r.overallRank || '-'} ${siteText('groupRank', 'Group rank')}${r.groupRank}. ${r.username} ${matchesCol(r)} ${siteText('wins', 'Wins')}${r.wins} ${siteText('draws', 'Draws')}${r.draws} ${siteText('losses', 'Losses')}${r.losses} ${siteText('points', 'Points')}${r.points} ${siteText('netScore', 'Net score')}${r.net} ${siteText('totalScore', 'Total score')}${r.totalScore} ${siteText('ge2Count', '≥2 set count')}${r.matchGe2Count} ${siteText('singleMatchMax', 'Single match max')}${r.matchMaxScore} ${siteText('stealCount', 'Steal count')}${r.stealCount} ${siteText('stealMax', 'Steal max')}${r.stealMax}`);
+                        out.push(`  ${siteText('overallRank', 'Overall rank')}${r.overallRank || '-'} ${siteText('groupRank', 'Group rank')}${r.groupRank}. ${r.username} ${matchesCol(r)} ${stat(r)}`);
                     }
                     out.push('');
                 }
@@ -3241,7 +3287,7 @@
                     for (const pg of pseudo) {
                         out.push(`${pg.groupName}（${siteText('source', 'Source')}${pg.fromGroup}，${siteText('samePoints', 'same points')}${pg.points}）`);
                         const rs = pg.ranking || [];
-                        for (const r of rs) out.push(`  ${r.groupRank}. ${r.username} ${siteText('points', 'Points')}${r.points} ${siteText('netScore', 'Net score')}${r.net} ${siteText('totalScore', 'Total score')}${r.totalScore}`);
+                        for (const r of rs) out.push(`  ${r.groupRank}. ${r.username} ${stat(r)}`);
                         const ms = pg.matches || [];
                         out.push(`  ${siteText('relatedMatches', 'Related matches')}：`);
                         if (!ms.length) out.push(`    ${siteText('none', 'None')}`);
@@ -3256,12 +3302,23 @@
 
             const formatGroupOverallPlain = (data) => {
                 const rows = data && data.overallRanking ? data.overallRanking : [];
+                const showDraw = !data || data.groupAllowDraw !== false;
                 const out = [siteText('groupOverallRanking', 'Group overall ranking'), ''];
                 for (const r of rows) {
                     const exp = r.expectedGroupMatches != null ? r.expectedGroupMatches : 0;
                     const pl = r.played != null ? r.played : 0;
                     const full = exp > 0 && pl === exp ? `【${siteText('completed', 'Completed')}】` : '';
-                    out.push(`${r.overallRank}. [${r.groupName}] ${siteText('groupRank', 'Group rank')}${r.groupRank} ${r.username} ${siteText('played', 'Played')}${pl}/${siteText('expected', 'Expected')}${exp}${full} ${siteText('wins', 'Wins')}${r.wins || 0} ${siteText('draws', 'Draws')}${r.draws || 0} ${siteText('losses', 'Losses')}${r.losses || 0} ${siteText('points', 'Points')}${r.points} ${siteText('netScore', 'Net score')}${r.net} ${siteText('totalScore', 'Total score')}${r.totalScore} ${siteText('ge2Count', '≥2 set count')}${r.matchGe2Count || 0} ${siteText('singleMatchMax', 'Single match max')}${r.matchMaxScore || 0} ${siteText('stealCount', 'Steal count')}${r.stealCount || 0} ${siteText('stealMax', 'Steal max')}${r.stealMax || 0}`);
+                    const parts = [`${siteText('wins', 'Wins')}${r.wins || 0}`];
+                    if (showDraw) parts.push(`${siteText('draws', 'Draws')}${r.draws || 0}`);
+                    parts.push(`${siteText('losses', 'Losses')}${r.losses || 0}`);
+                    if (rankingShows(data, 'POINTS')) parts.push(`${siteText('points', 'Points')}${r.points}`);
+                    if (rankingShows(data, 'NET')) parts.push(`${siteText('netScore', 'Net score')}${r.net}`);
+                    if (rankingShows(data, 'TOTAL_SCORE')) parts.push(`${siteText('totalScore', 'Total score')}${r.totalScore}`);
+                    if (rankingShows(data, 'MATCH_GE2')) parts.push(`${siteText('ge2Count', '≥2 set count')}${r.matchGe2Count || 0}`);
+                    if (rankingShows(data, 'MATCH_MAX')) parts.push(`${siteText('singleMatchMax', 'Single match max')}${r.matchMaxScore || 0}`);
+                    if (rankingShows(data, 'STEAL_COUNT')) parts.push(`${siteText('stealCount', 'Steal count')}${r.stealCount || 0}`);
+                    if (rankingShows(data, 'STEAL_MAX')) parts.push(`${siteText('stealMax', 'Steal max')}${r.stealMax || 0}`);
+                    out.push(`${r.overallRank}. [${r.groupName}] ${siteText('groupRank', 'Group rank')}${r.groupRank} ${r.username} ${siteText('played', 'Played')}${pl}/${siteText('expected', 'Expected')}${exp}${full} ${parts.join(' ')}`);
                 }
                 return out.join('\n');
             };
@@ -3295,7 +3352,7 @@
                         groupBtn.disabled = true;
                         groupBtn.style.opacity = '0.85';
                         const data = await fetchJson(`/ranking/api/tournament/${encodeURIComponent(tid)}/group/${encodeURIComponent(gid)}/ranking`);
-                        const wrapped = {groups: [{groupName: data.groupName, ranking: data.ranking || []}], pseudoGroups: data.pseudoGroups || [], groupMatches: data.matches || []};
+                        const wrapped = {groups: [{groupName: data.groupName, ranking: data.ranking || []}], pseudoGroups: data.pseudoGroups || [], groupMatches: data.matches || [], rankingCriteria: data.rankingCriteria, groupAllowDraw: data.groupAllowDraw};
                         await copyPlainTextToClipboard(formatGroupRankingPlain(wrapped));
                         if (typeof showAlert === 'function') showAlert('复制成功', 'success');
                         else alert('复制成功');
@@ -3349,11 +3406,14 @@
                 };
                 if (section === 'group-overall') {
                     show('detail-group-overall-tab');
-                } else if (section === 'matches') {
+                } else                 if (section === 'matches') {
                     show('detail-matches-tab');
                     const groupId = params.get('groupId');
+                    const tab = params.get('tab');
                     if (groupId) {
                         show('match-tab-btn-match-tab-group-' + groupId);
+                    } else if (tab) {
+                        show('match-tab-btn-' + tab);
                     }
                 } else if (section === 'ranking-priority') {
                     show('detail-main-tab');

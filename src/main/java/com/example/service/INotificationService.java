@@ -32,6 +32,11 @@ public interface INotificationService {
                                    java.util.Collection<Long> recipientUserIds);
 
     /**
+     * 向单个用户发送一条内容可因人而异的通知。同一 sourceType + sourceRefId + 用户只发一次。
+     */
+    void sendPersonalNotification(String title, String markdown, String sourceType, Long sourceRefId, Long userId);
+
+    /**
      * 发送忘记密码请求通知给所有管理员
      */
     void sendForgotPasswordNotification(Long requesterUserId);

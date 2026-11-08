@@ -7,6 +7,7 @@ import com.example.mapper.MatchScoreEditLogMapper;
 import com.example.mapper.TournamentGroupMapper;
 import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.service.*;
+import com.example.ranking.RankingCriterion;
 import com.example.util.SeriesDisplayNames;
 import com.example.util.TournamentPlacementListOrder;
 import com.example.mapper.RankingMapper;
@@ -750,7 +751,9 @@ public class RankingApiController {
                 "tournamentId", tournamentId,
                 "groups", groupRows,
                 "pseudoGroups", pseudoGroupRows,
-                "groupMatches", groupMatchRows
+                "groupMatches", groupMatchRows,
+                "rankingCriteria", rankingCriterionCodes(rankingPriority),
+                "groupAllowDraw", allowDraw
         );
     }
 
@@ -777,7 +780,12 @@ public class RankingApiController {
         }
         var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         List<Map<String, Object>> rows = groupRankingCalculator.buildOverallRanking(byGroup, rankingPriority);
-        return Map.of("tournamentId", tournamentId, "overallRanking", rows);
+        return Map.of(
+                "tournamentId", tournamentId,
+                "overallRanking", rows,
+                "rankingCriteria", data.getOrDefault("rankingCriteria", rankingCriterionCodes(rankingPriority)),
+                "groupAllowDraw", data.getOrDefault("groupAllowDraw", true)
+        );
     }
 
     @GetMapping("/tournament/{tournamentId}/group/{groupId}/ranking")
@@ -791,7 +799,16 @@ public class RankingApiController {
         List<Map<String, Object>> groupMatches = (List<Map<String, Object>>) data.getOrDefault("groupMatches", List.of());
         Map<String, Object> group = groups.stream().filter(g -> Objects.equals(g.get("groupId"), groupId)).findFirst().orElse(null);
         if (group == null) {
-            return Map.of("tournamentId", tournamentId, "groupId", groupId, "groupName", "-", "ranking", List.of(), "pseudoGroups", List.of(), "matches", List.of());
+            return Map.of(
+                    "tournamentId", tournamentId,
+                    "groupId", groupId,
+                    "groupName", "-",
+                    "ranking", List.of(),
+                    "pseudoGroups", List.of(),
+                    "matches", List.of(),
+                    "rankingCriteria", data.getOrDefault("rankingCriteria", List.of()),
+                    "groupAllowDraw", data.getOrDefault("groupAllowDraw", true)
+            );
         }
         String groupName = String.valueOf(group.getOrDefault("groupName", "-"));
         List<Map<String, Object>> thisPseudo = pseudoGroups.stream()
@@ -806,8 +823,21 @@ public class RankingApiController {
                 "groupName", groupName,
                 "ranking", group.getOrDefault("ranking", List.of()),
                 "pseudoGroups", thisPseudo,
-                "matches", thisMatches
+                "matches", thisMatches,
+                "rankingCriteria", data.getOrDefault("rankingCriteria", List.of()),
+                "groupAllowDraw", data.getOrDefault("groupAllowDraw", true)
         );
+    }
+
+    private static List<String> rankingCriterionCodes(List<RankingCriterion> order) {
+        List<RankingCriterion> use = order != null ? order : RankingCriterion.DEFAULT_ORDER;
+        List<String> codes = new ArrayList<>();
+        for (RankingCriterion c : use) {
+            if (c != null) {
+                codes.add(c.getCode());
+            }
+        }
+        return codes;
     }
 
     private static List<Map<String, Object>> buildSetRowsForExport(List<SetScore> scores, Match match, Map<Long, String> usernameById) {

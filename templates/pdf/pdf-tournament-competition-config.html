@@ -55,14 +55,15 @@
 <div class="row">
     <div class="label">赛制规则：</div>
     <div class="value">
-        <span th:if="${competitionRuleType == 'NORMAL'}">正常5壶保护制</span>
-        <span th:if="${competitionRuleType == 'CUSTOM'}">自定义</span>
-        <span th:if="${competitionRuleType == null}">-</span>
+        <span th:if="${competitionRuleText != null}" th:text="${competitionRuleText}">正常5壶保护制</span>
+        <th:block th:if="${competitionRuleText == null}">
+            <span th:if="${competitionRuleType == null or competitionRuleType == 'NORMAL'}">正常5壶保护制</span>
+            <span th:if="${competitionRuleType == 'CUSTOM' and customCenterLineLimit != null and customDeadStoneLimit != null}" th:text="${customCenterLineLimit + '壶中线 / ' + customDeadStoneLimit + '壶保护'}"></span>
+            <span th:if="${competitionRuleType == 'CUSTOM' and customCenterLineLimit != null and customDeadStoneLimit == null}" th:text="${customCenterLineLimit + '壶中线'}"></span>
+            <span th:if="${competitionRuleType == 'CUSTOM' and customCenterLineLimit == null and customDeadStoneLimit != null}" th:text="${customDeadStoneLimit + '壶保护'}"></span>
+            <span th:if="${competitionRuleType == 'CUSTOM' and customCenterLineLimit == null and customDeadStoneLimit == null}">自定义</span>
+        </th:block>
     </div>
-    <div class="label" style="margin-left: 20px;" th:if="${competitionRuleType == 'CUSTOM'}">中线壶限制：</div>
-    <div class="value" th:if="${competitionRuleType == 'CUSTOM'}" th:text="${customCenterLineLimit != null ? customCenterLineLimit : '默认5'}">-</div>
-    <div class="label" style="margin-left: 20px;" th:if="${competitionRuleType == 'CUSTOM'}">死壶限制：</div>
-    <div class="value" th:if="${competitionRuleType == 'CUSTOM'}" th:text="${customDeadStoneLimit != null ? customDeadStoneLimit : '默认5'}">-</div>
 </div>
 
 <div class="section">比赛配置</div>
@@ -79,14 +80,19 @@
     <div class="value" th:text="${knockoutStartRoundText}">-</div>
 </div>
 <div class="row">
-    <div class="label">淘汰赛种子模式：</div>
-    <div class="value" th:text="${knockoutBracketModeText}">-</div>
+    <div class="label">淘汰赛对阵模式：</div>
+    <div class="value">
+        <span th:if="${knockoutBracketMode == 0}">按小组赛总排名经典种子交叉</span>
+        <span th:if="${knockoutBracketMode == 1}">上下半区：相邻两组名次交叉</span>
+        <span th:if="${knockoutBracketMode == 2}">上下半区：世界杯式</span>
+        <span th:if="${knockoutBracketMode == null}" th:text="${knockoutBracketModeText != null ? knockoutBracketModeText : '-'}">-</span>
+    </div>
     <div class="label" style="margin-left: 20px;">小组赛自动生成淘汰赛：</div>
     <div class="value" th:text="${knockoutAutoFromGroup != null and knockoutAutoFromGroup ? '是' : '否'}">-</div>
 </div>
-<div class="row">
-    <div class="label">首轮淘汰赛附加资格赛：</div>
-    <div class="value" th:text="${qualifierRoundText}">-</div>
+<div class="row" th:if="${qualifierRound != null or (entryModeText != null and entryModeText.contains('资格赛'))}">
+    <div class="label" th:if="${qualifierRound != null}">首轮淘汰赛附加资格赛：</div>
+    <div class="value" th:if="${qualifierRound != null}" th:text="${qualifierRoundText}">-</div>
     <div class="label" style="margin-left: 20px;" th:if="${entryModeText != null and entryModeText.contains('资格赛')}">正赛资格赛晋级名额：</div>
     <div class="value" th:if="${entryModeText != null and entryModeText.contains('资格赛')}" th:text="${knockoutQualifyCount}">-</div>
 </div>
@@ -111,12 +117,8 @@
 <div class="row">
     <div class="label">决赛局数：</div>
     <div class="value" th:text="${finalStageSets != null ? finalStageSets : '-'}">-</div>
-    <div class="label" style="margin-left: 20px;">资格赛局数：</div>
-    <div class="value" th:text="${qualifierSets}">-</div>
-</div>
-<div class="row">
-    <div class="label">手动锁定：</div>
-    <div class="value" th:text="${manualLocked != null and manualLocked ? '是' : '否'}">-</div>
+    <div class="label" style="margin-left: 20px;" th:if="${entryModeText != null and entryModeText.contains('资格赛')}">资格赛局数：</div>
+    <div class="value" th:if="${entryModeText != null and entryModeText.contains('资格赛')}" th:text="${qualifierSets}">-</div>
 </div>
 </body>
 </html>

@@ -159,23 +159,24 @@ public class GroupRankingCalculator {
 
     private List<Map<String, Object>> rankRows(List<Map<String, Object>> rows, List<Match> groupMatches,
                                                List<RankingCriterion> criteriaOrder) {
-        rows.sort((a, b) -> compareByCriteria(a, b, groupMatches, criteriaOrder, false));
+        Map<Long, Integer> headToHeadRank = headToHeadRanks(rows, groupMatches);
+        rows.sort((a, b) -> compareByCriteria(a, b, headToHeadRank, criteriaOrder, false));
         for (int i = 0; i < rows.size(); i++) rows.get(i).put("groupRank", i + 1);
         return rows;
     }
 
     /**
      * @param skipHeadToHead 跨组总排名等场景无组内交锋场次时跳过
+     * @param headToHeadRank 交锋名次；同一互胜环内名次相同，比较才会落到后面的优先级
      */
-    private int compareByCriteria(Map<String, Object> a, Map<String, Object> b, List<Match> groupMatches,
+    private int compareByCriteria(Map<String, Object> a, Map<String, Object> b, Map<Long, Integer> headToHeadRank,
                                   List<RankingCriterion> criteriaOrder, boolean skipHeadToHead) {
         List<RankingCriterion> order = criteriaOrder != null ? criteriaOrder : RankingCriterion.DEFAULT_ORDER;
         for (RankingCriterion c : order) {
             int cmp = switch (c) {
                 case POINTS -> Integer.compare(
                         (int) b.getOrDefault("points", 0), (int) a.getOrDefault("points", 0));
-                case HEAD_TO_HEAD -> skipHeadToHead || groupMatches == null
-                        ? 0 : compareHeadToHeadTwo(a, b, groupMatches);
+                case HEAD_TO_HEAD -> skipHeadToHead ? 0 : compareHeadToHeadRank(a, b, headToHeadRank);
                 case NET -> Integer.compare(
                         (int) b.getOrDefault("net", 0), (int) a.getOrDefault("net", 0));
                 case TOTAL_SCORE -> Integer.compare(
@@ -196,26 +197,156 @@ public class GroupRankingCalculator {
             }
         }
         if (criteriaOrder != null && !order.contains(RankingCriterion.USERNAME)) {
-            return String.valueOf(a.getOrDefault("username", ""))
-                    .compareTo(String.valueOf(b.getOrDefault("username", "")));
+            return compareUserId(a, b);
         }
         return 0;
     }
 
-    private int compareHeadToHeadTwo(Map<String, Object> a, Map<String, Object> b, List<Match> groupMatches) {
-        Long ua = (Long) a.get("userId"), ub = (Long) b.get("userId");
-        if (ua == null || ub == null) return 0;
-        for (Match m : groupMatches) {
-            Long p1 = m.getPlayer1Id(), p2 = m.getPlayer2Id();
-            boolean ab = Objects.equals(p1, ua) && Objects.equals(p2, ub);
-            boolean ba = Objects.equals(p1, ub) && Objects.equals(p2, ua);
-            if (!ab && !ba) continue;
-            if (m.getWinnerId() == null) return 0;
-            if (Objects.equals(m.getWinnerId(), ua)) return -1;
-            if (Objects.equals(m.getWinnerId(), ub)) return 1;
+    private boolean criteriaIncludes(List<RankingCriterion> criteriaOrder, RankingCriterion criterion) {
+        List<RankingCriterion> order = criteriaOrder != null ? criteriaOrder : RankingCriterion.DEFAULT_ORDER;
+        return criterion != null && order.contains(criterion);
+    }
+
+    private int compareUserId(Map<String, Object> a, Map<String, Object> b) {
+        return Long.compare(userIdOf(a), userIdOf(b));
+    }
+
+    private long userIdOf(Map<String, Object> row) {
+        if (row == null) {
+            return Long.MAX_VALUE;
+        }
+        Object v = row.get("userId");
+        if (v instanceof Number n) {
+            return n.longValue();
+        }
+        return Long.MAX_VALUE;
+    }
+
+    private int compareHeadToHeadRank(Map<String, Object> a, Map<String, Object> b, Map<Long, Integer> headToHeadRank) {
+        if (headToHeadRank == null || headToHeadRank.isEmpty()) {
             return 0;
         }
-        return 0;
+        int ra = headToHeadRank.getOrDefault(userIdOf(a), 0);
+        int rb = headToHeadRank.getOrDefault(userIdOf(b), 0);
+        return Integer.compare(ra, rb);
+    }
+
+    /**
+     * 交锋只在能分出上下时拉开名次：胜者链条上的人排在前面，互相能走到对方的一圈人名次相同。
+     */
+    private Map<Long, Integer> headToHeadRanks(List<Map<String, Object>> rows, List<Match> matches) {
+        List<Long> ids = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            long id = userIdOf(row);
+            if (id != Long.MAX_VALUE && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        int n = ids.size();
+        Map<Long, Integer> rankByUser = new HashMap<>();
+        if (n == 0) {
+            return rankByUser;
+        }
+        Map<Long, Integer> index = new HashMap<>();
+        for (int i = 0; i < n; i++) {
+            index.put(ids.get(i), i);
+        }
+        List<List<Integer>> win = new ArrayList<>();
+        List<List<Integer>> reverse = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            win.add(new ArrayList<>());
+            reverse.add(new ArrayList<>());
+        }
+        if (matches != null) {
+            for (Match match : matches) {
+                Long winner = match.getWinnerId();
+                if (winner == null) {
+                    continue;
+                }
+                Long p1 = match.getPlayer1Id();
+                Long p2 = match.getPlayer2Id();
+                Long loser = Objects.equals(winner, p1) ? p2 : Objects.equals(winner, p2) ? p1 : null;
+                Integer wi = index.get(winner);
+                Integer li = loser == null ? null : index.get(loser);
+                if (wi == null || li == null || wi.equals(li)) {
+                    continue;
+                }
+                win.get(wi).add(li);
+                reverse.get(li).add(wi);
+            }
+        }
+        boolean[] seen = new boolean[n];
+        Deque<Integer> finish = new ArrayDeque<>();
+        for (int i = 0; i < n; i++) {
+            if (!seen[i]) {
+                walkFinish(i, win, seen, finish);
+            }
+        }
+        int[] component = new int[n];
+        Arrays.fill(component, -1);
+        int componentCount = 0;
+        while (!finish.isEmpty()) {
+            int node = finish.pop();
+            if (component[node] != -1) {
+                continue;
+            }
+            assignComponent(node, reverse, component, componentCount);
+            componentCount++;
+        }
+        List<Set<Integer>> beatenBy = new ArrayList<>();
+        for (int i = 0; i < componentCount; i++) {
+            beatenBy.add(new HashSet<>());
+        }
+        for (int from = 0; from < n; from++) {
+            for (int to : win.get(from)) {
+                if (component[from] != component[to]) {
+                    beatenBy.get(component[to]).add(component[from]);
+                }
+            }
+        }
+        int[] componentRank = new int[componentCount];
+        Arrays.fill(componentRank, -1);
+        boolean[] visiting = new boolean[componentCount];
+        for (int i = 0; i < n; i++) {
+            rankByUser.put(ids.get(i), componentRankOf(component[i], beatenBy, componentRank, visiting));
+        }
+        return rankByUser;
+    }
+
+    private void walkFinish(int node, List<List<Integer>> edges, boolean[] seen, Deque<Integer> finish) {
+        seen[node] = true;
+        for (int next : edges.get(node)) {
+            if (!seen[next]) {
+                walkFinish(next, edges, seen, finish);
+            }
+        }
+        finish.push(node);
+    }
+
+    private void assignComponent(int node, List<List<Integer>> reverse, int[] component, int componentId) {
+        component[node] = componentId;
+        for (int next : reverse.get(node)) {
+            if (component[next] == -1) {
+                assignComponent(next, reverse, component, componentId);
+            }
+        }
+    }
+
+    private int componentRankOf(int component, List<Set<Integer>> beatenBy, int[] componentRank, boolean[] visiting) {
+        if (componentRank[component] >= 0) {
+            return componentRank[component];
+        }
+        if (visiting[component]) {
+            return 0;
+        }
+        visiting[component] = true;
+        int rank = 0;
+        for (int above : beatenBy.get(component)) {
+            rank = Math.max(rank, componentRankOf(above, beatenBy, componentRank, visiting) + 1);
+        }
+        visiting[component] = false;
+        componentRank[component] = rank;
+        return rank;
     }
 
     private void addInt(Map<String, Object> row, String key, int delta) {
@@ -299,10 +430,12 @@ public class GroupRankingCalculator {
                         pseudoGroup, pseudoMember, usernameById, tieMatches, setByMatch, allowDraw, regularSets, criteriaOrder
                 ).getOrDefault(g.getId(), List.of());
 
-                List<Long> recursiveOrder = orderMemberIdsRecursively(
-                        new ArrayList<>(tieIds), tieMatches, setByMatch, usernameById,
-                        allowDraw, regularSets, criteriaOrder, g.getId(), 0);
-                pseudoRanking = reorderRowsByUserIds(pseudoRanking, recursiveOrder);
+                if (criteriaIncludes(criteriaOrder, RankingCriterion.HEAD_TO_HEAD)) {
+                    List<Long> recursiveOrder = orderMemberIdsRecursively(
+                            new ArrayList<>(tieIds), tieMatches, setByMatch, usernameById,
+                            allowDraw, regularSets, criteriaOrder, g.getId(), 0);
+                    pseudoRanking = reorderRowsByUserIds(pseudoRanking, recursiveOrder);
+                }
 
                 remapMainGroupRanksFromPseudoOrder(tie, pseudoRanking);
 
@@ -380,11 +513,10 @@ public class GroupRankingCalculator {
             }
         }
         if (withoutH2h.isEmpty()) {
-            withoutH2h.add(RankingCriterion.NET);
-            withoutH2h.add(RankingCriterion.TOTAL_SCORE);
-            withoutH2h.add(RankingCriterion.USERNAME);
+            block.sort(this::compareUserId);
+        } else {
+            block.sort((a, b) -> compareByCriteria(a, b, null, withoutH2h, true));
         }
-        block.sort((a, b) -> compareByCriteria(a, b, null, withoutH2h, true));
         for (int i = 0; i < block.size(); i++) {
             block.get(i).put("groupRank", blockStart + i);
         }

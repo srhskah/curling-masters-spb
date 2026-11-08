@@ -9,6 +9,7 @@ import com.example.entity.User;
 import com.example.service.TournamentMedalStandingsService;
 import com.example.service.UserService;
 import com.example.util.CookieUtil;
+import com.example.util.SensitiveDisplay;
 import com.example.util.UsernameValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -279,6 +280,7 @@ public class UserController {
         } else {
             users = userService.list();
         }
+        SensitiveDisplay.clearPasswords(users);
         model.addAttribute("users", users);
         model.addAttribute("searchQuery", search);
         return "user-manage";
@@ -289,6 +291,7 @@ public class UserController {
     @GetMapping("/edit/{id}")
     public String editUserPage(@PathVariable Long id, Model model) {
         User user = userService.getById(id);
+        SensitiveDisplay.clearPassword(user);
         model.addAttribute("user", user);
         return "user-edit";
     }
@@ -431,9 +434,14 @@ public class UserController {
                 return "redirect:/user/login";
             }
             
+            boolean isOwner = currentUser.getId().equals(id);
+            Integer viewerRole = currentUser.getRole();
+            boolean canSeeFullEmail = isOwner || (viewerRole != null && viewerRole <= 1);
+            SensitiveDisplay.clearPassword(user);
+            SensitiveDisplay.maskEmailUnlessPrivileged(user, canSeeFullEmail);
             model.addAttribute("user", user);
-            model.addAttribute("isOwner", currentUser.getId().equals(id));
-            model.addAttribute("viewerRole", currentUser.getRole());
+            model.addAttribute("isOwner", isOwner);
+            model.addAttribute("viewerRole", viewerRole);
 
             List<UserMedalByLevelDto> medalsByLevel = tournamentMedalStandingsService.summarizeUserMedalsByLevel(id);
             List<UserMedalEventDto> medalEvents = tournamentMedalStandingsService.listUserMedalEvents(id);

@@ -1,5 +1,7 @@
 package com.example.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -34,6 +36,7 @@ public class User implements Serializable {
         this.username = username;
     }
 
+    @JsonIgnore
     public String getPassword() {
         return password;
     }

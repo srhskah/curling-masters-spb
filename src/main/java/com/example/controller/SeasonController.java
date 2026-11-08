@@ -61,6 +61,8 @@ public class SeasonController {
 
     @Autowired
     private TournamentUrlService tournamentUrlService;
+    @Autowired
+    private com.example.service.impl.ViewerTournamentProgressService viewerTournamentProgressService;
 
     /**
      * 赛季与赛事等级管理页面（统一管理入口）
@@ -324,14 +326,31 @@ public class SeasonController {
         // 获取当前用户信息以判断权限
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = false;
-        if (auth != null && auth.isAuthenticated()) {
+        Long viewerUserId = null;
+        if (auth != null && auth.isAuthenticated() && auth.getName() != null && !"anonymousUser".equals(auth.getName())) {
             String username = auth.getName();
             User user = userService.findByUsername(username);
-            if (user != null && user.getRole() <= 1) { // 管理员
-                isAdmin = true;
+            if (user != null) {
+                viewerUserId = user.getId();
+                if (user.getRole() != null && user.getRole() <= 1) {
+                    isAdmin = true;
+                }
             }
         }
         model.addAttribute("isAdmin", isAdmin);
+        List<Long> seasonTournamentIds = new ArrayList<>();
+        for (Map<String, Object> seriesInfo : seriesInfoList) {
+            Object raw = seriesInfo.get("tournaments");
+            if (!(raw instanceof List<?> list)) {
+                continue;
+            }
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> info && info.get("tournament") instanceof Tournament t && t.getId() != null) {
+                    seasonTournamentIds.add(t.getId());
+                }
+            }
+        }
+        model.addAttribute("viewerProgressByTournamentId", viewerTournamentProgressService.forUser(viewerUserId, seasonTournamentIds));
 
         // 当前赛季完整排名
         List<RankingEntry> seasonRanking = rankingService.getSeasonRanking(id, null);

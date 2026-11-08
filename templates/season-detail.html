@@ -224,7 +224,8 @@
                                          th:each="tournamentInfo : ${tournaments}"
                                          th:with="t=${tournamentInfo['tournament']},
                                                   levelName=${tournamentInfo['levelName']},
-                                                  hostUserName=${tournamentInfo['hostUserName']}">
+                                                  hostUserName=${tournamentInfo['hostUserName']},
+                                                  mine=${viewerProgressByTournamentId != null ? viewerProgressByTournamentId[t.id] : null}">
                                         <div class="card-body">
                                             <div class="d-flex justify-content-between align-items-start gap-2">
                                                 <div>
@@ -245,6 +246,8 @@
                                                     <span th:if="${t.status == 0}" class="badge bg-secondary">筹备中</span>
                                                     <span th:if="${t.status == 1}" class="badge bg-primary">进行中</span>
                                                     <span th:if="${t.status == 2}" class="badge bg-success">已结束</span>
+                                                    <span class="badge bg-success-subtle text-success border"
+                                                          th:if="${mine != null and mine.participating}">已参加</span>
                                                 </div>
                                             </div>
                                             <div class="mt-2 text-muted small">
@@ -483,7 +486,8 @@
                                              th:each="tournamentInfo : ${tournaments}"
                                              th:with="t=${tournamentInfo['tournament']},
                                                       levelName=${tournamentInfo['levelName']},
-                                                      hostUserName=${tournamentInfo['hostUserName']}">
+                                                      hostUserName=${tournamentInfo['hostUserName']},
+                                                      mine=${viewerProgressByTournamentId != null ? viewerProgressByTournamentId[t.id] : null}">
                                             <div class="card-body">
                                                 <div class="d-flex justify-content-between align-items-start gap-2">
                                                     <div>
@@ -504,6 +508,8 @@
                                                         <span th:if="${t.status == 0}" class="badge bg-secondary">筹备中</span>
                                                         <span th:if="${t.status == 1}" class="badge bg-primary">进行中</span>
                                                         <span th:if="${t.status == 2}" class="badge bg-success">已结束</span>
+                                                        <span class="badge bg-success-subtle text-success border"
+                                                              th:if="${mine != null and mine.participating}">已参加</span>
                                                     </div>
                                                 </div>
                                                 <div class="mt-2 text-muted small">

@@ -6,6 +6,8 @@ import com.example.mapper.*;
 import com.example.service.*;
 import com.example.dto.DrawPool;
 import com.example.dto.TournamentRegistrationRowDto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,8 +21,11 @@ import java.util.stream.Collectors;
 @Service
 public class DrawManagementService {
 
+    private static final Logger log = LoggerFactory.getLogger(DrawManagementService.class);
     private static final String SRC_DRAW_OPEN = "DRAW_OPEN";
     private static final String SRC_DRAW_COMPLETE = "DRAW_COMPLETE";
+    private static final String SRC_DRAW_GROUP_PLAYER = "DRAW_GRP_";
+    private static final String SRC_DRAW_GROUP_STAFF = "DRAW_STF_";
     @Autowired private TournamentDrawMapper drawMapper;
     @Autowired private TournamentDrawResultMapper drawResultMapper;
     @Autowired private TournamentRegistrationMapper registrationMapper;
@@ -32,6 +37,7 @@ public class DrawManagementService {
     @Autowired private TournamentCompetitionConfigMapper competitionConfigMapper;
     @Autowired private INotificationService notificationService;
     @Autowired private TournamentEntryService tournamentEntryService;
+    @Autowired private TournamentUrlService tournamentUrlService;
 
     private TournamentDraw loadDraw(Long tournamentId, DrawPool pool) {
         return drawMapper.selectOne(Wrappers.<TournamentDraw>lambdaQuery()
@@ -1498,7 +1504,135 @@ public class DrawManagementService {
             t.setStatus(1);
             tournamentService.updateById(t);
         }
+        notifyGroupListImported(tournamentId, pool, drawResults);
 
         return drawResults.size();
+    }
+
+    /**
+     * 名单导入后：给每位选手发所在组与对手；给办赛用户发抽签结果，并附上抽签页 PDF 导出链接。
+     */
+    private void notifyGroupListImported(Long tournamentId, DrawPool pool, List<TournamentDrawResult> drawResults) {
+        try {
+            if (tournamentId == null || drawResults == null || drawResults.isEmpty()) {
+                return;
+            }
+            Tournament tournament = tournamentService.getById(tournamentId);
+            String label = tournament != null && tournament.getLevelCode() != null ? tournament.getLevelCode() : ("赛事#" + tournamentId);
+            String poolName = pool == null ? DrawPool.MAIN.name() : pool.name();
+            String poolLabel = pool == DrawPool.QUALIFIER ? "资格赛" : "正赛";
+            List<TournamentGroup> groups = groupMapper.selectList(
+                    Wrappers.<TournamentGroup>lambdaQuery()
+                            .eq(TournamentGroup::getTournamentId, tournamentId));
+            Map<Long, String> groupNameById = new HashMap<>();
+            if (groups != null) {
+                for (TournamentGroup g : groups) {
+                    if (g != null && g.getId() != null) {
+                        groupNameById.put(g.getId(), g.getGroupName() == null || g.getGroupName().isBlank() ? "小组" : g.getGroupName());
+                    }
+                }
+            }
+            List<TournamentGroupMember> members = groupMemberMapper.selectList(
+                    Wrappers.<TournamentGroupMember>lambdaQuery()
+                            .eq(TournamentGroupMember::getTournamentId, tournamentId));
+            Map<Long, List<Long>> userIdsByGroup = new HashMap<>();
+            Set<Long> userIds = new LinkedHashSet<>();
+            if (members != null) {
+                for (TournamentGroupMember mem : members) {
+                    if (mem == null || mem.getGroupId() == null || mem.getUserId() == null) {
+                        continue;
+                    }
+                    userIdsByGroup.computeIfAbsent(mem.getGroupId(), k -> new ArrayList<>()).add(mem.getUserId());
+                    userIds.add(mem.getUserId());
+                }
+            }
+            for (TournamentDrawResult dr : drawResults) {
+                if (dr != null && dr.getUserId() != null) {
+                    userIds.add(dr.getUserId());
+                }
+            }
+            Map<Long, String> nameById = new HashMap<>();
+            if (!userIds.isEmpty()) {
+                List<User> users = userService.listByIds(userIds);
+                if (users != null) {
+                    for (User u : users) {
+                        if (u != null && u.getId() != null && u.getUsername() != null) {
+                            nameById.put(u.getId(), u.getUsername());
+                        }
+                    }
+                }
+            }
+            String detailBase = tournamentUrlService.detailUrl(tournament);
+            String playerSource = SRC_DRAW_GROUP_PLAYER + (pool == DrawPool.QUALIFIER ? "Q" : "M");
+            for (TournamentDrawResult dr : drawResults) {
+                if (dr == null || dr.getUserId() == null || dr.getGroupId() == null) {
+                    continue;
+                }
+                String groupName = groupNameById.getOrDefault(dr.getGroupId(), "小组");
+                StringBuilder md = new StringBuilder();
+                md.append("你已进入 **").append(groupName).append("**。\n\n");
+                md.append("[进入本组对阵](").append(detailBase)
+                        .append("?section=matches&groupId=").append(dr.getGroupId()).append(")\n\n");
+                md.append("本组对手：\n");
+                List<Long> mates = userIdsByGroup.getOrDefault(dr.getGroupId(), List.of());
+                boolean any = false;
+                for (Long mateId : mates) {
+                    if (mateId == null || mateId.equals(dr.getUserId())) {
+                        continue;
+                    }
+                    any = true;
+                    md.append("- ").append(nameById.getOrDefault(mateId, "选手")).append("\n");
+                }
+                if (!any) {
+                    md.append("- 暂无\n");
+                }
+                notificationService.sendPersonalNotification(
+                        "分组结果：" + label + " " + groupName,
+                        md.toString(),
+                        playerSource,
+                        tournamentId,
+                        dr.getUserId());
+            }
+
+            StringBuilder staff = new StringBuilder();
+            staff.append(poolLabel).append("抽签结果已导入小组名单。\n\n");
+            Map<Long, List<String>> namesByGroup = new LinkedHashMap<>();
+            for (TournamentDrawResult dr : drawResults) {
+                if (dr == null || dr.getGroupId() == null) {
+                    continue;
+                }
+                namesByGroup.computeIfAbsent(dr.getGroupId(), k -> new ArrayList<>())
+                        .add(nameById.getOrDefault(dr.getUserId(), "选手"));
+            }
+            for (Map.Entry<Long, List<String>> e : namesByGroup.entrySet()) {
+                staff.append("**").append(groupNameById.getOrDefault(e.getKey(), "小组")).append("**\n");
+                for (String name : e.getValue()) {
+                    staff.append("- ").append(name).append("\n");
+                }
+                staff.append("\n");
+            }
+            String pdf = "/tournament/" + tournamentId + "/draw/export/pdf?pool=" + poolName;
+            staff.append("[下载抽签结果PDF](").append(pdf).append(")\n");
+            LinkedHashSet<Long> staffIds = new LinkedHashSet<>();
+            List<User> organizers = userService.lambdaQuery().in(User::getRole, List.of(0, 1)).list();
+            if (organizers != null) {
+                for (User u : organizers) {
+                    if (u != null && u.getId() != null) {
+                        staffIds.add(u.getId());
+                    }
+                }
+            }
+            if (tournament != null && tournament.getHostUserId() != null) {
+                staffIds.add(tournament.getHostUserId());
+            }
+            notificationService.sendNotificationToUserIds(
+                    "抽签结果：" + label + "（" + poolLabel + "）",
+                    staff.toString(),
+                    SRC_DRAW_GROUP_STAFF + (pool == DrawPool.QUALIFIER ? "Q" : "M"),
+                    tournamentId,
+                    staffIds);
+        } catch (Exception ex) {
+            log.warn("分组导入后的通知发送失败 tournamentId={}", tournamentId, ex);
+        }
     }
 }

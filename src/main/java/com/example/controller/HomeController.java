@@ -64,6 +64,7 @@ public class HomeController {
     @Autowired private TournamentMedalStandingsService tournamentMedalStandingsService;
     @Autowired private TournamentUrlService tournamentUrlService;
     @Autowired private DrawManagementService drawManagementService;
+    @Autowired private com.example.service.impl.ViewerTournamentProgressService viewerTournamentProgressService;
 
     @GetMapping("/")
     public String home(Authentication authentication, Model model, HttpServletRequest request) {
@@ -75,12 +76,15 @@ public class HomeController {
             logger.info("Authentication authorities: {}", authentication.getAuthorities());
         }
 
-        if (authentication != null && authentication.isAuthenticated()) {
+        Long viewerUserId = null;
+        if (authentication != null && authentication.isAuthenticated() && authentication.getName() != null
+                && !"anonymousUser".equals(authentication.getName())) {
             String username = authentication.getName();
             logger.info("Setting username to model: {}", username);
             model.addAttribute("username", username);
             model.addAttribute("authorities", authentication.getAuthorities());
             User me = userService.findByUsername(username);
+            viewerUserId = me == null ? null : me.getId();
             model.addAttribute("notificationUnreadCount", me == null ? 0L : notificationService.unreadCount(me.getId()));
         } else {
             logger.info("No authentication or not authenticated");
@@ -245,6 +249,8 @@ public class HomeController {
             return String.valueOf(b.getOrDefault("seasonLabel", "")).compareTo(String.valueOf(a.getOrDefault("seasonLabel", "")));
         });
         model.addAttribute("homeActiveSeriesRows", activeSeriesRows);
+        model.addAttribute("viewerProgressByTournamentId",
+                viewerTournamentProgressService.forUser(viewerUserId, activeTournaments.stream().map(Tournament::getId).toList()));
         model.addAttribute("drawingEntryUrls", buildDrawingEntryUrls(activeTournaments, LocalDateTime.now()));
         
         // 验证时区设置

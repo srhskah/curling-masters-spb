@@ -12,6 +12,9 @@
 6. 时间字段统一用 LocalDateTime/LocalDate，JSON 序列化格式保持项目现有配置，不要混用 Date 和 LocalDateTime。
 7. 不要引入新的第三方依赖，除非我明确要求；不要升级 Spring Boot / MyBatis-Plus / Flyway 版本。
 8. 【前端只改外置目录】以后对前端页面的更改（HTML / CSS / JS / 图片 / favicon），一律只改工程根目录的 templates/、static/（即 @templates、@static）。不要改 src/main/resources/templates 或 src/main/resources/static——本地 Docker 挂载的是根目录这两处，改 classpath 里的副本刷新看不到。Java/配置/Flyway 仍改 src/。
+9. 必须保证当前所有功能都可以正常使用。安全加固、抽组件、去冗余都不能改变已有业务结果、权限范围和页面行为。改完按改动面自检相关页面和接口；拿不准会不会影响现有功能时，保持原行为。
+10. 新增或修改控件时，放在当前页面已有信息流里合适的位置：能加在现有控件上就不要另起一块。任何宽度下都不得撑破或溢出当前布局，信息要能看清，样式跟现有页面一致，安静、不抢主内容。
+11. 已有服务、片段、样式和接口能复用就复用，不要为同一件事再写一套平行实现。
 
 二、避免 500（服务端异常）
 1. 所有可能为 null 的查询结果、集合、Optional 必须先判空再使用，禁止直接 .get(0) / .stream() / .equals()。

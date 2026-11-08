@@ -93,9 +93,11 @@ public class TournamentCompetitionConfigExportAssembler {
         root.put("endDate", t.getEndDate() != null ? DT.format(t.getEndDate()) : "-");
         
         // 赛制规则
-        root.put("competitionRuleType", t.getCompetitionRuleType() != null ? t.getCompetitionRuleType() : "NORMAL");
+        String ruleType = t.getCompetitionRuleType() != null ? t.getCompetitionRuleType() : "NORMAL";
+        root.put("competitionRuleType", ruleType);
         root.put("customCenterLineLimit", t.getCustomCenterLineLimit());
         root.put("customDeadStoneLimit", t.getCustomDeadStoneLimit());
+        root.put("competitionRuleText", competitionRuleText(ruleType, t.getCustomCenterLineLimit(), t.getCustomDeadStoneLimit()));
         
         // 比赛配置
         if (config != null) {
@@ -158,6 +160,22 @@ public class TournamentCompetitionConfigExportAssembler {
         return name != null && name.contains("测试");
     }
 
+    private static String competitionRuleText(String ruleType, Integer centerLimit, Integer deadLimit) {
+        if ("CUSTOM".equals(ruleType)) {
+            if (centerLimit != null && deadLimit != null) {
+                return centerLimit + "壶中线 / " + deadLimit + "壶保护";
+            }
+            if (centerLimit != null) {
+                return centerLimit + "壶中线";
+            }
+            if (deadLimit != null) {
+                return deadLimit + "壶保护";
+            }
+            return "自定义";
+        }
+        return "正常5壶保护制";
+    }
+
     private static String entryModeText(Integer mode) {
         if (mode == null) return "默认模式";
         return mode == 1 ? "正赛+资格赛" : "默认模式";
@@ -187,9 +205,9 @@ public class TournamentCompetitionConfigExportAssembler {
     private static String knockoutBracketModeText(Integer mode) {
         if (mode == null) return "-";
         return switch (mode) {
-            case 0 -> "总排名经典种子";
-            case 1 -> "上下半区组间交叉";
-            case 2 -> "上下半区世界杯式交错";
+            case 0 -> "按小组赛总排名经典种子交叉";
+            case 1 -> "上下半区：相邻两组名次交叉";
+            case 2 -> "上下半区：世界杯式";
             default -> "-";
         };
     }
