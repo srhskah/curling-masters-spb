@@ -88,7 +88,7 @@ public class GroupRankingCalculator {
             int ar = (int) a.getOrDefault("groupRank", 999), br = (int) b.getOrDefault("groupRank", 999);
             if (ar != br) return Integer.compare(ar, br);
             // 跨组总排名无无组内交锋场次，跳过 HEAD_TO_HEAD
-            return compareByCriteria(a, b, null, criteriaOrder, true);
+            return compareByCriteria(a, b, null, null, criteriaOrder, true);
         }).collect(Collectors.toList());
         for (int i = 0; i < rows.size(); i++) rows.get(i).put("overallRank", i + 1);
         return rows;
@@ -160,7 +160,8 @@ public class GroupRankingCalculator {
     private List<Map<String, Object>> rankRows(List<Map<String, Object>> rows, List<Match> groupMatches,
                                                List<RankingCriterion> criteriaOrder) {
         Map<Long, Integer> headToHeadRank = headToHeadRanks(rows, groupMatches);
-        rows.sort((a, b) -> compareByCriteria(a, b, headToHeadRank, criteriaOrder, false));
+        Map<Long, Long> pairWinnerByUser = directWinnerWhenExactlyTwoSharePoints(rows, groupMatches);
+        rows.sort((a, b) -> compareByCriteria(a, b, headToHeadRank, pairWinnerByUser, criteriaOrder, false));
         for (int i = 0; i < rows.size(); i++) rows.get(i).put("groupRank", i + 1);
         return rows;
     }
@@ -170,13 +171,14 @@ public class GroupRankingCalculator {
      * @param headToHeadRank 交锋名次；同一互胜环内名次相同，比较才会落到后面的优先级
      */
     private int compareByCriteria(Map<String, Object> a, Map<String, Object> b, Map<Long, Integer> headToHeadRank,
-                                  List<RankingCriterion> criteriaOrder, boolean skipHeadToHead) {
+                                  Map<Long, Long> pairWinnerByUser, List<RankingCriterion> criteriaOrder,
+                                  boolean skipHeadToHead) {
         List<RankingCriterion> order = criteriaOrder != null ? criteriaOrder : RankingCriterion.DEFAULT_ORDER;
         for (RankingCriterion c : order) {
             int cmp = switch (c) {
                 case POINTS -> Integer.compare(
                         (int) b.getOrDefault("points", 0), (int) a.getOrDefault("points", 0));
-                case HEAD_TO_HEAD -> skipHeadToHead ? 0 : compareHeadToHeadRank(a, b, headToHeadRank);
+                case HEAD_TO_HEAD -> skipHeadToHead ? 0 : compareHeadToHeadRank(a, b, headToHeadRank, pairWinnerByUser);
                 case NET -> Integer.compare(
                         (int) b.getOrDefault("net", 0), (int) a.getOrDefault("net", 0));
                 case TOTAL_SCORE -> Integer.compare(
@@ -222,13 +224,94 @@ public class GroupRankingCalculator {
         return Long.MAX_VALUE;
     }
 
-    private int compareHeadToHeadRank(Map<String, Object> a, Map<String, Object> b, Map<Long, Integer> headToHeadRank) {
+    private int compareHeadToHeadRank(Map<String, Object> a, Map<String, Object> b, Map<Long, Integer> headToHeadRank,
+                                      Map<Long, Long> pairWinnerByUser) {
+        int direct = compareExactTwoPointPair(a, b, pairWinnerByUser);
+        if (direct != 0) {
+            return direct;
+        }
         if (headToHeadRank == null || headToHeadRank.isEmpty()) {
             return 0;
         }
         int ra = headToHeadRank.getOrDefault(userIdOf(a), 0);
         int rb = headToHeadRank.getOrDefault(userIdOf(b), 0);
         return Integer.compare(ra, rb);
+    }
+
+    /**
+     * 某一积分恰好两人时，只看这两人之间的胜负，胜者在前。每个这样的积分档单独处理。
+     */
+    private Map<Long, Long> directWinnerWhenExactlyTwoSharePoints(List<Map<String, Object>> rows, List<Match> matches) {
+        Map<Integer, List<Long>> idsByPoints = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            long id = userIdOf(row);
+            if (id == Long.MAX_VALUE) {
+                continue;
+            }
+            int points = row.get("points") instanceof Number n ? n.intValue() : 0;
+            idsByPoints.computeIfAbsent(points, k -> new ArrayList<>()).add(id);
+        }
+        Map<Long, Long> winnerByUser = new HashMap<>();
+        for (List<Long> ids : idsByPoints.values()) {
+            if (ids.size() != 2) {
+                continue;
+            }
+            Long winner = decisiveWinnerBetween(ids.get(0), ids.get(1), matches);
+            if (winner == null) {
+                continue;
+            }
+            winnerByUser.put(ids.get(0), winner);
+            winnerByUser.put(ids.get(1), winner);
+        }
+        return winnerByUser;
+    }
+
+    private int compareExactTwoPointPair(Map<String, Object> a, Map<String, Object> b, Map<Long, Long> pairWinnerByUser) {
+        if (pairWinnerByUser == null || pairWinnerByUser.isEmpty()) {
+            return 0;
+        }
+        long ua = userIdOf(a);
+        long ub = userIdOf(b);
+        Long winner = pairWinnerByUser.get(ua);
+        if (winner == null || !winner.equals(pairWinnerByUser.get(ub))) {
+            return 0;
+        }
+        if (ua == winner) {
+            return -1;
+        }
+        if (ub == winner) {
+            return 1;
+        }
+        return 0;
+    }
+
+    private Long decisiveWinnerBetween(long a, long b, List<Match> matches) {
+        if (matches == null) {
+            return null;
+        }
+        Long winner = null;
+        for (Match match : matches) {
+            if (match == null || match.getWinnerId() == null) {
+                continue;
+            }
+            Long p1 = match.getPlayer1Id();
+            Long p2 = match.getPlayer2Id();
+            boolean thisPair = (Objects.equals(p1, a) && Objects.equals(p2, b))
+                    || (Objects.equals(p1, b) && Objects.equals(p2, a));
+            if (!thisPair) {
+                continue;
+            }
+            Long matchWinner = match.getWinnerId();
+            if (!Objects.equals(matchWinner, a) && !Objects.equals(matchWinner, b)) {
+                continue;
+            }
+            if (winner == null) {
+                winner = matchWinner;
+            } else if (!winner.equals(matchWinner)) {
+                return null;
+            }
+        }
+        return winner;
     }
 
     /**
@@ -515,7 +598,7 @@ public class GroupRankingCalculator {
         if (withoutH2h.isEmpty()) {
             block.sort(this::compareUserId);
         } else {
-            block.sort((a, b) -> compareByCriteria(a, b, null, withoutH2h, true));
+            block.sort((a, b) -> compareByCriteria(a, b, null, null, withoutH2h, true));
         }
         for (int i = 0; i < block.size(); i++) {
             block.get(i).put("groupRank", blockStart + i);

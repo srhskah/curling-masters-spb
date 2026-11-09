@@ -6,7 +6,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -23,11 +26,43 @@ public final class PdfExportSupport {
     private PdfExportSupport() {
     }
 
+    private static final String LOGO_FILE_NAME = "Logo Trsp Stripe.png";
+
+    /**
+     * 与站点图片同一来源：优先读挂载目录 {@code /app/static/images} 和工程根 {@code static/images}，
+     * 再回退到 classpath。
+     */
     public static String buildLogoDataUri() {
+        byte[] bytes = readLogoBytes();
+        if (bytes == null || bytes.length == 0) {
+            return null;
+        }
+        return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
+    }
+
+    private static byte[] readLogoBytes() {
+        String userDir = System.getProperty("user.dir", ".");
+        Path[] candidates = new Path[]{
+                Path.of("/app/static/images", LOGO_FILE_NAME),
+                Path.of(userDir, "static/images", LOGO_FILE_NAME),
+                Path.of(userDir, "src/main/resources/static/images", LOGO_FILE_NAME)
+        };
+        for (Path candidate : candidates) {
+            try {
+                if (Files.isRegularFile(candidate)) {
+                    return Files.readAllBytes(candidate);
+                }
+            } catch (Exception ignored) {
+            }
+        }
         try {
-            ClassPathResource r = new ClassPathResource("static/images/Logo Trsp Stripe.png");
-            byte[] bytes = r.getInputStream().readAllBytes();
-            return "data:image/png;base64," + Base64.getEncoder().encodeToString(bytes);
+            ClassPathResource resource = new ClassPathResource("static/images/" + LOGO_FILE_NAME);
+            if (!resource.exists()) {
+                return null;
+            }
+            try (InputStream in = resource.getInputStream()) {
+                return in.readAllBytes();
+            }
         } catch (Exception e) {
             return null;
         }

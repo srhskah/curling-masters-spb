@@ -1730,33 +1730,30 @@
                                     <div class="small text-muted mb-2" th:if="${tab.kind.equals('KO_QUALIFIER')}">
                                         这是首轮淘汰赛附加资格赛，业务上属于正赛且属于淘汰赛；其胜者进入对应的首轮淘汰赛席位。
                                     </div>
-                                    <details class="mb-2" th:attr="open=${(tab['qualifierRound'] != null and tab['qualifierRound'] == tab['qualifierLatestRound']) or tab['qualifierInProgress'] == true}">
-                                        <summary class="small text-muted user-select-none">赛果与对阵</summary>
-                                        <div class="d-flex align-items-center gap-2 mb-2 match-filter-bar mt-2">
-                                            <label class="form-label mb-0 small text-muted">选手</label>
-                                            <select class="form-select form-select-sm match-player-filter"
-                                                    th:attr="data-tab-id=${tab.tabId}">
-                                                <option value="">全部选手</option>
-                                                <option th:each="u : ${tab.roundPlayers != null ? tab.roundPlayers : allUsersForMatchFilter}"
-                                                        th:value="${u.id}"
-                                                        th:text="${u.username}"></option>
-                                            </select>
-                                        </div>
-                                        <div class="d-flex flex-wrap gap-3 match-cards-wrap">
-                                            <div class="card border-0 shadow-sm match-card"
-                                                 style="min-width: 260px; flex: 1 1 300px; cursor: pointer;"
-                                                 th:each="c : ${tab['qualifierCards']}"
-                                                 th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}"
-                                                 onclick="openGroupMatchModal(this)">
-                                                <div class="card-body p-0 unified-match-score-card">
-                                                    <div class="small text-muted px-3 pt-2" th:text="${c.match.category}">资格赛</div>
-                                                    <th:block th:replace="~{fragments :: matchScoreCardCore(c=${c})}"/>
-                                                </div>
+                                    <div class="d-flex align-items-center gap-2 mb-2 match-filter-bar">
+                                        <label class="form-label mb-0 small text-muted">选手</label>
+                                        <select class="form-select form-select-sm match-player-filter"
+                                                th:attr="data-tab-id=${tab.tabId}">
+                                            <option value="">全部选手</option>
+                                            <option th:each="u : ${tab.roundPlayers != null ? tab.roundPlayers : allUsersForMatchFilter}"
+                                                    th:value="${u.id}"
+                                                    th:text="${u.username}"></option>
+                                        </select>
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-3 match-cards-wrap">
+                                        <div class="card border-0 shadow-sm match-card"
+                                             style="min-width: 260px; flex: 1 1 300px; cursor: pointer;"
+                                             th:each="c : ${tab['qualifierCards']}"
+                                             th:attr="data-match-id=${c.match.id},data-player1-name=${c.player1Name},data-player2-name=${c.player2Name},data-player1-id=${c.match.player1Id},data-player2-id=${c.match.player2Id}"
+                                             onclick="openGroupMatchModal(this)">
+                                            <div class="card-body p-0 unified-match-score-card">
+                                                <div class="small text-muted px-3 pt-2" th:text="${c.match.category}">资格赛</div>
+                                                <th:block th:replace="~{fragments :: matchScoreCardCore(c=${c})}"/>
                                             </div>
-                                            <div class="text-muted" th:if="${tab['qualifierCards'] == null or #lists.isEmpty(tab['qualifierCards'])}">本轮暂无场次</div>
                                         </div>
-                                        <div class="text-muted match-filter-empty d-none w-100">没有符合条件的比赛</div>
-                                    </details>
+                                        <div class="text-muted" th:if="${tab['qualifierCards'] == null or #lists.isEmpty(tab['qualifierCards'])}">本轮暂无场次</div>
+                                    </div>
+                                    <div class="text-muted match-filter-empty d-none w-100">没有符合条件的比赛</div>
                                 </th:block>
                                 <th:block th:if="${tab.kind.equals('KO')}">
                                     <div class="fw-bold mb-2"><i class="bi bi-trophy"></i> <span th:text="${tab.label}">淘汰赛</span></div>
@@ -3827,8 +3824,27 @@
                 });
             }
 
+            function showOnlyCompetitionMatchTab(btn) {
+                const target = btn.getAttribute('data-bs-target');
+                if (!target || !target.startsWith('#')) return;
+                document.querySelectorAll('[data-bs-toggle="pill"][data-bs-target^="#match-tab-"]').forEach((other) => {
+                    const on = other === btn;
+                    other.classList.toggle('active', on);
+                    other.setAttribute('aria-selected', on ? 'true' : 'false');
+                });
+                document.querySelectorAll('#competitionMatchTabContent > .tab-pane').forEach((pane) => {
+                    const on = '#' + pane.id === target;
+                    pane.classList.toggle('show', on);
+                    pane.classList.toggle('active', on);
+                });
+            }
+
             document.querySelectorAll('[data-bs-toggle="pill"][data-bs-target^="#match-tab-"]').forEach((tabBtn) => {
+                tabBtn.addEventListener('click', () => {
+                    showOnlyCompetitionMatchTab(tabBtn);
+                });
                 tabBtn.addEventListener('shown.bs.tab', () => {
+                    showOnlyCompetitionMatchTab(tabBtn);
                     if (getKoMatchView() !== 'bracket') return;
                     setKoCardsVisible(getActiveKoTabPane() != null);
                     mountKnockoutBracket();

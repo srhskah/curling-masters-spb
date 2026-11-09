@@ -1,5 +1,6 @@
 package com.example.service.impl;
 
+import com.example.util.PdfExportSupport;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
@@ -22,6 +23,7 @@ public class RankingExportPdfService {
     public byte[] renderPdf(String templateName, Map<String, Object> model) {
         Context context = new Context(Locale.SIMPLIFIED_CHINESE);
         if (model != null) {
+            PdfExportSupport.addStandardPdfHeaderFields(model);
             context.setVariables(model);
         }
 

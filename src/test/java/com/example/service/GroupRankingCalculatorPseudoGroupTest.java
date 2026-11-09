@@ -251,6 +251,37 @@ class GroupRankingCalculatorPseudoGroupTest {
         assertEquals(List.of("Anchor", "禾谷", "Petrichor"), namesInOrder(byGroup.get(group.getId())));
     }
 
+    @Test
+    void exactTwoPlayersOnEachPointTotalRankByWhoBeatWhom() {
+        TournamentGroup group = group(9L, "G组");
+        Map<Long, String> names = Map.of(
+                1L, "A", 2L, "B", 3L, "C", 4L, "D",
+                5L, "E", 6L, "F", 7L, "G", 8L, "H");
+        Map<Long, List<SetScore>> scores = new HashMap<>();
+        List<Match> matches = new ArrayList<>();
+        long mid = 900L;
+        mid = add(matches, scores, mid, group.getId(), 1L, 2L, 6, 5);
+        mid = add(matches, scores, mid, group.getId(), 2L, 3L, 10, 1);
+        mid = add(matches, scores, mid, group.getId(), 3L, 1L, 10, 1);
+        mid = add(matches, scores, mid, group.getId(), 1L, 4L, 2, 0);
+        mid = add(matches, scores, mid, group.getId(), 2L, 4L, 2, 0);
+        mid = add(matches, scores, mid, group.getId(), 5L, 6L, 6, 5);
+        mid = add(matches, scores, mid, group.getId(), 6L, 7L, 10, 1);
+        mid = add(matches, scores, mid, group.getId(), 7L, 5L, 10, 1);
+        mid = add(matches, scores, mid, group.getId(), 5L, 8L, 4, 4);
+        add(matches, scores, mid, group.getId(), 6L, 8L, 4, 4);
+
+        List<Long> members = List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L);
+        Map<Long, List<Map<String, Object>>> ranked = calculator.buildGroupRankingsByMemberIds(
+                List.of(group), Map.of(group.getId(), members), names, matches, scores, false, 8, null);
+        assertEquals(List.of("A", "B", "E", "F", "C", "G", "H", "D"), namesInOrder(ranked.get(group.getId())));
+
+        Map<Long, List<Map<String, Object>>> withoutHeadToHead = calculator.buildGroupRankingsByMemberIds(
+                List.of(group), Map.of(group.getId(), members), names, matches, scores, false, 8,
+                List.of(RankingCriterion.POINTS, RankingCriterion.NET, RankingCriterion.USERNAME));
+        assertEquals(List.of("B", "A", "F", "E", "C", "G", "H", "D"), namesInOrder(withoutHeadToHead.get(group.getId())));
+    }
+
     private static TournamentGroup group(Long id, String name) {
         TournamentGroup g = new TournamentGroup();
         g.setId(id);
