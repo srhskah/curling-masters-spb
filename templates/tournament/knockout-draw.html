@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head(${pageTitle})}">
+</head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: success-alert}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+<input type="hidden" th:if="${_csrf != null}" id="csrfMeta" th:attr="data-param=${_csrf.parameterName},data-token=${_csrf.token}"/>
+
+<div class="container mt-4 mb-5">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <h4 class="mb-0">
+            <i class="bi bi-shuffle"></i>
+            <span th:text="${tournament.levelCode}">赛事</span> — 淘汰赛首轮抽签
+        </h4>
+        <a class="btn btn-outline-secondary btn-sm" th:href="${@tournamentUrls.detailUrl(tournament)}">返回赛事</a>
+    </div>
+
+    <div class="alert alert-warning" th:if="${page['blockedReason'] != null}" th:text="${page['blockedReason']}">暂不可抽</div>
+
+    <div th:if="${page['blockedReason'] == null}">
+        <div class="alert alert-info small">
+            数字都是小组赛总排名。同一档里的选手随机抽到对方名次；抽完后按这些名次填入选手，并按经典种子的上下半区写入首轮。
+            <span th:if="${page['mountedQualifier'] and !page['qualifierDraw']}">资格赛保持原对阵，抽到的是该名次参加的资格赛胜者。</span>
+            <span th:if="${page['qualifierDraw']}">资格赛也参与抽签，抽到哪一场就绑定到上面对应的首轮席位。</span>
+            同一档只剩 1 个数字时会自动写入。
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-6" th:each="pot : ${page['pots']}">
+                <div class="card border-0 shadow-sm h-100" th:classappend="${pot['mine']} ? ' border border-success' : ''">
+                    <div class="card-body">
+                        <div class="small text-muted mb-1" th:text="${pot['title']}">首轮</div>
+                        <div class="fw-semibold" th:text="${pot['drawers']}">第1名</div>
+                        <div class="small mt-2 text-secondary">抽取</div>
+                        <div th:text="${pot['prizes']}">第8名</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3" th:if="${page['canDraw']}">
+            <div class="card-body text-center">
+                <div class="small text-muted mb-2">你是总排名第 <span th:text="${page['myRank']}">1</span> 名</div>
+                <button type="button" class="btn btn-success" id="koDrawBtn" onclick="performKoDraw()">抽签</button>
+            </div>
+        </div>
+        <div class="alert alert-success" th:if="${page['myPrize'] != null}">
+            你抽到了 <strong th:text="${page['myPrize']}">第8名</strong>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-info text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span>抽签结果</span>
+                <div class="d-flex flex-wrap gap-1" th:if="${canManageDraw}">
+                    <button type="button" class="btn btn-sm btn-light" onclick="applyKoDraw()">写入对阵</button>
+                    <button type="button" class="btn btn-sm btn-outline-light" onclick="resetKoDraw()">重置抽签</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr><th>抽签选手</th><th>抽到</th></tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(page['rows'])}">
+                            <td colspan="2" class="text-muted">还没有人抽签</td>
+                        </tr>
+                        <tr th:each="row : ${page['rows']}">
+                            <td>第<span th:text="${row['rank']}">1</span>名 <span th:text="${row['username']}">选手</span>
+                                <span class="badge text-bg-light border" th:if="${row['auto']}">自动</span></td>
+                            <td th:text="${row['prize']}">第8名</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="small text-muted mt-2" th:if="${page['completed']}">对阵已写入首轮。</div>
+            </div>
+        </div>
+    </div>
+</div>
+<div th:replace="~{fragments :: footer}"></div>
+<script src="/js/bootstrap.bundle.min.js"></script>
+<script th:inline="javascript">
+    const tournamentId = /*[[${tournament.id != null ? #strings.toString(tournament.id) : ''}]]*/ '';
+
+    function getCookie(name) {
+        const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : null;
+    }
+    function csrfHeaders() {
+        const h = { 'Content-Type': 'application/x-www-form-urlencoded' };
+        const cookieToken = getCookie('XSRF-TOKEN');
+        if (cookieToken) h['X-XSRF-TOKEN'] = cookieToken;
+        return h;
+    }
+    async function postKo(path) {
+        const params = new URLSearchParams();
+        if (!getCookie('XSRF-TOKEN')) {
+            const el = document.getElementById('csrfMeta');
+            if (el && el.dataset.token) params.append(el.dataset.param || '_csrf', el.dataset.token);
+        }
+        const r = await fetch('/tournament/' + tournamentId + path, {
+            method: 'POST', headers: csrfHeaders(), body: params.toString(), credentials: 'same-origin'
+        });
+        const text = await r.text();
+        try { return text ? JSON.parse(text) : {}; }
+        catch (e) { throw new Error(r.status === 403 ? '请求被拒绝，请刷新页面后重试' : '请求失败'); }
+    }
+    function performKoDraw() {
+        const btn = document.getElementById('koDrawBtn');
+        if (btn) btn.disabled = true;
+        postKo('/knockout-draw/perform').then(result => {
+            if (!result.success) {
+                alert(result.message || '抽签失败');
+                if (btn) btn.disabled = false;
+                return;
+            }
+            if (result.message) alert(result.message);
+            location.reload();
+        }).catch(err => {
+            alert(err.message);
+            if (btn) btn.disabled = false;
+        });
+    }
+    function applyKoDraw() {
+        postKo('/knockout-draw/apply').then(result => {
+            alert(result.success ? (result.message || '已写入') : (result.message || '写入失败'));
+            if (result.success) location.reload();
+        }).catch(err => alert(err.message));
+    }
+    function resetKoDraw() {
+        if (!confirm('重置后需要重新抽签。已写入且没有比分的首轮会在再次抽完时被覆盖。')) return;
+        postKo('/knockout-draw/reset').then(result => {
+            if (!result.success) { alert(result.message || '重置失败'); return; }
+            location.reload();
+        }).catch(err => alert(err.message));
+    }
+</script>
+</body>
+</html>

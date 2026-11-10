@@ -257,15 +257,12 @@ body.ko-bracket-printing #ko-bracket-print-stage {
     --ko-gap: 30px;
   }
 
-  body.ko-bracket-printing .ko-bracket-export-root .bracket {
-    grid-template-columns: repeat(7, var(--ko-card-w)) !important;
+  body.ko-bracket-printing .ko-bracket-export-root .bracket,
+  body.ko-bracket-printing .ko-bracket-export-root .bracket.ko-bracket--no-r16 {
+    grid-template-columns: var(--ko-cols-print, repeat(7, var(--ko-card-w))) !important;
     width: max-content !important;
     max-width: none !important;
     min-width: 0 !important;
-  }
-
-  body.ko-bracket-printing .ko-bracket-export-root .bracket.ko-bracket--no-r16 {
-    grid-template-columns: repeat(5, var(--ko-card-w)) !important;
   }
 
   body.ko-bracket-printing .ko-bracket-export-root .ko-mcard:not(.qual-mini),
@@ -366,7 +363,7 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 .ko-bracket-root .bracket {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(7, var(--ko-card-w));
+  grid-template-columns: var(--ko-cols, repeat(7, var(--ko-card-w)));
   grid-template-rows: 40px auto auto 26px auto auto auto;
   column-gap: var(--ko-gap);
   row-gap: 8px;
@@ -377,7 +374,7 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 }
 
 .ko-bracket-root .bracket.ko-bracket--no-r16 {
-  grid-template-columns: repeat(5, var(--ko-card-w));
+  grid-template-columns: var(--ko-cols, repeat(5, var(--ko-card-w)));
 }
 
 .ko-bracket-root .bracket.ko-bracket--no-r16 .zc,
@@ -815,14 +812,14 @@ body.ko-bracket-printing #ko-bracket-print-stage {
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: var(--ko-cols, repeat(7, minmax(0, 1fr)));
     grid-template-rows: 28px auto auto 14px auto auto auto;
     column-gap: clamp(8px, 1.2vw, 22px);
     row-gap: 6px;
     padding: 2px 4px 10px;
   }
   .ko-bracket-root:not(.ko-layout-mobile) .bracket.ko-bracket--no-r16 {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: var(--ko-cols, repeat(5, minmax(0, 1fr)));
   }
   .ko-bracket-root:not(.ko-layout-mobile) .bracket.ko-bracket--has-qual {
     padding-left: 4px;
@@ -835,6 +832,16 @@ body.ko-bracket-printing #ko-bracket-print-stage {
   .ko-bracket-root:not(.ko-layout-mobile) .ko-slot.has-qual {
     width: 100%;
   }
+  .ko-bracket-root:not(.ko-layout-mobile) .bracket.ko-bracket--has-qual .ko-slot.ko-side-l:not(.has-qual),
+  .ko-bracket-root:not(.ko-layout-mobile) .bracket.ko-bracket--has-qual .ko-slot.ko-side-r:not(.has-qual) {
+    width: 56%;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .bracket.ko-bracket--has-qual .ko-slot.ko-side-l:not(.has-qual) {
+    justify-self: end;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .bracket.ko-bracket--has-qual .ko-slot.ko-side-r:not(.has-qual) {
+    justify-self: start;
+  }
   .ko-bracket-root:not(.ko-layout-mobile) .ko-mcard {
     width: 100%;
     min-width: 0;
@@ -842,13 +849,19 @@ body.ko-bracket-printing #ko-bracket-print-stage {
   }
   .ko-bracket-root:not(.ko-layout-mobile) .ko-mcard.qual-mini {
     width: auto;
-    flex: 1 1 0;
+    flex: 0.98 1 0;
     max-width: none;
     min-width: 0;
   }
   .ko-bracket-root:not(.ko-layout-mobile) .ko-slot.has-qual .ko-mcard:not(.qual-mini) {
-    flex: 1.15 1 0;
+    flex: 1.22 1 0;
     min-width: 0;
+  }
+  .ko-bracket-root:not(.ko-layout-mobile) .ko-mcard.qual-mini .score-pill {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 3px;
+    font-size: 12px;
   }
   .ko-bracket-root:not(.ko-layout-mobile) .champ-hero {
     width: 100%;

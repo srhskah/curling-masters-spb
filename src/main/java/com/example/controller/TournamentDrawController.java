@@ -49,6 +49,9 @@ public class TournamentDrawController {
             @RequestParam(required = false) Integer groupCount,
             @RequestParam(required = false, defaultValue = "MAIN") String pool) {
         DrawPool p = DrawPool.fromParam(pool);
+        if (p == DrawPool.KNOCKOUT) {
+            return Map.of("success", false, "message", "淘汰赛首轮抽签不使用小组抽签配置");
+        }
         Map<String, Object> config = drawManagementService.getDrawConfig(tournamentId, p);
         
         // 获取有效的小组数选项
@@ -124,6 +127,9 @@ public class TournamentDrawController {
             return tournamentUrlService.redirectDetail(tournamentId, "error=draw_status");
         }
         DrawPool drawPool = DrawPool.fromParam(request.getParameter("pool"));
+        if (drawPool == DrawPool.KNOCKOUT) {
+            return "redirect:" + tournamentUrlService.knockoutDrawUrl(tournamentId);
+        }
         if (drawManagementService.countGroupMembers(tournamentId) > 0
                 && !drawManagementService.allowDrawPageWhenGroupMembersPresent(tournamentId)) {
             return tournamentUrlService.redirectDetail(tournamentId, "error=draw_group_saved");

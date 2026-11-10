@@ -18,7 +18,7 @@
         </a>
     </div>
     <div class="alert alert-info small" th:if="${koMountedQualifier}">
-        已启用首轮挂载资格赛：请同时确认淘汰赛首轮与挂载资格赛对阵。已有比分或已验收的场次不可修改。仅可选择小组赛晋级选手（含资格赛晋级落位），且同一选手不可重复选择。
+        已启用首轮挂载资格赛：正赛席位可选「资格赛第N场胜者」。该资格赛已验收后，胜者自动进入对应正赛席位。已有比分或已验收的场次不可修改，同一选手不可重复选择。
     </div>
     <div class="alert alert-info small" th:unless="${koMountedQualifier}">
         默认已按模式 0（小组赛总排名经典种子）填充。已有比分或已验收的场次不可修改。仅可选择小组赛晋级选手，且同一选手不可重复选择。
@@ -38,27 +38,39 @@
                             </div>
                             <div class="row g-2 align-items-center">
                                 <div class="col-md-5">
-                                    <input th:if="${p.locked}" type="hidden" th:name="${'p1_' + p.slot}" th:value="${p.defaultPlayer1Id}"/>
+                                    <input th:if="${p.locked}" type="hidden" th:name="${'p1_' + p.slot}"
+                                           th:value="${p.player1FromQualifierSlot != null ? 'q:' + p.player1FromQualifierSlot : p.defaultPlayer1Id}"/>
                                     <select class="form-select ko-manual-player-select"
                                             th:name="${p.locked ? null : 'p1_' + p.slot}"
                                             th:disabled="${p.locked}">
                                         <option value="">-- 请选择选手 --</option>
+                                        <option th:if="${koMountedQualifier}"
+                                                th:each="q : ${koManualQualifierDraft}"
+                                                th:value="|q:${q.slot}|"
+                                                th:selected="${p.player1FromQualifierSlot != null and p.player1FromQualifierSlot == q.slot}"
+                                                th:text="|资格赛第${q.slot + 1}场胜者|">资格赛第1场胜者</option>
                                         <option th:each="u : ${koManualOptions}"
                                                 th:value="${u.userId}"
-                                                th:selected="${u.userId == p.defaultPlayer1Id}"
+                                                th:selected="${p.player1FromQualifierSlot == null and u.userId == p.defaultPlayer1Id}"
                                                 th:text="${'#' + u.rank + ' ' + u.username}">#1 选手</option>
                                     </select>
                                 </div>
                                 <div class="col-md-2 text-center text-muted">VS</div>
                                 <div class="col-md-5">
-                                    <input th:if="${p.locked}" type="hidden" th:name="${'p2_' + p.slot}" th:value="${p.defaultPlayer2Id}"/>
+                                    <input th:if="${p.locked}" type="hidden" th:name="${'p2_' + p.slot}"
+                                           th:value="${p.player2FromQualifierSlot != null ? 'q:' + p.player2FromQualifierSlot : p.defaultPlayer2Id}"/>
                                     <select class="form-select ko-manual-player-select"
                                             th:name="${p.locked ? null : 'p2_' + p.slot}"
                                             th:disabled="${p.locked}">
                                         <option value="">-- 请选择选手 --</option>
+                                        <option th:if="${koMountedQualifier}"
+                                                th:each="q : ${koManualQualifierDraft}"
+                                                th:value="|q:${q.slot}|"
+                                                th:selected="${p.player2FromQualifierSlot != null and p.player2FromQualifierSlot == q.slot}"
+                                                th:text="|资格赛第${q.slot + 1}场胜者|">资格赛第1场胜者</option>
                                         <option th:each="u : ${koManualOptions}"
                                                 th:value="${u.userId}"
-                                                th:selected="${u.userId == p.defaultPlayer2Id}"
+                                                th:selected="${p.player2FromQualifierSlot == null and u.userId == p.defaultPlayer2Id}"
                                                 th:text="${'#' + u.rank + ' ' + u.username}">#8 选手</option>
                                     </select>
                                 </div>

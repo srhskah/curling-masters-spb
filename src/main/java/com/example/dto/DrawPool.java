@@ -5,7 +5,9 @@ package com.example.dto;
  */
 public enum DrawPool {
     MAIN,
-    QUALIFIER;
+    QUALIFIER,
+    /** 淘汰赛首轮对阵抽签，不占用小组 */
+    KNOCKOUT;
 
     public static DrawPool fromParam(String raw) {
         if (raw == null || raw.isBlank()) {

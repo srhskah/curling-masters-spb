@@ -122,6 +122,18 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (form.getKnockoutAutoFromGroup() != null) {
             db.setKnockoutAutoFromGroup(form.getKnockoutAutoFromGroup());
         }
+        if (form.getKnockoutFirstDrawEnabled() != null) {
+            db.setKnockoutFirstDrawEnabled(form.getKnockoutFirstDrawEnabled());
+        }
+        if (db.getKnockoutFirstDrawEnabled() == null) {
+            db.setKnockoutFirstDrawEnabled(false);
+        }
+        if (form.getKnockoutQualifierDraw() != null) {
+            db.setKnockoutQualifierDraw(form.getKnockoutQualifierDraw());
+        }
+        if (db.getKnockoutQualifierDraw() == null) {
+            db.setKnockoutQualifierDraw(false);
+        }
         validateConfig(db);
         if (Objects.equals(db.getMatchMode(), 3) && db.getParticipantCount() != null && db.getGroupSize() != null && db.getGroupSize() > 0) {
             GroupSizeLayout.Layout layout = GroupSizeLayout.resolve(db.getParticipantCount(), db.getGroupSize());

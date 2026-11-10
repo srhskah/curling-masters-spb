@@ -111,6 +111,8 @@ public class TournamentCompetitionConfigExportAssembler {
             root.put("knockoutBracketMode", config.getKnockoutBracketMode());
             root.put("knockoutBracketModeText", knockoutBracketModeText(config.getKnockoutBracketMode()));
             root.put("knockoutAutoFromGroup", config.getKnockoutAutoFromGroup());
+            root.put("knockoutFirstDrawEnabled", config.getKnockoutFirstDrawEnabled());
+            root.put("knockoutQualifierDraw", config.getKnockoutQualifierDraw());
             root.put("qualifierRound", config.getQualifierRound());
             root.put("qualifierRoundText", qualifierRoundText(config.getQualifierRound()));
             root.put("knockoutQualifyCount", config.getKnockoutQualifyCount());
@@ -136,6 +138,8 @@ public class TournamentCompetitionConfigExportAssembler {
             root.put("knockoutBracketMode", null);
             root.put("knockoutBracketModeText", "-");
             root.put("knockoutAutoFromGroup", null);
+            root.put("knockoutFirstDrawEnabled", false);
+            root.put("knockoutQualifierDraw", false);
             root.put("qualifierRound", null);
             root.put("qualifierRoundText", "-");
             root.put("knockoutQualifyCount", null);

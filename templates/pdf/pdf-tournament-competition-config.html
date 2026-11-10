@@ -90,6 +90,12 @@
     <div class="label" style="margin-left: 20px;">小组赛自动生成淘汰赛：</div>
     <div class="value" th:text="${knockoutAutoFromGroup != null and knockoutAutoFromGroup ? '是' : '否'}">-</div>
 </div>
+<div class="row">
+    <div class="label">淘汰赛首轮抽签：</div>
+    <div class="value" th:text="${knockoutFirstDrawEnabled != null and knockoutFirstDrawEnabled ? '启用' : '关闭'}">关闭</div>
+    <div class="label" style="margin-left: 20px;" th:if="${knockoutFirstDrawEnabled}">挂载资格赛：</div>
+    <div class="value" th:if="${knockoutFirstDrawEnabled}" th:text="${knockoutQualifierDraw != null and knockoutQualifierDraw ? '参与抽签' : '保持原对阵'}">保持原对阵</div>
+</div>
 <div class="row" th:if="${qualifierRound != null or (entryModeText != null and entryModeText.contains('资格赛'))}">
     <div class="label" th:if="${qualifierRound != null}">首轮淘汰赛附加资格赛：</div>
     <div class="value" th:if="${qualifierRound != null}" th:text="${qualifierRoundText}">-</div>

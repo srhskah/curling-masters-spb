@@ -54,6 +54,10 @@ public class TournamentCompetitionConfigTextController {
         sb.append("淘汰赛首轮: ").append(data.get("knockoutStartRoundText")).append("\n");
         sb.append("淘汰赛对阵模式: ").append(data.get("knockoutBracketModeText")).append("\n");
         sb.append("小组赛自动生成淘汰赛: ").append(data.get("knockoutAutoFromGroup") != null && (Boolean) data.get("knockoutAutoFromGroup") ? "是" : "否").append("\n");
+        sb.append("淘汰赛首轮抽签: ").append(Boolean.TRUE.equals(data.get("knockoutFirstDrawEnabled")) ? "启用" : "关闭").append("\n");
+        if (Boolean.TRUE.equals(data.get("knockoutFirstDrawEnabled"))) {
+            sb.append("挂载资格赛抽签: ").append(Boolean.TRUE.equals(data.get("knockoutQualifierDraw")) ? "资格赛参与抽签" : "资格赛保持原对阵").append("\n");
+        }
         if (data.get("qualifierRound") != null) {
             sb.append("首轮淘汰赛附加资格赛: ").append(data.get("qualifierRoundText")).append("\n");
         }

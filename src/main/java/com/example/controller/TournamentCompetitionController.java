@@ -53,6 +53,8 @@ public class TournamentCompetitionController {
                              @RequestParam(required = false) Integer qualifierSets,
                              @RequestParam(required = false, defaultValue = "0") Integer knockoutBracketMode,
                              @RequestParam(required = false, defaultValue = "true") String knockoutAutoFromGroup,
+                             @RequestParam(required = false, defaultValue = "false") boolean knockoutFirstDrawEnabled,
+                             @RequestParam(required = false, defaultValue = "KEEP") String knockoutQualifierDraw,
                              @RequestParam(required = false) String competitionRuleType,
                              @RequestParam(required = false) Integer customCenterLineLimit,
                              @RequestParam(required = false) Integer customDeadStoneLimit,
@@ -94,6 +96,8 @@ public class TournamentCompetitionController {
             }
             c.setKnockoutBracketMode(knockoutBracketMode != null ? knockoutBracketMode : 0);
             c.setKnockoutAutoFromGroup(!"false".equalsIgnoreCase(knockoutAutoFromGroup));
+            c.setKnockoutFirstDrawEnabled(knockoutFirstDrawEnabled);
+            c.setKnockoutQualifierDraw("DRAW".equalsIgnoreCase(knockoutQualifierDraw));
             c.setGroupMode(groupMode);
             c.setGroupSize(groupSize);
             c.setGroupAllowDraw(groupAllowDraw);
@@ -582,6 +586,8 @@ public class TournamentCompetitionController {
             row.put("label", p.label);
             row.put("defaultPlayer1Id", p.defaultPlayer1Id == null ? null : p.defaultPlayer1Id.toString());
             row.put("defaultPlayer2Id", p.defaultPlayer2Id == null ? null : p.defaultPlayer2Id.toString());
+            row.put("player1FromQualifierSlot", p.player1FromQualifierSlot);
+            row.put("player2FromQualifierSlot", p.player2FromQualifierSlot);
             row.put("locked", p.locked);
             row.put("matchId", p.matchId == null ? null : p.matchId.toString());
             row.put("linkedMainKoSlot", p.linkedMainKoSlot);
@@ -596,11 +602,38 @@ public class TournamentCompetitionController {
         for (int i = 0; i < pairCount; i++) {
             String p1s = rawForm.get(p1Prefix + i);
             String p2s = rawForm.get(p2Prefix + i);
-            Long p1 = (p1s == null || p1s.isBlank()) ? null : Long.parseLong(p1s);
-            Long p2 = (p2s == null || p2s.isBlank()) ? null : Long.parseLong(p2s);
-            pairs.add(new com.example.service.impl.KnockoutBracketService.ManualPairInput(p1, p2));
+            SideChoice p1 = parseManualSide(p1s);
+            SideChoice p2 = parseManualSide(p2s);
+            pairs.add(new com.example.service.impl.KnockoutBracketService.ManualPairInput(
+                    p1.playerId, p2.playerId, p1.qualifierSlot, p2.qualifierSlot));
         }
         return pairs;
+    }
+
+    private static SideChoice parseManualSide(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return new SideChoice(null, null);
+        }
+        String value = raw.trim();
+        if (value.startsWith("q:")) {
+            try {
+                int slot = Integer.parseInt(value.substring(2));
+                if (slot < 0) {
+                    throw new IllegalArgumentException("资格赛场次序号不正确");
+                }
+                return new SideChoice(null, slot);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("资格赛场次序号不正确");
+            }
+        }
+        try {
+            return new SideChoice(Long.parseLong(value), null);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("选手编号不正确");
+        }
+    }
+
+    private record SideChoice(Long playerId, Integer qualifierSlot) {
     }
 
     private static Map<String, Object> toSetScoreView(SetScore s) {

@@ -403,6 +403,35 @@
     container.innerHTML = html;
   }
 
+  function desktopColumnPlan(state) {
+    const hasR16 = state.r16.some(hasMatch);
+    const hasQf = state.qf.some(hasMatch);
+    const hasSf = state.sf.some(hasMatch);
+    const left = [];
+    if (hasR16) left.push('r16');
+    if (hasQf) left.push('qf');
+    if (hasSf) left.push('sf');
+    const right = left.slice().reverse();
+    const keys = left.concat(['medal'], right);
+    const col = { medal: left.length + 1 };
+    left.forEach((key, i) => { col[key + 'L'] = i + 1; });
+    right.forEach((key, i) => { col[key + 'R'] = left.length + 2 + i; });
+    const qualOuter = !!(state.qualMap && Object.keys(state.qualMap).length);
+    const screen = keys.map((key, i) => {
+      const outer = i === 0 || i === keys.length - 1;
+      if (key === 'medal') return 'minmax(0, 0.9fr)';
+      if (outer && qualOuter) return 'minmax(0, 2.05fr)';
+      return 'minmax(0, 1.16fr)';
+    }).join(' ');
+    const print = keys.map((key, i) => {
+      const outer = i === 0 || i === keys.length - 1;
+      if (key === 'medal') return '200px';
+      if (outer && qualOuter) return '340px';
+      return '228px';
+    }).join(' ');
+    return { hasR16, hasQf, hasSf, left, keys, col, screen, print, qualOuter };
+  }
+
   function renderDesktopBracket(bracket, state) {
     const R = state.r16;
     const Q = state.qf;
@@ -410,24 +439,35 @@
     const T = state.third;
     const F = state.fin;
     const L = state.labels;
+    const plan = desktopColumnPlan(state);
+    const columns = plan.col;
 
-    const hasR16 = R.some(hasMatch);
-    bracket.classList.toggle('ko-bracket--no-r16', !hasR16);
-    const colQfL = hasR16 ? 2 : 1;
-    const colSfL = hasR16 ? 3 : 2;
-    const colMedal = hasR16 ? 4 : 3;
-    const colSfR = hasR16 ? 5 : 4;
-    const colQfR = hasR16 ? 6 : 5;
-    const colR16R = 7;
+    bracket.classList.toggle('ko-bracket--no-r16', !plan.hasR16);
+    bracket.classList.toggle('ko-bracket--no-qf', !plan.hasQf);
+    bracket.classList.toggle('ko-bracket--no-sf', !plan.hasSf);
+    bracket.style.setProperty('--ko-cols', plan.screen);
+    bracket.style.setProperty('--ko-cols-print', plan.print);
+
+    const headOf = {
+      r16: [L.r16, 'h-r16'],
+      qf: [L.qf, 'h-qf'],
+      sf: ['半决赛', 'h-sf'],
+      medal: ['奖牌赛', 'h-medal']
+    };
 
     let html = '<svg class="wires" data-ko-wires xmlns="http://www.w3.org/2000/svg"></svg>';
-    html += '<div class="zone za"></div><div class="zone zb"></div><div class="zone zc"></div><div class="zone zd"></div>';
+    if (plan.left.length) {
+      const span = plan.left.length;
+      const rightStart = columns.medal + 1;
+      html += `<div class="zone za" style="grid-column:1 / span ${span};grid-row:2 / span 2"></div>`;
+      html += `<div class="zone zb" style="grid-column:1 / span ${span};grid-row:5 / span 2"></div>`;
+      html += `<div class="zone zc" style="grid-column:${rightStart} / span ${span};grid-row:2 / span 2"></div>`;
+      html += `<div class="zone zd" style="grid-column:${rightStart} / span ${span};grid-row:5 / span 2"></div>`;
+    }
 
-    const heads = hasR16
-      ? [[L.r16, 'h-r16'], [L.qf, 'h-qf'], ['半决赛', 'h-sf'], ['奖牌赛', 'h-medal'], ['半决赛', 'h-sf'], [L.qf, 'h-qf'], [L.r16, 'h-r16']]
-      : [[L.qf, 'h-qf'], ['半决赛', 'h-sf'], ['奖牌赛', 'h-medal'], ['半决赛', 'h-sf'], [L.qf, 'h-qf']];
-    heads.forEach(([t, c], i) => {
-      html += `<div class="ch ${c}" style="grid-area:1/${i + 1}">${escapeHtml(t)}</div>`;
+    plan.keys.forEach((key, i) => {
+      const head = headOf[key];
+      html += `<div class="ch ${head[1]}" style="grid-area:1/${i + 1}">${escapeHtml(head[0])}</div>`;
     });
 
     const hasAnyQual = !!(state.qualMap && Object.keys(state.qualMap).length);
@@ -437,11 +477,12 @@
     R.forEach((m, i) => {
       if (!hasMatch(m)) return;
       const upper = r16H.upper.includes(i);
-      const col = upper ? 1 : colR16R;
+      const col = upper ? columns.r16L : columns.r16R;
       const within = upper ? r16H.upper.indexOf(i) : r16H.lower.indexOf(i);
       const row = ROW_OF[Math.max(0, within)];
       const qual = state.qualMap[String(i)];
-      const side = qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '';
+      const edge = upper ? ' ko-side-l' : ' ko-side-r';
+      const side = (qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '') + edge;
       html += `<div class="ko-slot s-r16${side}" data-slot="${i}" style="grid-row:${row};grid-column:${col}">${firstRoundInnerHtml('r16', i, m, '', qual, upper)}</div>`;
     });
 
@@ -450,10 +491,11 @@
       if (!hasMatch(m)) return;
       const upper = qfH.upper.includes(i);
       const within = upper ? qfH.upper.indexOf(i) : qfH.lower.indexOf(i);
-      const col = upper ? colQfL : colQfR;
+      const col = upper ? columns.qfL : columns.qfR;
       const row = within === 0 ? 2 : 5;
-      const qual = hasR16 ? null : state.qualMap[String(i)];
-      const side = qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '';
+      const qual = plan.hasR16 ? null : state.qualMap[String(i)];
+      const edge = upper ? ' ko-side-l' : ' ko-side-r';
+      const side = (qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '') + edge;
       html += `<div class="ko-slot s-qf${side}" style="grid-row:${row}/span 2;grid-column:${col}">${firstRoundInnerHtml('qf', i, m, L.qf, qual, upper)}</div>`;
     });
 
@@ -462,13 +504,14 @@
     S.forEach((m, i) => {
       if (!hasMatch(m)) return;
       const upper = sfH.upper.includes(i);
-      const col = upper ? colSfL : colSfR;
-      const qual = (!hasR16 && !qfHasMatch) ? state.qualMap[String(i)] : null;
-      const side = qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '';
+      const col = upper ? columns.sfL : columns.sfR;
+      const qual = (!plan.hasR16 && !qfHasMatch) ? state.qualMap[String(i)] : null;
+      const edge = upper ? ' ko-side-l' : ' ko-side-r';
+      const side = (qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '') + edge;
       html += `<div class="ko-slot s-sf${side}" style="grid-row:2/span 5;grid-column:${col}">${firstRoundInnerHtml('sf', i, m, sfHalfLabel(m, upper ? 0 : 1), qual, upper)}</div>`;
     });
 
-    html += `<div class="ko-center-medals" style="grid-column:${colMedal};grid-row:2/span 5">`;
+    html += `<div class="ko-center-medals" style="grid-column:${columns.medal};grid-row:2/span 5">`;
     if (hasSlot(T)) {
       html += `<div class="ko-slot s-third">${matchCardHtml('third', 0, T, L.third)}</div>`;
     }

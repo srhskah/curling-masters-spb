@@ -225,6 +225,25 @@ public class TournamentUrlService {
         return drawUrl(t);
     }
 
+    public String knockoutDrawUrl(Tournament tournament) {
+        PathKey key = pathKey(tournament);
+        if (key == null && tournament != null && tournament.getId() != null) {
+            return "/tournament/" + tournament.getId() + "/knockout-draw";
+        }
+        return key == null ? "#" : "/tournament/" + key.toPath() + "/knockout-draw";
+    }
+
+    public String knockoutDrawUrl(Long tournamentId) {
+        if (tournamentId == null) {
+            return "#";
+        }
+        Tournament t = tournamentService.getById(tournamentId);
+        if (t == null) {
+            return "/tournament/" + tournamentId + "/knockout-draw";
+        }
+        return knockoutDrawUrl(t);
+    }
+
     public String knockoutBracketUrl(Tournament tournament) {
         PathKey key = pathKey(tournament);
         if (key == null && tournament != null && tournament.getId() != null) {
@@ -290,7 +309,8 @@ public class TournamentUrlService {
         if (prettyUrl.equals("/tournament/detail/" + tournamentId)
                 || prettyUrl.equals("/tournament/registration/" + tournamentId)
                 || prettyUrl.equals("/tournament/" + tournamentId + "/draw")
-                || prettyUrl.equals("/tournament/" + tournamentId + "/knockout-bracket")) {
+                || prettyUrl.equals("/tournament/" + tournamentId + "/knockout-bracket")
+                || prettyUrl.equals("/tournament/" + tournamentId + "/knockout-draw")) {
             return null;
         }
         String q = request != null ? request.getQueryString() : null;

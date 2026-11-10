@@ -615,6 +615,21 @@
                     </div>
                 </div>
             </div>
+            <div class="col-12 mt-3"
+                 th:if="${competitionConfig != null and competitionConfig.knockoutFirstDrawEnabled and competitionConfig.matchMode == 3}">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3 py-3">
+                        <div class="small">
+                            <i class="bi bi-shuffle text-primary me-1"></i>
+                            <strong>淘汰赛首轮抽签</strong>
+                            <span class="text-muted">小组赛全部验收后，按总排名分档抽取首轮对手。</span>
+                        </div>
+                        <a class="btn btn-outline-primary btn-sm" th:href="${@tournamentUrls.knockoutDrawUrl(tournamentInfo.tournament)}">
+                            <i class="bi bi-box-arrow-in-right"></i> 进入首轮抽签
+                        </a>
+                    </div>
+                </div>
+            </div>
 
             <div class="col-12 mt-3" th:if="${viewerProgress != null and viewerProgress.participating}">
                 <a class="cm-stage-banner"
@@ -868,6 +883,23 @@
                                                 </select>
                                             </div>
                                             <div class="col-md-3">
+                                                <label class="form-label">淘汰赛首轮抽签</label>
+                                                <div class="form-check form-switch mt-2">
+                                                    <input class="form-check-input" type="checkbox" id="knockoutFirstDrawSwitch" name="knockoutFirstDrawEnabled" value="true"
+                                                           th:checked="${competitionConfig != null and competitionConfig.knockoutFirstDrawEnabled}">
+                                                    <label class="form-check-label" for="knockoutFirstDrawSwitch">启用</label>
+                                                </div>
+                                                <div class="form-text">小组赛全部验收后，按总排名分档抽首轮对手。默认关闭。</div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">挂载资格赛抽签</label>
+                                                <select class="form-select" name="knockoutQualifierDraw">
+                                                    <option value="KEEP" th:selected="${competitionConfig == null or competitionConfig.knockoutQualifierDraw == null or !competitionConfig.knockoutQualifierDraw}">资格赛保持原对阵</option>
+                                                    <option value="DRAW" th:selected="${competitionConfig != null and competitionConfig.knockoutQualifierDraw}">资格赛参与抽签</option>
+                                                </select>
+                                                <div class="form-text">仅在启用首轮抽签且挂载了首轮资格赛时生效。</div>
+                                            </div>
+                                            <div class="col-md-3">
                                                 <label class="form-label">小组赛全验收后自动生成淘汰赛首轮</label>
                                                 <select class="form-select" name="knockoutAutoFromGroup" id="knockoutAutoFromGroupSelect">
                                                     <option value="true" th:selected="${competitionConfig == null or competitionConfig.knockoutAutoFromGroup == null or competitionConfig.knockoutAutoFromGroup}">是</option>
@@ -922,6 +954,12 @@
                                             <div class="col-md-3">
                                                 <strong>赛事模式：</strong>
                                                 <span th:text="${competitionConfig != null ? (competitionConfig.matchMode == 1 ? '单败淘汰赛' : competitionConfig.matchMode == 2 ? '双败淘汰赛' : '小组赛') : '小组赛'}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null}">
+                                                <strong>淘汰赛首轮抽签：</strong>
+                                                <span th:text="${competitionConfig.knockoutFirstDrawEnabled != null and competitionConfig.knockoutFirstDrawEnabled ? '启用' : '关闭'}"></span>
+                                                <span th:if="${competitionConfig.knockoutFirstDrawEnabled and competitionConfig.qualifierRound != null}"
+                                                      th:text="${competitionConfig.knockoutQualifierDraw ? '，资格赛参与抽签' : '，资格赛保持原对阵'}"></span>
                                             </div>
                                             <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutStartRound != null}">
                                                 <strong>淘汰赛首轮：</strong>
@@ -2018,10 +2056,10 @@
     <div th:replace="~{fragments :: footer}"></div>
 
     <th:block th:replace="~{fragments :: scripts}"></th:block>
-    <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=26}">
+    <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=28}">
     <script th:src="@{/js/Sortable.min.js}"></script>
     <script th:src="@{/js/group-match-score-modal.js?v=14}"></script>
-    <script th:src="@{/js/knockout-bracket-view.js?v=31}"></script>
+    <script th:src="@{/js/knockout-bracket-view.js?v=33}"></script>
     <script th:inline="javascript">
         window.rankingVisibleColumns = /*[[${rankingPriorityVisibleColumns}]]*/ null;
         window.groupStageAllowsDraw = /*[[${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}]]*/ true;
@@ -2686,26 +2724,37 @@
             matchPageModal.show();
         }
 
-        function renderKoManualPairBlock(p, nameP1, nameP2) {
+        function renderKoManualPairBlock(p, nameP1, nameP2, allowQualifierWinner) {
             const locked = !!p.locked;
             const badge = locked ? '<span class="badge bg-secondary ms-2">已有比分或已验收</span>' : '';
+            const sideToken = (playerId, qualifierSlot) => {
+                if (qualifierSlot != null && qualifierSlot !== '') return 'q:' + qualifierSlot;
+                return playerId == null ? '' : String(playerId);
+            };
             const optionHtml = (selectedId) => {
                 const s = selectedId == null || selectedId === '' ? '' : String(selectedId);
                 const rows = ['<option value="">-- 请选择选手 --</option>'];
+                if (allowQualifierWinner) {
+                    (window.__koQualifierSlots || []).forEach((q) => {
+                        const val = 'q:' + q.slot;
+                        const label = '资格赛第' + (Number(q.slot) + 1) + '场胜者';
+                        rows.push(`<option value="${val}" ${val === s ? 'selected' : ''}>${label}</option>`);
+                    });
+                }
                 (window.__koManualOptions || []).forEach((u) => {
                     const uid = String(u.userId);
                     rows.push(`<option value="${uid}" ${uid === s ? 'selected' : ''}>#${u.rank} ${u.username}</option>`);
                 });
                 return rows.join('');
             };
-            const p1 = p.defaultPlayer1Id == null ? '' : String(p.defaultPlayer1Id);
-            const p2 = p.defaultPlayer2Id == null ? '' : String(p.defaultPlayer2Id);
+            const p1 = sideToken(p.defaultPlayer1Id, p.player1FromQualifierSlot);
+            const p2 = sideToken(p.defaultPlayer2Id, p.player2FromQualifierSlot);
             const sel1 = locked
-                ? `<input type="hidden" name="${nameP1}" value="${p1}"/><select class="form-select ko-manual-player-select" disabled>${optionHtml(p.defaultPlayer1Id)}</select>`
-                : `<select class="form-select ko-manual-player-select" name="${nameP1}">${optionHtml(p.defaultPlayer1Id)}</select>`;
+                ? `<input type="hidden" name="${nameP1}" value="${p1}"/><select class="form-select ko-manual-player-select" disabled>${optionHtml(p1)}</select>`
+                : `<select class="form-select ko-manual-player-select" name="${nameP1}">${optionHtml(p1)}</select>`;
             const sel2 = locked
-                ? `<input type="hidden" name="${nameP2}" value="${p2}"/><select class="form-select ko-manual-player-select" disabled>${optionHtml(p.defaultPlayer2Id)}</select>`
-                : `<select class="form-select ko-manual-player-select" name="${nameP2}">${optionHtml(p.defaultPlayer2Id)}</select>`;
+                ? `<input type="hidden" name="${nameP2}" value="${p2}"/><select class="form-select ko-manual-player-select" disabled>${optionHtml(p2)}</select>`
+                : `<select class="form-select ko-manual-player-select" name="${nameP2}">${optionHtml(p2)}</select>`;
             return `
                 <div class="border rounded p-3 ${locked ? 'bg-light' : ''}">
                     <div class="fw-bold mb-2">${p.label || '-'}${badge}</div>
@@ -2765,10 +2814,11 @@
                 window.__koManualOptions = options;
                 const draft = Array.isArray(data.draft) ? data.draft : [];
                 const qualifierDraft = Array.isArray(data.qualifierDraft) ? data.qualifierDraft : [];
+                window.__koQualifierSlots = data.mountedQualifier ? qualifierDraft : [];
                 const helpEl = document.getElementById('koManualHelp');
                 if (helpEl) {
                     helpEl.textContent = data.mountedQualifier
-                        ? '已启用首轮挂载资格赛：请同时确认淘汰赛首轮与挂载资格赛对阵。已有比分或已验收的场次不可修改。仅可选择小组赛晋级选手（含资格赛晋级落位），且同一选手不可重复选择。'
+                        ? '已启用首轮挂载资格赛：正赛席位可选「资格赛第N场胜者」。该资格赛已验收后，胜者自动进入对应正赛席位。已有比分或已验收的场次不可修改，同一选手不可重复选择。'
                         : '默认按模式0填充。已有比分或已验收的场次不可修改。仅可选择小组赛晋级选手，且同一选手不可重复选择。';
                 }
                 pairCountEl.value = String(draft.length);
@@ -2778,11 +2828,11 @@
                     if (qualSection) qualSection.classList.add('d-none');
                     return;
                 }
-                body.innerHTML = draft.map((p) => renderKoManualPairBlock(p, `p1_${p.slot}`, `p2_${p.slot}`)).join('');
+                body.innerHTML = draft.map((p) => renderKoManualPairBlock(p, `p1_${p.slot}`, `p2_${p.slot}`, !!data.mountedQualifier && qualifierDraft.length > 0)).join('');
                 if (qualSection && qualBody) {
                     if (data.mountedQualifier && qualifierDraft.length) {
                         qualSection.classList.remove('d-none');
-                        qualBody.innerHTML = qualifierDraft.map((p) => renderKoManualPairBlock(p, `qp1_${p.slot}`, `qp2_${p.slot}`)).join('');
+                        qualBody.innerHTML = qualifierDraft.map((p) => renderKoManualPairBlock(p, `qp1_${p.slot}`, `qp2_${p.slot}`, false)).join('');
                     } else {
                         qualSection.classList.add('d-none');
                         qualBody.innerHTML = '';

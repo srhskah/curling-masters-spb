@@ -558,6 +558,9 @@ public class DrawManagementService {
 
     @Transactional
     public TournamentDrawResult performDraw(Long tournamentId, Long userId, Long groupId, DrawPool pool) {
+        if (pool == DrawPool.KNOCKOUT) {
+            throw new IllegalStateException("淘汰赛首轮抽签不走小组抽签");
+        }
         LocalDateTime now = LocalDateTime.now();
         Tournament tournament = tournamentService.getById(tournamentId);
         if (tournament == null || tournament.getStatus() == null || (tournament.getStatus() != 0 && tournament.getStatus() != 1)) {

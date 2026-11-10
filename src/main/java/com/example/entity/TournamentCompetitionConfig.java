@@ -34,6 +34,14 @@ public class TournamentCompetitionConfig {
     /** 小组赛全部验收后是否尝试自动生成淘汰赛首轮 */
     @TableField(value = "knockout_auto_from_group", updateStrategy = FieldStrategy.ALWAYS)
     private Boolean knockoutAutoFromGroup;
+
+    /** 是否启用淘汰赛首轮抽签 */
+    @TableField(value = "knockout_first_draw_enabled", updateStrategy = FieldStrategy.ALWAYS)
+    private Boolean knockoutFirstDrawEnabled;
+
+    /** 挂载资格赛是否参与首轮抽签；false 表示资格赛保持原对阵 */
+    @TableField(value = "knockout_qualifier_draw", updateStrategy = FieldStrategy.ALWAYS)
+    private Boolean knockoutQualifierDraw;
     /** 资格赛挂载淘汰赛轮次（同赛事仅允许一轮） */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer qualifierRound;
