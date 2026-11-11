@@ -26,15 +26,21 @@ jobs:
         run: ./gradlew build -x test
 
       - name: Log in to Aliyun ACR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.ACR_REGISTRY }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login --username ${{ secrets.ACR_USERNAME }} --password-stdin ${{ secrets.ACR_REGISTRY }}
+        # uses: docker/login-action@v3
+        # with:
+        #   registry: ${{ secrets.ACR_REGISTRY }}
+        #   username: ${{ secrets.ACR_USERNAME }}
+        #   password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.ACR_REGISTRY }}/jw_docker_sql/curling-masters:latest
+        run: |
+          IMAGE_TAG="${{ secrets.ACR_REGISTRY }}/jw_docker_sql/curling-masters:latest"
+          docker build -t $IMAGE_TAG .
+          docker push $IMAGE_TAG
+        # uses: docker/build-push-action@v5
+        # with:
+        #   context: .
+        #   push: true
+        #   tags: ${{ secrets.ACR_REGISTRY }}/jw_docker_sql/curling-masters:latest
