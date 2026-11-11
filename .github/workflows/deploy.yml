@@ -36,6 +36,7 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
+          export DOCKER_BUILDKIT=0
           IMAGE_TAG="${{ secrets.ACR_REGISTRY }}/jw_docker_sql/curling-masters:latest"
           docker build -t $IMAGE_TAG .
           docker push $IMAGE_TAG
