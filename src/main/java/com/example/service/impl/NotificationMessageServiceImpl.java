@@ -7,9 +7,11 @@ import com.example.entity.Season;
 import com.example.entity.Series;
 import com.example.entity.Tournament;
 import com.example.entity.TournamentLevel;
+import com.example.entity.TournamentRegistration;
 import com.example.entity.User;
 import com.example.mapper.NotificationMessageMapper;
 import com.example.mapper.NotificationRecipientMapper;
+import com.example.mapper.TournamentRegistrationMapper;
 import com.example.service.TournamentUrlService;
 import com.example.service.INotificationService;
 import com.example.service.ITournamentLevelService;
@@ -23,9 +25,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +48,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
 
     private final NotificationMessageMapper messageMapper;
     private final NotificationRecipientMapper recipientMapper;
+    private final TournamentRegistrationMapper registrationMapper;
     private final UserService userService;
     private final TournamentService tournamentService;
     private final SeriesService seriesService;
@@ -53,6 +59,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
 
     public NotificationMessageServiceImpl(NotificationMessageMapper messageMapper,
                                           NotificationRecipientMapper recipientMapper,
+                                          TournamentRegistrationMapper registrationMapper,
                                           UserService userService,
                                           TournamentService tournamentService,
                                           SeriesService seriesService,
@@ -62,6 +69,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
                                           org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.messageMapper = messageMapper;
         this.recipientMapper = recipientMapper;
+        this.registrationMapper = registrationMapper;
         this.userService = userService;
         this.tournamentService = tournamentService;
         this.seriesService = seriesService;
@@ -141,7 +149,12 @@ public class NotificationMessageServiceImpl implements INotificationService {
 
     @Override
     public List<NotificationMessage> listPublishedForHome(int limit) {
-        int l = Math.max(1, Math.min(limit <= 0 ? 8 : limit, 50));
+        return listPublicPublished(Math.min(limit <= 0 ? 8 : limit, 50));
+    }
+
+    @Override
+    public List<NotificationMessage> listPublicPublished(int limit) {
+        int l = Math.max(1, Math.min(limit <= 0 ? 40 : limit, 200));
         List<NotificationMessage> list = messageMapper.selectList(Wrappers.<NotificationMessage>lambdaQuery()
                 .eq(NotificationMessage::getPublished, true)
                 .eq(NotificationMessage::getPublishToHome, true)
@@ -164,12 +177,100 @@ public class NotificationMessageServiceImpl implements INotificationService {
     }
 
     @Override
-    public Optional<NotificationMessage> getReadableDetail(Long messageId, Long viewerUserId) {
+    public List<NotificationMessage> listReadableForUser(User viewer, int limit) {
+        int l = Math.max(1, Math.min(limit <= 0 ? 40 : limit, 200));
+        if (viewer == null || viewer.getId() == null) {
+            return listPublicPublished(l);
+        }
+        if (isSiteAdmin(viewer)) {
+            List<NotificationMessage> list = messageMapper.selectList(Wrappers.<NotificationMessage>lambdaQuery()
+                    .eq(NotificationMessage::getPublished, true)
+                    .orderByDesc(NotificationMessage::getPublishedAt)
+                    .last("LIMIT " + l));
+            attachAuthorUsernames(list);
+            attachTournamentInfo(list);
+            return list;
+        }
+
+        Set<Long> scopedTournamentIds = resolveScopedTournamentIds(viewer.getId());
+
+        LinkedHashMap<Long, NotificationMessage> byId = new LinkedHashMap<>();
+        for (NotificationMessage m : listPublicPublished(Math.min(l, 100))) {
+            if (m != null && m.getId() != null) {
+                byId.put(m.getId(), m);
+            }
+        }
+
+        List<NotificationRecipient> links = recipientMapper.selectList(Wrappers.<NotificationRecipient>lambdaQuery()
+                .eq(NotificationRecipient::getUserId, viewer.getId())
+                .orderByDesc(NotificationRecipient::getCreatedAt)
+                .last("LIMIT 500"));
+        List<NotificationMessage> recipientMsgs = List.of();
+        if (!links.isEmpty()) {
+            List<Long> msgIds = links.stream()
+                    .map(NotificationRecipient::getMessageId)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .toList();
+            if (!msgIds.isEmpty()) {
+                recipientMsgs = messageMapper.selectBatchIds(msgIds);
+            }
+        }
+        Set<Long> knownTournamentIds = resolveKnownTournamentIdsAmong(
+                recipientMsgs.stream().map(NotificationMessage::getSourceRefId).filter(Objects::nonNull).collect(Collectors.toSet()));
+        for (NotificationMessage m : recipientMsgs) {
+            if (m == null || m.getId() == null || !Boolean.TRUE.equals(m.getPublished())) {
+                continue;
+            }
+            if (canReadInternal(m, scopedTournamentIds, knownTournamentIds, true)) {
+                byId.putIfAbsent(m.getId(), m);
+            }
+        }
+
+        List<NotificationMessage> list = new ArrayList<>(byId.values());
+        list.sort(Comparator.comparing(NotificationMessage::getPublishedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(NotificationMessage::getId, Comparator.nullsLast(Comparator.reverseOrder())));
+        if (list.size() > l) {
+            list = new ArrayList<>(list.subList(0, l));
+        }
+        attachAuthorUsernames(list);
+        attachTournamentInfo(list);
+        return list;
+    }
+
+    @Override
+    public boolean canRead(NotificationMessage message, User viewer) {
+        if (message == null || !Boolean.TRUE.equals(message.getPublished())) {
+            return false;
+        }
+        if (viewer == null || viewer.getId() == null) {
+            return Boolean.TRUE.equals(message.getPublishToHome());
+        }
+        if (isSiteAdmin(viewer)) {
+            return true;
+        }
+        Set<Long> scoped = resolveScopedTournamentIds(viewer.getId());
+        Set<Long> knownTournamentIds = resolveKnownTournamentIdsAmong(
+                message.getSourceRefId() == null ? Set.of() : Set.of(message.getSourceRefId()));
+        Long cnt = recipientMapper.selectCount(Wrappers.<NotificationRecipient>lambdaQuery()
+                .eq(NotificationRecipient::getMessageId, message.getId())
+                .eq(NotificationRecipient::getUserId, viewer.getId()));
+        boolean isRecipient = cnt != null && cnt > 0;
+        return canReadInternal(message, scoped, knownTournamentIds, isRecipient);
+    }
+
+    @Override
+    public Optional<NotificationMessage> getReadableDetail(Long messageId, User viewer) {
         NotificationMessage m = messageMapper.selectById(messageId);
-        if (m == null || !Boolean.TRUE.equals(m.getPublished())) return Optional.empty();
+        if (m == null || !Boolean.TRUE.equals(m.getPublished())) {
+            return Optional.empty();
+        }
+        if (!canRead(m, viewer)) {
+            return Optional.empty();
+        }
         m.setContentHtml(MarkdownUtils.markdownToSafeHtml(m.getContentMarkdown()));
-        if (viewerUserId != null) {
-            markRead(messageId, viewerUserId);
+        if (viewer != null && viewer.getId() != null) {
+            markRead(messageId, viewer.getId());
         }
         attachAuthorUsername(m);
         attachTournamentInfo(List.of(m));
@@ -238,12 +339,88 @@ public class NotificationMessageServiceImpl implements INotificationService {
     @Override
     public boolean canManage(User user) {
         if (user == null || user.getRole() == null) return false;
-        if (user.getRole() == ROLE_SUPER_ADMIN || user.getRole() == ROLE_ADMIN) return true;
+        if (isSiteAdmin(user)) return true;
         if (user.getId() == null) return false;
         return tournamentService.lambdaQuery()
                 .eq(com.example.entity.Tournament::getHostUserId, user.getId())
                 .last("LIMIT 1")
                 .one() != null;
+    }
+
+    private static boolean isSiteAdmin(User user) {
+        return user != null && user.getRole() != null
+                && (user.getRole() == ROLE_SUPER_ADMIN || user.getRole() == ROLE_ADMIN);
+    }
+
+    /**
+     * 当前已报名（未拒绝）+ 本人主办的赛事，用于专属通知范围。
+     */
+    private Set<Long> resolveScopedTournamentIds(Long userId) {
+        Set<Long> ids = new HashSet<>();
+        if (userId == null) {
+            return ids;
+        }
+        List<TournamentRegistration> regs = registrationMapper.selectList(Wrappers.<TournamentRegistration>lambdaQuery()
+                .eq(TournamentRegistration::getUserId, userId)
+                .and(w -> w.isNull(TournamentRegistration::getStatus)
+                        .or()
+                        .ne(TournamentRegistration::getStatus, 2)));
+        for (TournamentRegistration r : regs) {
+            if (r != null && r.getTournamentId() != null) {
+                ids.add(r.getTournamentId());
+            }
+        }
+        List<Tournament> hosted = tournamentService.lambdaQuery()
+                .eq(Tournament::getHostUserId, userId)
+                .list();
+        for (Tournament t : hosted) {
+            if (t != null && t.getId() != null) {
+                ids.add(t.getId());
+            }
+        }
+        return ids;
+    }
+
+    private Set<Long> resolveKnownTournamentIdsAmong(Set<Long> candidateIds) {
+        if (candidateIds == null || candidateIds.isEmpty()) {
+            return Set.of();
+        }
+        return tournamentService.listByIds(candidateIds).stream()
+                .filter(Objects::nonNull)
+                .map(Tournament::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    /**
+     * 普通用户可读规则：
+     * - 公共首页通知；
+     * - 本人收件且（非赛事关联 / 关联赛事在本人报名或主办范围内）；
+     * 不按赛事 ID 拉取他人定向通知，避免泄露分组等私信。
+     */
+    private boolean canReadInternal(NotificationMessage message,
+                                    Set<Long> scopedTournamentIds,
+                                    Set<Long> knownTournamentIds,
+                                    boolean isRecipient) {
+        if (message == null || !Boolean.TRUE.equals(message.getPublished())) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(message.getPublishToHome())) {
+            return true;
+        }
+        if (!isRecipient) {
+            return false;
+        }
+        Long ref = message.getSourceRefId();
+        if (ref == null) {
+            return true;
+        }
+        boolean tournamentLinked = knownTournamentIds != null && knownTournamentIds.contains(ref);
+        if (!tournamentLinked) {
+            // 非赛事引用（如忘记密码的用户 ID）：收件人可见
+            return true;
+        }
+        return scopedTournamentIds != null && scopedTournamentIds.contains(ref);
     }
 
     @Override

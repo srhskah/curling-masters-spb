@@ -12,7 +12,23 @@ public interface INotificationService {
     List<NotificationMessage> listInbox(Long userId, int limit);
     List<NotificationMessage> listManage(int limit);
     List<NotificationMessage> listPublishedForHome(int limit);
-    Optional<NotificationMessage> getReadableDetail(Long messageId, Long viewerUserId);
+
+    /**
+     * 未登录可见的公共已发布通知（与首页同源：published + publishToHome）。
+     */
+    List<NotificationMessage> listPublicPublished(int limit);
+
+    /**
+     * 按用户权限与当前已报名/主办赛事可见的通知列表（匿名时等同公共列表）。
+     */
+    List<NotificationMessage> listReadableForUser(User viewer, int limit);
+
+    /**
+     * 是否可阅读该已发布通知（匿名仅公共；登录按权限/报名/收件范围）。
+     */
+    boolean canRead(NotificationMessage message, User viewer);
+
+    Optional<NotificationMessage> getReadableDetail(Long messageId, User viewer);
     Optional<NotificationMessage> getManageDetail(Long messageId, User operator);
     void markRead(Long messageId, Long userId);
     void markUnread(Long messageId, Long userId);

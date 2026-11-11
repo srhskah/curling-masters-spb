@@ -16,6 +16,8 @@ public class User implements Serializable {
     private Integer role; // 0-超级管理员,1-普通管理员,2-普通用户
     private Boolean passwordChanged; // 是否已修改初始密码(123456)
     private Boolean includeInTotalRanking; // 是否计入总排名
+    /** 消息通知专属 RSS 订阅令牌（可空，首次访问专属源时生成） */
+    private String rssToken;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -83,6 +85,14 @@ public class User implements Serializable {
 
     public void setIncludeInTotalRanking(Boolean includeInTotalRanking) {
         this.includeInTotalRanking = includeInTotalRanking;
+    }
+
+    public String getRssToken() {
+        return rssToken;
+    }
+
+    public void setRssToken(String rssToken) {
+        this.rssToken = rssToken;
     }
 
     public LocalDateTime getCreatedAt() {

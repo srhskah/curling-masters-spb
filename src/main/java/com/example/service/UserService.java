@@ -70,6 +70,16 @@ public interface UserService extends IService<User> {
     User findByUsername(String username);
 
     /**
+     * 按消息通知 RSS 令牌查找用户；令牌无效时返回 null。
+     */
+    User findByRssToken(String rssToken);
+
+    /**
+     * 确保用户已有 RSS 令牌；若无则生成并持久化后返回。
+     */
+    String ensureRssToken(User user);
+
+    /**
      * 解析小组名单导入文本为用户 ID（支持一行内空格分隔多名、用户名内含空格/下划线/emoji 等）。
      */
     GroupImportResult resolveGroupImport(String raw);

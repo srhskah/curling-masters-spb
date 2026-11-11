@@ -35,8 +35,7 @@ public class NotificationExportPdfController {
     @GetMapping(value = "/pdf/{id}", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> export(@PathVariable Long id, Principal principal) {
         User me = principal == null ? null : userService.findByUsername(principal.getName());
-        Long uid = me != null ? me.getId() : null;
-        NotificationMessage msg = notificationService.getReadableDetail(id, uid).orElse(null);
+        NotificationMessage msg = notificationService.getReadableDetail(id, me).orElse(null);
         if (msg == null) {
             return ResponseEntity.notFound().build();
         }

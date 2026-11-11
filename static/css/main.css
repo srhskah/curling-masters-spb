@@ -520,6 +520,17 @@ input[type=number] {
     background: transparent !important;
 }
 
+.notification-rss-bar {
+    padding: 0.75rem 0.9rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.45);
+}
+.notification-rss-bar code {
+    font-size: 0.8em;
+    word-break: break-all;
+}
+
 /* 通用列表桌面表格：略紧凑但不拥挤 */
 table.table-hover.align-middle tbody tr > td {
     padding-top: 0.55rem;

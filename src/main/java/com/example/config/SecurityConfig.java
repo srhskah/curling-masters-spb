@@ -90,6 +90,10 @@ public class SecurityConfig {
                         "/user/login", "/user/register", "/user/change-password", "/user/forgot-password",
                         "/css/**", "/js/**", "/images/**"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/notification/list").permitAll()
+                .requestMatchers(HttpMethod.GET, "/notification/detail/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/notification/rss/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/notification/export/pdf/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tournament/competition/match/detail/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tournament/competition/knockout-bracket-data/**").permitAll()
                 .requestMatchers("/user/manage/**").hasAnyRole("SUPER_ADMIN", "ADMIN")

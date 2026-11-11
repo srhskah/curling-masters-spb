@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.example.entity.User;
 import com.example.mapper.UserMapper;
@@ -18,6 +19,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -173,6 +175,43 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("username", username);
         return getOne(queryWrapper);
+    }
+
+    @Override
+    public User findByRssToken(String rssToken) {
+        if (rssToken == null || rssToken.isBlank()) {
+            return null;
+        }
+        String token = rssToken.trim();
+        if (token.length() < 16 || token.length() > 64) {
+            return null;
+        }
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("rss_token", token);
+        return getOne(queryWrapper);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public String ensureRssToken(User user) {
+        if (user == null || user.getId() == null) {
+            throw new IllegalArgumentException("用户无效");
+        }
+        User db = getById(user.getId());
+        if (db == null) {
+            throw new IllegalArgumentException("用户不存在");
+        }
+        if (db.getRssToken() != null && !db.getRssToken().isBlank()) {
+            user.setRssToken(db.getRssToken());
+            return db.getRssToken();
+        }
+        String token = UUID.randomUUID().toString().replace("-", "")
+                + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        db.setRssToken(token);
+        db.setUpdatedAt(LocalDateTime.now());
+        updateById(db);
+        user.setRssToken(token);
+        return token;
     }
 
     @Override

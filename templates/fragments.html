@@ -19,7 +19,7 @@
     </th:block>
     <link href="/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/bootstrap-icons.css">
-    <link th:href="@{/css/main.css?v=2.25}" rel="stylesheet">
+    <link th:href="@{/css/main.css?v=2.26}" rel="stylesheet">
 </head>
 
 <!-- 主导航菜单内容：由外层 th:with="ms='' 或 'M'" 控制 id 后缀，避免桌面/侧栏重复 DOM 时 id 冲突 -->
@@ -40,8 +40,7 @@
         <li class="nav-item">
             <a class="nav-link text-dark" href="/h2h" data-i18n-key="nav.h2h"><i class="bi bi-shuffle"></i> H2H</a>
         </li>
-        <li class="nav-item"
-            th:if="${#authorization.expression('isAuthenticated()') and !#authorization.expression('isAnonymous()')}">
+        <li class="nav-item">
             <a class="nav-link text-dark d-inline-flex align-items-center gap-1" href="/notification/list" data-i18n-key="nav.notifications">
                 <i class="bi bi-bell"></i> 消息通知
                 <span class="badge rounded-pill bg-danger"
