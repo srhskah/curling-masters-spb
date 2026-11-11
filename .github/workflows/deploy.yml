@@ -19,9 +19,13 @@ jobs:
       #     cache: gradle
       - name: Set up JDK 21 (Local)
         run: |
-          echo "JAVA_HOME=/home/jw/.sdkman/candidates/java/21.0.13.0+9-tem" >> $GITHUB_ENV
-          echo "/home/jw/.sdkman/candidates/java/21.0.13.0+9-tem/bin" >> $GITHUB_PATH
-
+          JAVA_PATH=$(readlink -f $(which java))
+          export JAVA_HOME=$(dirname $(dirname $JAVA_PATH))
+          
+          echo "Detected JAVA_HOME: $JAVA_HOME"
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+          echo "$JAVA_HOME/bin" >> $GITHUB_PATH
+          
       - name: Build with Gradle
         run: ./gradlew build -x test
 
