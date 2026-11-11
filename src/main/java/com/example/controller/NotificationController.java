@@ -87,7 +87,11 @@ public class NotificationController {
         return "notification/detail";
     }
 
-    @GetMapping(value = "/rss/public.xml", produces = {"application/rss+xml;charset=UTF-8", "application/xml;charset=UTF-8", "text/xml;charset=UTF-8"})
+    /**
+     * 不在 mapping 上限制 produces：部分阅读器只发 Accept: application/atom+xml，
+     * 限制后会匹配失败并落到 /error（需登录）→ 302。
+     */
+    @GetMapping("/rss/public.xml")
     @ResponseBody
     public ResponseEntity<byte[]> publicRss(HttpServletRequest request) {
         String base = requestBaseUrl(request);
@@ -103,7 +107,7 @@ public class NotificationController {
         return rssResponse(xml);
     }
 
-    @GetMapping(value = "/rss/u/{token}.xml", produces = {"application/rss+xml;charset=UTF-8", "application/xml;charset=UTF-8", "text/xml;charset=UTF-8"})
+    @GetMapping("/rss/u/{token}.xml")
     @ResponseBody
     public ResponseEntity<byte[]> personalRss(@PathVariable String token, HttpServletRequest request) {
         User owner = userService.findByRssToken(token);

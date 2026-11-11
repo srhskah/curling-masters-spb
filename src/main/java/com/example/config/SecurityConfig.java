@@ -90,10 +90,15 @@ public class SecurityConfig {
                         "/user/login", "/user/register", "/user/change-password", "/user/forgot-password",
                         "/css/**", "/js/**", "/images/**"
                 ).permitAll()
+                // GET+HEAD：RSS 阅读器常先发 HEAD；仅放行 GET 会被 302 到登录
                 .requestMatchers(HttpMethod.GET, "/notification/list").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/notification/list").permitAll()
                 .requestMatchers(HttpMethod.GET, "/notification/detail/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/notification/detail/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/notification/rss/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/notification/rss/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/notification/export/pdf/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/notification/export/pdf/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tournament/competition/match/detail/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/tournament/competition/knockout-bracket-data/**").permitAll()
                 .requestMatchers("/user/manage/**").hasAnyRole("SUPER_ADMIN", "ADMIN")
