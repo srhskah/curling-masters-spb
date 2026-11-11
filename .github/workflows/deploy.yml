@@ -8,9 +8,13 @@ jobs:
   build-and-push:
     runs-on: self-hosted
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
+      # - name: Checkout Code
+      #   uses: actions/checkout@v4
+      - name: Pull latest code
+        run: |
+          # 这里的路径改成你本地真正存放源码的目录
+          cd ~/webapp/curling-masters
+          git pull origin main
       - name: Set up JDK 21 (Local)
         run: |
           echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> $GITHUB_ENV
