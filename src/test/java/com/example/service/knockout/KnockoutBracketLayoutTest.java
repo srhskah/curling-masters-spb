@@ -68,6 +68,21 @@ class KnockoutBracketLayoutTest {
         assertEquals("LQ1", laid.get(3).name);
     }
 
+    /** 晋级后的 1/4：全局 slot（上半 0/1、下半 2/3），稀疏时不能挤到错误视觉位。 */
+    @Test
+    void sparseGlobalSlotsKeepAbsoluteIndex() {
+        List<Item> qf = List.of(
+                new Item(0, 1, "禾谷-阿方宇"),
+                new Item(1, 3, "木易-寂寞的清新")
+        );
+        List<Item> laid = KnockoutBracketLayout.placeVisualSlots(
+                qf, 4, Item::half, Item::slot);
+        assertNull(laid.get(0));
+        assertEquals("禾谷-阿方宇", laid.get(1).name);
+        assertNull(laid.get(2));
+        assertEquals("木易-寂寞的清新", laid.get(3).name);
+    }
+
     @Test
     void classicFirstRoundSplitInfersHalves() {
         assertEquals(0, KnockoutBracketLayout.inferHalfFromFirstRoundSplit(0, 8));

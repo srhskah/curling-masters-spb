@@ -85,34 +85,59 @@ public final class KnockoutBracketLayout {
                 lower.add(x);
             }
         }
-        fillRange(arr, 0, cut, upper);
-        fillRange(arr, cut, expectedSize, lower);
-        List<T> leftover = new ArrayList<>();
-        if (upper.size() > cut) {
-            leftover.addAll(upper.subList(cut, upper.size()));
-        }
-        int lowerCap = expectedSize - cut;
-        if (lower.size() > lowerCap) {
-            leftover.addAll(lower.subList(lowerCap, lower.size()));
-        }
-        int write = 0;
-        for (T x : leftover) {
-            while (write < expectedSize && arr.get(write) != null) {
-                write++;
-            }
-            if (write >= expectedSize) {
-                break;
-            }
-            arr.set(write, x);
-            write++;
+        // 下半区出现 slot < cut（世界杯交叉签 1/3/5/7）→ 按半区相遇顺序重排；
+        // 否则 slot 为整轮全局卡位（晋级后 1/4 常见 0/1/2/3），必须落在绝对下标。
+        boolean interleavedLower = lower.stream().anyMatch(x -> {
+            Integer s = slotFn.apply(x);
+            return s != null && s < cut;
+        });
+        if (interleavedLower) {
+            packIntoRange(arr, 0, cut, upper);
+            packIntoRange(arr, cut, expectedSize, lower);
+        } else {
+            fillRangeByAbsoluteSlot(arr, 0, cut, upper, slotFn);
+            fillRangeByAbsoluteSlot(arr, cut, expectedSize, lower, slotFn);
         }
         return arr;
     }
 
-    private static <T> void fillRange(List<T> arr, int from, int to, List<T> items) {
-        int n = Math.min(items.size(), Math.max(0, to - from));
-        for (int i = 0; i < n; i++) {
-            arr.set(from + i, items.get(i));
+    /**
+     * 全局卡位：slot 落在本半区视觉带 [from,to) 时置于绝对下标；
+     * 半区相对 slot（0..capacity）作次选；其余按顺序填空。
+     */
+    private static <T> void fillRangeByAbsoluteSlot(List<T> arr, int from, int to, List<T> items,
+                                                    Function<T, Integer> slotFn) {
+        int capacity = Math.max(0, to - from);
+        List<T> leftover = new ArrayList<>();
+        for (T x : items) {
+            Integer slot = slotFn.apply(x);
+            if (slot != null && slot >= from && slot < to && arr.get(slot) == null) {
+                arr.set(slot, x);
+                continue;
+            }
+            if (slot != null && slot >= 0 && slot < capacity) {
+                int idx = from + slot;
+                if (arr.get(idx) == null) {
+                    arr.set(idx, x);
+                    continue;
+                }
+            }
+            leftover.add(x);
+        }
+        packIntoRange(arr, from, to, leftover);
+    }
+
+    private static <T> void packIntoRange(List<T> arr, int from, int to, List<T> items) {
+        int write = from;
+        for (T x : items) {
+            while (write < to && arr.get(write) != null) {
+                write++;
+            }
+            if (write >= to) {
+                break;
+            }
+            arr.set(write, x);
+            write++;
         }
     }
 }

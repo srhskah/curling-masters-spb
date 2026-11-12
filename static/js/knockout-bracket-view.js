@@ -85,6 +85,30 @@
     return { upper, lower, cut };
   }
 
+  /**
+   * 视觉行号按「整轮卡位」落区，不用「本半区已出场次序号」。
+   * 否则稀疏晋级时（例如只有 slot=1 的 1/4）会被挤到上半区格子，和生成它的 1/8 不在同一色块。
+   */
+  function halfBandSize(roundLen) {
+    return Math.max(1, Math.floor((roundLen || 0) / 2));
+  }
+
+  function localSlotInHalf(arrayIndex, roundLen) {
+    const cut = halfBandSize(roundLen);
+    if (arrayIndex < cut) return Math.max(0, arrayIndex);
+    return Math.max(0, arrayIndex - cut);
+  }
+
+  function r16RowForIndex(arrayIndex, roundLen) {
+    const local = localSlotInHalf(arrayIndex, roundLen);
+    return ROW_OF[Math.min(local, ROW_OF.length - 1)] || 2;
+  }
+
+  function qfRowForIndex(arrayIndex, roundLen) {
+    const local = localSlotInHalf(arrayIndex, roundLen);
+    return local <= 0 ? 2 : 5;
+  }
+
   function sfHalfLabel(m, fallbackIdx) {
     return fallbackIdx === 1 ? '半决赛 · 下半区' : '半决赛 · 上半区';
   }
@@ -478,8 +502,7 @@
       if (!hasMatch(m)) return;
       const upper = r16H.upper.includes(i);
       const col = upper ? columns.r16L : columns.r16R;
-      const within = upper ? r16H.upper.indexOf(i) : r16H.lower.indexOf(i);
-      const row = ROW_OF[Math.max(0, within)];
+      const row = r16RowForIndex(i, R.length);
       const qual = state.qualMap[String(i)];
       const edge = upper ? ' ko-side-l' : ' ko-side-r';
       const side = (qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '') + edge;
@@ -490,9 +513,8 @@
     Q.forEach((m, i) => {
       if (!hasMatch(m)) return;
       const upper = qfH.upper.includes(i);
-      const within = upper ? qfH.upper.indexOf(i) : qfH.lower.indexOf(i);
       const col = upper ? columns.qfL : columns.qfR;
-      const row = within === 0 ? 2 : 5;
+      const row = qfRowForIndex(i, Q.length);
       const qual = plan.hasR16 ? null : state.qualMap[String(i)];
       const edge = upper ? ' ko-side-l' : ' ko-side-r';
       const side = (qual ? (upper ? ' has-qual ko-qual-outer-l' : ' has-qual ko-qual-outer-r') : '') + edge;
@@ -738,35 +760,35 @@
     if (root) root.classList.toggle('ko-bracket-root--narrow', narrow);
   }
 
-  function drawWires(br, state) {
+  function drawWires(br, state, opts = {}) {
     const svg = br.querySelector('[data-ko-wires]');
     if (!svg) return;
-    const base = br.getBoundingClientRect();
-    const k = base.width / br.offsetWidth || 1;
-    const W = br.offsetWidth;
-    const H = br.offsetHeight;
+    // 优先用 offset 链（打印预览/PDF 引擎对 getBoundingClientRect 常不准）
+    const box = (el) => offsetBoxIn(br, el);
+    const W = Math.max(br.offsetWidth, Math.ceil(br.scrollWidth) || 0);
+    const H = Math.max(br.offsetHeight, Math.ceil(br.scrollHeight) || 0);
+    if (!W || !H) return;
     svg.setAttribute('width', W);
     svg.setAttribute('height', H);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-
-    const box = (el) => {
-      const r = el.getBoundingClientRect();
-      const l = (r.left - base.left) / k;
-      const t = (r.top - base.top) / k;
-      return { l, rt: l + r.width / k, t, b: t + r.height / k, cx: l + r.width / 2 / k, cy: t + r.height / 2 / k };
-    };
+    svg.style.width = W + 'px';
+    svg.style.height = H + 'px';
 
     const HEAD = 7.5;
-    const HALF = 4;
     const R = 8;
     const out = [];
+    const ortho = !!opts.ortho;
 
     const elbow = (sx, sy, tx, ty, dir) => {
       const ex = tx - dir * HEAD;
       if (Math.abs(ty - sy) < 1.2) return `M ${sx} ${sy} H ${ex}`;
-      const vdir = ty > sy ? 1 : -1;
       const span = Math.abs(tx - sx);
-      const mx = sx + dir * Math.max(R + 4, Math.min(24, span * 0.55));
+      const mx = sx + dir * Math.max(R + 4, Math.min(28, span * 0.55));
+      // PDF/打印引擎对 Q 曲线易断成漂浮线段；导出用直角折线，网页仍可用圆角肘线
+      if (ortho) {
+        return `M ${sx} ${sy} H ${mx} V ${ty} H ${ex}`;
+      }
+      const vdir = ty > sy ? 1 : -1;
       const rr = Math.min(R, Math.abs(ty - sy) / 2, Math.abs(mx - sx));
       return `M ${sx} ${sy} H ${mx - dir * rr} Q ${mx} ${sy} ${mx} ${sy + vdir * rr} V ${ty - vdir * rr} Q ${mx} ${ty} ${mx + dir * rr} ${ty} H ${ex}`;
     };
@@ -815,17 +837,10 @@
         const ty = tRow ? box(tRow).cy : t.cy;
         const dir = left ? 1 : -1;
         const tx = left ? t.l - 1 : t.rt + 1;
-        const destAbove = t.b <= s.t + 8;
-        const destBelow = t.t >= s.b - 8;
-        if (destAbove || destBelow) {
-          const sx = s.cx;
-          const y0 = destBelow ? s.b + 2 : s.t - 2;
-          out.push(`<path class="wire ${cls}" d="M ${sx} ${y0} V ${ty} H ${tx - dir * HEAD}"/>`);
-        } else {
-          const sx = left ? s.rt : s.l;
-          const fromY = slot === 'va' || slot === 'vb' ? sy : s.cy;
-          out.push(`<path class="wire ${cls}" d="${elbow(sx, fromY, tx, ty, dir)}"/>`);
-        }
+        const sx = left ? s.rt : s.l;
+        const fromY = slot === 'va' || slot === 'vb' ? sy : s.cy;
+        // 始终用肘线：上下半区与奖牌区错位时，竖线+横线容易画进空白
+        out.push(`<path class="wire ${cls}" d="${elbow(sx, fromY, tx, ty, dir)}"/>`);
         return;
       }
 
@@ -834,19 +849,59 @@
       const tx = dir > 0 ? t.l - 1 : t.rt + 1;
       const tRow = tRows[slot === 'b' ? 1 : 0] || tRows[0];
       const ty = tRow ? box(tRow).cy : t.cy;
+      // 同源同列却目标在上/下方时也走肘线，避免「竖线扎进空白」
       out.push(`<path class="wire ${cls}" d="${elbow(sx, sy, tx, ty, dir)}"/>`);
     });
 
     svg.innerHTML = out.join('');
   }
 
+  /** 相对 bracket 根的盒子坐标（offset 累加，避免打印态 getBoundingClientRect 错位） */
+  function offsetBoxIn(root, el) {
+    if (!root || !el) return { l: 0, rt: 0, t: 0, b: 0, cx: 0, cy: 0 };
+    const rootRect = root.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const k = rootRect.width / (root.offsetWidth || 1) || 1;
+    // 打印预览时若 rect 退化，退回 offsetParent 累加
+    if (!r.width && !r.height) {
+      let l = 0;
+      let t = 0;
+      let node = el;
+      while (node && node !== root) {
+        l += node.offsetLeft || 0;
+        t += node.offsetTop || 0;
+        node = node.offsetParent;
+        if (node === root || (node && root.contains(node) && node.offsetParent === null)) break;
+        if (!node || !root.contains(node)) break;
+      }
+      const w = el.offsetWidth || 0;
+      const h = el.offsetHeight || 0;
+      return { l, rt: l + w, t, b: t + h, cx: l + w / 2, cy: t + h / 2 };
+    }
+    const l = (r.left - rootRect.left) / k;
+    const t = (r.top - rootRect.top) / k;
+    const w = r.width / k;
+    const h = r.height / k;
+    return { l, rt: l + w, t, b: t + h, cx: l + w / 2, cy: t + h / 2 };
+  }
+
   function fitNames(br) {
     const mobile = !!(br.classList.contains('ko-bracket-mobile')
       || br.closest('.ko-bracket-root')?.classList.contains('ko-layout-mobile'));
+    const pdf = !!br.closest('.ko-pdf-simple, .ko-bracket-export-root');
     br.querySelectorAll('.entrant .nm, .pd-col .pd-nm').forEach((nm) => {
       nm.style.whiteSpace = 'nowrap';
-      if (mobile && nm.scrollWidth > nm.clientWidth + 0.5) {
-        nm.style.whiteSpace = 'normal';
+      nm.style.display = '';
+      nm.style.webkitLineClamp = '';
+      if (nm.scrollWidth > nm.clientWidth + 0.5) {
+        // 窄屏 / 导出：允许两行，避免「阿…」看不清
+        if (mobile || pdf) {
+          nm.style.whiteSpace = 'normal';
+          nm.style.display = '-webkit-box';
+          nm.style.webkitBoxOrient = 'vertical';
+          nm.style.webkitLineClamp = '2';
+          nm.style.overflow = 'hidden';
+        }
       }
     });
   }
@@ -1054,11 +1109,13 @@
     const bracket = host.querySelector('.bracket');
     if (!wrap || !bracket) return;
     renderDesktopBracket(bracket, state);
+    resetDesktopCardVars(bracket);
     positionSemi(bracket);
     centerSemisInHalves(bracket);
     positionCenterMedals(bracket);
     fitBracket(wrap, bracket, { export: true });
-    drawWires(bracket, state);
+    // 导出用直角折线（拓扑与网页一致；避免 Q 曲线在 PDF 引擎里断成漂浮线段）
+    drawWires(bracket, state, { ortho: true });
     fitNames(bracket);
     host.querySelectorAll('[style]').forEach((el) => {
       const s = el.getAttribute('style') || '';
@@ -1066,7 +1123,17 @@
     });
   }
 
-  function cleanupPrintStage(stage, btn, prevTitle) {
+  function redrawExportWires(exportRoot, state) {
+    const bracket = exportRoot && exportRoot.querySelector('.bracket');
+    if (!bracket || !state) return;
+    positionSemi(bracket);
+    centerSemisInHalves(bracket);
+    positionCenterMedals(bracket);
+    drawWires(bracket, state, { ortho: true });
+  }
+
+  function cleanupPrintStage(stage, btn, prevTitle, unbind) {
+    if (typeof unbind === 'function') unbind();
     document.body.classList.remove('ko-bracket-printing');
     if (prevTitle != null) document.title = prevTitle;
     stage?.remove();
@@ -1103,41 +1170,45 @@
     document.body.appendChild(stage);
 
     const exportRoot = stage.querySelector('.ko-bracket-export-root');
-    // 屏外可测：始终按宽屏左-中-右桌面布局导出（与设备无关）
-    layoutDesktopBracketExport(exportRoot, state);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    // 再量一次导线（首帧偶发 0 宽）
-    layoutDesktopBracketExport(exportRoot, state);
-    await new Promise((r) => requestAnimationFrame(r));
-
-    document.body.classList.add('ko-bracket-printing');
     const prevTitle = document.title;
     document.title = title;
+
+    // 先进入打印态再量坐标，避免屏外布局与打印 CSS 不一致导致连线漂浮
+    document.body.classList.add('ko-bracket-printing');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    layoutDesktopBracketExport(exportRoot, state);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    redrawExportWires(exportRoot, state);
+
     if (typeof global.showAlert === 'function') {
-      global.showAlert('请在打印窗口选择「横向 / Landscape」，目标打印机选「另存为 PDF」', 'info');
+      global.showAlert('请在打印窗口选择「横向 / Landscape」，目标可选「Microsoft Print to PDF」或「WPS PDF」', 'info');
     }
 
-    const onAfterPrint = () => {
+    const onBeforePrint = () => redrawExportWires(exportRoot, state);
+    const onAfterPrint = () => cleanupPrintStage(stage, btn, prevTitle, unbind);
+    const unbind = () => {
+      window.removeEventListener('beforeprint', onBeforePrint);
       window.removeEventListener('afterprint', onAfterPrint);
-      cleanupPrintStage(stage, btn, prevTitle);
     };
+    window.addEventListener('beforeprint', onBeforePrint);
     window.addEventListener('afterprint', onAfterPrint);
 
     setTimeout(() => {
       try {
+        redrawExportWires(exportRoot, state);
         global.print();
       } catch (e) {
         console.error(e);
-        cleanupPrintStage(stage, btn, prevTitle);
+        cleanupPrintStage(stage, btn, prevTitle, unbind);
         if (typeof global.showAlert === 'function') global.showAlert('无法打开打印对话框', 'danger');
         return;
       }
       setTimeout(() => {
         if (document.getElementById('ko-bracket-print-stage')) {
-          cleanupPrintStage(stage, btn, prevTitle);
+          cleanupPrintStage(stage, btn, prevTitle, unbind);
         }
       }, 8000);
-    }, 400);
+    }, 120);
   }
 
   function bindExportControls(root) {
