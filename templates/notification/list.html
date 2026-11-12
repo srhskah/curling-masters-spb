@@ -53,14 +53,14 @@
             </a>
             <span th:if="${personalRssUrl == null}" class="small text-muted">登录后可获取专属订阅源（按权限与已报名赛事）</span>
         </div>
-        <div class="small text-muted mt-2 text-break">
+        <!-- <div class="small text-muted mt-2 text-break">
             公共地址：
             <code th:text="${publicRssUrl}">https://…/notification/rss/public.xml</code>
-        </div>
-        <div th:if="${personalRssUrl != null}" class="small text-muted mt-1 text-break">
+        </div> -->
+        <!-- <div th:if="${personalRssUrl != null}" class="small text-muted mt-1 text-break">
             专属地址（请勿泄露）：
             <code th:text="${personalRssUrl}">https://…/notification/rss/u/….xml</code>
-        </div>
+        </div> -->
     </div>
 
     <div class="list-group" th:if="${items != null and !#lists.isEmpty(items)}">
