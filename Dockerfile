@@ -4,17 +4,8 @@ FROM ${BASE_IMAGE}
 # 设置工作目录
 WORKDIR /app
 
-# 安装必要的工具和字体
-# RUN sed -i 's|http://archive.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
-#     sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
-#     apt-get update && \
-#     apt-get install -y --no-install-recommends \
-#         curl \
-#         wget \
-#         fontconfig \
-#         && rm -rf /var/lib/apt/lists/*
-
-# 使用国内镜像源（这里以清华大学源为例）并更新
+# 工具 + 字体合并为单层：一次 apt-get update，变更少时整层命中缓存，避免重复拉包
+# （deploy 使用 DOCKER_BUILDKIT=0，不用 BuildKit cache mount，依赖经典层缓存）
 RUN set -eux; \
     # 1. 优先处理 deb822 格式的新配置文件
     if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
@@ -28,35 +19,28 @@ RUN set -eux; \
         sed -i 's|http://security.ubuntu.com/ubuntu/|http://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list && \
         sed -i 's|http://azure.archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|g' /etc/apt/sources.list; \
     fi; \
-    # 3. 更新并安装软件
     apt-get update; \
     apt-get install -y --no-install-recommends \
         curl \
         wget \
         fontconfig \
-    ; \
-    rm -rf /var/lib/apt/lists/*
-
-# 安装中文字体支持
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
         fonts-wqy-zenhei \
         fonts-wqy-microhei \
         fonts-dejavu-core \
         fonts-noto-core \
         fonts-noto-unhinted \
         fonts-noto-color-emoji \
-        && rm -rf /var/lib/apt/lists/*
+    ; \
+    rm -rf /var/lib/apt/lists/*
 
-# 复制字体安装脚本和构建产物
-# COPY install-font.sh /tmp/install-font.sh
+# 仅复制 WAR：放在 apt 层之后，代码/产物变更不会迫使重新下载 apt 包
 COPY build/libs/demo-0.0.1-SNAPSHOT.war app.war
 
-# 复制整个构建上下文到临时目录（用于检测本地字体文件）
-COPY . /build-context/
-
-# 安装单色 Noto Emoji（优先使用本地文件，否则从网络下载）
+# 单色 Noto Emoji（可选）：本地已有 NotoEmoji-Regular.ttf 时再解开，勿 COPY 整个构建上下文
+# COPY NotoEmoji-Regular.ttf /tmp/NotoEmoji-Regular.ttf
+# COPY install-font.sh /tmp/install-font.sh
 # RUN chmod +x /tmp/install-font.sh && \
+#     mkdir -p /build-context && mv /tmp/NotoEmoji-Regular.ttf /build-context/ && \
 #     /tmp/install-font.sh && \
 #     rm -rf /build-context /tmp/install-font.sh
 
