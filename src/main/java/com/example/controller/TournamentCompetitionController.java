@@ -46,6 +46,11 @@ public class TournamentCompetitionController {
                              @RequestParam(required = false) Integer groupSize,
                              @RequestParam(required = false) Boolean groupAllowDraw,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime groupStageDeadline,
+                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound16Deadline,
+                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound8Deadline,
+                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound4Deadline,
+                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound2Deadline,
+                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound1Deadline,
                              @RequestParam(required = false) Integer groupStageSets,
                              @RequestParam(required = false) Integer knockoutStageSets,
                              @RequestParam(required = false) Integer finalStageSets,
@@ -55,6 +60,7 @@ public class TournamentCompetitionController {
                              @RequestParam(required = false, defaultValue = "true") String knockoutAutoFromGroup,
                              @RequestParam(required = false, defaultValue = "false") boolean knockoutFirstDrawEnabled,
                              @RequestParam(required = false, defaultValue = "KEEP") String knockoutQualifierDraw,
+                             @RequestParam(required = false, defaultValue = "false") String knockoutRequirePrevStageDone,
                              @RequestParam(required = false) String competitionRuleType,
                              @RequestParam(required = false) Integer customCenterLineLimit,
                              @RequestParam(required = false) Integer customDeadStoneLimit,
@@ -98,10 +104,17 @@ public class TournamentCompetitionController {
             c.setKnockoutAutoFromGroup(!"false".equalsIgnoreCase(knockoutAutoFromGroup));
             c.setKnockoutFirstDrawEnabled(knockoutFirstDrawEnabled);
             c.setKnockoutQualifierDraw("DRAW".equalsIgnoreCase(knockoutQualifierDraw));
+            c.setKnockoutRequirePrevStageDone(!"false".equalsIgnoreCase(knockoutRequirePrevStageDone)
+                    && !"0".equals(knockoutRequirePrevStageDone));
             c.setGroupMode(groupMode);
             c.setGroupSize(groupSize);
             c.setGroupAllowDraw(groupAllowDraw);
             c.setGroupStageDeadline(groupStageDeadline);
+            c.setKnockoutRound16Deadline(knockoutRound16Deadline);
+            c.setKnockoutRound8Deadline(knockoutRound8Deadline);
+            c.setKnockoutRound4Deadline(knockoutRound4Deadline);
+            c.setKnockoutRound2Deadline(knockoutRound2Deadline);
+            c.setKnockoutRound1Deadline(knockoutRound1Deadline);
             c.setGroupStageSets(groupStageSets);
             c.setKnockoutStageSets(knockoutStageSets);
             c.setFinalStageSets(finalStageSets);

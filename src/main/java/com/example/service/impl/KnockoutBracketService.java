@@ -1262,6 +1262,10 @@ public class KnockoutBracketService {
         }
         Integer currentRound = resolveSettledRoundForGenerateNext(byRound);
         if (currentRound == null) {
+            TournamentCompetitionConfig cfg = configMapper.selectById(tournamentId);
+            if (Boolean.TRUE.equals(cfg != null ? cfg.getKnockoutRequirePrevStageDone() : null)) {
+                throw new IllegalStateException("已开启「上一阶段全部结束后才可进入下一阶段」：当前轮次尚未全部验收，无法生成下一轮");
+            }
             throw new IllegalStateException("当前轮次尚未全部验收，无法手动生成下一轮");
         }
         List<Match> oneRound = byRound.getOrDefault(currentRound, List.of());
@@ -1383,7 +1387,40 @@ public class KnockoutBracketService {
         if (!Boolean.TRUE.equals(match.getResultLocked())) {
             return;
         }
+        TournamentCompetitionConfig cfg = configMapper.selectById(match.getTournamentId());
+        if (Boolean.TRUE.equals(cfg != null ? cfg.getKnockoutRequirePrevStageDone() : null)) {
+            // 须本轮全部验收后才晋级：对本轮每场尝试推进，避免只推当前一场配对
+            if (!isKnockoutRoundFullyLocked(match.getTournamentId(), match.getRound())) {
+                return;
+            }
+            List<Match> sameRound = listKnockoutMatchesByRound(match.getTournamentId(), match.getRound());
+            for (Match m : sameRound) {
+                if (m != null && Boolean.TRUE.equals(m.getResultLocked())) {
+                    tryAdvance(m);
+                }
+            }
+            return;
+        }
         tryAdvance(match);
+    }
+
+    private boolean isKnockoutRoundFullyLocked(Long tournamentId, Integer round) {
+        if (tournamentId == null || round == null) {
+            return false;
+        }
+        List<Match> ms = listKnockoutMatchesByRound(tournamentId, round);
+        return allKnockoutMatchesLocked(ms);
+    }
+
+    private List<Match> listKnockoutMatchesByRound(Long tournamentId, Integer round) {
+        if (tournamentId == null || round == null) {
+            return List.of();
+        }
+        return matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getRound, round)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .list();
     }
 
     private int generateFirstRoundWithMountedQualifiers(User operator,
@@ -1596,6 +1633,11 @@ public class KnockoutBracketService {
         int koSets = (cfg.getKnockoutStageSets() != null && cfg.getKnockoutStageSets() > 0) ? cfg.getKnockoutStageSets() : 8;
         int r = m.getRound() == null ? 0 : m.getRound();
         if (r <= 1) {
+            return;
+        }
+        // 阶段串行：本轮未全部验收时不生成下一阶段（与 onKnockoutMatchLocked 双保险）
+        if (Boolean.TRUE.equals(cfg.getKnockoutRequirePrevStageDone())
+                && !isKnockoutRoundFullyLocked(m.getTournamentId(), r)) {
             return;
         }
         Integer slot = m.getKnockoutBracketSlot();

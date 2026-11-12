@@ -45,6 +45,9 @@ public interface ITournamentCompetitionService {
     /** 小组赛截止后自动验收全部未锁定的小组赛场次。 */
     void autoAcceptOverdueGroupMatches(Long tournamentId);
 
+    /** 各阶段淘汰赛截止后自动验收该轮未锁定的 MAIN/FINAL（及对应轮次挂载资格赛）场次。 */
+    void autoAcceptOverdueKnockoutMatches(Long tournamentId);
+
     /**
      * 一键刷新排名：清空本赛事既有积分记录后，按当前赛况重算分步积分（与验收后触发的规则一致：
      * 未晋级者、各轮落败者、奖牌赛结果等）。

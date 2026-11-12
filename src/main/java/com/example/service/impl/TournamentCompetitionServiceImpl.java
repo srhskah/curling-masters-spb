@@ -102,6 +102,12 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (form.getGroupSize() != null) db.setGroupSize(form.getGroupSize());
         if (form.getGroupAllowDraw() != null) db.setGroupAllowDraw(form.getGroupAllowDraw());
         if (form.getGroupStageDeadline() != null) db.setGroupStageDeadline(form.getGroupStageDeadline());
+        // 与小组赛截止一致：仅有值时写入，避免局部 saveConfig 补丁把已有截止清空
+        if (form.getKnockoutRound16Deadline() != null) db.setKnockoutRound16Deadline(form.getKnockoutRound16Deadline());
+        if (form.getKnockoutRound8Deadline() != null) db.setKnockoutRound8Deadline(form.getKnockoutRound8Deadline());
+        if (form.getKnockoutRound4Deadline() != null) db.setKnockoutRound4Deadline(form.getKnockoutRound4Deadline());
+        if (form.getKnockoutRound2Deadline() != null) db.setKnockoutRound2Deadline(form.getKnockoutRound2Deadline());
+        if (form.getKnockoutRound1Deadline() != null) db.setKnockoutRound1Deadline(form.getKnockoutRound1Deadline());
         if (form.getGroupStageSets() != null) db.setGroupStageSets(form.getGroupStageSets());
         if (form.getKnockoutStageSets() != null) db.setKnockoutStageSets(form.getKnockoutStageSets());
         if (form.getFinalStageSets() != null) db.setFinalStageSets(form.getFinalStageSets());
@@ -133,6 +139,12 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
         if (db.getKnockoutQualifierDraw() == null) {
             db.setKnockoutQualifierDraw(false);
+        }
+        if (form.getKnockoutRequirePrevStageDone() != null) {
+            db.setKnockoutRequirePrevStageDone(form.getKnockoutRequirePrevStageDone());
+        }
+        if (db.getKnockoutRequirePrevStageDone() == null) {
+            db.setKnockoutRequirePrevStageDone(false);
         }
         validateConfig(db);
         if (Objects.equals(db.getMatchMode(), 3) && db.getParticipantCount() != null && db.getGroupSize() != null && db.getGroupSize() > 0) {
@@ -711,6 +723,10 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (groupDeadlinePassed && !isStaff(operator, match.getTournamentId())) {
             throw new SecurityException("小组赛截止后仅办赛人员可录入比分");
         }
+        boolean knockoutDeadlinePassed = isKnockoutStageDeadlinePassed(cfg, match);
+        if (knockoutDeadlinePassed && !isStaff(operator, match.getTournamentId())) {
+            throw new SecurityException("该阶段淘汰赛截止后仅办赛人员可录入比分");
+        }
         int xCutoff = detectXCutoff(p1, p2);
         boolean hasX = xCutoff >= 0;
         if (hasX && !Boolean.TRUE.equals(autoAccept) && !allowPersistWithXWithoutAutoAccept) {
@@ -796,16 +812,47 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         matchService.updateById(match);
         if (hasX && Boolean.TRUE.equals(autoAccept)) {
             acceptMatchScore(operator, matchId, signature);
-        } else if (!wasLockedBySuperAdmin && groupDeadlinePassed) {
+        } else if (!wasLockedBySuperAdmin && (groupDeadlinePassed || knockoutDeadlinePassed)) {
             acceptMatchScore(operator, matchId, signature);
         }
 
-        if (!wasLockedBySuperAdmin && groupDeadlinePassed && !Boolean.TRUE.equals(match.getResultLocked())) {
+        if (!wasLockedBySuperAdmin && (groupDeadlinePassed || knockoutDeadlinePassed)
+                && !Boolean.TRUE.equals(match.getResultLocked())) {
             User superAdmin = findSuperAdmin();
             if (superAdmin != null) {
                 acceptMatchScore(superAdmin, matchId, "SYSTEM_AUTO_ACCEPT");
             }
         }
+    }
+
+    /** 复用小组赛截止语义：该场所属淘汰阶段已过截止时间。 */
+    private boolean isKnockoutStageDeadlinePassed(TournamentCompetitionConfig cfg, Match match) {
+        if (cfg == null || match == null) {
+            return false;
+        }
+        Integer round = resolveKnockoutDeadlineRound(cfg, match);
+        if (round == null) {
+            return false;
+        }
+        LocalDateTime deadline = cfg.getKnockoutDeadlineForRound(round);
+        return deadline != null && LocalDateTime.now().isAfter(deadline);
+    }
+
+    /**
+     * MAIN/FINAL 用 match.round；挂载的淘汰赛资格赛用赛事配置的首轮 round。
+     */
+    private Integer resolveKnockoutDeadlineRound(TournamentCompetitionConfig cfg, Match match) {
+        if (match == null) {
+            return null;
+        }
+        if (MatchPhaseClassifier.isKnockoutQualifier(match)) {
+            return cfg != null ? cfg.getKnockoutStartRound() : null;
+        }
+        String pc = match.getPhaseCode();
+        if (!"MAIN".equalsIgnoreCase(pc) && !"FINAL".equalsIgnoreCase(pc)) {
+            return null;
+        }
+        return match.getRound();
     }
 
     @Override
@@ -915,6 +962,52 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             acceptMatchScore(superAdmin, m.getId(), "SYSTEM_AUTO_ACCEPT");
         }
         recomputeTournamentPointsByProgress(tournamentId, cfg);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void autoAcceptOverdueKnockoutMatches(Long tournamentId) {
+        TournamentCompetitionConfig cfg = getConfig(tournamentId);
+        if (cfg == null || tournamentId == null) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        boolean anyDue = false;
+        for (int round : List.of(16, 8, 4, 2, 1)) {
+            LocalDateTime d = cfg.getKnockoutDeadlineForRound(round);
+            if (d != null && !now.isBefore(d)) {
+                anyDue = true;
+                break;
+            }
+        }
+        if (!anyDue) {
+            return;
+        }
+        User superAdmin = findSuperAdmin();
+        if (superAdmin == null) {
+            return;
+        }
+        List<Match> matches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getResultLocked, false)
+                .list();
+        if (matches == null || matches.isEmpty()) {
+            return;
+        }
+        boolean changed = false;
+        for (Match m : matches) {
+            if (m == null) {
+                continue;
+            }
+            if (!isKnockoutStageDeadlinePassed(cfg, m)) {
+                continue;
+            }
+            acceptMatchScore(superAdmin, m.getId(), "SYSTEM_AUTO_ACCEPT");
+            changed = true;
+        }
+        if (changed) {
+            recomputeTournamentPointsByProgress(tournamentId, cfg);
+        }
     }
 
     @Override

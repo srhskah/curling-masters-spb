@@ -66,4 +66,10 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
             return 5;
         }
     }
+
+    @Override
+    public boolean getDefaultKnockoutRequirePrevStageDone() {
+        String value = getConfigValue("knockout_require_prev_stage_done_default", "false");
+        return value != null && ("true".equalsIgnoreCase(value.trim()) || "1".equals(value.trim()) || "on".equalsIgnoreCase(value.trim()));
+    }
 }

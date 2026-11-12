@@ -154,6 +154,17 @@
                        required>
                 <div class="form-text">自定义赛制时的默认死壶限制</div>
             </div>
+            <div class="col-md-6">
+                <label for="defaultKnockoutRequirePrevStageDone" class="form-label">
+                    默认：上一阶段淘汰赛全部结束后才可进入下一阶段
+                </label>
+                <select class="form-select" id="defaultKnockoutRequirePrevStageDone"
+                        name="defaultKnockoutRequirePrevStageDone">
+                    <option value="false" th:selected="${defaultKnockoutRequirePrevStageDone == null or !defaultKnockoutRequirePrevStageDone}">关闭（OFF）</option>
+                    <option value="true" th:selected="${defaultKnockoutRequirePrevStageDone != null and defaultKnockoutRequirePrevStageDone}">开启（ON）</option>
+                </select>
+                <div class="form-text">影响赛事配置页未单独设置时的默认选项；已保存过的赛事不受影响。</div>
+            </div>
             <div class="col-12">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-save"></i> 保存赛制默认值

@@ -52,6 +52,8 @@ public class AdminConsoleController {
         model.addAttribute("seriesOptions", buildSeriesOptions());
         model.addAttribute("defaultCenterLineLimit", systemConfigService.getDefaultCenterLineLimit());
         model.addAttribute("defaultDeadStoneLimit", systemConfigService.getDefaultDeadStoneLimit());
+        model.addAttribute("defaultKnockoutRequirePrevStageDone",
+                systemConfigService.getDefaultKnockoutRequirePrevStageDone());
         return "admin-console";
     }
 

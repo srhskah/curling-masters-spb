@@ -34,4 +34,38 @@ public class GroupDeadlineAutoAcceptScheduler {
             }
         }
     }
+
+    /** 每分钟扫描一次：各阶段淘汰赛截止后自动验收该轮未锁定场次。 */
+    @Scheduled(cron = "0 * * * * ?")
+    public void autoAcceptOverdueKnockoutMatches() {
+        LocalDateTime now = LocalDateTime.now();
+        List<TournamentCompetitionConfig> configs = configMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<TournamentCompetitionConfig>lambdaQuery()
+                        .and(w -> w
+                                .isNotNull(TournamentCompetitionConfig::getKnockoutRound16Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound8Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound4Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound2Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound1Deadline))
+        );
+        for (TournamentCompetitionConfig c : configs) {
+            if (c.getTournamentId() == null) {
+                continue;
+            }
+            boolean due = false;
+            for (int round : java.util.List.of(16, 8, 4, 2, 1)) {
+                LocalDateTime d = c.getKnockoutDeadlineForRound(round);
+                if (d != null && !now.isBefore(d)) {
+                    due = true;
+                    break;
+                }
+            }
+            if (due) {
+                try {
+                    competitionService.autoAcceptOverdueKnockoutMatches(c.getTournamentId());
+                } catch (Exception ignored) {
+                }
+            }
+        }
+    }
 }

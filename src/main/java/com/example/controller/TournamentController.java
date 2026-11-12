@@ -1433,6 +1433,8 @@ public class TournamentController {
         // 筹备中/进行中：手动参赛配置 + 分组赛程（详情页展示与保存由 TournamentCompetitionService 校验状态）
         TournamentCompetitionConfig competitionConfig = tournamentCompetitionService.getConfig(id);
         model.addAttribute("competitionConfig", competitionConfig);
+        model.addAttribute("defaultKnockoutRequirePrevStageDone",
+                systemConfigService.getDefaultKnockoutRequirePrevStageDone());
         model.addAttribute("competitionGroupSizeOptions",
                 tournamentCompetitionService.calcGroupSizeOptions(
                         competitionConfig != null ? competitionConfig.getParticipantCount() : null));

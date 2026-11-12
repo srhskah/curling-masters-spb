@@ -34,4 +34,9 @@ public interface SystemConfigService extends IService<SystemConfig> {
      * 获取赛制规则默认值
      */
     int getDefaultDeadStoneLimit();
+
+    /**
+     * 总控台默认：上一阶段淘汰赛全部结束后才可进入下一阶段（默认 false / OFF）
+     */
+    boolean getDefaultKnockoutRequirePrevStageDone();
 }

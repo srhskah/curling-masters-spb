@@ -42,6 +42,7 @@ public class SystemConfigController {
     public String saveSystemConfig(
             @RequestParam Integer defaultCenterLineLimit,
             @RequestParam Integer defaultDeadStoneLimit,
+            @RequestParam(required = false, defaultValue = "false") String defaultKnockoutRequirePrevStageDone,
             RedirectAttributes redirectAttributes) {
         try {
             if (defaultCenterLineLimit == null || defaultCenterLineLimit < 0 || defaultCenterLineLimit > 16) {
@@ -57,6 +58,12 @@ public class SystemConfigController {
                 String.valueOf(defaultCenterLineLimit), "默认不允许磕中线壶的数量");
             systemConfigService.setConfigValue("competition_rule_default_dead_stone_limit",
                 String.valueOf(defaultDeadStoneLimit), "默认不允许打成死壶的数量");
+            boolean koSerialDefault = "true".equalsIgnoreCase(defaultKnockoutRequirePrevStageDone)
+                    || "1".equals(defaultKnockoutRequirePrevStageDone)
+                    || "on".equalsIgnoreCase(defaultKnockoutRequirePrevStageDone);
+            systemConfigService.setConfigValue("knockout_require_prev_stage_done_default",
+                    koSerialDefault ? "true" : "false",
+                    "新建/未单独设置时：是否要求上一阶段淘汰赛全部结束后才可进入下一阶段");
 
             redirectAttributes.addFlashAttribute("message", "赛制规则默认值设置成功");
         } catch (Exception e) {

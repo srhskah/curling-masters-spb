@@ -42,6 +42,14 @@ public class TournamentCompetitionConfig {
     /** 挂载资格赛是否参与首轮抽签；false 表示资格赛保持原对阵 */
     @TableField(value = "knockout_qualifier_draw", updateStrategy = FieldStrategy.ALWAYS)
     private Boolean knockoutQualifierDraw;
+
+    /**
+     * 上一阶段淘汰赛全部结束后才可进入下一阶段（默认 false）。
+     * 开启后：须本轮 MAIN/FINAL 全部验收，才自动/手动生成下一轮对阵。
+     */
+    @TableField(value = "knockout_require_prev_stage_done", updateStrategy = FieldStrategy.ALWAYS)
+    private Boolean knockoutRequirePrevStageDone;
+
     /** 资格赛挂载淘汰赛轮次（同赛事仅允许一轮） */
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Integer qualifierRound;
@@ -55,10 +63,39 @@ public class TournamentCompetitionConfig {
     /** 小组赛是否允许平局（true=允许） */
     private Boolean groupAllowDraw;
     private LocalDateTime groupStageDeadline;
+    /**
+     * 1/16、1/8、1/4、半决赛、决赛（round=1 金/铜）截止时间；null 表示不限制。
+     * 须显式列名：默认驼峰会把 Round16 变成 round16（无下划线），与迁移 knockout_round_16_deadline 不一致。
+     */
+    @TableField("knockout_round_16_deadline")
+    private LocalDateTime knockoutRound16Deadline;
+    @TableField("knockout_round_8_deadline")
+    private LocalDateTime knockoutRound8Deadline;
+    @TableField("knockout_round_4_deadline")
+    private LocalDateTime knockoutRound4Deadline;
+    @TableField("knockout_round_2_deadline")
+    private LocalDateTime knockoutRound2Deadline;
+    @TableField("knockout_round_1_deadline")
+    private LocalDateTime knockoutRound1Deadline;
     private Integer groupStageSets;
     private Integer knockoutStageSets;
     private Integer finalStageSets;
     private Boolean manualLocked;
+
+    /** 按淘汰赛 round 字段取对应截止时间；未知轮次返回 null。 */
+    public LocalDateTime getKnockoutDeadlineForRound(Integer round) {
+        if (round == null) {
+            return null;
+        }
+        return switch (round) {
+            case 16 -> knockoutRound16Deadline;
+            case 8 -> knockoutRound8Deadline;
+            case 4 -> knockoutRound4Deadline;
+            case 2 -> knockoutRound2Deadline;
+            case 1 -> knockoutRound1Deadline;
+            default -> null;
+        };
+    }
 
     /** 资格赛局数，默认 8 */
     @TableField(value = "qualifier_sets", updateStrategy = FieldStrategy.ALWAYS)

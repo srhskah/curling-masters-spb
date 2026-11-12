@@ -64,4 +64,42 @@ public class TournamentStatusScheduler {
             }
         }
     }
+
+    /**
+     * 每分钟检查一次：各阶段淘汰赛截止后自动验收该轮未验收场次。
+     */
+    @Scheduled(cron = "0 * * * * ?")
+    @Transactional
+    public void autoAcceptOverdueKnockoutMatches() {
+        LocalDateTime now = LocalDateTime.now();
+        List<TournamentCompetitionConfig> configs = competitionConfigMapper.selectList(
+                Wrappers.<TournamentCompetitionConfig>lambdaQuery()
+                        .and(w -> w
+                                .isNotNull(TournamentCompetitionConfig::getKnockoutRound16Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound8Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound4Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound2Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound1Deadline))
+        );
+        for (TournamentCompetitionConfig cfg : configs) {
+            if (cfg.getTournamentId() == null) {
+                continue;
+            }
+            boolean due = false;
+            for (int round : List.of(16, 8, 4, 2, 1)) {
+                LocalDateTime d = cfg.getKnockoutDeadlineForRound(round);
+                if (d != null && !now.isBefore(d)) {
+                    due = true;
+                    break;
+                }
+            }
+            if (!due) {
+                continue;
+            }
+            try {
+                tournamentCompetitionService.autoAcceptOverdueKnockoutMatches(cfg.getTournamentId());
+            } catch (Exception ignored) {
+            }
+        }
+    }
 }

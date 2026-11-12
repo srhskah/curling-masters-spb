@@ -860,6 +860,40 @@
                                                 <input type="number" min="1" max="20" class="form-control" name="knockoutStageSets"
                                                        th:value="${competitionConfig != null and competitionConfig.knockoutStageSets != null ? competitionConfig.knockoutStageSets : 8}">
                                             </div>
+                                            <div class="col-12">
+                                                <div class="border rounded p-2 bg-light">
+                                                    <div class="small fw-semibold mb-2">各阶段淘汰赛截止时间
+                                                        <span class="text-muted fw-normal">（留空=不限制；截止后仅办赛人员可录分，并自动验收）</span>
+                                                    </div>
+                                                    <div class="row g-2">
+                                                        <div class="col-md-2 col-6">
+                                                            <label class="form-label small mb-1">1/16决赛</label>
+                                                            <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound16Deadline"
+                                                                   th:value="${competitionConfig != null and competitionConfig.knockoutRound16Deadline != null ? #temporals.format(competitionConfig.knockoutRound16Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
+                                                        </div>
+                                                        <div class="col-md-2 col-6">
+                                                            <label class="form-label small mb-1">1/8决赛</label>
+                                                            <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound8Deadline"
+                                                                   th:value="${competitionConfig != null and competitionConfig.knockoutRound8Deadline != null ? #temporals.format(competitionConfig.knockoutRound8Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
+                                                        </div>
+                                                        <div class="col-md-2 col-6">
+                                                            <label class="form-label small mb-1">1/4决赛</label>
+                                                            <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound4Deadline"
+                                                                   th:value="${competitionConfig != null and competitionConfig.knockoutRound4Deadline != null ? #temporals.format(competitionConfig.knockoutRound4Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
+                                                        </div>
+                                                        <div class="col-md-2 col-6">
+                                                            <label class="form-label small mb-1">半决赛</label>
+                                                            <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound2Deadline"
+                                                                   th:value="${competitionConfig != null and competitionConfig.knockoutRound2Deadline != null ? #temporals.format(competitionConfig.knockoutRound2Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
+                                                        </div>
+                                                        <div class="col-md-2 col-6">
+                                                            <label class="form-label small mb-1">决赛（金/铜）</label>
+                                                            <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound1Deadline"
+                                                                   th:value="${competitionConfig != null and competitionConfig.knockoutRound1Deadline != null ? #temporals.format(competitionConfig.knockoutRound1Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                             <div class="col-md-2">
                                                 <label class="form-label">决赛局数</label>
                                                 <input type="number" min="1" max="20" class="form-control" name="finalStageSets"
@@ -905,6 +939,16 @@
                                                     <option value="true" th:selected="${competitionConfig == null or competitionConfig.knockoutAutoFromGroup == null or competitionConfig.knockoutAutoFromGroup}">是</option>
                                                     <option value="false" th:selected="${competitionConfig != null and competitionConfig.knockoutAutoFromGroup != null and !competitionConfig.knockoutAutoFromGroup}">否</option>
                                                 </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">上一阶段淘汰赛全部结束后才可进入下一阶段</label>
+                                                <select class="form-select" name="knockoutRequirePrevStageDone" id="knockoutRequirePrevStageDoneSelect">
+                                                    <option value="false"
+                                                            th:selected="${competitionConfig != null ? (competitionConfig.knockoutRequirePrevStageDone == null or !competitionConfig.knockoutRequirePrevStageDone) : (defaultKnockoutRequirePrevStageDone == null or !defaultKnockoutRequirePrevStageDone)}">关闭（OFF）</option>
+                                                    <option value="true"
+                                                            th:selected="${competitionConfig != null ? (competitionConfig.knockoutRequirePrevStageDone != null and competitionConfig.knockoutRequirePrevStageDone) : (defaultKnockoutRequirePrevStageDone != null and defaultKnockoutRequirePrevStageDone)}">开启（ON）</option>
+                                                </select>
+                                                <div class="form-text">开启后须本轮全部验收才生成下一轮；默认取自总控台（当前为 OFF 可改）。</div>
                                             </div>
                                             <!-- 赛制规则 -->
                                             <div class="col-md-3">
@@ -992,6 +1036,30 @@
                                             <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.groupStageDeadline != null}">
                                                 <strong>小组赛截止时间：</strong>
                                                 <span th:text="${#temporals.format(competitionConfig.groupStageDeadline, 'yyyy-MM-dd HH:mm')}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound16Deadline != null}">
+                                                <strong>1/16决赛截止：</strong>
+                                                <span th:text="${#temporals.format(competitionConfig.knockoutRound16Deadline, 'yyyy-MM-dd HH:mm')}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound8Deadline != null}">
+                                                <strong>1/8决赛截止：</strong>
+                                                <span th:text="${#temporals.format(competitionConfig.knockoutRound8Deadline, 'yyyy-MM-dd HH:mm')}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound4Deadline != null}">
+                                                <strong>1/4决赛截止：</strong>
+                                                <span th:text="${#temporals.format(competitionConfig.knockoutRound4Deadline, 'yyyy-MM-dd HH:mm')}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound2Deadline != null}">
+                                                <strong>半决赛截止：</strong>
+                                                <span th:text="${#temporals.format(competitionConfig.knockoutRound2Deadline, 'yyyy-MM-dd HH:mm')}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound1Deadline != null}">
+                                                <strong>决赛截止：</strong>
+                                                <span th:text="${#temporals.format(competitionConfig.knockoutRound1Deadline, 'yyyy-MM-dd HH:mm')}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null}">
+                                                <strong>阶段串行淘汰：</strong>
+                                                <span th:text="${competitionConfig.knockoutRequirePrevStageDone != null and competitionConfig.knockoutRequirePrevStageDone ? '开启' : '关闭'}"></span>
                                             </div>
                                             <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutStageSets != null}">
                                                 <strong>淘汰赛局数：</strong>
