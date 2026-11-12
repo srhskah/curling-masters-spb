@@ -28,6 +28,18 @@ jobs:
           
       - name: Build with Gradle
         run: ./gradlew build -x test
+        
+      - name: Remove credsStore from Docker config
+        run: |
+          if [ -f ~/.docker/config.json ]; then
+            # 使用 jq 删除 credsStore 和 credStore（如果存在）
+            if command -v jq &> /dev/null; then
+              jq 'del(.credsStore, .credStore)' ~/.docker/config.json > ~/.docker/config.json.tmp && mv ~/.docker/config.json.tmp ~/.docker/config.json
+            else
+              # 或者使用 Python
+              python3 -c "import json; f='$HOME/.docker/config.json'; d=json.load(open(f)); d.pop('credsStore', None); d.pop('credStore', None); json.dump(d, open(f, 'w'))"
+            fi
+          fi
 
       - name: Log in to Aliyun ACR
         run: |
