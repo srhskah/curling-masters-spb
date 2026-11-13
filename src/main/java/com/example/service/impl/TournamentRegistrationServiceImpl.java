@@ -5,14 +5,11 @@ import com.example.dto.TournamentRegistrationPreviewDto;
 import com.example.dto.TournamentRegistrationRowDto;
 import com.example.dto.RankingEntry;
 import com.example.entity.*;
-import com.example.mapper.TournamentGroupMapper;
-import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.mapper.TournamentRegistrationMapper;
 import com.example.mapper.TournamentRegistrationSettingMapper;
 import com.example.mapper.TournamentRegistrationBanRefMapper;
 import com.example.service.*;
-import com.example.service.impl.KnockoutBracketService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -50,17 +47,7 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     @Autowired
     private TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired
-    private TournamentGroupMapper groupMapper;
-    @Autowired
-    private TournamentGroupMemberMapper groupMemberMapper;
-    @Autowired
     private IMatchService matchService;
-    @Autowired
-    private ISetScoreService setScoreService;
-    @Autowired
-    private GroupRankingCalculator groupRankingCalculator;
-    @Autowired
-    private RankingPriorityService rankingPriorityService;
     @Autowired
     @Lazy
     private ITournamentCompetitionService tournamentCompetitionService;
@@ -878,272 +865,80 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         return null;
     }
 
+    /**
+     * 参照赛事「前 K 强进度」禁报：已定名次 ≤ K，或已进入人数 ≤ K 的淘汰轮，
+     * 或已锁定胜出并晋级到人数 ≤ K 的下一轮（例如 1/8 胜者进入 8 强）。
+     * 1/8 决赛落败等未达前 K 的选手不得误伤。
+     */
     private Set<Long> getBannedUsersByTournamentProgress(Long tournamentId, int k) {
         if (tournamentId == null || k < 1) {
             return Set.of();
         }
 
-        // 使用"最终排名"逻辑：积分为0的选手按小组赛总排名相对顺序在前，有积分的选手按积分降序在后
-        List<Long> finalRankedUserIds = loadFinalRankedUserIds(tournamentId);
-        if (finalRankedUserIds.isEmpty()) {
-            return Set.of();
+        Set<Long> banned = new LinkedHashSet<>();
+
+        Map<Long, Integer> placements = tournamentCompetitionService.getProgressSettledPlacementRanks(tournamentId);
+        if (placements != null) {
+            for (Map.Entry<Long, Integer> e : placements.entrySet()) {
+                Long uid = e.getKey();
+                Integer rank = e.getValue();
+                if (uid != null && rank != null && rank > 0 && rank <= k) {
+                    banned.add(uid);
+                }
+            }
         }
 
-        // 前k名禁止报名
-        Set<Long> banned = new LinkedHashSet<>();
-        int limit = Math.min(k, finalRankedUserIds.size());
-        for (int i = 0; i < limit; i++) {
-            banned.add(finalRankedUserIds.get(i));
+        List<Match> koMatches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .in(Match::getPhaseCode, List.of("MAIN", "FINAL"))
+                .list();
+        if (koMatches == null || koMatches.isEmpty()) {
+            return banned;
+        }
+
+        for (Match m : koMatches) {
+            if (m == null || m.getRound() == null) {
+                continue;
+            }
+            int fieldSize = knockoutFieldSize(m);
+            if (fieldSize <= 0) {
+                continue;
+            }
+            // 已出现在前 K 人规模的对阵中（含铜牌赛按前 4 计）
+            if (fieldSize <= k) {
+                if (m.getPlayer1Id() != null) {
+                    banned.add(m.getPlayer1Id());
+                }
+                if (m.getPlayer2Id() != null) {
+                    banned.add(m.getPlayer2Id());
+                }
+            }
+            // 本轮胜者晋级后规模落入前 K（铜牌胜者不视为「晋级决赛」）
+            if (fieldSize > k
+                    && fieldSize / 2 <= k
+                    && Boolean.TRUE.equals(m.getResultLocked())
+                    && m.getWinnerId() != null
+                    && !isBronzeMedalMatch(m)) {
+                banned.add(m.getWinnerId());
+            }
         }
         return banned;
     }
 
-    /**
-     * 获取某届赛事的"最终排名"用户ID列表（与赛事详情页的"最终排名"逻辑一致）。
-     * 规则：
-     * 1. 积分为0的选手按小组赛总排名相对顺序排在前面
-     * 2. 有积分的选手按积分降序排在后面
-     * 3. 返回的列表顺序就是最终排名顺序（第0个元素是第1名）
-     */
-    private List<Long> loadFinalRankedUserIds(Long tournamentId) {
-        if (tournamentId == null) {
-            return List.of();
+    /** 该场对应的淘汰赛「本轮人数」：round=8→16人，4→8，2→4；金牌赛 2；铜牌赛按前 4。 */
+    private static int knockoutFieldSize(Match m) {
+        if (m == null || m.getRound() == null || m.getRound() <= 0) {
+            return 0;
         }
-
-        TournamentCompetitionConfig cfg = competitionConfigMapper.selectById(tournamentId);
-        if (cfg == null || cfg.getKnockoutStartRound() == null) {
-            return List.of();
+        int round = m.getRound();
+        if (round == 1) {
+            return isBronzeMedalMatch(m) ? 4 : 2;
         }
-
-        // 1. 获取小组赛总排名
-        List<Long> groupOverallRanked = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
-        if (groupOverallRanked.isEmpty()) {
-            return List.of();
-        }
-
-        // 2. 获取所有选手的积分
-        List<UserTournamentPoints> allPoints = userTournamentPointsService.lambdaQuery()
-                .eq(UserTournamentPoints::getTournamentId, tournamentId)
-                .list();
-
-        // 3. 构建userId -> points的映射
-        Map<Long, Integer> pointsByUserId = new HashMap<>();
-        for (UserTournamentPoints utp : allPoints) {
-            if (utp.getUserId() != null) {
-                pointsByUserId.put(utp.getUserId(), utp.getPoints() != null ? utp.getPoints() : 0);
-            }
-        }
-
-        // 4. 构建userId -> groupOverallRank的映射
-        Map<Long, Integer> groupRankByUserId = new HashMap<>();
-        for (int i = 0; i < groupOverallRanked.size(); i++) {
-            groupRankByUserId.put(groupOverallRanked.get(i), i + 1);
-        }
-
-        // 5. 将所有在小组赛总排名中的选手分为两组：积分为0的和有积分的
-        List<Long> zeroPointUsers = new ArrayList<>();
-        List<Long> hasPointUsers = new ArrayList<>();
-
-        for (Long userId : groupOverallRanked) {
-            Integer points = pointsByUserId.getOrDefault(userId, 0);
-            if (points == 0) {
-                zeroPointUsers.add(userId);
-            } else {
-                hasPointUsers.add(userId);
-            }
-        }
-
-        // 6. 有积分的选手按积分降序排序
-        hasPointUsers.sort((a, b) -> {
-            Integer pointsA = pointsByUserId.getOrDefault(a, 0);
-            Integer pointsB = pointsByUserId.getOrDefault(b, 0);
-            int cmp = Integer.compare(pointsB, pointsA); // 降序
-            if (cmp != 0) return cmp;
-            // 积分相同时，按小组赛总排名升序
-            Integer rankA = groupRankByUserId.getOrDefault(a, Integer.MAX_VALUE);
-            Integer rankB = groupRankByUserId.getOrDefault(b, Integer.MAX_VALUE);
-            return Integer.compare(rankA, rankB);
-        });
-
-        // 7. 组合最终排名：积分为0的在前（已按小组赛总排名相对顺序），有积分的在后
-        List<Long> finalRanked = new ArrayList<>();
-        finalRanked.addAll(zeroPointUsers);
-        finalRanked.addAll(hasPointUsers);
-
-        return finalRanked;
+        return round * 2;
     }
 
-    /**
-     * 旧方法：根据淘汰赛进度判断前x强（已弃用，改用loadFinalRankedUserIds）
-     */
-    private Set<Long> getBannedUsersByTournamentProgress_OLD(Long tournamentId, int k) {
-        if (tournamentId == null || k < 1) {
-            return Set.of();
-        }
-        TournamentCompetitionConfig cfg = competitionConfigMapper.selectById(tournamentId);
-        if (cfg == null || cfg.getKnockoutStartRound() == null) {
-            return Set.of();
-        }
-        List<Long> overallRanked = loadOverallRankedUserIdsFromGroups(tournamentId, cfg);
-        if (overallRanked.isEmpty()) {
-            return Set.of();
-        }
-        Map<Long, Integer> overallOrder = new HashMap<>();
-        for (int i = 0; i < overallRanked.size(); i++) {
-            overallOrder.put(overallRanked.get(i), i);
-        }
-        // 旧代码已移除，不再根据淘汰赛进度判断
-        return Set.of();
-    }
-
-    private Integer resolveCurrentMainRound(Long tournamentId, int startRound) {
-        for (int round = startRound; round >= 1; round = KnockoutBracketService.nextKnockoutRoundField(round)) {
-            List<Match> oneRound = matchService.lambdaQuery()
-                    .eq(Match::getTournamentId, tournamentId)
-                    .eq(Match::getPhaseCode, "MAIN")
-                    .eq(Match::getRound, round)
-                    .list();
-            if (oneRound.isEmpty()) {
-                continue;
-            }
-            boolean allLocked = oneRound.stream()
-                    .allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null);
-            if (!allLocked) {
-                return round;
-            }
-            if (round == 1) {
-                return 1;
-            }
-        }
-        return null;
-    }
-
-    private List<Match> listMountedKoQualifiers(Long tournamentId) {
-        return matchService.lambdaQuery()
-                .eq(Match::getTournamentId, tournamentId)
-                .eq(Match::getPhaseCode, "QUALIFIER")
-                .eq(Match::getCreateSource, KnockoutBracketService.SOURCE_AUTO_FROM_GROUP_KO_QUALIFIER)
-                .orderByAsc(Match::getId)
-                .list();
-    }
-
-    private LinkedHashSet<Long> collectRoundPlayers(List<Match> matches) {
-        LinkedHashSet<Long> players = new LinkedHashSet<>();
-        if (matches == null || matches.isEmpty()) {
-            return players;
-        }
-        for (Match m : matches) {
-            if (m.getPlayer1Id() != null) {
-                players.add(m.getPlayer1Id());
-            }
-            if (m.getPlayer2Id() != null) {
-                players.add(m.getPlayer2Id());
-            }
-        }
-        return players;
-    }
-
-    private LinkedHashSet<Long> collectLockedWinners(List<Match> matches) {
-        LinkedHashSet<Long> winners = new LinkedHashSet<>();
-        if (matches == null || matches.isEmpty()) {
-            return winners;
-        }
-        for (Match m : matches) {
-            if (Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null) {
-                winners.add(m.getWinnerId());
-            }
-        }
-        return winners;
-    }
-
-    private LinkedHashSet<Long> collectLockedLosers(List<Match> matches) {
-        LinkedHashSet<Long> losers = new LinkedHashSet<>();
-        if (matches == null || matches.isEmpty()) {
-            return losers;
-        }
-        for (Match m : matches) {
-            if (!Boolean.TRUE.equals(m.getResultLocked()) || m.getWinnerId() == null) {
-                continue;
-            }
-            Long loser = loserOf(m);
-            if (loser != null) {
-                losers.add(loser);
-            }
-        }
-        return losers;
-    }
-
-    private Long loserOf(Match m) {
-        if (m == null || m.getWinnerId() == null) {
-            return null;
-        }
-        if (Objects.equals(m.getWinnerId(), m.getPlayer1Id())) {
-            return m.getPlayer2Id();
-        }
-        if (Objects.equals(m.getWinnerId(), m.getPlayer2Id())) {
-            return m.getPlayer1Id();
-        }
-        return null;
-    }
-
-    private List<Long> takeTopByOverallRank(List<Long> userIds, int limit, Map<Long, Integer> overallOrder) {
-        if (userIds == null || userIds.isEmpty() || limit <= 0) {
-            return List.of();
-        }
-        return userIds.stream()
-                .filter(Objects::nonNull)
-                .distinct()
-                .sorted(Comparator
-                        .comparingInt((Long uid) -> overallOrder.getOrDefault(uid, Integer.MAX_VALUE))
-                        .thenComparingLong(Long::longValue))
-                .limit(limit)
-                .toList();
-    }
-
-    private List<Long> loadOverallRankedUserIdsFromGroups(Long tournamentId, TournamentCompetitionConfig cfg) {
-        List<TournamentGroup> groups = groupMapper.selectList(Wrappers.<TournamentGroup>lambdaQuery()
-                .eq(TournamentGroup::getTournamentId, tournamentId)
-                .orderByAsc(TournamentGroup::getGroupOrder));
-        if (groups.isEmpty()) {
-            return List.of();
-        }
-        Map<Long, List<Long>> memberIdsByGroup = new LinkedHashMap<>();
-        for (TournamentGroup g : groups) {
-            List<Long> uids = groupMemberMapper.selectList(Wrappers.<TournamentGroupMember>lambdaQuery()
-                            .eq(TournamentGroupMember::getTournamentId, tournamentId)
-                            .eq(TournamentGroupMember::getGroupId, g.getId()))
-                    .stream()
-                    .map(TournamentGroupMember::getUserId)
-                    .filter(Objects::nonNull)
-                    .toList();
-            memberIdsByGroup.put(g.getId(), uids);
-        }
-        Map<Long, String> uname = userService.list().stream()
-                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
-        List<Match> matches = matchService.lambdaQuery()
-                .eq(Match::getTournamentId, tournamentId)
-                .eq(Match::getPhaseCode, "GROUP")
-                .list();
-        List<Long> mids = matches.stream()
-                .map(Match::getId)
-                .filter(Objects::nonNull)
-                .toList();
-        Map<Long, List<SetScore>> scoreByMatch = mids.isEmpty() ? Map.of() : setScoreService.lambdaQuery()
-                .in(SetScore::getMatchId, mids)
-                .list()
-                .stream()
-                .collect(Collectors.groupingBy(SetScore::getMatchId));
-        var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
-        Map<Long, List<Map<String, Object>>> byGroup = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg, rankingPriority);
-        List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byGroup, rankingPriority);
-        List<Long> out = new ArrayList<>();
-        for (Map<String, Object> row : overall) {
-            Long uid = (Long) row.get("userId");
-            if (uid != null) {
-                out.add(uid);
-            }
-        }
-        return out;
+    private static boolean isBronzeMedalMatch(Match m) {
+        String cat = m.getCategory();
+        return cat != null && cat.contains("铜牌");
     }
 }
