@@ -4,6 +4,10 @@
 # Log file
 logs/
 *.log
+*_logs.txt
+exception_error.txt
+flyway_logs.txt
+mysql_logs.txt
 
 # BlueJ files
 *.ctxt
@@ -19,7 +23,17 @@ logs/
 *.zip
 *.tar.gz
 *.rar
+*.deb
+*.rpm
+*.dmg
+*.exe
+*.msi
 !gradle/wrapper/gradle-wrapper.jar
+
+# Optional local fonts (Dockerfile apt 已装 Noto；COPY 已注释，勿进仓)
+/NotoEmoji*.ttf
+*.ttf
+*.otf
 
 # Environment / script files
 *.env
@@ -43,6 +57,7 @@ out/
 *.iml
 *.ipr
 .vscode/
+.codebuddy/
 .springBeans
 .sts4-cache
 .apt_generated
@@ -66,13 +81,26 @@ backup_*.sql
 backup-*.sql
 backup_*.sql:Zone.Identifier
 backup-*.sql:Zone.Identifier
+*.bak
+*~
+*.swp
+*.swo
+
+# Root one-off / scratch (不影响构建与部署；DB 初始化仍用 curling_masters.sql)
+/Untitled
+/Run
+/Task
+/prompts.txt
+/bracket_demo.html
+/test_*.sql
+/upgrade.sql
+/V20260819_1__create_table_20260819c1.sql
+/CC-Switch*.deb
+/2026.11.07*.txt
 
 # System files
 .DS_Store
 Thumbs.db
-*~
-*.swp
-*.swo
 
 # Local database / sensitive config templates
 application-local.yml
@@ -83,3 +111,6 @@ mybatis-generator.xml
 
 .cursor/
 docs/
+
+# Never commit local GitHub Actions runner again
+actions-runner/
