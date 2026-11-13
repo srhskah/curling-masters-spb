@@ -15,6 +15,7 @@ import com.example.service.*;
 import com.example.service.knockout.KnockoutBracketLayout;
 import com.example.util.MatchPhaseClassifier;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +49,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
     @Autowired private RankingPriorityService rankingPriorityService;
     @Autowired private TournamentDisqualificationMapper tournamentDisqualificationMapper;
     @Autowired private TournamentDisqualificationAcceptanceMapper tournamentDisqualificationAcceptanceMapper;
+    @Autowired @Lazy private TournamentLifecycleNotificationService lifecycleNotificationService;
 
     private boolean canManage(User u, Long tournamentId) {
         if (u == null) return false;
@@ -946,6 +948,10 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         knockoutBracketService.onKnockoutMatchLocked(operator, match);
         TournamentCompetitionConfig cfg = getConfig(match.getTournamentId());
         recomputeTournamentPointsByProgress(match.getTournamentId(), cfg);
+        try {
+            lifecycleNotificationService.afterMatchLocked(match);
+        } catch (Exception ignored) {
+        }
     }
 
     public List<MatchAcceptance> listAcceptances(Long matchId) {

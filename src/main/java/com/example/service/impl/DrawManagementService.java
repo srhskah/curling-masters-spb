@@ -1311,14 +1311,20 @@ public class DrawManagementService {
         }
     }
 
+    /**
+     * 抽签开始/完成面向参赛者；未参赛的办赛人员（主办等）不接收此类通知。
+     */
     private List<Long> buildDrawNotificationRecipients(Long tournamentId, DrawPool pool) {
         Map<String, Object> cfg = getDrawConfig(tournamentId, pool);
         @SuppressWarnings("unchecked")
         List<Long> parts = (List<Long>) cfg.get("drawParticipants");
-        LinkedHashSet<Long> ids = new LinkedHashSet<>(parts != null ? parts : List.of());
-        Tournament t = tournamentService.getById(tournamentId);
-        if (t != null && t.getHostUserId() != null) {
-            ids.add(t.getHostUserId());
+        LinkedHashSet<Long> ids = new LinkedHashSet<>();
+        if (parts != null) {
+            for (Long id : parts) {
+                if (id != null) {
+                    ids.add(id);
+                }
+            }
         }
         return new ArrayList<>(ids);
     }
@@ -1616,24 +1622,29 @@ public class DrawManagementService {
             }
             String pdf = "/tournament/" + tournamentId + "/draw/export/pdf?pool=" + poolName;
             staff.append("[下载抽签结果PDF](").append(pdf).append(")\n");
+            // 办赛人员若也参赛：只收上面的个人分组通知，不收办赛汇总
             LinkedHashSet<Long> staffIds = new LinkedHashSet<>();
+            Set<Long> participantIds = new LinkedHashSet<>(userIds);
             List<User> organizers = userService.lambdaQuery().in(User::getRole, List.of(0, 1)).list();
             if (organizers != null) {
                 for (User u : organizers) {
-                    if (u != null && u.getId() != null) {
+                    if (u != null && u.getId() != null && !participantIds.contains(u.getId())) {
                         staffIds.add(u.getId());
                     }
                 }
             }
-            if (tournament != null && tournament.getHostUserId() != null) {
+            if (tournament != null && tournament.getHostUserId() != null
+                    && !participantIds.contains(tournament.getHostUserId())) {
                 staffIds.add(tournament.getHostUserId());
             }
-            notificationService.sendNotificationToUserIds(
-                    "抽签结果：" + label + "（" + poolLabel + "）",
-                    staff.toString(),
-                    SRC_DRAW_GROUP_STAFF + (pool == DrawPool.QUALIFIER ? "Q" : "M"),
-                    tournamentId,
-                    staffIds);
+            if (!staffIds.isEmpty()) {
+                notificationService.sendNotificationToUserIds(
+                        "抽签结果：" + label + "（" + poolLabel + "）",
+                        staff.toString(),
+                        SRC_DRAW_GROUP_STAFF + (pool == DrawPool.QUALIFIER ? "Q" : "M"),
+                        tournamentId,
+                        staffIds);
+            }
         } catch (Exception ex) {
             log.warn("分组导入后的通知发送失败 tournamentId={}", tournamentId, ex);
         }

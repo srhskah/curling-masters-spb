@@ -16,6 +16,7 @@ import com.example.service.UserService;
 import com.example.service.knockout.KnockoutPairingUtil;
 import com.example.util.MatchPhaseClassifier;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,7 @@ public class KnockoutBracketService {
     @Autowired private UserService userService;
     @Autowired private TournamentService tournamentService;
     @Autowired private TournamentDisqualificationMapper tournamentDisqualificationMapper;
+    @Autowired @Lazy private TournamentLifecycleNotificationService lifecycleNotificationService;
 
     public static int playersInFirstKnockoutRound(Integer knockoutStartRound) {
         if (knockoutStartRound == null) {
@@ -1542,6 +1544,10 @@ public class KnockoutBracketService {
             ss.setCreatedAt(now);
             setScoreService.save(ss);
         }
+        try {
+            lifecycleNotificationService.onKnockoutMatchupReady(m);
+        } catch (Exception ignored) {
+        }
         return m.getId();
     }
 
@@ -1582,6 +1588,10 @@ public class KnockoutBracketService {
             if (changed) {
                 ko.setUpdatedAt(LocalDateTime.now());
                 matchService.updateById(ko);
+                try {
+                    lifecycleNotificationService.onKnockoutMatchupReady(ko);
+                } catch (Exception ignored) {
+                }
             }
         }
     }
@@ -1808,6 +1818,10 @@ public class KnockoutBracketService {
             ss.setPlayer2Score(0);
             ss.setCreatedAt(now);
             setScoreService.save(ss);
+        }
+        try {
+            lifecycleNotificationService.onKnockoutMatchupReady(m);
+        } catch (Exception ignored) {
         }
     }
 

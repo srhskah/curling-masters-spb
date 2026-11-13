@@ -208,6 +208,9 @@ public final class MarkdownUtils {
             return markdown == null ? "" : markdown;
         }
         String out = markdown.replace("\r\n", "\n").replace('\r', '\n');
+        // Toast UI 在 Markdown↔WYSIWYG 往返时会过度转义表格字符，并常把表行压成一行
+        out = unescapeToastOverEscapedMarkdown(out);
+        out = splitCollapsedGfmTableRows(out);
         out = splitJoinedUlStarItemsOnSamePhysicalLine(out);
         // Toast WYSIWYG 常把「4. …」和「* 子项」用多个空格粘在同一行，而不是换行
         out = splitInlineListMarkersSeparatedBySpaces(out);
@@ -223,6 +226,207 @@ public final class MarkdownUtils {
         out = SENTENCE_THEN_ORDERED_ITEM.matcher(out).replaceAll("$1\n\n$2");
         out = insertListSplitHtmlBlocks(out);
         return indentImplicitListContinuations(out);
+    }
+
+    /**
+     * Toast UI Editor 序列化时把表格里的 {@code | - , +} 写成 {@code \| \- \, \+}，
+     * 导致 GFM 表格无法识别；在通知正文中还原这些过度转义（保留代码围栏内原文）。
+     */
+    private static String unescapeToastOverEscapedMarkdown(String markdown) {
+        if (markdown == null || markdown.isEmpty()) {
+            return markdown == null ? "" : markdown;
+        }
+        String[] lines = markdown.split("\n", -1);
+        StringBuilder sb = new StringBuilder();
+        boolean inFence = false;
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            String line = lines[i];
+            String trimmed = line.stripLeading();
+            if (trimmed.startsWith("```")) {
+                inFence = !inFence;
+                sb.append(line);
+                continue;
+            }
+            if (inFence) {
+                sb.append(line);
+                continue;
+            }
+            sb.append(unescapeToastLine(line));
+        }
+        return sb.toString();
+    }
+
+    private static String unescapeToastLine(String line) {
+        if (line == null || line.isEmpty() || line.indexOf('\\') < 0) {
+            return line == null ? "" : line;
+        }
+        // 仅还原 Toast 常误转义的字符；不碰 \\ 本身与其他合法转义
+        String out = line;
+        out = out.replace("\\|", "|");
+        out = out.replace("\\-", "-");
+        out = out.replace("\\,", ",");
+        out = out.replace("\\+", "+");
+        out = out.replace("\\.", ".");
+        out = out.replace("\\!", "!");
+        out = out.replace("\\#", "#");
+        out = out.replace("\\(", "(");
+        out = out.replace("\\)", ")");
+        out = out.replace("\\[", "[");
+        out = out.replace("\\]", "]");
+        return out;
+    }
+
+    /**
+     * Toast WYSIWYG 往返后，GFM 表行常被空格拼成一行：
+     * {@code | a | b |  | --- | --- |  | 1 | 2 |}。
+     * 行与行之间是「|」后至少两个空白再接「|」；单元格内空单元格通常是单空格 {@code | |}。
+     */
+    private static String splitCollapsedGfmTableRows(String markdown) {
+        if (markdown == null || markdown.isEmpty()) {
+            return markdown == null ? "" : markdown;
+        }
+        String[] lines = markdown.split("\n", -1);
+        StringBuilder sb = new StringBuilder();
+        boolean inFence = false;
+        for (int i = 0; i < lines.length; i++) {
+            if (i > 0) {
+                sb.append('\n');
+            }
+            String line = lines[i];
+            String trimmed = line.stripLeading();
+            if (trimmed.startsWith("```")) {
+                inFence = !inFence;
+                sb.append(line);
+                continue;
+            }
+            if (inFence) {
+                sb.append(line);
+                continue;
+            }
+            sb.append(splitOneCollapsedTableLine(line));
+        }
+        return sb.toString();
+    }
+
+    private static final Pattern GFM_TABLE_SEP_CELL = Pattern.compile("^:?-{3,}:?$");
+
+    private static String splitOneCollapsedTableLine(String line) {
+        if (line == null || line.isBlank()) {
+            return line == null ? "" : line;
+        }
+        String trimmed = line.stripLeading();
+        if (!trimmed.startsWith("|") || countPipes(trimmed) < 6) {
+            return line;
+        }
+        if (!trimmed.contains("---") && !trimmed.contains(":--") && !trimmed.contains("--:")) {
+            return line;
+        }
+        // "| a | b | note" → ["", " a ", " b ", " note"]
+        String[] parts = trimmed.split("\\|", -1);
+        if (parts.length < 5) {
+            return line;
+        }
+        String trailingNote = parts[parts.length - 1] == null ? "" : parts[parts.length - 1].strip();
+        List<String> cells = new ArrayList<>();
+        for (int i = 1; i < parts.length - 1; i++) {
+            cells.add(parts[i] == null ? "" : parts[i].strip());
+        }
+        if (cells.size() < 4) {
+            return line;
+        }
+
+        int i = 0;
+        while (i < cells.size() && cells.get(i).isEmpty()) {
+            i++;
+        }
+        List<String> header = new ArrayList<>();
+        while (i < cells.size() && !isGfmTableSepCell(cells.get(i))) {
+            header.add(cells.get(i));
+            i++;
+        }
+        // 表头与分隔行之间的粘连空单元格（行间空隙）去掉
+        while (!header.isEmpty() && header.get(header.size() - 1).isEmpty()) {
+            header.remove(header.size() - 1);
+        }
+        int cols = header.size();
+        if (cols < 2 || i >= cells.size()) {
+            return line;
+        }
+        while (i < cells.size() && cells.get(i).isEmpty()) {
+            i++;
+        }
+        if (i + cols > cells.size()) {
+            return line;
+        }
+        List<String> sepRow = new ArrayList<>(cols);
+        for (int k = 0; k < cols; k++) {
+            String c = cells.get(i + k);
+            if (!isGfmTableSepCell(c)) {
+                return line;
+            }
+            sepRow.add(c);
+        }
+        i += cols;
+
+        StringBuilder out = new StringBuilder();
+        out.append(formatGfmTableRow(header)).append('\n').append(formatGfmTableRow(sepRow));
+        while (i < cells.size()) {
+            while (i < cells.size() && cells.get(i).isEmpty()) {
+                i++;
+            }
+            if (i >= cells.size()) {
+                break;
+            }
+            if (i + cols > cells.size()) {
+                StringBuilder leftover = new StringBuilder();
+                for (int k = i; k < cells.size(); k++) {
+                    if (!cells.get(k).isEmpty()) {
+                        if (leftover.length() > 0) {
+                            leftover.append(' ');
+                        }
+                        leftover.append(cells.get(k));
+                    }
+                }
+                if (!leftover.toString().isBlank()) {
+                    trailingNote = (trailingNote.isBlank() ? "" : trailingNote + " ") + leftover.toString().strip();
+                }
+                break;
+            }
+            out.append('\n').append(formatGfmTableRow(cells.subList(i, i + cols)));
+            i += cols;
+        }
+        if (!trailingNote.isBlank()) {
+            out.append("\n\n").append(trailingNote);
+        }
+        return out.toString();
+    }
+
+    private static boolean isGfmTableSepCell(String cell) {
+        return cell != null && GFM_TABLE_SEP_CELL.matcher(cell).matches();
+    }
+
+    private static String formatGfmTableRow(List<String> cells) {
+        StringBuilder sb = new StringBuilder("|");
+        for (String c : cells) {
+            sb.append(' ').append(c == null ? "" : c).append(" |");
+        }
+        return sb.toString();
+    }
+
+    private static int countPipes(String s) {
+        if (s == null || s.isEmpty()) {
+            return 0;
+        }
+        int n = 0;
+        for (int i = 0; i < s.length(); i++) {
+            if (s.charAt(i) == '|') {
+                n++;
+            }
+        }
+        return n;
     }
 
     /**

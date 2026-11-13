@@ -182,16 +182,8 @@ public class NotificationMessageServiceImpl implements INotificationService {
         if (viewer == null || viewer.getId() == null) {
             return listPublicPublished(l);
         }
-        if (isSiteAdmin(viewer)) {
-            List<NotificationMessage> list = messageMapper.selectList(Wrappers.<NotificationMessage>lambdaQuery()
-                    .eq(NotificationMessage::getPublished, true)
-                    .orderByDesc(NotificationMessage::getPublishedAt)
-                    .last("LIMIT " + l));
-            attachAuthorUsernames(list);
-            attachTournamentInfo(list);
-            return list;
-        }
-
+        // 办赛人员（超管/普管/主办）收件箱与普通用户一致：仅公共通知 + 本人收件；
+        // 未参赛时不得因管理员身份看到「分组结果」等参赛者专属通知。管理列表仍走 listManage。
         Set<Long> scopedTournamentIds = resolveScopedTournamentIds(viewer.getId());
 
         LinkedHashMap<Long, NotificationMessage> byId = new LinkedHashMap<>();
@@ -245,9 +237,6 @@ public class NotificationMessageServiceImpl implements INotificationService {
         }
         if (viewer == null || viewer.getId() == null) {
             return Boolean.TRUE.equals(message.getPublishToHome());
-        }
-        if (isSiteAdmin(viewer)) {
-            return true;
         }
         Set<Long> scoped = resolveScopedTournamentIds(viewer.getId());
         Set<Long> knownTournamentIds = resolveKnownTournamentIdsAmong(
