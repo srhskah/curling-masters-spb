@@ -8,15 +8,34 @@ jobs:
   build-and-push:
     runs-on: self-hosted
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - name: Sync Code (Pure SSOT with Auto-Init)
+        run: |
+          DEPLOY_DIR="$HOME/deploy-workspace"
+          
+          # 1. 检查目录是否存在，或者是否是一个完整的 Git 仓库
+          if [ ! -d "$DEPLOY_DIR/.git" ]; then
+            echo "📁 部署目录不存在或未初始化，正在自动拉取..."
+            # 如果目录存在但不是git仓库（比如残留的空目录），先删掉
+            rm -rf "$DEPLOY_DIR"
+            # 使用 GitHub 自动生成的 Token 进行免密克隆
+            git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/srhskah/curling-masters-spb.git "$DEPLOY_DIR"
+          fi
+          
+          cd "$DEPLOY_DIR"
+          
+          # 2. 抹除 Token 痕迹，防止把临时 Token 泄露在本地 git 配置中
+          git remote set-url origin https://github.com/srhskah/curling-masters-spb.git
+          
+          # 3. 获取远端最新代码并强制对齐（Pure SSOT）
+          git fetch origin main
+          git reset --hard origin/main
+          
+          # 4. 清理所有未跟踪的垃圾文件
+          git clean -fdx
 
-      # - name: Set up JDK 21
-      #   uses: actions/setup-java@v5 # 顺手升级到v5
-      #   with:
-      #     java-version: '21'
-      #     distribution: 'temurin'
-      #     cache: gradle
+      # - name: Checkout Code
+      #   uses: actions/checkout@v4
+
       - name: Set up JDK 21 (Local)
         run: |
           JAVA_PATH=$(readlink -f $(which java))
@@ -27,7 +46,9 @@ jobs:
           echo "$JAVA_HOME/bin" >> $GITHUB_PATH
           
       - name: Build with Gradle
-        run: ./gradlew build -x test
+        run: |
+          cd ~/deploy-workspace
+          ./gradlew build -x test
         
       - name: Remove credsStore from Docker config
         run: |
@@ -43,6 +64,7 @@ jobs:
 
       - name: Log in to Aliyun ACR
         run: |
+          cd ~/deploy-workspace
           echo "${{ secrets.ACR_PASSWORD }}" | docker login --username ${{ secrets.ACR_USERNAME }} --password-stdin ${{ secrets.ACR_REGISTRY }}
         # uses: docker/login-action@v3
         # with:
