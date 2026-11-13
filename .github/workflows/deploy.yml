@@ -24,13 +24,13 @@ jobs:
           # 2. 强制 Git 走 IPv4，防止因为 IPv6 黑洞导致卡死
           git config --local http.version HTTP/1.1
           
-          # 3. 拉取远端最新增量
-          git fetch origin main
+          # 3. 拉取远端最新（兼容 force-push / 历史重写后的非快进）
+          git fetch --prune origin main
           
           # 4. 强制硬重置（完美 SSOT）
           git reset --hard origin/main
           
-          # 4. 清理所有未跟踪的垃圾文件
+          # 5. 清理所有未跟踪的垃圾文件
           git clean -fdx
 
       # - name: Checkout Code
