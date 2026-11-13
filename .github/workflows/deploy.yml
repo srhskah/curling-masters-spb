@@ -15,7 +15,7 @@ jobs:
           # 1. 如果目录不存在，提示手动克隆（绝对不卡）
           if [ ! -d "$DEPLOY_DIR/.git" ]; then
             echo "❌ 错误：部署目录不存在！"
-            echo "请在本地终端手动执行一次：git clone https://github.com/srhskah/curling-masters-spb.git ~/deploy-workspace"
+            echo "请在本地终端手动执行一次：git clone https://github.com/srhskah/curling-masters-spb.git ~/.runner-build-cache"
             exit 1
           fi
           
