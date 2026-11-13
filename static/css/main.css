@@ -768,6 +768,69 @@ table.table-hover.align-middle tbody tr > td {
     }
 }
 
+@media (min-width: 992px) {
+    /* 宽屏顶栏：所有控件同一行高，避免语言下拉等撑高 banner */
+    .navbar {
+        /* padding-top: 0.35rem;
+        padding-bottom: 0.35rem; */
+        min-height: 0;
+    }
+    .navbar > .container {
+        flex-wrap: nowrap;
+        align-items: center;
+        min-height: 0;
+    }
+    .navbar .navbar-brand {
+        /* padding-top: 0;
+        padding-bottom: 0; */
+        margin-right: 0.75rem;
+        /* line-height: 1.25; */
+        display: flex;
+        align-items: center;
+    }
+    .navbar .navbar-brand img {
+        /* height: 1.75rem !important; */
+        width: auto;
+        display: block;
+    }
+    .navbar .navbar-collapse {
+        flex-wrap: nowrap;
+        align-items: center !important;
+    }
+    .navbar .navbar-nav {
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+    .navbar .nav-link {
+        /* padding-top: 0.25rem;
+        padding-bottom: 0.25rem; */
+        /* line-height: 1.25; */
+        white-space: nowrap;
+    }
+    .navbar #siteLanguageSelect,
+    .navbar .form-select.form-select-sm {
+        padding: 0.15rem 1.75rem 0.15rem 0.5rem;
+        min-height: 0;
+        height: calc(1.25em + 0.3rem);
+        line-height: 1.25;
+        font-size: 0.8125rem;
+        min-width: 7.5rem;
+        width: auto;
+        max-width: 9.5rem;
+    }
+    .navbar .d-none.d-lg-flex.align-items-center {
+        flex-wrap: nowrap;
+        align-items: center !important;
+        min-height: 0;
+        line-height: 1.25;
+    }
+    .navbar .d-none.d-lg-flex.align-items-center > label {
+        line-height: 1.25;
+        margin-bottom: 0 !important;
+        white-space: nowrap;
+    }
+}
+
 @media (min-width: 993px) {
     .d-lg-inline{
         display: inline !important;
@@ -776,7 +839,7 @@ table.table-hover.align-middle tbody tr > td {
         display: none;
     }
     .navbar-expand-lg .navbar-nav .dropdown-menu{
-        top: 4em;
+        top: 3.25rem;
         border: 0;
         background: #fffc !important;
     }

@@ -88,7 +88,7 @@
             <a class="nav-link dropdown-toggle text-dark" href="#"
                th:id="${'tournamentDropdown' + ms}"
                role="button" data-bs-toggle="dropdown" aria-expanded="false"
-               data-i18n-key="nav.tournamentManagement">
+               data-i18n-key="nav.tournament">
                 <i class="bi bi-trophy"></i> 赛事
             </a>
             <ul class="dropdown-menu" th:attr="aria-labelledby=${'tournamentDropdown' + ms}">
@@ -158,9 +158,9 @@
                 <img th:src="@{/images/Logo Trsp Stripe.png}" alt="Curling Masters Logo" style="height: 40px;">
             </a>
             <!-- 桌面端语言选择（窄屏隐藏，放到侧边栏） -->
-            <div class="d-none d-lg-flex align-items-center gap-2 ms-auto me-3" style="flex-shrink: 0;">
+            <div class="d-none d-lg-flex align-items-center gap-2 ms-auto me-2 flex-shrink-0">
                 <label class="small text-muted mb-0" for="siteLanguageSelect" data-i18n-key="site.language">语言</label>
-                <select id="siteLanguageSelect" class="form-select form-select-sm" style="min-width: 150px;">
+                <select id="siteLanguageSelect" class="form-select form-select-sm" aria-label="语言">
                     <option value="zh-CN">简体中文</option>
                     <option value="zh-TW">繁體中文</option>
                     <option value="en">English</option>

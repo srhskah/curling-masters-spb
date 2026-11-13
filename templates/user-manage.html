@@ -58,6 +58,81 @@
             font-size: 0.95rem;
             margin-bottom: 0.5rem;
         }
+        /* 页头条：窄屏 标题+按钮并排、搜索另起一行；宽屏 搜索+按钮并排右对齐 */
+        .user-manage-page .card-header {
+            min-height: 0;
+            line-height: 1.25;
+        }
+        .user-manage-page .card-header h5 {
+            line-height: 1.25;
+            font-size: 1rem;
+            margin-bottom: 0;
+        }
+        .user-manage-page .card-header .btn {
+            line-height: 1.25;
+            padding: 0.2rem 0.55rem;
+        }
+        .user-manage-page .user-manage-header-btns {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        @media (max-width: 767.98px) {
+            /* 子项提升为与标题同级，才能用 order 重排 */
+            .user-manage-page .user-manage-header-actions {
+                display: contents;
+            }
+            .user-manage-page .card-header .um-title {
+                order: 1;
+            }
+            .user-manage-page .user-manage-header-btns {
+                order: 2;
+                margin-left: auto;
+                flex-wrap: nowrap;
+            }
+            .user-manage-page .card-header #genericSearchInput {
+                order: 3;
+                flex: 1 1 100%;
+                width: 100%;
+                padding: 0.7em 0.35rem !important;
+                min-height: 0;
+                line-height: 1.25;
+                font-size: 0.875rem;
+            }
+        }
+        @media (min-width: 768px) {
+            .user-manage-page .card-header {
+                flex-wrap: nowrap;
+            }
+            .user-manage-page .user-manage-header-actions {
+                display: flex;
+                flex-wrap: nowrap;
+                align-items: center;
+                gap: 0.5rem;
+                margin-left: auto;
+            }
+            .user-manage-page .user-manage-header-btns {
+                flex-wrap: nowrap;
+            }
+            /* 宽屏只调搜索框内部样式，保持与按钮并排 */
+            .user-manage-page .card-header #genericSearchInput {
+                display: inline-block;
+                flex: 0 0 auto;
+                width: 16em; /* JS 覆盖为实测宽度 */
+                max-width: 100%;
+                padding: 1rem 0.5rem !important;
+                min-height: 0;
+                height: calc(1.25em + 0.4rem);
+                line-height: 1.25;
+                font-size: 0.875rem;
+            }
+        }
+        /* @media (min-width: 992px) {
+            .user-manage-page .card-header #genericSearchInput {
+                width: 16em;
+            }
+        } */
     </style>
 
     <div th:replace="~{fragments :: success-alert}"></div>
@@ -65,30 +140,29 @@
 
     <div class="container mt-4 user-manage-page">
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-primary text-white d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <h5 class="mb-0"><i class="bi bi-people"></i> 用户管理</h5>
-                <div class="d-flex flex-wrap gap-2">
-                    <button class="btn btn-light btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#batchAddModal">
-                        <i class="bi bi-plus-circle"></i> 批量添加
-                    </button>
-                    <button class="btn btn-warning btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#banRegistrationModal" id="banRegistrationBtn" disabled>
-                        <i class="bi bi-ban"></i> 禁止报名
-                    </button>
-                    <a class="btn btn-info btn-sm" href="/user/registration-bans">
-                        <i class="bi bi-list"></i> 禁止记录
-                    </a>
+            <div class="card-header bg-primary text-white d-flex flex-wrap align-items-center gap-2">
+                <h5 class="um-title mb-0"><i class="bi bi-people"></i> 用户管理</h5>
+                <div class="user-manage-header-actions">
+                    <input type="search"
+                           id="genericSearchInput"
+                           class="form-control form-control-sm"
+                           placeholder="模糊搜索"
+                           autocomplete="off"
+                           aria-label="模糊搜索（用户名、邮箱、角色）">
+                    <div class="user-manage-header-btns">
+                        <button class="btn btn-light btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#batchAddModal">
+                            <i class="bi bi-plus-circle"></i> 批量添加
+                        </button>
+                        <button class="btn btn-warning btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#banRegistrationModal" id="banRegistrationBtn" disabled>
+                            <i class="bi bi-ban"></i> 禁止报名
+                        </button>
+                        <a class="btn btn-info btn-sm" href="/user/registration-bans">
+                            <i class="bi bi-list"></i> 禁止记录
+                        </a>
+                    </div>
                 </div>
             </div>
             <div class="card-body">
-                <div class="row g-2 mb-3">
-                    <div class="col-12 col-md-5 ms-md-auto">
-                        <input type="search"
-                               id="genericSearchInput"
-                               class="form-control"
-                               placeholder="模糊搜索（用户名、邮箱、角色）"
-                               autocomplete="off">
-                    </div>
-                </div>
                 <div class="admin-action-legend text-muted mb-2">
                     <span class="legend-item fw-semibold">操作图例</span>
                     <span class="legend-item"><i class="bi bi-pencil"></i> 编辑</span>
@@ -819,6 +893,27 @@
             const searchResultText = document.getElementById('searchResultText');
             
             if (!searchInput) return;
+
+            // 宽屏：宽度正好放下 placeholder 文本
+            function fitSearchToPlaceholder() {
+                if (window.matchMedia('(max-width: 767.98px)').matches) {
+                    searchInput.style.width = '';
+                    return;
+                }
+                const probe = document.createElement('span');
+                const cs = window.getComputedStyle(searchInput);
+                probe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:pre;'
+                    + 'font-family:' + cs.fontFamily + ';'
+                    + 'font-size:' + cs.fontSize + ';'
+                    + 'font-weight:' + cs.fontWeight + ';'
+                    + 'letter-spacing:' + cs.letterSpacing + ';';
+                probe.textContent = searchInput.getAttribute('placeholder') || '';
+                document.body.appendChild(probe);
+                searchInput.style.width = 3 * Math.ceil(probe.getBoundingClientRect().width) + 'px';
+                probe.remove();
+            }
+            fitSearchToPlaceholder();
+            window.addEventListener('resize', fitSearchToPlaceholder);
             
             let searchTimeout;
             
