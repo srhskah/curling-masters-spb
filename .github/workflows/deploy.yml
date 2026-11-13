@@ -11,6 +11,7 @@ jobs:
       - name: Sync Code (Pure SSOT with Auto-Init)
         run: |
           DEPLOY_DIR="$HOME/.runner-build-cache"
+          echo "DEPLOY_DIR=$DEPLOY_DIR" >> "$GITHUB_ENV"
           
           # 1. 如果目录不存在，提示手动克隆（绝对不卡）
           if [ ! -d "$DEPLOY_DIR/.git" ]; then
@@ -64,7 +65,6 @@ jobs:
 
       - name: Log in to Aliyun ACR
         run: |
-          cd "$DEPLOY_DIR"
           echo "${{ secrets.ACR_PASSWORD }}" | docker login --username ${{ secrets.ACR_USERNAME }} --password-stdin ${{ secrets.ACR_REGISTRY }}
         # uses: docker/login-action@v3
         # with:
@@ -74,11 +74,12 @@ jobs:
 
       - name: Build and Push Docker Image
         run: |
+          cd "$DEPLOY_DIR"
           export DOCKER_BUILDKIT=0
           IMAGE_TAG="${{ secrets.ACR_REGISTRY }}/jw_docker_sql/curling-masters:latest"
           docker build -t $IMAGE_TAG .
           docker push $IMAGE_TAG
-        # uses: docker/build-push-action@v5
+        # uses: docker/build-push-action/v5
         # with:
         #   context: .
         #   push: true
