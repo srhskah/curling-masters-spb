@@ -47,7 +47,7 @@ jobs:
           
       - name: Build with Gradle
         run: |
-          cd ~/deploy-workspace
+          cd "$DEPLOY_DIR"
           ./gradlew build -x test
         
       - name: Remove credsStore from Docker config
@@ -64,7 +64,7 @@ jobs:
 
       - name: Log in to Aliyun ACR
         run: |
-          cd ~/deploy-workspace
+          cd "$DEPLOY_DIR"
           echo "${{ secrets.ACR_PASSWORD }}" | docker login --username ${{ secrets.ACR_USERNAME }} --password-stdin ${{ secrets.ACR_REGISTRY }}
         # uses: docker/login-action@v3
         # with:
