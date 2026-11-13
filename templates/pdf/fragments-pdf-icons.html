@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- PDF 开局后手标记：PNG 小图（openhtmltopdf 无 svg-support 时 SVG data-URI 不绘制；PNG 与签名同路） -->
+<th:block th:fragment="hammerMark">
+    <img th:if="${hammerIconDataUri != null}"
+         class="hammer-icon"
+         th:src="${hammerIconDataUri}"
+         width="12"
+         height="12"
+         alt="开局后手"
+         title="开局后手"/>
+    <span th:if="${hammerIconDataUri == null}" class="hammer-fallback" title="开局后手">[后手]</span>
+</th:block>
+</body>
+</html>

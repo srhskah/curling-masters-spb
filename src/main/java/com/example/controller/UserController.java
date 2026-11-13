@@ -416,26 +416,26 @@ public class UserController {
     @GetMapping("/profile/{id}")
     public String userProfile(@PathVariable Long id, Model model) {
         try {
+            if (id == null) {
+                return "redirect:/";
+            }
             User user = userService.getById(id);
             if (user == null) {
                 return "redirect:/";
             }
-            
+
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth == null || !auth.isAuthenticated() || auth.getName() == null) {
-                return "redirect:/user/login";
+            boolean anonymous = auth == null
+                    || auth.getName() == null
+                    || "anonymousUser".equals(auth.getName())
+                    || !auth.isAuthenticated();
+            User currentUser = null;
+            if (!anonymous) {
+                currentUser = userService.findByUsername(auth.getName());
             }
-            
-            String currentUsername = auth.getName();
-            User currentUser = userService.findByUsername(currentUsername);
-            
-            // 检查当前用户是否存在
-            if (currentUser == null) {
-                return "redirect:/user/login";
-            }
-            
-            boolean isOwner = currentUser.getId().equals(id);
-            Integer viewerRole = currentUser.getRole();
+
+            boolean isOwner = currentUser != null && currentUser.getId() != null && currentUser.getId().equals(id);
+            Integer viewerRole = currentUser != null ? currentUser.getRole() : null;
             boolean canSeeFullEmail = isOwner || (viewerRole != null && viewerRole <= 1);
             SensitiveDisplay.clearPassword(user);
             SensitiveDisplay.maskEmailUnlessPrivileged(user, canSeeFullEmail);

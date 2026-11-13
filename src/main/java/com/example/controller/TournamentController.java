@@ -679,18 +679,30 @@ public class TournamentController {
             )
         ));
 
+        int defaultCenterLineLimit = systemConfigService.getDefaultCenterLineLimit();
+        int defaultDeadStoneLimit = systemConfigService.getDefaultDeadStoneLimit();
+        Integer centerForForm = tournament.getCustomCenterLineLimit();
+        Integer deadForForm = tournament.getCustomDeadStoneLimit();
+        if ("CUSTOM".equals(currentRuleType)) {
+            if (centerForForm == null) {
+                centerForForm = defaultCenterLineLimit;
+            }
+            if (deadForForm == null) {
+                deadForForm = defaultDeadStoneLimit;
+            }
+        }
         fields.add(Map.of(
             "type", "hidden",
             "id", "customCenterLineLimit",
             "name", "customCenterLineLimit",
-            "value", tournament.getCustomCenterLineLimit() != null ? tournament.getCustomCenterLineLimit() : ""
+            "value", centerForForm != null ? centerForForm : ""
         ));
 
         fields.add(Map.of(
             "type", "hidden",
             "id", "customDeadStoneLimit",
             "name", "customDeadStoneLimit",
-            "value", tournament.getCustomDeadStoneLimit() != null ? tournament.getCustomDeadStoneLimit() : ""
+            "value", deadForForm != null ? deadForForm : ""
         ));
 
         fields.add(Map.of(
@@ -766,12 +778,14 @@ public class TournamentController {
   const competitionRuleSelect = document.getElementById('competitionRuleType');
   const customCenterLineInput = document.getElementById('customCenterLineLimit');
   const customDeadStoneInput = document.getElementById('customDeadStoneLimit');
+  const defaultCenterLine = '%d';
+  const defaultDeadStone = '%d';
 
   if (competitionRuleSelect) {
     competitionRuleSelect.addEventListener('change', function() {
       if (this.value === 'CUSTOM') {
-        const currentCenterLine = customCenterLineInput.value || '5';
-        const currentDeadStone = customDeadStoneInput.value || '5';
+        const currentCenterLine = customCenterLineInput.value || defaultCenterLine;
+        const currentDeadStone = customDeadStoneInput.value || defaultDeadStone;
 
         const centerLine = prompt('请输入不允许磕中线壶的数量（0-16）：', currentCenterLine);
         if (centerLine !== null) {
@@ -806,7 +820,7 @@ public class TournamentController {
     });
   }
 })();
-""");
+""".formatted(defaultCenterLineLimit, defaultDeadStoneLimit));
         return null;
     }
 
@@ -1435,6 +1449,8 @@ public class TournamentController {
         model.addAttribute("competitionConfig", competitionConfig);
         model.addAttribute("defaultKnockoutRequirePrevStageDone",
                 systemConfigService.getDefaultKnockoutRequirePrevStageDone());
+        model.addAttribute("defaultCenterLineLimit", systemConfigService.getDefaultCenterLineLimit());
+        model.addAttribute("defaultDeadStoneLimit", systemConfigService.getDefaultDeadStoneLimit());
         model.addAttribute("competitionGroupSizeOptions",
                 tournamentCompetitionService.calcGroupSizeOptions(
                         competitionConfig != null ? competitionConfig.getParticipantCount() : null));

@@ -38,7 +38,7 @@
                     <tbody>
                     <tr th:each="entry, stat : ${seasonRanking}">
                         <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                        <td th:text="${entry.username}"></td>
+                        <td><a th:if="${entry.userId != null}" th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a><span th:if="${entry.userId == null}" th:text="${entry.username}"></span></td>
                         <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                         <td>
                             <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"

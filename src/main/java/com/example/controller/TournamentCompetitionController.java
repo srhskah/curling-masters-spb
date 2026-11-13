@@ -25,6 +25,7 @@ public class TournamentCompetitionController {
     @Autowired private com.example.service.impl.KnockoutBracketService knockoutBracketService;
     @Autowired private TournamentService tournamentService;
     @Autowired private TournamentUrlService tournamentUrlService;
+    @Autowired private SystemConfigService systemConfigService;
 
     private User currentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -72,13 +73,15 @@ public class TournamentCompetitionController {
                 if (competitionRuleType != null) {
                     tournament.setCompetitionRuleType(competitionRuleType);
                     if ("CUSTOM".equals(competitionRuleType)) {
-                        // 如果选择自定义，设置自定义值
-                        if (customCenterLineLimit != null) {
-                            tournament.setCustomCenterLineLimit(customCenterLineLimit);
-                        }
-                        if (customDeadStoneLimit != null) {
-                            tournament.setCustomDeadStoneLimit(customDeadStoneLimit);
-                        }
+                        // 未填时采用总控台已保存的全局默认 x/y
+                        Integer center = customCenterLineLimit != null
+                                ? customCenterLineLimit
+                                : systemConfigService.getDefaultCenterLineLimit();
+                        Integer dead = customDeadStoneLimit != null
+                                ? customDeadStoneLimit
+                                : systemConfigService.getDefaultDeadStoneLimit();
+                        tournament.setCustomCenterLineLimit(center);
+                        tournament.setCustomDeadStoneLimit(dead);
                     } else {
                         // 如果选择正常5壶保护制，清空自定义值
                         tournament.setCustomCenterLineLimit(null);

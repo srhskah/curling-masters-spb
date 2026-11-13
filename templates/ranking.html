@@ -52,7 +52,7 @@
                             <tbody>
                             <tr th:each="entry, stat : ${totalRanking}">
                                 <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                                <td th:text="${entry.username}"></td>
+                                <td><a th:if="${entry.userId != null}" th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a><span th:if="${entry.userId == null}" th:text="${entry.username}"></span></td>
                                 <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                                 <td>
                                             <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
@@ -133,7 +133,7 @@
                                     <tbody>
                                     <tr th:each="entry, stat : ${currentSeasonRankingTop24}">
                                         <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                                        <td th:text="${entry.username}"></td>
+                                        <td><a th:if="${entry.userId != null}" th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a><span th:if="${entry.userId == null}" th:text="${entry.username}"></span></td>
                                         <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
@@ -167,7 +167,7 @@
                                     <tbody>
                                     <tr th:each="entry, stat : ${seasonTop24[s.id]}">
                                         <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                                        <td th:text="${entry.username}"></td>
+                                        <td><a th:if="${entry.userId != null}" th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a><span th:if="${entry.userId == null}" th:text="${entry.username}"></span></td>
                                         <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
@@ -254,7 +254,7 @@
                                 <tbody>
                                 <tr th:each="entry, stat : ${totalRanking}">
                                     <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                                    <td th:text="${entry.username}"></td>
+                                    <td><a th:if="${entry.userId != null}" th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a><span th:if="${entry.userId == null}" th:text="${entry.username}"></span></td>
                                     <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                                     <td>
                                             <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
@@ -342,7 +342,7 @@
                                         <tbody>
                                         <tr th:each="entry, stat : ${currentSeasonRankingTop24}">
                                             <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                                            <td th:text="${entry.username}"></td>
+                                            <td><a th:if="${entry.userId != null}" th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a><span th:if="${entry.userId == null}" th:text="${entry.username}"></span></td>
                                             <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                                             <td>
                                                 <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
@@ -376,7 +376,7 @@
                                         <tbody>
                                         <tr th:each="entry, stat : ${seasonTop24[s.id]}">
                                             <td><span class="badge bg-primary" th:text="${stat.index + 1}"></span></td>
-                                            <td th:text="${entry.username}"></td>
+                                            <td><a th:if="${entry.userId != null}" th:href="@{/user/profile/{uid}(uid=${entry.userId})}" class="text-decoration-none" th:text="${entry.username}"></a><span th:if="${entry.userId == null}" th:text="${entry.username}"></span></td>
                                             <td><span class="badge bg-success" th:text="${entry.points}"></span></td>
                                             <td>
                                                 <button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
@@ -556,12 +556,14 @@
                 tbody.innerHTML = rows.map((e, idx) => `
                   <tr>
                     <td><span class="badge bg-primary">${idx + 1}</span></td>
-                    <td>${escapeHtml(e.username ?? '')}</td>
+                    <td>${e.userId != null
+                        ? `<a href="/user/profile/${encodeURIComponent(String(e.userId))}" class="text-decoration-none">${escapeHtml(e.username ?? '')}</a>`
+                        : escapeHtml(e.username ?? '')}</td>
                     <td><span class="badge bg-success">${e.points ?? 0}</span></td>
                     <td>
                       ${e.userId != null
                         ? `<button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
-                                   data-user-id="${e.userId}" data-scope="total">复制文本</button>`
+                                   data-user-id="${String(e.userId)}" data-scope="total">复制文本</button>`
                         : `<span class="text-muted small">无法复制</span>`}
                     </td>
                   </tr>
@@ -603,12 +605,14 @@
                 tbody.innerHTML = rows.map((e, idx) => `
                   <tr>
                     <td><span class="badge bg-primary">${idx + 1}</span></td>
-                    <td>${escapeHtml(e.username ?? '')}</td>
+                    <td>${e.userId != null
+                        ? `<a href="/user/profile/${encodeURIComponent(String(e.userId))}" class="text-decoration-none">${escapeHtml(e.username ?? '')}</a>`
+                        : escapeHtml(e.username ?? '')}</td>
                     <td><span class="badge bg-success">${e.points ?? 0}</span></td>
                     <td>
                       ${e.userId != null
                         ? `<button type="button" class="btn btn-sm btn-outline-primary user-perf-copy-btn"
-                                   data-user-id="${e.userId}" data-season-id="${seasonId ?? ''}" data-scope="season">复制文本</button>`
+                                   data-user-id="${String(e.userId)}" data-season-id="${seasonId ?? ''}" data-scope="season">复制文本</button>`
                         : `<span class="text-muted small">无法复制</span>`}
                     </td>
                   </tr>

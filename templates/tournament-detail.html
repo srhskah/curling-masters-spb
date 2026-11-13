@@ -960,15 +960,15 @@
                                             </div>
                                             <div class="col-md-2 d-none" id="customRuleFields">
                                                 <label class="form-label">中线壶限制</label>
-                                                <input type="number" class="form-control" name="customCenterLineLimit" min="0" max="16"
-                                                       th:value="${tournamentInfo.tournament.customCenterLineLimit}"
-                                                       placeholder="默认5">
+                                                <input type="number" class="form-control" name="customCenterLineLimit" id="customCenterLineLimit" min="0" max="16"
+                                                       th:value="${tournamentInfo.tournament.customCenterLineLimit != null ? tournamentInfo.tournament.customCenterLineLimit : defaultCenterLineLimit}"
+                                                       th:attr="data-default-center=${defaultCenterLineLimit}, placeholder=|总控默认 ${defaultCenterLineLimit}|">
                                             </div>
                                             <div class="col-md-2 d-none" id="customDeadStoneFields">
                                                 <label class="form-label">死壶限制</label>
-                                                <input type="number" class="form-control" name="customDeadStoneLimit" min="0" max="16"
-                                                       th:value="${tournamentInfo.tournament.customDeadStoneLimit}"
-                                                       placeholder="默认5">
+                                                <input type="number" class="form-control" name="customDeadStoneLimit" id="customDeadStoneLimit" min="0" max="16"
+                                                       th:value="${tournamentInfo.tournament.customDeadStoneLimit != null ? tournamentInfo.tournament.customDeadStoneLimit : defaultDeadStoneLimit}"
+                                                       th:attr="data-default-dead=${defaultDeadStoneLimit}, placeholder=|总控默认 ${defaultDeadStoneLimit}|">
                                             </div>
                                             <div class="col-12">
                                                 <button class="btn btn-warning" type="submit"><i class="bi bi-save"></i> 保存运行配置</button>
@@ -2340,16 +2340,35 @@
                 updateCompetitionGroupSizeHint();
             }
 
-            // 赛制规则字段显示/隐藏逻辑
+            // 赛制规则字段显示/隐藏；选「自定义」时用总控台默认 x/y 填充空值
             const competitionRuleSelect = document.getElementById('competitionRuleType');
             const customRuleFields = document.getElementById('customRuleFields');
             const customDeadStoneFields = document.getElementById('customDeadStoneFields');
+            const customCenterLineInput = document.getElementById('customCenterLineLimit');
+            const customDeadStoneInput = document.getElementById('customDeadStoneLimit');
             
             if (competitionRuleSelect) {
+                function fillCustomRuleDefaultsIfEmpty() {
+                    const defCenter = customCenterLineInput
+                        ? (customCenterLineInput.getAttribute('data-default-center') || '5')
+                        : '5';
+                    const defDead = customDeadStoneInput
+                        ? (customDeadStoneInput.getAttribute('data-default-dead') || '5')
+                        : '5';
+                    if (customCenterLineInput && String(customCenterLineInput.value || '').trim() === '') {
+                        customCenterLineInput.value = defCenter;
+                    }
+                    if (customDeadStoneInput && String(customDeadStoneInput.value || '').trim() === '') {
+                        customDeadStoneInput.value = defDead;
+                    }
+                }
                 function updateCustomRuleFields() {
                     const isCustom = competitionRuleSelect.value === 'CUSTOM';
                     if (customRuleFields) customRuleFields.classList.toggle('d-none', !isCustom);
                     if (customDeadStoneFields) customDeadStoneFields.classList.toggle('d-none', !isCustom);
+                    if (isCustom) {
+                        fillCustomRuleDefaultsIfEmpty();
+                    }
                 }
                 
                 competitionRuleSelect.addEventListener('change', updateCustomRuleFields);

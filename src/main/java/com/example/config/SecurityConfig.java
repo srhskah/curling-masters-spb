@@ -90,6 +90,9 @@ public class SecurityConfig {
                         "/user/login", "/user/register", "/user/change-password", "/user/forgot-password",
                         "/css/**", "/js/**", "/images/**"
                 ).permitAll()
+                // 公开查看他人主页（/user/profile/{id}）；「我的主页」/user/profile 仍需登录
+                .requestMatchers(HttpMethod.GET, "/user/profile/*").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/user/profile/*").permitAll()
                 // GET+HEAD：RSS 阅读器常先发 HEAD；仅放行 GET 会被 302 到登录
                 .requestMatchers(HttpMethod.GET, "/notification/list").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/notification/list").permitAll()
@@ -121,8 +124,19 @@ public class SecurityConfig {
                         System.out.println("DEBUG: Redirecting to change password page for user: " + user.getUsername());
                         response.sendRedirect("/user/change-password");
                     } else {
-                        System.out.println("DEBUG: Redirecting to home page for user: " + user.getUsername());
-                        response.sendRedirect("/"); // 登录成功后跳转到首页
+                        // 优先回到登录前想访问的地址（如个人主页），否则回首页
+                        var saved = new org.springframework.security.web.savedrequest.HttpSessionRequestCache()
+                                .getRequest(request, response);
+                        String target = saved != null ? saved.getRedirectUrl() : null;
+                        if (target != null && !target.isBlank()
+                                && !target.contains("/user/login")
+                                && !target.contains("/login")) {
+                            System.out.println("DEBUG: Redirecting to saved request: " + target);
+                            response.sendRedirect(target);
+                        } else {
+                            System.out.println("DEBUG: Redirecting to home page for user: " + user.getUsername());
+                            response.sendRedirect("/");
+                        }
                     }
                 })
                 .failureHandler((request, response, exception) -> {

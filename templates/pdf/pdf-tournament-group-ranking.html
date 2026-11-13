@@ -13,6 +13,8 @@
         th { background: #f3f3f3; }
         .muted { color: #666; }
         .cell-matches-full { background-color: rgba(25, 135, 84, 0.16); font-weight: 600; }
+        .hammer-icon { width: 12px; height: 12px; vertical-align: -1px; }
+        .hammer-fallback { font-size: 10px; color: #5d4037; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -96,12 +98,12 @@
             </thead>
             <tbody>
             <tr>
-                <td><span th:text="${m.player1Name}">选手1</span><span th:if="${m.firstHammerName == m.player1Name}"> 🔨</span></td>
+                <td><span th:text="${m.player1Name}">选手1</span><th:block th:if="${m.firstHammerName == m.player1Name}"><span> </span><th:block th:replace="~{pdf/fragments-pdf-icons :: hammerMark}"></th:block></th:block></td>
                 <td th:each="s : ${m.sets}" th:text="${s.player1ScoreText}">0</td>
                 <td th:text="${m['player1Total'] != null ? m['player1Total'] : 0}">0</td>
             </tr>
             <tr>
-                <td><span th:text="${m.player2Name}">选手2</span><span th:if="${m.firstHammerName == m.player2Name}"> 🔨</span></td>
+                <td><span th:text="${m.player2Name}">选手2</span><th:block th:if="${m.firstHammerName == m.player2Name}"><span> </span><th:block th:replace="~{pdf/fragments-pdf-icons :: hammerMark}"></th:block></th:block></td>
                 <td th:each="s : ${m.sets}" th:text="${s.player2ScoreText}">0</td>
                 <td th:text="${m['player2Total'] != null ? m['player2Total'] : 0}">0</td>
             </tr>
@@ -128,12 +130,12 @@
         </thead>
         <tbody>
         <tr>
-            <td><span th:text="${m.player1Name}">选手1</span><span th:if="${m.firstHammerName == m.player1Name}"> 🔨</span></td>
+            <td><span th:text="${m.player1Name}">选手1</span><th:block th:if="${m.firstHammerName == m.player1Name}"><span> </span><th:block th:replace="~{pdf/fragments-pdf-icons :: hammerMark}"></th:block></th:block></td>
             <td th:each="s : ${m.sets}" th:text="${s.player1ScoreText}">0</td>
             <td th:text="${m['player1Total'] != null ? m['player1Total'] : 0}">0</td>
         </tr>
         <tr>
-            <td><span th:text="${m.player2Name}">选手2</span><span th:if="${m.firstHammerName == m.player2Name}"> 🔨</span></td>
+            <td><span th:text="${m.player2Name}">选手2</span><th:block th:if="${m.firstHammerName == m.player2Name}"><span> </span><th:block th:replace="~{pdf/fragments-pdf-icons :: hammerMark}"></th:block></th:block></td>
             <td th:each="s : ${m.sets}" th:text="${s.player2ScoreText}">0</td>
             <td th:text="${m['player2Total'] != null ? m['player2Total'] : 0}">0</td>
         </tr>

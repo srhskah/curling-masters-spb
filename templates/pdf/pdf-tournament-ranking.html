@@ -20,6 +20,11 @@
         .section-title { margin: 14px 0 8px; font-size: 14px; font-weight: 700; }
         .nowrap { white-space: nowrap; }
         .small { font-size: 11px; }
+        .winner-row td { background: #fff6d6; }
+        .winner-name { font-weight: 700; }
+        .winner-total { font-weight: 700; background: #ffe08a !important; }
+        .hammer-icon { width: 12px; height: 12px; vertical-align: -1px; }
+        .hammer-fallback { font-size: 10px; color: #5d4037; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -61,7 +66,11 @@
 <th:block th:if="${includeMatchDetails == null or includeMatchDetails}">
 <div class="section-title">比赛明细</div>
 <div th:if="${matchDetails == null or #lists.isEmpty(matchDetails)}" class="muted">暂无比赛明细</div>
-<div th:each="m : ${matchDetails}" style="margin-bottom: 14px; border:1px solid #ddd; padding:8px;">
+<div th:each="m : ${matchDetails}" style="margin-bottom: 14px; border:1px solid #ddd; padding:8px;"
+     th:with="t1=${m.player1Total != null ? m.player1Total : 0},
+              t2=${m.player2Total != null ? m.player2Total : 0},
+              p1Wins=${m.player1Total != null and m.player2Total != null and m.player1Total > m.player2Total},
+              p2Wins=${m.player1Total != null and m.player2Total != null and m.player2Total > m.player1Total}">
     <div style="font-weight:700; margin-bottom:4px;"
          th:text="${(m.category != null ? m.category : '-') + '（' + (m.phaseCode != null ? m.phaseCode : '-') + '） ' + m.player1Name + ' vs ' + m.player2Name + '  总比分：' + (m.totalText != null ? m.totalText : '-')}">
         比赛标题
@@ -75,21 +84,25 @@
         </tr>
         </thead>
         <tbody>
-        <tr>
-            <td>
+        <tr th:classappend="${p1Wins} ? ' winner-row' : ''">
+            <td th:classappend="${p1Wins} ? ' winner-name' : ''">
                 <span th:text="${m.player1Name}">选手1</span>
-                <span th:if="${m.sets != null and !#lists.isEmpty(m.sets) and m.sets[0].hammer == m.player1Name}"> 🔨</span>
+                <th:block th:if="${m.sets != null and !#lists.isEmpty(m.sets) and m.sets[0].hammer == m.player1Name}">
+                    <span> </span><th:block th:replace="~{pdf/fragments-pdf-icons :: hammerMark}"></th:block>
+                </th:block>
             </td>
             <td th:each="s : ${m.sets}" th:text="${s.player1ScoreText}">0</td>
-            <td th:text="${m.player1Total != null ? m.player1Total : 0}">0</td>
+            <td th:classappend="${p1Wins} ? ' winner-total' : ''" th:text="${t1}">0</td>
         </tr>
-        <tr>
-            <td>
+        <tr th:classappend="${p2Wins} ? ' winner-row' : ''">
+            <td th:classappend="${p2Wins} ? ' winner-name' : ''">
                 <span th:text="${m.player2Name}">选手2</span>
-                <span th:if="${m.sets != null and !#lists.isEmpty(m.sets) and m.sets[0].hammer == m.player2Name}"> 🔨</span>
+                <th:block th:if="${m.sets != null and !#lists.isEmpty(m.sets) and m.sets[0].hammer == m.player2Name}">
+                    <span> </span><th:block th:replace="~{pdf/fragments-pdf-icons :: hammerMark}"></th:block>
+                </th:block>
             </td>
             <td th:each="s : ${m.sets}" th:text="${s.player2ScoreText}">0</td>
-            <td th:text="${m.player2Total != null ? m.player2Total : 0}">0</td>
+            <td th:classappend="${p2Wins} ? ' winner-total' : ''" th:text="${t2}">0</td>
         </tr>
         <tr th:if="${m.sets == null or #lists.isEmpty(m.sets)}">
             <td colspan="3" class="muted">暂无逐局信息</td>
