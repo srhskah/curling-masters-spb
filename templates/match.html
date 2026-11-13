@@ -45,7 +45,11 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <img src="/images/Logo Trsp Stripe.png" alt="Curling Masters Logo">
+                <img src="/images/Logo%20Trsp%20Stripe.svg"
+                     data-fallback="/images/Logo%20Trsp%20Stripe.png"
+                     alt="Curling Masters Logo"
+                     style="height: 40px;"
+                     onerror="if(this.dataset.fallback){var f=this.dataset.fallback;this.removeAttribute('data-fallback');this.onerror=null;this.src=f;}">
             </a>
             <div class="navbar-nav ms-auto">
                 <a class="nav-link" href="/">首页</a>

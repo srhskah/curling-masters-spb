@@ -387,7 +387,16 @@
         
         // 添加logo
         const logoImg = document.createElement('img');
-        logoImg.src = '/images/Logo Trsp Stripe.png';
+        logoImg.src = '/images/Logo%20Trsp%20Stripe.svg';
+        logoImg.dataset.fallback = '/images/Logo%20Trsp%20Stripe.png';
+        logoImg.onerror = function () {
+            if (this.dataset.fallback) {
+                var f = this.dataset.fallback;
+                this.removeAttribute('data-fallback');
+                this.onerror = null;
+                this.src = f;
+            }
+        };
         logoImg.style.maxWidth = '200px';
         logoImg.style.height = 'auto';
         logoImg.style.marginBottom = '15px';

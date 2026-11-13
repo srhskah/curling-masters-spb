@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
 
+<!-- 站点 Logo：默认 SVG，失败回退 PNG；height 如 '40px'，可空则交给 CSS -->
+<img th:fragment="site-logo(height)"
+     th:src="@{/images/Logo Trsp Stripe.svg}"
+     th:data-fallback="@{/images/Logo Trsp Stripe.png}"
+     th:style="${height != null and !#strings.isEmpty(height) ? 'height: ' + height + ';' : null}"
+     alt="Curling Masters Logo"
+     onerror="if(this.dataset.fallback){var f=this.dataset.fallback;this.removeAttribute('data-fallback');this.onerror=null;this.src=f;}">
+
 <!-- 公共头部片段 -->
 <head th:fragment="head(title)">
     <meta charset="UTF-8">
@@ -155,7 +163,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
         <div class="container">
             <a class="navbar-brand" href="/">
-                <img th:src="@{/images/Logo Trsp Stripe.png}" alt="Curling Masters Logo" style="height: 40px;">
+                <img th:replace="~{fragments :: site-logo('40px')}">
             </a>
             <!-- 桌面端语言选择（窄屏隐藏，放到侧边栏） -->
             <div class="d-none d-lg-flex align-items-center gap-2 ms-auto me-2 flex-shrink-0">
@@ -222,7 +230,7 @@
 <nav th:fragment="navbar-login" class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
         <a class="navbar-brand" href="/">
-            <img th:src="@{/images/Logo Trsp Stripe.png}" alt="Curling Masters Logo" style="height: 40px;">
+            <img th:replace="~{fragments :: site-logo('40px')}">
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavLogin">
             <span class="navbar-toggler-icon"></span>
