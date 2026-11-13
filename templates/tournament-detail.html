@@ -863,34 +863,40 @@
                                             <div class="col-12">
                                                 <div class="border rounded p-2 bg-light">
                                                     <div class="small fw-semibold mb-2">各阶段淘汰赛截止时间
-                                                        <span class="text-muted fw-normal">（留空=不限制；截止后仅办赛人员可录分，并自动验收）</span>
+                                                        <span class="text-muted fw-normal">（按当前「淘汰赛首轮」实际轮次显示；留空=不限制；截止后仅办赛人员可录分，并自动验收）</span>
                                                     </div>
-                                                    <div class="row g-2">
-                                                        <div class="col-md-2 col-6">
+                                                    <div class="row g-2" id="knockoutDeadlineFields">
+                                                        <div class="col-md-2 col-6 knockout-deadline-field d-none" data-ko-round="16">
                                                             <label class="form-label small mb-1">1/16决赛</label>
                                                             <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound16Deadline"
                                                                    th:value="${competitionConfig != null and competitionConfig.knockoutRound16Deadline != null ? #temporals.format(competitionConfig.knockoutRound16Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
                                                         </div>
-                                                        <div class="col-md-2 col-6">
+                                                        <div class="col-md-2 col-6 knockout-deadline-field d-none" data-ko-round="8">
                                                             <label class="form-label small mb-1">1/8决赛</label>
                                                             <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound8Deadline"
                                                                    th:value="${competitionConfig != null and competitionConfig.knockoutRound8Deadline != null ? #temporals.format(competitionConfig.knockoutRound8Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
                                                         </div>
-                                                        <div class="col-md-2 col-6">
+                                                        <div class="col-md-2 col-6 knockout-deadline-field d-none" data-ko-round="4">
                                                             <label class="form-label small mb-1">1/4决赛</label>
                                                             <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound4Deadline"
                                                                    th:value="${competitionConfig != null and competitionConfig.knockoutRound4Deadline != null ? #temporals.format(competitionConfig.knockoutRound4Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
                                                         </div>
-                                                        <div class="col-md-2 col-6">
+                                                        <div class="col-md-2 col-6 knockout-deadline-field d-none" data-ko-round="2">
                                                             <label class="form-label small mb-1">半决赛</label>
                                                             <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound2Deadline"
                                                                    th:value="${competitionConfig != null and competitionConfig.knockoutRound2Deadline != null ? #temporals.format(competitionConfig.knockoutRound2Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
                                                         </div>
-                                                        <div class="col-md-2 col-6">
+                                                        <div class="col-md-2 col-6 knockout-deadline-field d-none" data-ko-round="1">
                                                             <label class="form-label small mb-1">决赛（金/铜）</label>
                                                             <input type="datetime-local" class="form-control form-control-sm" name="knockoutRound1Deadline"
                                                                    th:value="${competitionConfig != null and competitionConfig.knockoutRound1Deadline != null ? #temporals.format(competitionConfig.knockoutRound1Deadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
                                                         </div>
+                                                        <div class="col-md-3 col-6 knockout-deadline-qualifier d-none" id="knockoutQualifierDeadlineField">
+                                                            <label class="form-label small mb-1">首轮附加资格赛</label>
+                                                            <input type="datetime-local" class="form-control form-control-sm" name="knockoutQualifierDeadline"
+                                                                   th:value="${competitionConfig != null and competitionConfig.knockoutQualifierDeadline != null ? #temporals.format(competitionConfig.knockoutQualifierDeadline, 'yyyy-MM-dd''T''HH:mm') : ''}">
+                                                        </div>
+                                                        <div class="col-12 small text-muted d-none" id="knockoutDeadlineEmptyHint">请先选择「淘汰赛首轮」后再设置各阶段截止时间。</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1037,23 +1043,27 @@
                                                 <strong>小组赛截止时间：</strong>
                                                 <span th:text="${#temporals.format(competitionConfig.groupStageDeadline, 'yyyy-MM-dd HH:mm')}"></span>
                                             </div>
-                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound16Deadline != null}">
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.qualifierRound != null and competitionConfig.knockoutQualifierDeadline != null}">
+                                                <strong>首轮附加资格赛截止：</strong>
+                                                <span th:text="${#temporals.format(competitionConfig.knockoutQualifierDeadline, 'yyyy-MM-dd HH:mm')}"></span>
+                                            </div>
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound16Deadline != null and competitionConfig.knockoutStartRound != null and competitionConfig.knockoutStartRound >= 16}">
                                                 <strong>1/16决赛截止：</strong>
                                                 <span th:text="${#temporals.format(competitionConfig.knockoutRound16Deadline, 'yyyy-MM-dd HH:mm')}"></span>
                                             </div>
-                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound8Deadline != null}">
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound8Deadline != null and competitionConfig.knockoutStartRound != null and competitionConfig.knockoutStartRound >= 8}">
                                                 <strong>1/8决赛截止：</strong>
                                                 <span th:text="${#temporals.format(competitionConfig.knockoutRound8Deadline, 'yyyy-MM-dd HH:mm')}"></span>
                                             </div>
-                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound4Deadline != null}">
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound4Deadline != null and competitionConfig.knockoutStartRound != null and competitionConfig.knockoutStartRound >= 4}">
                                                 <strong>1/4决赛截止：</strong>
                                                 <span th:text="${#temporals.format(competitionConfig.knockoutRound4Deadline, 'yyyy-MM-dd HH:mm')}"></span>
                                             </div>
-                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound2Deadline != null}">
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound2Deadline != null and competitionConfig.knockoutStartRound != null and competitionConfig.knockoutStartRound >= 2}">
                                                 <strong>半决赛截止：</strong>
                                                 <span th:text="${#temporals.format(competitionConfig.knockoutRound2Deadline, 'yyyy-MM-dd HH:mm')}"></span>
                                             </div>
-                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound1Deadline != null}">
+                                            <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.knockoutRound1Deadline != null and competitionConfig.knockoutStartRound != null}">
                                                 <strong>决赛截止：</strong>
                                                 <span th:text="${#temporals.format(competitionConfig.knockoutRound1Deadline, 'yyyy-MM-dd HH:mm')}"></span>
                                             </div>
@@ -2259,6 +2269,45 @@
             return String(v);
         }
 
+        /** 从首轮到决赛的实际轮次，如 8 → [8,4,2,1] */
+        function knockoutRoundsFromStart(start) {
+            const n = Number(start);
+            if (![16, 8, 4, 2].includes(n)) return [];
+            const rounds = [];
+            let r = n;
+            while (r >= 1) {
+                rounds.push(r);
+                if (r === 1) break;
+                r = r / 2;
+            }
+            return rounds;
+        }
+
+        function syncKnockoutDeadlineFields() {
+            const select = document.getElementById('knockoutStartRoundSelect');
+            const qualifierSwitch = document.getElementById('qualifierEnabledSwitch');
+            const hint = document.getElementById('knockoutDeadlineEmptyHint');
+            const qField = document.getElementById('knockoutQualifierDeadlineField');
+            const fields = document.querySelectorAll('#knockoutDeadlineFields .knockout-deadline-field');
+            if (!fields.length) return;
+            const start = select ? select.value : '';
+            const active = new Set(knockoutRoundsFromStart(start));
+            fields.forEach(el => {
+                const round = Number(el.getAttribute('data-ko-round'));
+                const show = active.has(round);
+                el.classList.toggle('d-none', !show);
+                const input = el.querySelector('input');
+                if (input) input.disabled = !show;
+            });
+            const showQualifier = !!(qualifierSwitch && qualifierSwitch.checked && active.size > 0);
+            if (qField) {
+                qField.classList.toggle('d-none', !showQualifier);
+                const qInput = qField.querySelector('input');
+                if (qInput) qInput.disabled = !showQualifier;
+            }
+            if (hint) hint.classList.toggle('d-none', active.size > 0);
+        }
+
         function syncQualifierQuotaRow() {
             const row = document.getElementById('qualifierQuotaRow');
             const setsRow = document.getElementById('qualifierSetsRow');
@@ -2320,6 +2369,7 @@
             if (qualifierSwitch && qualifierSwitch.checked && !select.value) {
                 qualifierSwitch.checked = false;
             }
+            syncKnockoutDeadlineFields();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -2379,6 +2429,15 @@
                 entryModeSel.addEventListener('change', syncQualifierQuotaRow);
             }
             syncQualifierQuotaRow();
+            const koStartSelect = document.getElementById('knockoutStartRoundSelect');
+            if (koStartSelect) {
+                koStartSelect.addEventListener('change', syncKnockoutDeadlineFields);
+            }
+            const qualifierSwitchEl = document.getElementById('qualifierEnabledSwitch');
+            if (qualifierSwitchEl) {
+                qualifierSwitchEl.addEventListener('change', syncKnockoutDeadlineFields);
+            }
+            syncKnockoutDeadlineFields();
             const parseGroupTokens = (raw) => {
                 if (!raw) return [];
                 const out = [];

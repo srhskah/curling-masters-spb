@@ -52,6 +52,7 @@ public class TournamentCompetitionController {
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound4Deadline,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound2Deadline,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound1Deadline,
+                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutQualifierDeadline,
                              @RequestParam(required = false) Integer groupStageSets,
                              @RequestParam(required = false) Integer knockoutStageSets,
                              @RequestParam(required = false) Integer finalStageSets,
@@ -118,6 +119,8 @@ public class TournamentCompetitionController {
             c.setKnockoutRound4Deadline(knockoutRound4Deadline);
             c.setKnockoutRound2Deadline(knockoutRound2Deadline);
             c.setKnockoutRound1Deadline(knockoutRound1Deadline);
+            c.setKnockoutQualifierDeadline(qualifierEnabled ? knockoutQualifierDeadline : null);
+            c.setSyncKnockoutDeadlines(true);
             c.setGroupStageSets(groupStageSets);
             c.setKnockoutStageSets(knockoutStageSets);
             c.setFinalStageSets(finalStageSets);

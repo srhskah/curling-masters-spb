@@ -102,12 +102,25 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (form.getGroupSize() != null) db.setGroupSize(form.getGroupSize());
         if (form.getGroupAllowDraw() != null) db.setGroupAllowDraw(form.getGroupAllowDraw());
         if (form.getGroupStageDeadline() != null) db.setGroupStageDeadline(form.getGroupStageDeadline());
-        // 与小组赛截止一致：仅有值时写入，避免局部 saveConfig 补丁把已有截止清空
-        if (form.getKnockoutRound16Deadline() != null) db.setKnockoutRound16Deadline(form.getKnockoutRound16Deadline());
-        if (form.getKnockoutRound8Deadline() != null) db.setKnockoutRound8Deadline(form.getKnockoutRound8Deadline());
-        if (form.getKnockoutRound4Deadline() != null) db.setKnockoutRound4Deadline(form.getKnockoutRound4Deadline());
-        if (form.getKnockoutRound2Deadline() != null) db.setKnockoutRound2Deadline(form.getKnockoutRound2Deadline());
-        if (form.getKnockoutRound1Deadline() != null) db.setKnockoutRound1Deadline(form.getKnockoutRound1Deadline());
+        if (Boolean.TRUE.equals(form.getSyncKnockoutDeadlines())) {
+            // 赛事配置表单：按实际淘汰轮次写入/清空截止；附加资格赛截止与正赛首轮独立
+            java.util.Set<Integer> active = new java.util.HashSet<>(
+                    TournamentCompetitionConfig.knockoutRoundsFromStart(form.getKnockoutStartRound()));
+            db.setKnockoutRound16Deadline(active.contains(16) ? form.getKnockoutRound16Deadline() : null);
+            db.setKnockoutRound8Deadline(active.contains(8) ? form.getKnockoutRound8Deadline() : null);
+            db.setKnockoutRound4Deadline(active.contains(4) ? form.getKnockoutRound4Deadline() : null);
+            db.setKnockoutRound2Deadline(active.contains(2) ? form.getKnockoutRound2Deadline() : null);
+            db.setKnockoutRound1Deadline(active.contains(1) ? form.getKnockoutRound1Deadline() : null);
+            db.setKnockoutQualifierDeadline(form.getQualifierRound() != null ? form.getKnockoutQualifierDeadline() : null);
+        } else {
+            // 局部 patch：仅有值时写入，避免误清已有截止
+            if (form.getKnockoutRound16Deadline() != null) db.setKnockoutRound16Deadline(form.getKnockoutRound16Deadline());
+            if (form.getKnockoutRound8Deadline() != null) db.setKnockoutRound8Deadline(form.getKnockoutRound8Deadline());
+            if (form.getKnockoutRound4Deadline() != null) db.setKnockoutRound4Deadline(form.getKnockoutRound4Deadline());
+            if (form.getKnockoutRound2Deadline() != null) db.setKnockoutRound2Deadline(form.getKnockoutRound2Deadline());
+            if (form.getKnockoutRound1Deadline() != null) db.setKnockoutRound1Deadline(form.getKnockoutRound1Deadline());
+            if (form.getKnockoutQualifierDeadline() != null) db.setKnockoutQualifierDeadline(form.getKnockoutQualifierDeadline());
+        }
         if (form.getGroupStageSets() != null) db.setGroupStageSets(form.getGroupStageSets());
         if (form.getKnockoutStageSets() != null) db.setKnockoutStageSets(form.getKnockoutStageSets());
         if (form.getFinalStageSets() != null) db.setFinalStageSets(form.getFinalStageSets());
@@ -830,23 +843,24 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (cfg == null || match == null) {
             return false;
         }
-        Integer round = resolveKnockoutDeadlineRound(cfg, match);
-        if (round == null) {
-            return false;
+        LocalDateTime deadline;
+        if (MatchPhaseClassifier.isKnockoutQualifier(match)) {
+            // 附加资格赛使用独立截止，不再复用正赛首轮截止
+            deadline = cfg.getKnockoutQualifierDeadline();
+        } else {
+            Integer round = resolveKnockoutDeadlineRound(match);
+            if (round == null) {
+                return false;
+            }
+            deadline = cfg.getKnockoutDeadlineForRound(round);
         }
-        LocalDateTime deadline = cfg.getKnockoutDeadlineForRound(round);
         return deadline != null && LocalDateTime.now().isAfter(deadline);
     }
 
-    /**
-     * MAIN/FINAL 用 match.round；挂载的淘汰赛资格赛用赛事配置的首轮 round。
-     */
-    private Integer resolveKnockoutDeadlineRound(TournamentCompetitionConfig cfg, Match match) {
+    /** MAIN/FINAL 用 match.round；附加资格赛不走此方法。 */
+    private Integer resolveKnockoutDeadlineRound(Match match) {
         if (match == null) {
             return null;
-        }
-        if (MatchPhaseClassifier.isKnockoutQualifier(match)) {
-            return cfg != null ? cfg.getKnockoutStartRound() : null;
         }
         String pc = match.getPhaseCode();
         if (!"MAIN".equalsIgnoreCase(pc) && !"FINAL".equalsIgnoreCase(pc)) {
@@ -973,11 +987,26 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         }
         LocalDateTime now = LocalDateTime.now();
         boolean anyDue = false;
-        for (int round : List.of(16, 8, 4, 2, 1)) {
-            LocalDateTime d = cfg.getKnockoutDeadlineForRound(round);
-            if (d != null && !now.isBefore(d)) {
-                anyDue = true;
-                break;
+        if (cfg.getKnockoutQualifierDeadline() != null && !now.isBefore(cfg.getKnockoutQualifierDeadline())) {
+            anyDue = true;
+        }
+        if (!anyDue) {
+            for (int round : TournamentCompetitionConfig.knockoutRoundsFromStart(cfg.getKnockoutStartRound())) {
+                LocalDateTime d = cfg.getKnockoutDeadlineForRound(round);
+                if (d != null && !now.isBefore(d)) {
+                    anyDue = true;
+                    break;
+                }
+            }
+        }
+        // 兼容：未设首轮时仍按已有截止字段扫描
+        if (!anyDue && cfg.getKnockoutStartRound() == null) {
+            for (int round : List.of(16, 8, 4, 2, 1)) {
+                LocalDateTime d = cfg.getKnockoutDeadlineForRound(round);
+                if (d != null && !now.isBefore(d)) {
+                    anyDue = true;
+                    break;
+                }
             }
         }
         if (!anyDue) {

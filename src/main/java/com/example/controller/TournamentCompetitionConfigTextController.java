@@ -69,11 +69,24 @@ public class TournamentCompetitionConfigTextController {
         sb.append("每组人数: ").append(data.get("groupSize") != null ? data.get("groupSize") : "-").append("\n");
         sb.append("小组赛允许平局: ").append(data.get("groupAllowDraw") != null && (Boolean) data.get("groupAllowDraw") ? "是" : "否").append("\n");
         sb.append("小组赛截止时间: ").append(data.get("groupStageDeadline")).append("\n");
-        sb.append("1/16决赛截止: ").append(data.get("knockoutRound16Deadline")).append("\n");
-        sb.append("1/8决赛截止: ").append(data.get("knockoutRound8Deadline")).append("\n");
-        sb.append("1/4决赛截止: ").append(data.get("knockoutRound4Deadline")).append("\n");
-        sb.append("半决赛截止: ").append(data.get("knockoutRound2Deadline")).append("\n");
-        sb.append("决赛截止: ").append(data.get("knockoutRound1Deadline")).append("\n");
+        if (Boolean.TRUE.equals(data.get("showKnockoutQualifierDeadline"))) {
+            sb.append("首轮附加资格赛截止: ").append(data.get("knockoutQualifierDeadline")).append("\n");
+        }
+        if (Boolean.TRUE.equals(data.get("showKnockoutRound16Deadline"))) {
+            sb.append("1/16决赛截止: ").append(data.get("knockoutRound16Deadline")).append("\n");
+        }
+        if (Boolean.TRUE.equals(data.get("showKnockoutRound8Deadline"))) {
+            sb.append("1/8决赛截止: ").append(data.get("knockoutRound8Deadline")).append("\n");
+        }
+        if (Boolean.TRUE.equals(data.get("showKnockoutRound4Deadline"))) {
+            sb.append("1/4决赛截止: ").append(data.get("knockoutRound4Deadline")).append("\n");
+        }
+        if (Boolean.TRUE.equals(data.get("showKnockoutRound2Deadline"))) {
+            sb.append("半决赛截止: ").append(data.get("knockoutRound2Deadline")).append("\n");
+        }
+        if (Boolean.TRUE.equals(data.get("showKnockoutRound1Deadline"))) {
+            sb.append("决赛截止: ").append(data.get("knockoutRound1Deadline")).append("\n");
+        }
         sb.append("小组赛局数: ").append(data.get("groupStageSets")).append("\n");
         sb.append("淘汰赛局数: ").append(data.get("knockoutStageSets") != null ? data.get("knockoutStageSets") : "-").append("\n");
         sb.append("决赛局数: ").append(data.get("finalStageSets") != null ? data.get("finalStageSets") : "-").append("\n");

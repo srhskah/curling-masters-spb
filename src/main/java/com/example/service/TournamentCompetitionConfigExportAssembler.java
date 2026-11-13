@@ -122,11 +122,23 @@ public class TournamentCompetitionConfigExportAssembler {
             root.put("groupSize", config.getGroupSize());
             root.put("groupAllowDraw", config.getGroupAllowDraw());
             root.put("groupStageDeadline", config.getGroupStageDeadline() != null ? DT.format(config.getGroupStageDeadline()) : "-");
-            root.put("knockoutRound16Deadline", config.getKnockoutRound16Deadline() != null ? DT.format(config.getKnockoutRound16Deadline()) : "-");
-            root.put("knockoutRound8Deadline", config.getKnockoutRound8Deadline() != null ? DT.format(config.getKnockoutRound8Deadline()) : "-");
-            root.put("knockoutRound4Deadline", config.getKnockoutRound4Deadline() != null ? DT.format(config.getKnockoutRound4Deadline()) : "-");
-            root.put("knockoutRound2Deadline", config.getKnockoutRound2Deadline() != null ? DT.format(config.getKnockoutRound2Deadline()) : "-");
-            root.put("knockoutRound1Deadline", config.getKnockoutRound1Deadline() != null ? DT.format(config.getKnockoutRound1Deadline()) : "-");
+            java.util.Set<Integer> activeKo = new java.util.HashSet<>(
+                    TournamentCompetitionConfig.knockoutRoundsFromStart(config.getKnockoutStartRound()));
+            root.put("knockoutDeadlineRounds", activeKo);
+            root.put("knockoutRound16Deadline", activeKo.contains(16) && config.getKnockoutRound16Deadline() != null ? DT.format(config.getKnockoutRound16Deadline()) : "-");
+            root.put("knockoutRound8Deadline", activeKo.contains(8) && config.getKnockoutRound8Deadline() != null ? DT.format(config.getKnockoutRound8Deadline()) : "-");
+            root.put("knockoutRound4Deadline", activeKo.contains(4) && config.getKnockoutRound4Deadline() != null ? DT.format(config.getKnockoutRound4Deadline()) : "-");
+            root.put("knockoutRound2Deadline", activeKo.contains(2) && config.getKnockoutRound2Deadline() != null ? DT.format(config.getKnockoutRound2Deadline()) : "-");
+            root.put("knockoutRound1Deadline", activeKo.contains(1) && config.getKnockoutRound1Deadline() != null ? DT.format(config.getKnockoutRound1Deadline()) : "-");
+            root.put("knockoutQualifierDeadline",
+                    config.getQualifierRound() != null && config.getKnockoutQualifierDeadline() != null
+                            ? DT.format(config.getKnockoutQualifierDeadline()) : "-");
+            root.put("showKnockoutRound16Deadline", activeKo.contains(16));
+            root.put("showKnockoutRound8Deadline", activeKo.contains(8));
+            root.put("showKnockoutRound4Deadline", activeKo.contains(4));
+            root.put("showKnockoutRound2Deadline", activeKo.contains(2));
+            root.put("showKnockoutRound1Deadline", activeKo.contains(1));
+            root.put("showKnockoutQualifierDeadline", config.getQualifierRound() != null);
             root.put("groupStageSets", config.getGroupStageSets() != null ? config.getGroupStageSets() : 8);
             root.put("knockoutStageSets", config.getKnockoutStageSets());
             root.put("finalStageSets", config.getFinalStageSets());
@@ -155,11 +167,19 @@ public class TournamentCompetitionConfigExportAssembler {
             root.put("groupSize", null);
             root.put("groupAllowDraw", true);
             root.put("groupStageDeadline", "-");
+            root.put("knockoutDeadlineRounds", java.util.Set.of());
             root.put("knockoutRound16Deadline", "-");
             root.put("knockoutRound8Deadline", "-");
             root.put("knockoutRound4Deadline", "-");
             root.put("knockoutRound2Deadline", "-");
             root.put("knockoutRound1Deadline", "-");
+            root.put("knockoutQualifierDeadline", "-");
+            root.put("showKnockoutRound16Deadline", false);
+            root.put("showKnockoutRound8Deadline", false);
+            root.put("showKnockoutRound4Deadline", false);
+            root.put("showKnockoutRound2Deadline", false);
+            root.put("showKnockoutRound1Deadline", false);
+            root.put("showKnockoutQualifierDeadline", false);
             root.put("groupStageSets", 8);
             root.put("knockoutStageSets", null);
             root.put("finalStageSets", null);

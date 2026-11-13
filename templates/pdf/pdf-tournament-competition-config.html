@@ -143,21 +143,37 @@
         <td class="k">小组赛截止时间</td>
         <td class="v" th:text="${groupStageDeadline}">-</td>
     </tr>
-    <tr>
-        <td class="k">1/16决赛截止</td>
-        <td class="v" th:text="${knockoutRound16Deadline}">-</td>
-        <td class="k">1/8决赛截止</td>
-        <td class="v" th:text="${knockoutRound8Deadline}">-</td>
+    <tr th:if="${showKnockoutQualifierDeadline}">
+        <td class="k">首轮附加资格赛截止</td>
+        <td class="v" th:text="${knockoutQualifierDeadline}">-</td>
+        <td class="k"></td>
+        <td class="v"></td>
+    </tr>
+    <tr th:if="${showKnockoutRound16Deadline or showKnockoutRound8Deadline}">
+        <td class="k" th:if="${showKnockoutRound16Deadline}">1/16决赛截止</td>
+        <td class="v" th:if="${showKnockoutRound16Deadline}" th:text="${knockoutRound16Deadline}">-</td>
+        <td class="k" th:unless="${showKnockoutRound16Deadline}"></td>
+        <td class="v" th:unless="${showKnockoutRound16Deadline}"></td>
+        <td class="k" th:if="${showKnockoutRound8Deadline}">1/8决赛截止</td>
+        <td class="v" th:if="${showKnockoutRound8Deadline}" th:text="${knockoutRound8Deadline}">-</td>
+        <td class="k" th:unless="${showKnockoutRound8Deadline}"></td>
+        <td class="v" th:unless="${showKnockoutRound8Deadline}"></td>
+    </tr>
+    <tr th:if="${showKnockoutRound4Deadline or showKnockoutRound2Deadline}">
+        <td class="k" th:if="${showKnockoutRound4Deadline}">1/4决赛截止</td>
+        <td class="v" th:if="${showKnockoutRound4Deadline}" th:text="${knockoutRound4Deadline}">-</td>
+        <td class="k" th:unless="${showKnockoutRound4Deadline}"></td>
+        <td class="v" th:unless="${showKnockoutRound4Deadline}"></td>
+        <td class="k" th:if="${showKnockoutRound2Deadline}">半决赛截止</td>
+        <td class="v" th:if="${showKnockoutRound2Deadline}" th:text="${knockoutRound2Deadline}">-</td>
+        <td class="k" th:unless="${showKnockoutRound2Deadline}"></td>
+        <td class="v" th:unless="${showKnockoutRound2Deadline}"></td>
     </tr>
     <tr>
-        <td class="k">1/4决赛截止</td>
-        <td class="v" th:text="${knockoutRound4Deadline}">-</td>
-        <td class="k">半决赛截止</td>
-        <td class="v" th:text="${knockoutRound2Deadline}">-</td>
-    </tr>
-    <tr>
-        <td class="k">决赛截止</td>
-        <td class="v" th:text="${knockoutRound1Deadline}">-</td>
+        <td class="k" th:if="${showKnockoutRound1Deadline}">决赛截止</td>
+        <td class="v" th:if="${showKnockoutRound1Deadline}" th:text="${knockoutRound1Deadline}">-</td>
+        <td class="k" th:unless="${showKnockoutRound1Deadline}"></td>
+        <td class="v" th:unless="${showKnockoutRound1Deadline}"></td>
         <td class="k">小组赛局数</td>
         <td class="v" th:text="${groupStageSets}">-</td>
     </tr>

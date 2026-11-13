@@ -79,18 +79,28 @@ public class TournamentStatusScheduler {
                                 .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound8Deadline)
                                 .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound4Deadline)
                                 .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound2Deadline)
-                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound1Deadline))
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutRound1Deadline)
+                                .or().isNotNull(TournamentCompetitionConfig::getKnockoutQualifierDeadline))
         );
         for (TournamentCompetitionConfig cfg : configs) {
             if (cfg.getTournamentId() == null) {
                 continue;
             }
             boolean due = false;
-            for (int round : List.of(16, 8, 4, 2, 1)) {
-                LocalDateTime d = cfg.getKnockoutDeadlineForRound(round);
-                if (d != null && !now.isBefore(d)) {
-                    due = true;
-                    break;
+            if (cfg.getKnockoutQualifierDeadline() != null && !now.isBefore(cfg.getKnockoutQualifierDeadline())) {
+                due = true;
+            }
+            if (!due) {
+                List<Integer> rounds = TournamentCompetitionConfig.knockoutRoundsFromStart(cfg.getKnockoutStartRound());
+                if (rounds.isEmpty()) {
+                    rounds = List.of(16, 8, 4, 2, 1);
+                }
+                for (int round : rounds) {
+                    LocalDateTime d = cfg.getKnockoutDeadlineForRound(round);
+                    if (d != null && !now.isBefore(d)) {
+                        due = true;
+                        break;
+                    }
                 }
             }
             if (!due) {

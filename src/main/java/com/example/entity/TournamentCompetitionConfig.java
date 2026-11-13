@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -66,23 +68,34 @@ public class TournamentCompetitionConfig {
     /**
      * 1/16、1/8、1/4、半决赛、决赛（round=1 金/铜）截止时间；null 表示不限制。
      * 须显式列名：默认驼峰会把 Round16 变成 round16（无下划线），与迁移 knockout_round_16_deadline 不一致。
+     * updateStrategy=ALWAYS：赛事配置表单可清空未排程轮次的截止。
      */
-    @TableField("knockout_round_16_deadline")
+    @TableField(value = "knockout_round_16_deadline", updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime knockoutRound16Deadline;
-    @TableField("knockout_round_8_deadline")
+    @TableField(value = "knockout_round_8_deadline", updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime knockoutRound8Deadline;
-    @TableField("knockout_round_4_deadline")
+    @TableField(value = "knockout_round_4_deadline", updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime knockoutRound4Deadline;
-    @TableField("knockout_round_2_deadline")
+    @TableField(value = "knockout_round_2_deadline", updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime knockoutRound2Deadline;
-    @TableField("knockout_round_1_deadline")
+    @TableField(value = "knockout_round_1_deadline", updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime knockoutRound1Deadline;
+    /** 首轮淘汰赛附加资格赛截止；与正赛首轮截止独立。null=不限制。 */
+    @TableField(value = "knockout_qualifier_deadline", updateStrategy = FieldStrategy.ALWAYS)
+    private LocalDateTime knockoutQualifierDeadline;
     private Integer groupStageSets;
     private Integer knockoutStageSets;
     private Integer finalStageSets;
     private Boolean manualLocked;
 
-    /** 按淘汰赛 round 字段取对应截止时间；未知轮次返回 null。 */
+    /**
+     * 非表字段：为 true 时 saveConfig 按表单完整同步各轮截止（含清空）。
+     * 仅赛事详情配置表单提交时置位，避免测试/局部 patch 误清截止。
+     */
+    @TableField(exist = false)
+    private Boolean syncKnockoutDeadlines;
+
+    /** 按淘汰赛 round 字段取对应截止时间；未知轮次返回 null。不含附加资格赛。 */
     public LocalDateTime getKnockoutDeadlineForRound(Integer round) {
         if (round == null) {
             return null;
@@ -95,6 +108,36 @@ public class TournamentCompetitionConfig {
             case 1 -> knockoutRound1Deadline;
             default -> null;
         };
+    }
+
+    /**
+     * 从淘汰赛首轮到决赛的实际轮次（含首轮与决赛），如 8 → [8,4,2,1]。
+     * start 非法时返回空列表。
+     */
+    public static List<Integer> knockoutRoundsFromStart(Integer startRound) {
+        List<Integer> rounds = new ArrayList<>();
+        if (startRound == null || startRound < 1) {
+            return rounds;
+        }
+        int r = startRound;
+        // 仅支持标准 2 的幂：16/8/4/2/1
+        while (r >= 1) {
+            if (r == 16 || r == 8 || r == 4 || r == 2 || r == 1) {
+                rounds.add(r);
+            } else {
+                rounds.clear();
+                return rounds;
+            }
+            if (r == 1) {
+                break;
+            }
+            r = r / 2;
+        }
+        return rounds;
+    }
+
+    public boolean hasScheduledKnockoutRound(Integer round) {
+        return knockoutRoundsFromStart(knockoutStartRound).contains(round);
     }
 
     /** 资格赛局数，默认 8 */
