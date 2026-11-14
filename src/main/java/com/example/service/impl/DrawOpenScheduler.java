@@ -15,7 +15,8 @@ public class DrawOpenScheduler {
     @Autowired
     private DrawManagementService drawManagementService;
 
-    @Scheduled(cron = "0 * * * * ?")
+    /** 每 2 分钟：报名截止后自动开放抽签（无需每分钟空扫）。 */
+    @Scheduled(cron = "0 */2 * * * ?")
     public void openDrawsAfterRegistrationDeadline() {
         drawManagementService.openPendingDrawsAfterDeadline(LocalDateTime.now());
     }

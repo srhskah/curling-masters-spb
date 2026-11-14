@@ -552,29 +552,30 @@ public class TournamentLifecycleNotificationService {
         }
     }
 
-    /** 每分钟：报名已截止但尚未发送办赛汇总的赛事补发一次（幂等靠 sourceType+sourceRefId）。 */
-    @Scheduled(cron = "0 * * * * ?")
+    /** 每 5 分钟：报名已截止且尚未发过办赛汇总时补发（先廉价查重，避免每分钟 listRows/preview）。 */
+    @Scheduled(cron = "0 */5 * * * ?")
     public void scanRegistrationClosedNotices() {
         LocalDateTime now = LocalDateTime.now();
         List<Tournament> tournaments;
         try {
-            tournaments = tournamentService.list();
+            tournaments = tournamentService.lambdaQuery()
+                    .in(Tournament::getStatus, List.of(0, 1))
+                    .list();
         } catch (Exception ex) {
             log.warn("报名截止扫描失败", ex);
             return;
         }
-        if (tournaments == null) {
+        if (tournaments == null || tournaments.isEmpty()) {
             return;
         }
         for (Tournament t : tournaments) {
             if (t == null || t.getId() == null) {
                 continue;
             }
-            // 仅筹备中/进行中，避免对已归档历史赛事批量补发
-            if (t.getStatus() == null || (t.getStatus() != 0 && t.getStatus() != 1)) {
-                continue;
-            }
             try {
+                if (notificationService.hasPublishedBySource(SRC_REGISTRATION_CLOSE, t.getId())) {
+                    continue;
+                }
                 TournamentRegistrationSetting s = registrationService.getSetting(t.getId());
                 if (s == null || !Boolean.TRUE.equals(s.getEnabled()) || s.getDeadline() == null) {
                     continue;

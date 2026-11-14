@@ -17,7 +17,10 @@
         </div>
         <div class="mb-3">
             <label class="form-label">正文（Markdown）</label>
-            <p class="form-text text-muted small mb-2">请使用 Markdown 模式编辑表格（已关闭所见即所得切换，避免表格换行丢失与字符被转义）。</p>
+            <p class="form-text text-muted small mb-2">
+                可在「Markdown / 所见即所得」间切换。链接、图片、表格等保存后按 Markdown 渲染；
+                若所见即所得往返弄乱表格分隔符，切换回 Markdown 或保存时会自动修复。
+            </p>
             <div class="notification-md-editor-wrap">
                 <textarea id="contentMarkdown" name="contentMarkdown" class="form-control" rows="12" th:text="${message.contentMarkdown}"></textarea>
             </div>
@@ -130,16 +133,45 @@
             height: '420px',
             initialEditType: 'markdown',
             previewStyle: 'vertical',
-            hideModeSwitch: true,
+            hideModeSwitch: false,
+            usageStatistics: false,
             initialValue: initial
         });
-        const syncMarkdownToTextarea = () => {
+
+        let repairing = false;
+        const syncMarkdownToTextarea = (opts) => {
+            const rewriteEditor = !opts || opts.rewriteEditor !== false;
             let md = editor.getMarkdown();
             md = repairMarkdownTables(md != null ? md : '');
             ta.value = md;
+            if (!rewriteEditor || repairing) {
+                return md;
+            }
+            const cur = editor.getMarkdown();
+            if (md !== (cur != null ? cur : '')) {
+                repairing = true;
+                try {
+                    editor.setMarkdown(md);
+                } finally {
+                    repairing = false;
+                }
+            }
+            return md;
         };
-        form.addEventListener('submit', syncMarkdownToTextarea, true);
-        form.addEventListener('submit', syncMarkdownToTextarea, false);
+
+        // Toast 在 WYSIWYG↔Markdown 转换后常过度转义表格；切换完成后立刻修复
+        if (typeof editor.on === 'function') {
+            editor.on('changeMode', () => {
+                setTimeout(() => syncMarkdownToTextarea({ rewriteEditor: true }), 0);
+            });
+        }
+
+        form.addEventListener('submit', () => {
+            syncMarkdownToTextarea({ rewriteEditor: true });
+        }, true);
+        form.addEventListener('submit', () => {
+            syncMarkdownToTextarea({ rewriteEditor: false });
+        }, false);
     })();
 </script>
 </body>

@@ -913,6 +913,18 @@ public class NotificationMessageServiceImpl implements INotificationService {
     }
 
     @Override
+    public boolean hasPublishedBySource(String sourceType, Long sourceRefId) {
+        if (sourceType == null || sourceType.isBlank() || sourceRefId == null) {
+            return false;
+        }
+        Long cnt = messageMapper.selectCount(Wrappers.<NotificationMessage>lambdaQuery()
+                .eq(NotificationMessage::getSourceType, sourceType)
+                .eq(NotificationMessage::getSourceRefId, sourceRefId)
+                .eq(NotificationMessage::getPublished, true));
+        return cnt != null && cnt > 0;
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void replaceRecipients(Long messageId, Collection<Long> userIds) {
         if (messageId == null) {

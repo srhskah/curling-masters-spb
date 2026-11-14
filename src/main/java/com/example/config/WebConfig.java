@@ -1,5 +1,6 @@
 package com.example.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -13,6 +14,10 @@ import java.util.TimeZone;
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
+
+    /** 0=开发不缓存；生产 application-prod 设 86400，样式文件不变时减少重复读盘/压缩 CPU */
+    @Value("${app.static-cache-seconds:0}")
+    private int staticCacheSeconds;
 
     @PostConstruct
     public void init() {
@@ -32,26 +37,23 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        int cache = Math.max(0, staticCacheSeconds);
         // 外置 /app/static 优先（docker-compose 挂载工程根目录 static/），否则改 CSS/JS 刷新无效
         registry.addResourceHandler("/static/**")
-                // .addResourceLocations("file:/app/static/", "classpath:/static/")
                 .addResourceLocations("file:/app/static/")
-                .setCachePeriod(0);
-        
+                .setCachePeriod(cache);
+
         registry.addResourceHandler("/css/**")
-                // .addResourceLocations("file:/app/static/css/", "classpath:/static/css/")
                 .addResourceLocations("file:/app/static/css/")
-                .setCachePeriod(0);
-        
+                .setCachePeriod(cache);
+
         registry.addResourceHandler("/js/**")
-                // .addResourceLocations("file:/app/static/js/", "classpath:/static/js/")
                 .addResourceLocations("file:/app/static/js/")
-                .setCachePeriod(0);
-        
+                .setCachePeriod(cache);
+
         registry.addResourceHandler("/images/**")
-                // .addResourceLocations("file:/app/static/images/", "classpath:/static/images/")
                 .addResourceLocations("file:/app/static/images/")
-                .setCachePeriod(0);
+                .setCachePeriod(cache);
     }
-    
+
 }

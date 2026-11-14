@@ -978,6 +978,10 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
                 .eq(Match::getPhaseCode, "GROUP")
                 .eq(Match::getResultLocked, false)
                 .list();
+        // 截止后无未锁定场次时直接返回，避免每分钟全量重算积分打满 CPU
+        if (matches == null || matches.isEmpty()) {
+            return;
+        }
         for (Match m : matches) {
             acceptMatchScore(superAdmin, m.getId(), "SYSTEM_AUTO_ACCEPT");
         }

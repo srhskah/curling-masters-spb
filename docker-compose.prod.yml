@@ -13,19 +13,18 @@ services:
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - FLYWAY_REPAIR_ON_MIGRATE=true
-      # 生产环境JVM参数
-      - JAVA_OPTS=-Xmx2g -Xms1g -XX:+UseG1GC -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/heapdump.hprof
-      # 生产环境配置
+      # 2c4g 生产：堆不超过 768m，留给 MySQL/OS；勿用 Xmx2g / MaxRAMPercentage=75
+      - JAVA_OPTS=-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseContainerSupport -XX:ActiveProcessorCount=2 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/app/heapdump.hprof -XX:+ExitOnOutOfMemoryError
       - SPRING_PROFILES_ACTIVE=prod
       - LOGGING_LEVEL_ROOT=WARN
       - LOGGING_LEVEL_COM_EXAMPLE=INFO
-    command: java -Duser.timezone=Asia/Shanghai -jar /app/app.jar
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - app-network
     restart: unless-stopped
+    mem_limit: 1280m
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s

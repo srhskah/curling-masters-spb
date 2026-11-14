@@ -87,4 +87,7 @@ public interface INotificationService {
      * 将指定通知的收件人重置为给定用户集合（历史受众纠偏用；保留已有已读时间）。
      */
     void replaceRecipients(Long messageId, java.util.Collection<Long> userIds);
+
+    /** 是否已存在指定 sourceType + sourceRefId 的已发布通知（定时扫描短路用）。 */
+    boolean hasPublishedBySource(String sourceType, Long sourceRefId);
 }
