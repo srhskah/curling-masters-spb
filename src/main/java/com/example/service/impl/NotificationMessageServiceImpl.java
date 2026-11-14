@@ -238,6 +238,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
         if (viewer == null || viewer.getId() == null) {
             return Boolean.TRUE.equals(message.getPublishToHome());
         }
+        // 详情权限与收件箱一致：公共或本人收件；办赛身份不额外放行他人私信
         Set<Long> scoped = resolveScopedTournamentIds(viewer.getId());
         Set<Long> knownTournamentIds = resolveKnownTournamentIdsAmong(
                 message.getSourceRefId() == null ? Set.of() : Set.of(message.getSourceRefId()));
@@ -384,8 +385,8 @@ public class NotificationMessageServiceImpl implements INotificationService {
     /**
      * 普通用户可读规则：
      * - 公共首页通知；
-     * - 本人收件且（非赛事关联 / 关联赛事在本人报名或主办范围内）；
-     * 不按赛事 ID 拉取他人定向通知，避免泄露分组等私信。
+     * - 本人收件（含办赛汇总、对阵/积分等定向通知；显式收件即有权阅读，勿再卡报名/主办范围）；
+     * 列表侧不按赛事 ID 拉取他人定向通知，避免泄露分组等私信。
      */
     private boolean canReadInternal(NotificationMessage message,
                                     Set<Long> scopedTournamentIds,
@@ -397,19 +398,8 @@ public class NotificationMessageServiceImpl implements INotificationService {
         if (Boolean.TRUE.equals(message.getPublishToHome())) {
             return true;
         }
-        if (!isRecipient) {
-            return false;
-        }
-        Long ref = message.getSourceRefId();
-        if (ref == null) {
-            return true;
-        }
-        boolean tournamentLinked = knownTournamentIds != null && knownTournamentIds.contains(ref);
-        if (!tournamentLinked) {
-            // 非赛事引用（如忘记密码的用户 ID）：收件人可见
-            return true;
-        }
-        return scopedTournamentIds != null && scopedTournamentIds.contains(ref);
+        // scopedTournamentIds / knownTournamentIds 保留参数供列表组装侧使用；读权限以收件关系为准
+        return isRecipient;
     }
 
     @Override
@@ -879,5 +869,85 @@ public class NotificationMessageServiceImpl implements INotificationService {
         }
         
         return Optional.ofNullable(recipient);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updatePublishedContent(Long messageId, String markdown) {
+        if (messageId == null) {
+            return;
+        }
+        NotificationMessage m = messageMapper.selectById(messageId);
+        if (m == null) {
+            return;
+        }
+        String md = MarkdownUtils.normalizeMarkdownLineBreaks(markdown == null ? "" : markdown.trim());
+        m.setContentMarkdown(md);
+        m.setContentHtml(renderHtml(md));
+        messageMapper.updateById(m);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int reRenderAllPublishedHtml() {
+        List<NotificationMessage> list = messageMapper.selectList(Wrappers.<NotificationMessage>lambdaQuery()
+                .eq(NotificationMessage::getPublished, true)
+                .isNotNull(NotificationMessage::getContentMarkdown));
+        if (list == null || list.isEmpty()) {
+            return 0;
+        }
+        int updated = 0;
+        for (NotificationMessage m : list) {
+            if (m == null || m.getId() == null) {
+                continue;
+            }
+            String html = renderHtml(m.getContentMarkdown());
+            if (Objects.equals(html, m.getContentHtml())) {
+                continue;
+            }
+            m.setContentHtml(html);
+            messageMapper.updateById(m);
+            updated++;
+        }
+        return updated;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void replaceRecipients(Long messageId, Collection<Long> userIds) {
+        if (messageId == null) {
+            return;
+        }
+        LinkedHashSet<Long> wanted = new LinkedHashSet<>();
+        if (userIds != null) {
+            for (Long uid : userIds) {
+                if (uid != null) {
+                    wanted.add(uid);
+                }
+            }
+        }
+        List<NotificationRecipient> existing = recipientMapper.selectList(Wrappers.<NotificationRecipient>lambdaQuery()
+                .eq(NotificationRecipient::getMessageId, messageId));
+        Map<Long, NotificationRecipient> byUser = new HashMap<>();
+        if (existing != null) {
+            for (NotificationRecipient r : existing) {
+                if (r == null || r.getUserId() == null) {
+                    continue;
+                }
+                byUser.put(r.getUserId(), r);
+                if (!wanted.contains(r.getUserId())) {
+                    recipientMapper.deleteById(r.getId());
+                }
+            }
+        }
+        for (Long uid : wanted) {
+            if (byUser.containsKey(uid)) {
+                continue;
+            }
+            NotificationRecipient nr = new NotificationRecipient();
+            nr.setMessageId(messageId);
+            nr.setUserId(uid);
+            recipientMapper.insert(nr);
+        }
     }
 }

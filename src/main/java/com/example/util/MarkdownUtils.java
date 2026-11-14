@@ -639,7 +639,9 @@ public final class MarkdownUtils {
         String source = normalizeMarkdownLineBreaks(markdown == null ? "" : markdown);
         Node document = PARSER.parse(source);
         String unsafe = RENDERER.render(document);
+        // preserveRelativeLinks：否则 Jsoup 会剥掉 /path 相对链接的 href，只剩 <a>文字</a>
         Safelist allow = Safelist.relaxed()
+                .preserveRelativeLinks(true)
                 .addTags("del", "input", "figure", "figcaption")
                 .addAttributes("input", "type", "disabled", "checked", "class", "readonly")
                 .addAttributes("del", "class")
@@ -647,7 +649,8 @@ public final class MarkdownUtils {
                 .addAttributes("td", "colspan", "rowspan", "align");
         allow.addAttributes(":all", "class", "id");
         allow.addTags("br");
-        String cleaned = Jsoup.clean(unsafe, allow);
+        // baseUri 不能为空：Jsoup 在空 base 下仍会丢掉以 / 开头的相对 href
+        String cleaned = Jsoup.clean(unsafe, "https://local.invalid", allow);
         return repairSplitListPlaceholderInHtml(cleaned);
     }
 

@@ -43,6 +43,8 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
     @Autowired
     private INotificationService notificationService;
     @Autowired
+    private TournamentUrlService tournamentUrlService;
+    @Autowired
     private TournamentCompetitionConfigMapper competitionConfigMapper;
     @Autowired
     private TournamentRankingRosterService tournamentRankingRosterService;
@@ -220,7 +222,8 @@ public class TournamentRegistrationServiceImpl implements ITournamentRegistratio
         if (!wasEnabled && enabledNow) {
             String title = "赛事报名已开启";
             String markdown = "赛事 **" + safeTournamentName(t) + "** 已开启报名。\n\n"
-                    + "请前往赛事页面查看并完成报名。";
+                    + "请前往赛事页面查看并完成报名。\n\n"
+                    + "[查看赛事](" + tournamentUrlService.detailUrl(t) + ")\n";
             notificationService.sendSystemNotification(title, markdown, "REGISTRATION_OPEN", tid);
         }
     }

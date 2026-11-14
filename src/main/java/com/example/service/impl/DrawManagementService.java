@@ -1312,7 +1312,7 @@ public class DrawManagementService {
     }
 
     /**
-     * 抽签开始/完成面向参赛者；未参赛的办赛人员（主办等）不接收此类通知。
+     * 抽签开始/完成：参赛抽签者收个人向入口；未参赛办赛人员收同内容汇总（已参赛办赛人员只在抽签者名单中出现一次）。
      */
     private List<Long> buildDrawNotificationRecipients(Long tournamentId, DrawPool pool) {
         Map<String, Object> cfg = getDrawConfig(tournamentId, pool);
@@ -1326,6 +1326,20 @@ public class DrawManagementService {
                 }
             }
         }
+        Tournament tournament = tournamentService.getById(tournamentId);
+        LinkedHashSet<Long> staff = new LinkedHashSet<>();
+        List<User> organizers = userService.lambdaQuery().in(User::getRole, List.of(0, 1)).list();
+        if (organizers != null) {
+            for (User u : organizers) {
+                if (u != null && u.getId() != null && !ids.contains(u.getId())) {
+                    staff.add(u.getId());
+                }
+            }
+        }
+        if (tournament != null && tournament.getHostUserId() != null && !ids.contains(tournament.getHostUserId())) {
+            staff.add(tournament.getHostUserId());
+        }
+        ids.addAll(staff);
         return new ArrayList<>(ids);
     }
 
@@ -1622,19 +1636,17 @@ public class DrawManagementService {
             }
             String pdf = "/tournament/" + tournamentId + "/draw/export/pdf?pool=" + poolName;
             staff.append("[下载抽签结果PDF](").append(pdf).append(")\n");
-            // 办赛人员若也参赛：只收上面的个人分组通知，不收办赛汇总
+            // 抽签结果汇总：全体办赛人员（含已参赛）；参赛者另收个人分组通知
             LinkedHashSet<Long> staffIds = new LinkedHashSet<>();
-            Set<Long> participantIds = new LinkedHashSet<>(userIds);
             List<User> organizers = userService.lambdaQuery().in(User::getRole, List.of(0, 1)).list();
             if (organizers != null) {
                 for (User u : organizers) {
-                    if (u != null && u.getId() != null && !participantIds.contains(u.getId())) {
+                    if (u != null && u.getId() != null) {
                         staffIds.add(u.getId());
                     }
                 }
             }
-            if (tournament != null && tournament.getHostUserId() != null
-                    && !participantIds.contains(tournament.getHostUserId())) {
+            if (tournament != null && tournament.getHostUserId() != null) {
                 staffIds.add(tournament.getHostUserId());
             }
             if (!staffIds.isEmpty()) {

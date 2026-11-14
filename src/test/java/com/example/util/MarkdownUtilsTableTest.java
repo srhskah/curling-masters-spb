@@ -30,4 +30,13 @@ class MarkdownUtilsTableTest {
         String html = MarkdownUtils.markdownToSafeHtml(escaped);
         assertTrue(html.contains("<table"), html);
     }
+
+    @Test
+    void keepsRelativeMarkdownLinks() {
+        String html = MarkdownUtils.markdownToSafeHtml("[查看赛事](/tnd/260206/CM1000)\n\n[下载抽签结果PDF](/tournament/1/draw/export/pdf?pool=MAIN)");
+        assertTrue(html.contains("href=\"/tnd/260206/CM1000\""), html);
+        assertTrue(html.contains("href=\"/tournament/1/draw/export/pdf?pool=MAIN\""), html);
+        assertTrue(html.contains(">查看赛事</a>"), html);
+        assertTrue(html.contains(">下载抽签结果PDF</a>"), html);
+    }
 }

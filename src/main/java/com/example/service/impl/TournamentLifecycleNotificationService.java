@@ -2,6 +2,8 @@ package com.example.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.example.dto.RankingEntry;
+import com.example.dto.TournamentRegistrationPreviewDto;
+import com.example.dto.TournamentRegistrationRowDto;
 import com.example.entity.*;
 import com.example.mapper.TournamentCompetitionConfigMapper;
 import com.example.mapper.TournamentGroupMapper;
@@ -31,11 +33,14 @@ public class TournamentLifecycleNotificationService {
 
     private static final String SRC_GROUP_END_PLAYER = "T_GE_P";
     private static final String SRC_GROUP_END_STAFF = "T_GE_S";
+    /** 单组完赛汇总（未参赛办赛人员）；sourceRefId = groupId */
+    private static final String SRC_GROUP_ONE_STAFF = "T_GE_G";
     private static final String SRC_KO_PAIR = "T_KO_P";
     private static final String SRC_POINTS_PLAYER = "T_PTS_P";
     private static final String SRC_KO_ROUND_STAFF = "T_KS_";
     private static final String SRC_TOURNAMENT_END_STAFF = "T_END_S";
     private static final String SRC_DEADLINE_PREFIX = "T_DDL_";
+    private static final String SRC_REGISTRATION_CLOSE = "REGISTRATION_CLOSE";
 
     @Autowired private INotificationService notificationService;
     @Autowired private TournamentService tournamentService;
@@ -54,6 +59,7 @@ public class TournamentLifecycleNotificationService {
     @Autowired private RankingService rankingService;
     @Autowired private TournamentRankingRosterService tournamentRankingRosterService;
     @Autowired @Lazy private ITournamentCompetitionService competitionService;
+    @Autowired @Lazy private ITournamentRegistrationService registrationService;
 
     /** 小组赛全部锁定后：参赛者个人进度 + 未参赛办赛人员汇总。 */
     public void onGroupStageCompleted(Long tournamentId) {
@@ -110,8 +116,9 @@ public class TournamentLifecycleNotificationService {
                         uid);
             }
 
-            Set<Long> staffOnly = staffUserIdsExcludingParticipants(tournament, participants);
-            if (!staffOnly.isEmpty()) {
+            // 环节汇总：全体办赛人员（含已参赛）
+            Set<Long> staffAll = organizerUserIds(tournament);
+            if (!staffAll.isEmpty()) {
                 StringBuilder staff = new StringBuilder();
                 staff.append("小组赛已全部结束，晋级与出局名单如下。\n\n");
                 Map<String, List<Map<String, Object>>> byGroup = new LinkedHashMap<>();
@@ -163,7 +170,7 @@ public class TournamentLifecycleNotificationService {
                         staff.toString(),
                         SRC_GROUP_END_STAFF,
                         tournamentId,
-                        staffOnly);
+                        staffAll);
             }
         } catch (Exception ex) {
             log.warn("小组赛结束通知失败 tournamentId={}", tournamentId, ex);
@@ -230,9 +237,8 @@ public class TournamentLifecycleNotificationService {
             if (tournament == null) {
                 return;
             }
-            Set<Long> participants = participantUserIds(tournamentId);
-            Set<Long> staffOnly = staffUserIdsExcludingParticipants(tournament, participants);
-            if (staffOnly.isEmpty()) {
+            Set<Long> staffAll = organizerUserIds(tournament);
+            if (staffAll.isEmpty()) {
                 return;
             }
             List<Match> matches = matchService.lambdaQuery()
@@ -260,32 +266,14 @@ public class TournamentLifecycleNotificationService {
             if (loserIds.isEmpty()) {
                 return;
             }
-            Map<Long, String> names = loadUsernames(loserIds);
             String label = levelLabel(tournament);
-            StringBuilder md = new StringBuilder();
-            md.append(knockoutRoundLabelForField(round)).append("已全部结束，落败者最终赛事积分：\n\n");
-            for (Long uid : loserIds) {
-                md.append("- ").append(names.getOrDefault(uid, "选手"));
-                Integer place = placements != null ? placements.get(uid) : null;
-                Integer pts = pointsByUser.get(uid);
-                if (place != null) {
-                    md.append("（第 ").append(place).append(" 名");
-                    if (pts != null) {
-                        md.append("，积分 ").append(pts);
-                    }
-                    md.append("）");
-                } else if (pts != null) {
-                    md.append("（积分 ").append(pts).append("）");
-                }
-                md.append("\n");
-            }
-            md.append("\n[查看赛事](").append(tournamentUrlService.detailUrl(tournament)).append(")\n");
+            String md = buildKnockoutRoundLosersMarkdown(tournament, round, loserIds, pointsByUser, placements);
             notificationService.sendNotificationToUserIds(
                     "淘汰赛阶段结束：" + label + " " + knockoutRoundLabelForField(round),
-                    md.toString(),
+                    md,
                     SRC_KO_ROUND_STAFF + round,
                     tournamentId,
-                    staffOnly);
+                    staffAll);
         } catch (Exception ex) {
             log.warn("淘汰赛轮次结束通知失败 tournamentId={} round={}", tournamentId, round, ex);
         }
@@ -305,9 +293,8 @@ public class TournamentLifecycleNotificationService {
             if (gold == null || !Boolean.TRUE.equals(gold.getResultLocked()) || gold.getWinnerId() == null) {
                 return;
             }
-            Set<Long> participants = participantUserIds(tournamentId);
-            Set<Long> staffOnly = staffUserIdsExcludingParticipants(tournament, participants);
-            if (staffOnly.isEmpty()) {
+            Set<Long> staffAll = organizerUserIds(tournament);
+            if (staffAll.isEmpty()) {
                 return;
             }
             Map<Long, Integer> placements = competitionService.getProgressSettledPlacementRanks(tournamentId);
@@ -346,7 +333,7 @@ public class TournamentLifecycleNotificationService {
                     md.toString(),
                     SRC_TOURNAMENT_END_STAFF,
                     tournamentId,
-                    staffOnly);
+                    staffAll);
         } catch (Exception ex) {
             log.warn("赛事结束通知失败 tournamentId={}", tournamentId, ex);
         }
@@ -420,13 +407,17 @@ public class TournamentLifecycleNotificationService {
         }
     }
 
-    /** 验收后钩子：小组结束 / 轮次结束 / 赛事结束 / 积分通知。 */
+    /** 验收后钩子：单组完赛 / 小组结束 / 轮次结束 / 赛事结束 / 积分通知。 */
     public void afterMatchLocked(Match match) {
         if (match == null || match.getTournamentId() == null) {
             return;
         }
         Long tid = match.getTournamentId();
         try {
+            if ("GROUP".equalsIgnoreCase(match.getPhaseCode()) && match.getGroupId() != null
+                    && isSingleGroupFullyLocked(tid, match.getGroupId())) {
+                onSingleGroupCompleted(tid, match.getGroupId());
+            }
             if ("GROUP".equalsIgnoreCase(match.getPhaseCode()) && isGroupStageFullyLocked(tid)) {
                 onGroupStageCompleted(tid);
             }
@@ -441,6 +432,160 @@ public class TournamentLifecycleNotificationService {
             afterPointsRecomputed(tid);
         } catch (Exception ex) {
             log.warn("验收后生命周期通知失败 matchId={}", match.getId(), ex);
+        }
+    }
+
+    /** 某小组全部场次锁定后：未参赛办赛人员收到该组详细数据。 */
+    public void onSingleGroupCompleted(Long tournamentId, Long groupId) {
+        if (tournamentId == null || groupId == null) {
+            return;
+        }
+        try {
+            Tournament tournament = tournamentService.getById(tournamentId);
+            TournamentGroup group = groupMapper.selectById(groupId);
+            if (tournament == null || group == null) {
+                return;
+            }
+            Set<Long> staffAll = organizerUserIds(tournament);
+            if (staffAll.isEmpty()) {
+                return;
+            }
+            TournamentCompetitionConfig cfg = configMapper.selectById(tournamentId);
+            List<Map<String, Object>> overall = loadOverallRankingRows(tournamentId, cfg);
+            String groupName = group.getGroupName() != null && !group.getGroupName().isBlank()
+                    ? group.getGroupName() : "小组";
+            Set<Long> memberIds = groupMemberMapper.selectList(Wrappers.<TournamentGroupMember>lambdaQuery()
+                            .eq(TournamentGroupMember::getTournamentId, tournamentId)
+                            .eq(TournamentGroupMember::getGroupId, groupId))
+                    .stream().map(TournamentGroupMember::getUserId).filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            List<Map<String, Object>> rows = overall.stream()
+                    .filter(r -> memberIds.contains((Long) r.get("userId")))
+                    .toList();
+            Map<Long, String> names = loadUsernames(rows.stream()
+                    .map(r -> (Long) r.get("userId")).filter(Objects::nonNull)
+                    .collect(Collectors.toCollection(LinkedHashSet::new)));
+            String label = levelLabel(tournament);
+            StringBuilder md = new StringBuilder();
+            md.append("**").append(groupName).append("** 小组赛已全部结束。\n\n");
+            for (Map<String, Object> row : rows) {
+                Long uid = (Long) row.get("userId");
+                md.append("- ").append(names.getOrDefault(uid, "选手"))
+                        .append("：组内第 ").append(intVal(row.get("groupRank")))
+                        .append(" 名 / 总第 ").append(intVal(row.get("overallRank")))
+                        .append(" 名，").append(intVal(row.get("wins"))).append("胜")
+                        .append(intVal(row.get("draws"))).append("平")
+                        .append(intVal(row.get("losses"))).append("负，")
+                        .append(intVal(row.get("points"))).append(" 分，净胜 ")
+                        .append(intVal(row.get("net"))).append("\n");
+            }
+            md.append("\n[查看赛事](").append(tournamentUrlService.detailUrl(tournament)).append(")\n");
+            notificationService.sendNotificationToUserIds(
+                    "小组完赛：" + label + " " + groupName,
+                    md.toString(),
+                    SRC_GROUP_ONE_STAFF,
+                    groupId,
+                    staffAll);
+        } catch (Exception ex) {
+            log.warn("单组完赛通知失败 tournamentId={} groupId={}", tournamentId, groupId, ex);
+        }
+    }
+
+    /** 报名截止后：未参赛办赛人员收到报名结束与结果汇总。 */
+    public void onRegistrationClosed(Long tournamentId) {
+        if (tournamentId == null) {
+            return;
+        }
+        try {
+            Tournament tournament = tournamentService.getById(tournamentId);
+            if (tournament == null) {
+                return;
+            }
+            TournamentRegistrationSetting setting = registrationService.getSetting(tournamentId);
+            if (setting == null || setting.getDeadline() == null) {
+                return;
+            }
+            LocalDateTime now = LocalDateTime.now();
+            if (now.isBefore(setting.getDeadline())) {
+                return;
+            }
+            List<TournamentRegistrationRowDto> rows = registrationService.listRows(tournamentId, now);
+            Set<Long> staffAll = organizerUserIds(tournament);
+            if (staffAll.isEmpty()) {
+                return;
+            }
+            TournamentRegistrationPreviewDto preview = registrationService.preview(tournamentId, now);
+            String label = levelLabel(tournament);
+            StringBuilder md = new StringBuilder();
+            md.append("报名已截止。\n\n");
+            if (preview != null && preview.getModeDescription() != null) {
+                md.append(preview.getModeDescription()).append("\n\n");
+            }
+            md.append("**正赛直通**\n");
+            appendNameList(md, preview != null ? preview.getMainDirectUsernames() : null);
+            md.append("\n**资格赛种子**\n");
+            appendNameList(md, preview != null ? preview.getQualifierSeedUsernames() : null);
+            int pending = 0;
+            int rejected = 0;
+            if (rows != null) {
+                for (TournamentRegistrationRowDto r : rows) {
+                    if (r == null || r.getStatus() == null) {
+                        continue;
+                    }
+                    if (r.getStatus() == 0 && !r.isEffectiveApproved()) {
+                        pending++;
+                    } else if (r.getStatus() == 2) {
+                        rejected++;
+                    }
+                }
+            }
+            md.append("\n待审未默认通过：").append(pending).append("；拒绝：").append(rejected).append("\n");
+            md.append("\n[查看赛事](").append(tournamentUrlService.detailUrl(tournament)).append(")\n");
+            notificationService.sendNotificationToUserIds(
+                    "报名结束：" + label,
+                    md.toString(),
+                    SRC_REGISTRATION_CLOSE,
+                    tournamentId,
+                    staffAll);
+        } catch (Exception ex) {
+            log.warn("报名截止通知失败 tournamentId={}", tournamentId, ex);
+        }
+    }
+
+    /** 每分钟：报名已截止但尚未发送办赛汇总的赛事补发一次（幂等靠 sourceType+sourceRefId）。 */
+    @Scheduled(cron = "0 * * * * ?")
+    public void scanRegistrationClosedNotices() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Tournament> tournaments;
+        try {
+            tournaments = tournamentService.list();
+        } catch (Exception ex) {
+            log.warn("报名截止扫描失败", ex);
+            return;
+        }
+        if (tournaments == null) {
+            return;
+        }
+        for (Tournament t : tournaments) {
+            if (t == null || t.getId() == null) {
+                continue;
+            }
+            // 仅筹备中/进行中，避免对已归档历史赛事批量补发
+            if (t.getStatus() == null || (t.getStatus() != 0 && t.getStatus() != 1)) {
+                continue;
+            }
+            try {
+                TournamentRegistrationSetting s = registrationService.getSetting(t.getId());
+                if (s == null || !Boolean.TRUE.equals(s.getEnabled()) || s.getDeadline() == null) {
+                    continue;
+                }
+                if (now.isBefore(s.getDeadline())) {
+                    continue;
+                }
+                onRegistrationClosed(t.getId());
+            } catch (Exception ex) {
+                log.warn("报名截止通知扫描失败 tournamentId={}", t.getId(), ex);
+            }
         }
     }
 
@@ -508,7 +653,7 @@ public class TournamentLifecycleNotificationService {
         }
     }
 
-    Set<Long> participantUserIds(Long tournamentId) {
+    public Set<Long> participantUserIds(Long tournamentId) {
         Set<Long> ids = new LinkedHashSet<>();
         if (tournamentId == null) {
             return ids;
@@ -530,7 +675,7 @@ public class TournamentLifecycleNotificationService {
         return ids;
     }
 
-    Set<Long> organizerUserIds(Tournament tournament) {
+    public Set<Long> organizerUserIds(Tournament tournament) {
         LinkedHashSet<Long> ids = new LinkedHashSet<>();
         List<User> admins = userService.lambdaQuery().in(User::getRole, List.of(0, 1)).list();
         if (admins != null) {
@@ -546,7 +691,7 @@ public class TournamentLifecycleNotificationService {
         return ids;
     }
 
-    Set<Long> staffUserIdsExcludingParticipants(Tournament tournament, Set<Long> participants) {
+    public Set<Long> staffUserIdsExcludingParticipants(Tournament tournament, Set<Long> participants) {
         Set<Long> staff = organizerUserIds(tournament);
         if (participants != null) {
             staff.removeAll(participants);
@@ -671,6 +816,27 @@ public class TournamentLifecycleNotificationService {
         return total == locked;
     }
 
+    private boolean isSingleGroupFullyLocked(Long tournamentId, Long groupId) {
+        if (tournamentId == null || groupId == null) {
+            return false;
+        }
+        long total = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .eq(Match::getGroupId, groupId)
+                .count();
+        if (total == 0) {
+            return false;
+        }
+        long locked = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getPhaseCode, "GROUP")
+                .eq(Match::getGroupId, groupId)
+                .eq(Match::getResultLocked, true)
+                .count();
+        return total == locked;
+    }
+
     private boolean isKnockoutRoundFullyLocked(Long tournamentId, Integer round) {
         List<Match> oneRound = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tournamentId)
@@ -713,6 +879,93 @@ public class TournamentLifecycleNotificationService {
             return m.getPlayer1Id();
         }
         return null;
+    }
+
+    /**
+     * 落败者按赛事积分从高到低；同分按名次升序。
+     */
+    String buildKnockoutRoundLosersMarkdown(Tournament tournament,
+                                           Integer round,
+                                           Collection<Long> loserIds,
+                                           Map<Long, Integer> pointsByUser,
+                                           Map<Long, Integer> placements) {
+        List<Long> ordered = new ArrayList<>(loserIds);
+        ordered.sort((a, b) -> {
+            int ptsA = pointsByUser != null ? pointsByUser.getOrDefault(a, 0) : 0;
+            int ptsB = pointsByUser != null ? pointsByUser.getOrDefault(b, 0) : 0;
+            if (ptsA != ptsB) {
+                return Integer.compare(ptsB, ptsA);
+            }
+            Integer pa = placements != null ? placements.get(a) : null;
+            Integer pb = placements != null ? placements.get(b) : null;
+            if (pa != null && pb != null && !pa.equals(pb)) {
+                return Integer.compare(pa, pb);
+            }
+            if (pa != null && pb == null) {
+                return -1;
+            }
+            if (pa == null && pb != null) {
+                return 1;
+            }
+            return Long.compare(a, b);
+        });
+        Map<Long, String> names = loadUsernames(ordered);
+        StringBuilder md = new StringBuilder();
+        md.append(knockoutRoundLabelForField(round)).append("已全部结束，落败者最终赛事积分：\n\n");
+        for (Long uid : ordered) {
+            md.append("- ").append(names.getOrDefault(uid, "选手"));
+            Integer place = placements != null ? placements.get(uid) : null;
+            Integer pts = pointsByUser != null ? pointsByUser.get(uid) : null;
+            if (place != null) {
+                md.append("（第 ").append(place).append(" 名");
+                if (pts != null) {
+                    md.append("，积分 ").append(pts);
+                }
+                md.append("）");
+            } else if (pts != null) {
+                md.append("（积分 ").append(pts).append("）");
+            }
+            md.append("\n");
+        }
+        md.append("\n[查看赛事](").append(tournamentUrlService.detailUrl(tournament)).append(")\n");
+        return md.toString();
+    }
+
+    /**
+     * 按当前赛况重算某条淘汰赛轮次结束通知正文（积分高→低），供历史数据回填。
+     */
+    public String rebuildKnockoutRoundStaffMarkdown(Long tournamentId, Integer round) {
+        if (tournamentId == null || round == null) {
+            return null;
+        }
+        Tournament tournament = tournamentService.getById(tournamentId);
+        if (tournament == null) {
+            return null;
+        }
+        List<Match> matches = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getRound, round)
+                .in(Match::getPhaseCode, List.of("MAIN", "FINAL"))
+                .list();
+        if (matches == null || matches.isEmpty()) {
+            return null;
+        }
+        Set<Long> loserIds = new LinkedHashSet<>();
+        for (Match m : matches) {
+            Long loser = loserOf(m);
+            if (loser != null) {
+                loserIds.add(loser);
+            }
+        }
+        if (loserIds.isEmpty()) {
+            return null;
+        }
+        return buildKnockoutRoundLosersMarkdown(
+                tournament,
+                round,
+                loserIds,
+                loadTournamentPointsMap(tournamentId),
+                competitionService.getProgressSettledPlacementRanks(tournamentId));
     }
 
     private static String pathLabel(int overallRank, int bracketPlayers, int qualifyCount) {

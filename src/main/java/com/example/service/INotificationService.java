@@ -71,4 +71,20 @@ public interface INotificationService {
      * 获取当前用户在指定消息中的重置密码状态
      */
     Optional<NotificationRecipient> getResetPasswordRecipientStatus(Long messageId, Long userId);
+
+    /**
+     * 更新已发布通知正文并重渲 HTML（历史数据回填用）。
+     */
+    void updatePublishedContent(Long messageId, String markdown);
+
+    /**
+     * 按当前 Markdown 重渲全部已发布通知的 contentHtml（修复相对链接被剥离等）。
+     * @return 实际更新条数
+     */
+    int reRenderAllPublishedHtml();
+
+    /**
+     * 将指定通知的收件人重置为给定用户集合（历史受众纠偏用；保留已有已读时间）。
+     */
+    void replaceRecipients(Long messageId, java.util.Collection<Long> userIds);
 }

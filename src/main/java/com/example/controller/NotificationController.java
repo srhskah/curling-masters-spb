@@ -53,9 +53,8 @@ public class NotificationController {
         model.addAttribute("isManager", manager);
         model.addAttribute("loggedIn", me != null);
         model.addAttribute("unreadCount", me == null ? 0L : notificationService.unreadCount(me.getId()));
-        if (manager) {
-            model.addAttribute("items", notificationService.listManage(80));
-        } else if (me != null) {
+        // 办赛人员收件箱也按「公共 + 本人收件」；不得因管理员身份列出他人个人向通知
+        if (me != null) {
             model.addAttribute("items", notificationService.listReadableForUser(me, 80));
         } else {
             model.addAttribute("items", notificationService.listPublicPublished(80));
