@@ -53,12 +53,13 @@ public class NotificationLinkBackfillRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if ("done".equalsIgnoreCase(systemConfigService.getConfigValue(FLAG_KEY, ""))) {
-            return;
-        }
-        int koFixed = 0;
-        int regFixed = 0;
+        // 含读取 system_config：测试空库不得让异常冒出导致 contextLoads 失败
         try {
+            if ("done".equalsIgnoreCase(systemConfigService.getConfigValue(FLAG_KEY, ""))) {
+                return;
+            }
+            int koFixed = 0;
+            int regFixed = 0;
             List<NotificationMessage> koMsgs = messageMapper.selectList(Wrappers.<NotificationMessage>lambdaQuery()
                     .likeRight(NotificationMessage::getSourceType, "T_KS_"));
             if (koMsgs != null) {

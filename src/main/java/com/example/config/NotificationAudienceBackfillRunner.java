@@ -66,13 +66,14 @@ public class NotificationAudienceBackfillRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if ("done".equalsIgnoreCase(systemConfigService.getConfigValue(FLAG_KEY, ""))) {
-            return;
-        }
-        int staffFixed = 0;
-        int drawFixed = 0;
-        int personalTrimmed = 0;
+        // 含读取 system_config：测试库禁用 Flyway/空库时不得让异常冒出导致 contextLoads 失败
         try {
+            if ("done".equalsIgnoreCase(systemConfigService.getConfigValue(FLAG_KEY, ""))) {
+                return;
+            }
+            int staffFixed = 0;
+            int drawFixed = 0;
+            int personalTrimmed = 0;
             List<NotificationMessage> all = messageMapper.selectList(Wrappers.<NotificationMessage>lambdaQuery()
                     .eq(NotificationMessage::getPublished, true)
                     .isNotNull(NotificationMessage::getSourceType));

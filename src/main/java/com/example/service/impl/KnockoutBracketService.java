@@ -1238,7 +1238,8 @@ public class KnockoutBracketService {
 
     /**
      * 按当前淘汰赛赛况手动补生成下一轮：
-     * 仅当某一轮（MAIN/FINAL）全部验收且下一轮尚未落地时，触发晋级链补生成。
+     * 某一轮（MAIN/FINAL）全部验收后，若下一轮未生成或场次数不足（缺口），触发晋级链补生成。
+     * 缺口补全时保留已有下一轮场次，仅 tryAdvance 填缺。
      */
     @Transactional(rollbackFor = Exception.class)
     public int generateNextKnockoutRound(User operator, Long tournamentId) {
@@ -1274,7 +1275,14 @@ public class KnockoutBracketService {
         if (oneRound.isEmpty()) {
             throw new IllegalStateException("当前不存在可手动生成的下一轮（需某一轮全部验收且下一轮尚未生成）");
         }
-        clearKnockoutDownstreamRounds(tournamentId, currentRound);
+        int nextR = nextKnockoutRoundField(currentRound);
+        List<Match> existingNext = byRound.getOrDefault(nextR, List.of());
+        int expectedNext = expectedNextMatchCount(currentRound, oneRound.size());
+        // 下一轮已有部分场次（缺口补全）：只 tryAdvance 填缺，保留已生成/已录分的场次
+        boolean gapFill = nextR < currentRound && !existingNext.isEmpty() && existingNext.size() < expectedNext;
+        if (!gapFill) {
+            clearKnockoutDownstreamRounds(tournamentId, currentRound);
+        }
         long before = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tournamentId)
                 .in(Match::getPhaseCode, "MAIN", "FINAL")
@@ -1303,8 +1311,12 @@ public class KnockoutBracketService {
      * {@link #clearKnockoutDownstreamRounds} 会删除所有 round 更小的 MAIN/FINAL 场次及局分，
      * 从而误清空已存在的 1/4 等内层比赛（含从附加资格赛晋级的对阵）。
      * <p>
-     * 规则：自外向内扫描；仅当某外层轮全员验收，且其向内一层要么尚不存在、要么也已全员验收时，
-     * 才返回该外层作为晋级源；若内层已存在但未全员验收则报错，避免误删。
+     * 规则：自外向内扫描；外层全员验收后：
+     * <ul>
+     *   <li>内层场次数不足（含完全未生成）→ 作为晋级源（可缺口补全）</li>
+     *   <li>内层已齐但未全员验收 → 报错，避免误删已录场次</li>
+     *   <li>内层已齐且全员验收 → 继续向内找</li>
+     * </ul>
      */
     private Integer resolveSettledRoundForGenerateNext(Map<Integer, List<Match>> byRound) {
         List<Integer> desc = new ArrayList<>(byRound.keySet());
@@ -1319,16 +1331,27 @@ public class KnockoutBracketService {
                 return outer;
             }
             List<Match> innerMs = byRound.getOrDefault(inner, List.of());
-            if (!innerMs.isEmpty() && !allKnockoutMatchesLocked(innerMs)) {
+            int expected = expectedNextMatchCount(outer, outerMs.size());
+            if (innerMs.size() < expected) {
+                return outer;
+            }
+            if (!allKnockoutMatchesLocked(innerMs)) {
                 throw new IllegalStateException(
                         "外层淘汰赛已全部验收，但内层仍有未验收场次；请先完成内层轮次再生成下一轮，避免误清空已录场次。");
             }
-            if (!innerMs.isEmpty()) {
-                continue;
-            }
-            return outer;
         }
         return null;
+    }
+
+    /** 外层已验收场次数 → 下一轮应有的 MAIN/FINAL 场次数（半决赛→金+铜为 2）。 */
+    static int expectedNextMatchCount(int outerRound, int outerMatchCount) {
+        if (outerRound <= 1 || outerMatchCount <= 0) {
+            return 0;
+        }
+        if (nextKnockoutRoundField(outerRound) == 1) {
+            return 2;
+        }
+        return Math.max(0, outerMatchCount / 2);
     }
 
     /**
@@ -1667,7 +1690,8 @@ public class KnockoutBracketService {
             }
             int nextR = nextKnockoutRoundField(r);
             int parentSlot = Math.min(slot, partnerSlot) / 2;
-            if (existsKoSlot(m.getTournamentId(), nextR, parentSlot, null)) {
+            if (existsKoSlot(m.getTournamentId(), nextR, parentSlot, null)
+                    || existsKoWithFeeders(m.getTournamentId(), nextR, m.getId(), partner.getId())) {
                 return;
             }
             insertKoMatch(m.getTournamentId(), nextR, parentSlot, null, m.getWinnerId(), partner.getWinnerId(),
@@ -1676,18 +1700,19 @@ public class KnockoutBracketService {
             return;
         }
         if (r > 2) {
-            int partnerSlot = (slot % 2 == 0) ? slot + 1 : slot - 1;
-            Match partner = findKoMatch(m.getTournamentId(), r, partnerSlot, half);
-            if (partner == null || !Boolean.TRUE.equals(partner.getResultLocked())) {
+            // 半区内按卡位排序后两两配对（兼容全局 slot 0/1/2/3 与世界杯交错 0/2/4/6）
+            PartnerInHalf partner = findLockedPartnerInHalf(m);
+            if (partner == null) {
                 return;
             }
             int nextR = r / 2;
-            int slotInHalf = Math.min(slot, partnerSlot) / 2;
-            if (existsKoSlotHalf(m.getTournamentId(), nextR, half, slotInHalf)) {
+            int slotInHalf = partner.pairIndex;
+            if (existsKoSlotHalf(m.getTournamentId(), nextR, half, slotInHalf)
+                    || existsKoWithFeeders(m.getTournamentId(), nextR, m.getId(), partner.match.getId())) {
                 return;
             }
-            insertKoMatch(m.getTournamentId(), nextR, slotInHalf, half, m.getWinnerId(), partner.getWinnerId(),
-                    labelKo(r, nextR, slotInHalf, half), m.getId(), partner.getId(), koSets, "MAIN",
+            insertKoMatch(m.getTournamentId(), nextR, slotInHalf, half, m.getWinnerId(), partner.match.getWinnerId(),
+                    labelKo(r, nextR, slotInHalf, half), m.getId(), partner.match.getId(), koSets, "MAIN",
                     null, SOURCE_AUTO_BRACKET_ADVANCE);
             return;
         }
@@ -1696,18 +1721,67 @@ public class KnockoutBracketService {
                 return;
             }
             // 同半区内相邻卡位（如 0–1）两场半决赛 → 金/铜牌赛（世界杯式等会把两场半决赛都落在同一 half）
-            int partnerSlot = (slot % 2 == 0) ? slot + 1 : slot - 1;
-            Match partner = findKoMatch(m.getTournamentId(), r, partnerSlot, half);
-            if (partner != null && Boolean.TRUE.equals(partner.getResultLocked())) {
-                createGoldAndBronze(m, partner, cfg);
+            PartnerInHalf partner = findLockedPartnerInHalf(m);
+            if (partner != null) {
+                createGoldAndBronze(m, partner.match, cfg);
                 return;
             }
-            // 上下半区各一场半决赛（各 half 的 slot 0）
+            // 上下半区各一场半决赛（各 half 的半区相对 slot 0）
             Match other = findKoMatchOtherHalf(m.getTournamentId(), 2, half);
             if (other == null || !Boolean.TRUE.equals(other.getResultLocked())) {
                 return;
             }
             createGoldAndBronze(m, other, cfg);
+        }
+    }
+
+    /**
+     * 同轮同半区内：按 knockoutBracketSlot 排序后，下标 0-1、2-3… 两两配对。
+     * pairIndex 为半区内父槽位（0 起），与「各 half 各一场时 slot=0」一致。
+     */
+    private PartnerInHalf findLockedPartnerInHalf(Match m) {
+        if (m == null || m.getTournamentId() == null || m.getRound() == null || m.getKnockoutHalf() == null) {
+            return null;
+        }
+        List<Match> inHalf = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, m.getTournamentId())
+                .eq(Match::getRound, m.getRound())
+                .eq(Match::getKnockoutHalf, m.getKnockoutHalf())
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .orderByAsc(Match::getId)
+                .list();
+        if (inHalf == null || inHalf.size() < 2) {
+            return null;
+        }
+        int idx = -1;
+        for (int i = 0; i < inHalf.size(); i++) {
+            if (Objects.equals(inHalf.get(i).getId(), m.getId())) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx < 0) {
+            return null;
+        }
+        int partnerIdx = (idx % 2 == 0) ? idx + 1 : idx - 1;
+        if (partnerIdx < 0 || partnerIdx >= inHalf.size()) {
+            return null;
+        }
+        Match partner = inHalf.get(partnerIdx);
+        if (partner == null || !Boolean.TRUE.equals(partner.getResultLocked())) {
+            return null;
+        }
+        return new PartnerInHalf(partner, Math.min(idx, partnerIdx) / 2);
+    }
+
+    private static final class PartnerInHalf {
+        final Match match;
+        final int pairIndex;
+
+        PartnerInHalf(Match match, int pairIndex) {
+            this.match = match;
+            this.pairIndex = pairIndex;
         }
     }
 
@@ -1755,7 +1829,24 @@ public class KnockoutBracketService {
                 .eq(Match::getRound, round)
                 .eq(Match::getKnockoutHalf, half)
                 .eq(Match::getKnockoutBracketSlot, slotInHalf)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
                 .count() > 0;
+    }
+
+    /** 同一对 feeder 已生成下一轮时视为已存在（兼容旧半区父槽位写法）。 */
+    private boolean existsKoWithFeeders(Long tid, int round, Long feederA, Long feederB) {
+        if (tid == null || feederA == null || feederB == null) {
+            return false;
+        }
+        List<Match> ms = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getRound, round)
+                .in(Match::getPhaseCode, "MAIN", "FINAL")
+                .and(w -> w
+                        .and(a -> a.eq(Match::getFeederMatch1Id, feederA).eq(Match::getFeederMatch2Id, feederB))
+                        .or(b -> b.eq(Match::getFeederMatch1Id, feederB).eq(Match::getFeederMatch2Id, feederA)))
+                .list();
+        return ms != null && !ms.isEmpty();
     }
 
     private Match findKoMatch(Long tid, int round, int slot, Integer half) {

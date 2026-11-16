@@ -90,6 +90,7 @@ class KnockoutFromGroupIntegrationTest {
     @Autowired private ITournamentRegistrationService registrationService;
     @Autowired private ITournamentCompetitionService competitionService;
     @Autowired private IMatchService matchService;
+    @Autowired private ISetScoreService setScoreService;
     @Autowired private UserTournamentPointsService userTournamentPointsService;
     @Autowired private TournamentGroupMapper tournamentGroupMapper;
     @Autowired private KnockoutBracketService knockoutBracketService;
@@ -858,6 +859,69 @@ class KnockoutFromGroupIntegrationTest {
         assertThrows(IllegalStateException.class, () -> knockoutBracketService.generateNextKnockoutRound(host, tid));
         Match stillThere = matchService.getById(wrongFinalId);
         assertTrue(stillThere != null, "当前轮次未全验收时，不应清理后续错误轮次");
+    }
+
+    @Test
+    @DisplayName("手动生成下一轮：半决赛只生成了一场时，应缺口补全另一场且保留已有半决赛")
+    void manualGenerateNextRound_gapFillsMissingSemi() {
+        User host = createHost();
+        List<User> players = createPlayers(8, "kgap");
+        long tid = setupGroupTournament(host, 8, 4);
+        registerAll(tid, players);
+        closeRegistration(host, tid);
+
+        List<TournamentGroup> groups = tournamentGroupMapper.selectList(
+                Wrappers.<TournamentGroup>lambdaQuery()
+                        .eq(TournamentGroup::getTournamentId, tid)
+                        .orderByAsc(TournamentGroup::getGroupOrder));
+        Map<Long, List<Long>> roster = new LinkedHashMap<>();
+        roster.put(groups.get(0).getId(), players.subList(0, 4).stream().map(User::getId).toList());
+        roster.put(groups.get(1).getId(), players.subList(4, 8).stream().map(User::getId).toList());
+        competitionService.saveGroupMembers(host, tid, roster);
+        competitionService.generateGroupMatches(host, tid);
+        lockAllGroupMatches(host, tid);
+
+        knockoutBracketService.generateFirstKnockoutRound(host, tid);
+        List<Match> quarterFinals = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 4)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(4, quarterFinals.size());
+        for (Match m : quarterFinals) {
+            acceptKoWithWinner(host, m, true);
+        }
+
+        List<Match> semis = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 2)
+                .orderByAsc(Match::getKnockoutBracketSlot)
+                .list();
+        assertEquals(2, semis.size());
+        Match keep = semis.stream().filter(s -> Objects.equals(s.getKnockoutHalf(), 0)).findFirst().orElse(semis.get(0));
+        Match drop = semis.stream().filter(s -> !Objects.equals(s.getId(), keep.getId())).findFirst().orElseThrow();
+        Long keepId = keep.getId();
+        setScoreService.lambdaUpdate().eq(SetScore::getMatchId, drop.getId()).remove();
+        matchService.removeById(drop.getId());
+
+        assertEquals(1, matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 2)
+                .count());
+
+        int added = knockoutBracketService.generateNextKnockoutRound(host, tid);
+        assertEquals(1, added, "应只补全缺失的一场半决赛");
+
+        List<Match> after = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tid)
+                .eq(Match::getPhaseCode, "MAIN")
+                .eq(Match::getRound, 2)
+                .list();
+        assertEquals(2, after.size(), "缺口补全后应有两场半决赛");
+        assertTrue(after.stream().anyMatch(m -> Objects.equals(m.getId(), keepId)), "已有半决赛应被保留");
     }
 
     /** 正赛/决赛须双方选手 + 办赛方（staff）验收后方可锁定并触发晋级链 */
