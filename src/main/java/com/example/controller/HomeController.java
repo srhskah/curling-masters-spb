@@ -91,19 +91,38 @@ public class HomeController {
             model.addAttribute("notificationUnreadCount", 0L);
         }
         List<com.example.entity.NotificationMessage> homeN = notificationService.listPublishedForHome(20);
+        java.util.LinkedHashSet<Long> pickedIds = new java.util.LinkedHashSet<>();
+        java.util.ArrayList<com.example.entity.NotificationMessage> picked = new java.util.ArrayList<>();
+        // 置顶优先前置（其余规则暂不变：最多 3 条，自动最多 1 条）
+        for (com.example.entity.NotificationMessage x : homeN) {
+            if (x == null || x.getId() == null || !Boolean.TRUE.equals(x.getPinned())) {
+                continue;
+            }
+            if (picked.size() >= 3) {
+                break;
+            }
+            picked.add(x);
+            pickedIds.add(x.getId());
+        }
         List<com.example.entity.NotificationMessage> auto = homeN.stream()
+                .filter(x -> x != null && x.getId() != null && !pickedIds.contains(x.getId()))
                 .filter(x -> x.getSourceType() != null && !x.getSourceType().isBlank())
                 .toList();
         List<com.example.entity.NotificationMessage> manual = homeN.stream()
+                .filter(x -> x != null && x.getId() != null && !pickedIds.contains(x.getId()))
                 .filter(x -> x.getSourceType() == null || x.getSourceType().isBlank())
                 .toList();
-        java.util.ArrayList<com.example.entity.NotificationMessage> picked = new java.util.ArrayList<>();
-        if (!auto.isEmpty()) {
-            picked.add(auto.get(0)); // 自动发送仅保留最新 1 条
+        if (picked.stream().noneMatch(x -> x.getSourceType() != null && !x.getSourceType().isBlank())
+                && !auto.isEmpty() && picked.size() < 3) {
+            picked.add(auto.get(0));
+            pickedIds.add(auto.get(0).getId());
         }
         for (com.example.entity.NotificationMessage x : manual) {
-            if (picked.size() >= 3) break; // 首页总数最多 3 条
+            if (picked.size() >= 3) {
+                break;
+            }
             picked.add(x);
+            pickedIds.add(x.getId());
         }
         model.addAttribute("homeNotifications", picked);
         

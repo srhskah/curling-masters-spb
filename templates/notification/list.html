@@ -20,7 +20,13 @@
                     <span class="btn-label">一键已读全部</span>
                 </button>
             </form>
-            <a th:if="${isManager}" class="btn btn-primary btn-sm btn-mobile-compact" href="/notification/edit">
+            <a th:if="${isManager}" class="btn btn-outline-secondary btn-sm btn-mobile-compact"
+               th:href="@{/notification/deleted}"
+               title="删除记录" aria-label="删除记录">
+                <span class="btn-label">删除记录</span>
+                <span class="btn-emoji" aria-hidden="true"><i class="bi bi-trash"></i></span>
+            </a>
+            <a th:if="${isManager}" class="btn btn-primary btn-sm btn-mobile-compact" th:href="@{/notification/edit}">
                 <span class="btn-label">新建通知</span><span class="btn-emoji" aria-hidden="true">➕</span>
             </a>
         </div>
@@ -29,60 +35,262 @@
     <div class="notification-rss-bar mb-3">
         <div class="small text-muted mb-1">RSS 订阅（有新消息通知即可拉取）</div>
         <div class="alert alert-warning py-2 px-3 small mb-2" th:if="${rssUrlLooksLocal}">
-            当前订阅地址像是本机/内网（如 <code>127.0.0.1</code>）。Feedly 等外网平台<strong>拉不到</strong>这类地址。
-            请用公网域名打开本站后再复制订阅链接，或在环境变量配置
-            <code>APP_PUBLIC_BASE_URL=https://你的域名</code> 后重启。
+            当前订阅地址像是本机/内网。外网订阅平台拉不到，请用公网域名或配置
+            <code>APP_PUBLIC_BASE_URL</code>。
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <a class="btn btn-outline-secondary btn-sm btn-mobile-compact"
-               th:href="${publicRssUrl}"
-               rel="alternate"
-               type="application/rss+xml"
-               target="_blank">
+               th:href="${publicRssUrl}" rel="alternate" type="application/rss+xml" target="_blank">
                 <i class="bi bi-rss"></i>
                 <span class="btn-label">公共订阅源</span>
             </a>
             <a th:if="${personalRssUrl != null}"
                class="btn btn-outline-secondary btn-sm btn-mobile-compact"
-               th:href="${personalRssUrl}"
-               rel="alternate"
-               type="application/rss+xml"
-               target="_blank">
+               th:href="${personalRssUrl}" rel="alternate" type="application/rss+xml" target="_blank">
                 <i class="bi bi-rss-fill"></i>
                 <span class="btn-label">我的专属订阅源</span>
             </a>
-            <span th:if="${personalRssUrl == null}" class="small text-muted">登录后可获取专属订阅源（按权限与已报名赛事）</span>
+            <span th:if="${personalRssUrl == null}" class="small text-muted">登录后可获取专属订阅源</span>
         </div>
-        <!-- <div class="small text-muted mt-2 text-break">
-            公共地址：
-            <code th:text="${publicRssUrl}">https://…/notification/rss/public.xml</code>
-        </div> -->
-        <!-- <div th:if="${personalRssUrl != null}" class="small text-muted mt-1 text-break">
-            专属地址（请勿泄露）：
-            <code th:text="${personalRssUrl}">https://…/notification/rss/u/….xml</code>
-        </div> -->
     </div>
 
-    <div class="list-group" th:if="${items != null and !#lists.isEmpty(items)}">
-        <a class="list-group-item list-group-item-action"
-           th:each="m : ${items}"
-           th:href="@{/notification/detail/{id}(id=${m.id})}">
-            <div class="d-flex justify-content-between">
-                <div>
-                    <strong th:text="${m.title}">标题</strong>
-                    <small class="text-muted d-block mt-1" th:if="${m.authorUsername != null}"
-                           th:text="${'发起者：' + m.authorUsername}">发起者</small>
-                    <small class="text-primary d-block mt-1"
-                           th:if="${m.tournamentEditionLabel != null and !#strings.isEmpty(m.tournamentEditionLabel)}"
-                           th:text="${'关联赛事：' + m.tournamentEditionLabel}">关联赛事</small>
+    <div class="mb-2">
+        <input type="search" id="notificationSearch" class="form-control form-control-sm"
+               placeholder="搜索标题 / 发起者 / 赛事…"/>
+    </div>
+
+    <div class="admin-action-legend text-muted mb-2 d-none d-md-flex">
+        <span class="legend-item fw-semibold">操作图例</span>
+        <span class="legend-item"><i class="bi bi-eye"></i> 查看</span>
+        <span th:if="${isManager}" class="legend-item"><i class="bi bi-pin-angle-fill"></i> 置顶</span>
+        <span th:if="${isManager}" class="legend-item"><i class="bi bi-pin-angle"></i> 取消置顶</span>
+    </div>
+
+    <div th:if="${items != null and !#lists.isEmpty(items)}">
+        <!-- 窄屏：卡片（与赛季/报名管理同款） -->
+        <div class="d-md-none mb-3">
+            <div class="generic-cards-mobile">
+                <div class="row g-3 generic-cards-grid">
+                    <div class="col-12" th:each="m : ${items}">
+                        <div class="card border-0 shadow-sm h-100 notification-card"
+                             th:classappend="${m.pinned} ? ' border-warning' : ''"
+                             th:attr="data-levels=${m.sendTypeLabel != null ? m.sendTypeLabel : ((m.sourceType != null and !#strings.isEmpty(m.sourceType)) ? '自动' : '手动')},
+                                      data-title=${m.title},
+                                      data-author=${m.authorUsername},
+                                      data-tournament=${m.tournamentEditionLabel}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                    <div class="fw-semibold">
+                                        <a th:href="@{/notification/detail/{id}(id=${m.id})}"
+                                           class="text-decoration-none"
+                                           th:text="${m.title}">标题</a>
+                                        <span th:if="${m.pinned}" class="badge bg-danger ms-1">置顶</span>
+                                    </div>
+                                    <span class="badge bg-light text-dark border"
+                                          th:text="${m.sendTypeLabel != null ? m.sendTypeLabel : ((m.sourceType != null and !#strings.isEmpty(m.sourceType)) ? '自动' : '手动')}">手动</span>
+                                </div>
+                                <div class="generic-card-row" style="display:flex;flex-direction:column;gap:0.15rem;">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="generic-card-label">发起者</div>
+                                        <div class="text-end" th:text="${m.authorUsername != null ? m.authorUsername : '—'}">—</div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="generic-card-label">关联赛事</div>
+                                        <div class="text-end small"
+                                             th:text="${m.tournamentEditionLabel != null and !#strings.isEmpty(m.tournamentEditionLabel) ? m.tournamentEditionLabel : '—'}">—</div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="generic-card-label">时间</div>
+                                        <div class="text-end text-nowrap"
+                                             th:text="${m.publishedAt != null ? #temporals.format(m.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">-</div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="generic-card-label">置顶</div>
+                                        <div class="text-end" th:text="${m.pinned} ? '是' : '否'">否</div>
+                                    </div>
+                                </div>
+                                <div class="mt-3 d-flex flex-wrap gap-2 generic-list-actions">
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       th:href="@{/notification/detail/{id}(id=${m.id})}"
+                                       title="查看" aria-label="查看">
+                                        <i class="bi bi-eye"></i><span class="generic-action-label"> 查看</span>
+                                    </a>
+                                    <button th:if="${isManager and m.canTogglePin}"
+                                            type="button"
+                                            class="btn btn-sm"
+                                            th:classappend="${m.pinned} ? 'btn-outline-secondary' : 'btn-outline-warning'"
+                                            th:attr="data-pin-id=${m.id},data-pin-to=${m.pinned ? 'false' : 'true'},data-pin-title=${m.title}"
+                                            onclick="openPinModal(this)"
+                                            th:title="${m.pinned} ? '取消置顶' : '置顶'"
+                                            th:aria-label="${m.pinned} ? '取消置顶' : '置顶'">
+                                        <i class="bi" th:classappend="${m.pinned} ? 'bi-pin-angle' : 'bi-pin-angle-fill'"></i>
+                                        <span class="generic-action-label" th:text="${m.pinned} ? ' 取消置顶' : ' 置顶'"> 置顶</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <small class="text-muted text-nowrap ms-2" th:text="${m.publishedAt != null ? #temporals.format(m.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">时间</small>
             </div>
-        </a>
+        </div>
+
+        <!-- 宽屏：表格 -->
+        <div class="d-none d-md-block generic-table-desktop">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0 admin-mgmt-table" id="notificationTable">
+                    <thead class="table-light">
+                    <tr>
+                        <th data-col="0">标题</th>
+                        <th data-col="1">类型</th>
+                        <th data-col="2">发起者</th>
+                        <th data-col="3">关联赛事</th>
+                        <th data-col="4">时间</th>
+                        <th data-col="5">置顶</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="m : ${items}"
+                        class="notification-row"
+                        th:classappend="${m.pinned} ? ' table-warning' : ''"
+                        th:attr="data-levels=${m.sendTypeLabel != null ? m.sendTypeLabel : ((m.sourceType != null and !#strings.isEmpty(m.sourceType)) ? '自动' : '手动')},
+                                 data-title=${m.title},
+                                 data-author=${m.authorUsername},
+                                 data-tournament=${m.tournamentEditionLabel}">
+                        <td data-col="0">
+                            <a th:href="@{/notification/detail/{id}(id=${m.id})}"
+                               class="text-decoration-none"
+                               th:text="${m.title}">标题</a>
+                            <span th:if="${m.pinned}" class="badge bg-danger ms-1">置顶</span>
+                        </td>
+                        <td data-col="1"
+                            th:text="${m.sendTypeLabel != null ? m.sendTypeLabel : ((m.sourceType != null and !#strings.isEmpty(m.sourceType)) ? '自动' : '手动')}">手动</td>
+                        <td data-col="2" th:text="${m.authorUsername != null ? m.authorUsername : '—'}">—</td>
+                        <td data-col="3"
+                            th:text="${m.tournamentEditionLabel != null and !#strings.isEmpty(m.tournamentEditionLabel) ? m.tournamentEditionLabel : '—'}">—</td>
+                        <td data-col="4" class="text-nowrap"
+                            th:text="${m.publishedAt != null ? #temporals.format(m.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">-</td>
+                        <td data-col="5" th:text="${m.pinned} ? '是' : '否'">否</td>
+                        <td>
+                            <div class="btn-group generic-list-actions" role="group">
+                                <a class="btn btn-sm btn-outline-primary"
+                                   th:href="@{/notification/detail/{id}(id=${m.id})}"
+                                   title="查看" aria-label="查看">
+                                    <i class="bi bi-eye"></i><span class="generic-action-label"> 查看</span>
+                                </a>
+                                <button th:if="${isManager and m.canTogglePin}"
+                                        type="button"
+                                        class="btn btn-sm"
+                                        th:classappend="${m.pinned} ? 'btn-outline-secondary' : 'btn-outline-warning'"
+                                        th:attr="data-pin-id=${m.id},data-pin-to=${m.pinned ? 'false' : 'true'},data-pin-title=${m.title}"
+                                        onclick="openPinModal(this)"
+                                        th:title="${m.pinned} ? '取消置顶' : '置顶'"
+                                        th:aria-label="${m.pinned} ? '取消置顶' : '置顶'">
+                                    <i class="bi" th:classappend="${m.pinned} ? 'bi-pin-angle' : 'bi-pin-angle-fill'"></i>
+                                    <span class="generic-action-label" th:text="${m.pinned} ? ' 取消置顶' : ' 置顶'"> 置顶</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     <div class="text-muted" th:if="${items == null or #lists.isEmpty(items)}">暂无消息。</div>
 </div>
+
+<div class="modal fade" id="pinNotificationModal" tabindex="-1" aria-hidden="true" th:if="${isManager}">
+    <div class="modal-dialog">
+        <form class="modal-content" method="post" id="pinNotificationForm"
+              th:action="@{/notification/pin/0}"
+              onsubmit="return requireSignatureBeforeSubmit(this);">
+            <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="pinned" id="pinTargetValue" value="true"/>
+            <input type="hidden" name="from" value="list"/>
+            <input type="hidden" name="signature" id="signature" value=""/>
+            <div class="modal-header">
+                <h5 class="modal-title" id="pinModalTitle">置顶消息通知</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2 small text-muted" id="pinModalHint">请签字验收后确认。</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm"
+                        onclick="openSignatureModal(document.getElementById('signature'))">手写电子签名</button>
+                <span data-sig-hint class="small text-danger ms-2">必须签字</span>
+                <div class="mt-2">
+                    <img data-sig-preview class="d-none border rounded" alt="签名预览" style="max-height:80px;background:#fff;"/>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" class="btn btn-primary" id="pinModalSubmit">确认</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div th:replace="~{fragments :: signature-modal}"></div>
 <div th:replace="~{fragments :: footer}"></div>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
+<script th:src="@{/js/signature-pad.js}"></script>
+<script th:src="@{/js/generic-col-filters.js}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const table = document.getElementById('notificationTable');
+        if (!table || !window.GenericColFilters) return;
+        const norm = (s) => (s || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
+        GenericColFilters.init({
+            table: table,
+            rows: document.querySelectorAll('.notification-row'),
+            cards: document.querySelectorAll('.notification-card'),
+            searchInput: document.getElementById('notificationSearch'),
+            skipCols: [],
+            multiFilterCols: [],
+            rowSearchMatch: function (el, kwNorm) {
+                if (!kwNorm) return true;
+                const blob = [
+                    el.getAttribute('data-title'),
+                    el.getAttribute('data-author'),
+                    el.getAttribute('data-tournament'),
+                    el.getAttribute('data-levels')
+                ].map(norm).join(' ');
+                return blob.indexOf(kwNorm) >= 0;
+            }
+        });
+    });
+
+    let pinModal = null;
+    function openPinModal(btn) {
+        if (!btn) return;
+        const id = String(btn.getAttribute('data-pin-id') || '');
+        const pinTo = String(btn.getAttribute('data-pin-to') || 'true') === 'true';
+        const title = btn.getAttribute('data-pin-title') || '';
+        const form = document.getElementById('pinNotificationForm');
+        const modalEl = document.getElementById('pinNotificationModal');
+        if (!form || !modalEl || !id) return;
+        form.action = '/notification/pin/' + encodeURIComponent(id);
+        document.getElementById('pinTargetValue').value = pinTo ? 'true' : 'false';
+        document.getElementById('pinModalTitle').textContent = pinTo ? '置顶消息通知' : '取消置顶';
+        document.getElementById('pinModalHint').textContent =
+            (pinTo ? '将置顶：' : '将取消置顶：') + title + '。请签字验收后确认。';
+        document.getElementById('pinModalSubmit').textContent = pinTo ? '确认置顶' : '确认取消置顶';
+        const sig = document.getElementById('signature');
+        if (sig) sig.value = '';
+        const preview = form.querySelector('[data-sig-preview]');
+        if (preview) {
+            preview.src = '';
+            preview.classList.add('d-none');
+        }
+        const hint = form.querySelector('[data-sig-hint]');
+        if (hint) {
+            hint.textContent = '必须签字';
+            hint.classList.add('text-danger');
+            hint.classList.remove('text-success');
+        }
+        if (!pinModal) pinModal = new bootstrap.Modal(modalEl);
+        pinModal.show();
+    }
+</script>
 </body>
 </html>

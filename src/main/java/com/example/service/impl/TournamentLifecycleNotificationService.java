@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -279,18 +280,22 @@ public class TournamentLifecycleNotificationService {
         }
     }
 
-    /** 金牌赛锁定后：未参赛办赛人员收到全量最终赛事积分。 */
+    /**
+     * 本届全部比赛均已验收锁定后：
+     * 1) 进行中 → 已结束；
+     * 2) 办赛人员收到全量最终赛事积分（须等铜牌赛等全部场次，而非仅金牌赛）。
+     */
     public void onTournamentFullyCompleted(Long tournamentId) {
         if (tournamentId == null) {
             return;
         }
         try {
-            Tournament tournament = tournamentService.getById(tournamentId);
-            if (tournament == null) {
+            if (!isTournamentAllMatchesLocked(tournamentId)) {
                 return;
             }
-            Match gold = findGoldMatch(tournamentId);
-            if (gold == null || !Boolean.TRUE.equals(gold.getResultLocked()) || gold.getWinnerId() == null) {
+            markTournamentFinishedIfOngoing(tournamentId);
+            Tournament tournament = tournamentService.getById(tournamentId);
+            if (tournament == null) {
                 return;
             }
             Set<Long> staffAll = organizerUserIds(tournament);
@@ -426,7 +431,7 @@ public class TournamentLifecycleNotificationService {
                     && isKnockoutRoundFullyLocked(tid, match.getRound())) {
                 onKnockoutRoundCompleted(tid, match.getRound());
             }
-            if (isGoldMatch(match) && Boolean.TRUE.equals(match.getResultLocked())) {
+            if (isTournamentAllMatchesLocked(tid)) {
                 onTournamentFullyCompleted(tid);
             }
             afterPointsRecomputed(tid);
@@ -801,6 +806,41 @@ public class TournamentLifecycleNotificationService {
         return null;
     }
 
+    /** 本届所有比赛（小组/资格/淘汰/决赛）均已验收锁定。 */
+    private boolean isTournamentAllMatchesLocked(Long tournamentId) {
+        if (tournamentId == null) {
+            return false;
+        }
+        long total = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .count();
+        if (total <= 0) {
+            return false;
+        }
+        long locked = matchService.lambdaQuery()
+                .eq(Match::getTournamentId, tournamentId)
+                .eq(Match::getResultLocked, true)
+                .count();
+        return locked == total;
+    }
+
+    /** 进行中 → 已结束；若尚无结束日期则写入当天。 */
+    private void markTournamentFinishedIfOngoing(Long tournamentId) {
+        if (tournamentId == null) {
+            return;
+        }
+        Tournament tournament = tournamentService.getById(tournamentId);
+        if (tournament == null || tournament.getStatus() == null || tournament.getStatus() != 1) {
+            return;
+        }
+        tournament.setStatus(2);
+        if (tournament.getEndDate() == null) {
+            tournament.setEndDate(LocalDate.now());
+        }
+        tournament.setUpdatedAt(LocalDateTime.now());
+        tournamentService.updateById(tournament);
+    }
+
     private boolean isGroupStageFullyLocked(Long tournamentId) {
         long total = matchService.lambdaQuery()
                 .eq(Match::getTournamentId, tournamentId)
@@ -848,25 +888,6 @@ public class TournamentLifecycleNotificationService {
             return false;
         }
         return oneRound.stream().allMatch(m -> Boolean.TRUE.equals(m.getResultLocked()) && m.getWinnerId() != null);
-    }
-
-    private Match findGoldMatch(Long tournamentId) {
-        return matchService.lambdaQuery()
-                .eq(Match::getTournamentId, tournamentId)
-                .eq(Match::getRound, 1)
-                .and(w -> w.eq(Match::getPhaseCode, "FINAL").or().like(Match::getCategory, "金牌"))
-                .last("LIMIT 1")
-                .one();
-    }
-
-    private static boolean isGoldMatch(Match m) {
-        if (m == null) {
-            return false;
-        }
-        if ("FINAL".equalsIgnoreCase(m.getPhaseCode()) && m.getCategory() != null && m.getCategory().contains("金牌")) {
-            return true;
-        }
-        return m.getCategory() != null && m.getCategory().contains("金牌");
     }
 
     private static Long loserOf(Match m) {

@@ -191,17 +191,14 @@
                             <div class="list-group list-group-flush">
                                 <a class="list-group-item list-group-item-action px-0"
                                    th:each="n : ${homeNotifications}"
+                                   th:classappend="${n.pinned} ? ' list-group-item-warning' : ''"
                                    th:href="@{/notification/detail/{id}(id=${n.id})}">
                                     <div class="d-flex justify-content-between align-items-start gap-2">
                                         <div>
                                             <strong th:text="${n.title}">通知标题</strong>
-                                            <!-- <span class="badge bg-secondary ms-2"
-                                                  th:if="${n.sourceType != null and !#strings.isEmpty(n.sourceType)}">自动</span> -->
+                                            <span th:if="${n.pinned}" class="badge bg-danger ms-1">置顶</span>
                                             <small class="text-muted d-block mt-1" th:if="${n.authorUsername != null}"
                                                    th:text="${'发起者：' + n.authorUsername}">-</small>
-                                            <!-- <small class="text-primary d-block mt-1"
-                                                   th:if="${n.tournamentEditionLabel != null and !#strings.isEmpty(n.tournamentEditionLabel)}"
-                                                   th:text="${'关联赛事：' + n.tournamentEditionLabel}">关联赛事</small> -->
                                         </div>
                                         <small class="text-muted text-nowrap"
                                                th:text="${n.publishedAt != null ? #temporals.format(n.publishedAt,'yyyy-MM-dd HH:mm') : '-'}">-</small>

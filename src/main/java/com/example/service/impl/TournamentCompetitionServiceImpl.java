@@ -1079,6 +1079,10 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             m.setUpdatedAt(LocalDateTime.now());
             matchService.updateById(m);
             knockoutBracketService.onKnockoutMatchLocked(operator, m);
+            try {
+                lifecycleNotificationService.afterMatchLocked(m);
+            } catch (Exception ignored) {
+            }
             changed++;
         }
         TournamentCompetitionConfig cfg = getConfig(tournamentId);

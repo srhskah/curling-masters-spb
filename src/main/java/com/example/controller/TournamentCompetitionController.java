@@ -23,6 +23,7 @@ public class TournamentCompetitionController {
     @Autowired private ISetScoreService setScoreService;
     @Autowired private com.example.service.impl.QualifierScheduleService qualifierScheduleService;
     @Autowired private com.example.service.impl.KnockoutBracketService knockoutBracketService;
+    @Autowired private com.example.service.impl.TournamentLifecycleNotificationService lifecycleNotificationService;
     @Autowired private TournamentService tournamentService;
     @Autowired private TournamentUrlService tournamentUrlService;
     @Autowired private SystemConfigService systemConfigService;
@@ -449,6 +450,10 @@ public class TournamentCompetitionController {
                 if (fresh != null) {
                     knockoutBracketService.tryAutoGenerateFromGroupStage(cu, fresh.getTournamentId());
                     knockoutBracketService.onKnockoutMatchLocked(cu, fresh);
+                    try {
+                        lifecycleNotificationService.afterMatchLocked(fresh);
+                    } catch (Exception ignored) {
+                    }
                 }
             }
             return Map.of("ok", true);

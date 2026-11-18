@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('删除记录详情')}"></head>
+<body th:classappend="${ipBgClass}">
+<div th:replace="~{fragments :: navbar}"></div>
+<div th:replace="~{fragments :: error-alert}"></div>
+<div class="container mt-4" th:if="${deleteLog != null}">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h3 class="mb-0" th:text="${deleteLog.title}">标题</h3>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-secondary btn-sm" th:href="@{/notification/deleted}">返回删除记录</a>
+            <a class="btn btn-outline-primary btn-sm"
+               th:href="@{/notification/export/deleted/pdf/{id}(id=${deleteLog.id})}">导出PDF</a>
+            <button type="button" class="btn btn-primary btn-sm"
+                    data-copy-target="#copyText" data-copy-reset-ms="1200">复制为文本</button>
+        </div>
+    </div>
+    <div class="text-muted small mb-3">
+        原通知ID：<span th:text="${deleteLog.messageId != null ? deleteLog.messageId : '—'}">—</span>
+        · 类型：<span th:text="${(deleteLog.sourceType != null and !#strings.isEmpty(deleteLog.sourceType)) ? '自动' : '手动'}">手动</span>
+        · 原发起者：<span th:text="${deleteLog.authorUsername}">—</span>
+        · 删除人：<span th:text="${deleteLog.deletedByUsername}">—</span>
+        · 删除时间：
+        <span th:text="${deleteLog.deletedAt != null ? #temporals.format(deleteLog.deletedAt,'yyyy-MM-dd HH:mm:ss') : '-'}">-</span>
+    </div>
+    <article class="card border-0 shadow-sm mb-3">
+        <div class="card-body markdown-body" th:utext="${deleteLog.contentHtml}"></div>
+    </article>
+    <div class="mb-3">
+        <div class="fw-semibold mb-1">删除时电子签名</div>
+        <img th:if="${deleteLog.signature != null and #strings.startsWith(deleteLog.signature, 'data:image/')}"
+             th:src="${deleteLog.signature}" alt="签名" style="max-height:80px;background:#fff;border:1px solid #ddd;"/>
+        <span th:if="${deleteLog.signature == null or #strings.isEmpty(deleteLog.signature)}" class="text-muted">无签名</span>
+        <span th:if="${deleteLog.signature != null and !#strings.isEmpty(deleteLog.signature) and !#strings.startsWith(deleteLog.signature, 'data:image/')}"
+              th:text="${deleteLog.signature}"></span>
+    </div>
+</div>
+<textarea id="copyText" class="d-none" th:text="${copyText}"></textarea>
+<div th:replace="~{fragments :: footer}"></div>
+<th:block th:replace="~{fragments :: scripts}"></th:block>
+</body>
+</html>

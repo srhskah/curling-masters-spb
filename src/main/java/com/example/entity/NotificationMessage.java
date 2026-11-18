@@ -29,6 +29,9 @@ public class NotificationMessage {
     @TableField("publish_to_home")
     private Boolean publishToHome;
 
+    /** 是否置顶展示 */
+    private Boolean pinned;
+
     @TableField("author_user_id")
     private Long authorUserId;
 
@@ -43,6 +46,14 @@ public class NotificationMessage {
     /** 关联赛事详情入口，查询时填充，不落库 */
     @TableField(exist = false)
     private String tournamentDetailUrl;
+
+    /** 自动/手动（查询时填充：sourceType 非空为自动） */
+    @TableField(exist = false)
+    private String sendTypeLabel;
+
+    /** 当前用户是否可在列表置顶/取消置顶（查询时填充，不落库） */
+    @TableField(exist = false)
+    private Boolean canTogglePin;
 
     @TableField("source_type")
     private String sourceType;

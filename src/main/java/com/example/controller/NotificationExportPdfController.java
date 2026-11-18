@@ -1,5 +1,7 @@
 package com.example.controller;
 
+import com.example.entity.NotificationDeleteLog;
+import com.example.entity.NotificationEditLog;
 import com.example.entity.NotificationMessage;
 import com.example.entity.User;
 import com.example.service.INotificationService;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -39,12 +42,36 @@ public class NotificationExportPdfController {
         if (msg == null) {
             return ResponseEntity.notFound().build();
         }
+        List<NotificationEditLog> editLogs = notificationService.listEditLogs(msg.getId());
         Map<String, Object> model = new HashMap<>();
         model.put("title", msg.getTitle());
         model.put("message", msg);
+        model.put("editLogs", editLogs);
         PdfExportSupport.addStandardPdfHeaderFields(model);
         byte[] pdf = pdfService.renderPdf("pdf/pdf-notification-detail", model);
         String name = msg.getTitle() == null ? "消息通知" : msg.getTitle();
+        if (!name.toLowerCase().endsWith(".pdf")) {
+            name = name + ".pdf";
+        }
+        return PdfExportSupport.attachmentPdf(pdf, name);
+    }
+
+    @GetMapping(value = "/deleted/pdf/{id}", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> exportDeleted(@PathVariable Long id, Principal principal) {
+        User me = principal == null ? null : userService.findByUsername(principal.getName());
+        if (!notificationService.canManage(me)) {
+            return ResponseEntity.status(403).build();
+        }
+        NotificationDeleteLog log = notificationService.getDeleteLog(id).orElse(null);
+        if (log == null) {
+            return ResponseEntity.notFound().build();
+        }
+        Map<String, Object> model = new HashMap<>();
+        model.put("title", "删除记录-" + (log.getTitle() == null ? "消息通知" : log.getTitle()));
+        model.put("deleteLog", log);
+        PdfExportSupport.addStandardPdfHeaderFields(model);
+        byte[] pdf = pdfService.renderPdf("pdf/pdf-notification-delete-log", model);
+        String name = "删除记录-" + (log.getTitle() == null ? "消息通知" : log.getTitle());
         if (!name.toLowerCase().endsWith(".pdf")) {
             name = name + ".pdf";
         }

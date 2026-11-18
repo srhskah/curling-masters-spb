@@ -70,6 +70,10 @@ out/
 # Generated / local docs artifacts
 /docs/generated/
 /docs/generated/*.md
+api-keys/
+key-based-config/
+mtls-cicd/
+springboot-config-example/
 
 # Keep the canonical project README tracked
 !README.md

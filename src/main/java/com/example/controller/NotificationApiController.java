@@ -34,14 +34,17 @@ public class NotificationApiController {
                                   @RequestParam("contentMarkdown") String markdown,
                                   @RequestParam(defaultValue = "false") boolean publishToHome,
                                   @RequestParam(defaultValue = "false") boolean publishNow,
+                                  @RequestParam(defaultValue = "false") boolean pinned,
+                                  @RequestParam(required = false) String signature,
                                   Principal principal) {
         User me = currentUser(principal);
         if (!notificationService.canManage(me)) {
             return ResponseEntity.status(403).body(Map.of("success", false, "message", "无权限"));
         }
         try {
-            NotificationMessage m = notificationService.createOrUpdate(id, title, markdown, publishToHome, publishNow, me);
-            return ResponseEntity.ok(Map.of("success", true, "id", m.getId()));
+            NotificationMessage m = notificationService.createOrUpdate(
+                    id, title, markdown, publishToHome, publishNow, pinned, signature, me);
+            return ResponseEntity.ok(Map.of("success", true, "id", String.valueOf(m.getId())));
         } catch (IllegalStateException | IllegalArgumentException e) {
             return ResponseEntity.status(403).body(Map.of("success", false, "message", e.getMessage()));
         }

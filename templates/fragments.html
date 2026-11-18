@@ -277,6 +277,29 @@
     <script th:src="@{/js/main.js?v=1.4}"></script>
 </th:block>
 
+<!-- 手写电子签名弹窗（配合 /js/signature-pad.js） -->
+<th:block th:fragment="signature-modal">
+    <div class="modal fade" id="signatureModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">手写电子签名</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <canvas id="signatureCanvas" width="420" height="180"
+                            style="width:100%;border:1px solid #ced4da;border-radius:6px;background:#fff;touch-action:none;"></canvas>
+                    <div class="small text-muted mt-2">请在签名框内手写，保存后用于验收记录。</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" onclick="clearSignatureCanvas()">清除</button>
+                    <button type="button" class="btn btn-primary" onclick="saveSignatureCanvas()">使用该签名</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</th:block>
+
 <!-- 消息提示片段 -->
 <div th:fragment="alert(message, type)" th:if="${message}" class="container mt-3">
     <div th:class="'alert alert-' + ${type} + ' alert-dismissible fade show'" role="alert">
