@@ -13,21 +13,16 @@
         </h3>
         <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-outline-secondary btn-sm btn-mobile-compact" th:href="@{/notification/list}">
-                <span class="btn-label">返回列表</span>
+                <span class="btn-label">返回列表</span><span class="btn-emoji" aria-hidden="true">↩️</span>
             </a>
-            <a class="btn btn-outline-primary btn-sm btn-mobile-compact" th:href="@{/notification/export/pdf/{id}(id=${notice.id})}">
-                <span class="btn-label">导出PDF</span>
-            </a>
+            <a th:replace="~{fragments :: btn-export-pdf('btn btn-outline-dark btn-sm', @{/notification/export/pdf/{id}(id=${notice.id})}, null)}"></a>
             <form method="post" th:action="@{/notification/mark-unread/{id}(id=${notice.id})}">
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <button type="submit" class="btn btn-outline-warning btn-sm btn-mobile-compact">
-                    <span class="btn-label">标记未读</span>
+                    <span class="btn-label">标记未读</span><span class="btn-emoji" aria-hidden="true">🔔</span>
                 </button>
             </form>
-            <button type="button" class="btn btn-primary btn-sm btn-mobile-compact"
-                    data-copy-target="#copyText" data-copy-reset-ms="1200">
-                <span class="btn-label">复制为文本</span>
-            </button>
+            <button th:replace="~{fragments :: btn-copy-as-text('btn btn-outline-dark btn-sm', '#copyText', 1200, null)}"></button>
         </div>
     </div>
     <div class="text-muted small mb-3">

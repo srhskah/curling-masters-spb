@@ -113,13 +113,6 @@
                 margin-bottom: 0.5rem;
             }
         }
-        /* <512px设备隐藏导出按钮文本 */
-        @media (max-width: 511px) {
-            .export-button-text {
-                display: none;
-            }
-        }
-        
         .view-toggle-btn {
             padding: 0.25rem 0.75rem;
             font-size: 0.875rem;
@@ -712,13 +705,8 @@
                                     <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center flex-wrap gap-2">
                                         <h5 class="mb-0 text-start"><i class="bi bi-sliders"></i> 赛事配置 </h5>
                                         <div class="section-header-end d-flex gap-2 align-items-center flex-shrink-0 flex-wrap justify-content-end">
-                                            <button type="button" class="btn btn-outline-dark btn-sm" id="copyCompetitionConfigBtn">
-                                                <i class="bi bi-file-text"></i> <span class="export-button-text">复制为文本</span>
-                                            </button>
-                                            <a th:href="@{/tournament/detail/{id}/export/competition-config/pdf(id=${tournamentInfo.tournament.id})}"
-                                               class="btn btn-outline-dark btn-sm">
-                                                <i class="bi bi-file-earmark-pdf"></i> <span class="export-button-text">导出PDF</span>
-                                            </a>
+                                            <button th:replace="~{fragments :: btn-copy-as-text('btn btn-outline-dark btn-sm', null, null, 'copyCompetitionConfigBtn')}"></button>
+                                            <a th:replace="~{fragments :: btn-export-pdf('btn btn-outline-dark btn-sm', @{/tournament/detail/{id}/export/competition-config/pdf(id=${tournamentInfo.tournament.id})}, null)}"></a>
                                             <button class="btn btn-outline-dark btn-sm toggle-collapse-btn"
                                                     type="button"
                                                     data-bs-toggle="collapse"
@@ -1426,13 +1414,15 @@
                                     <button type="button" class="btn btn-light btn-sm"
                                             id="tournamentCopyBtn"
                                             th:attr="data-tournament-id=${tournamentInfo.tournament.id}">
-                                        复制为文本
+                                        <i class="bi bi-file-text" aria-hidden="true"></i>
+                                        <span class="export-button-text">复制为文本</span>
                                     </button>
                                     <a class="btn btn-outline-light btn-sm"
                                        id="tournamentPdfLink"
                                        th:href="@{/ranking/export/pdf/tournament/{id}(id=${tournamentInfo.tournament.id},includeMatchDetails=true)}"
                                        th:attr="data-pdf-base=@{/ranking/export/pdf/tournament/{id}(id=${tournamentInfo.tournament.id})}">
-                                        导出为PDF
+                                        <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                                        <span class="export-button-text">导出PDF</span>
                                     </a>
                                 </div>
                             </div>
@@ -1491,9 +1481,11 @@
                                     </form>
                                     <button type="button" class="btn btn-outline-light btn-sm"
                                             id="groupOverallCopyBtn"
-                                            th:attr="data-tournament-id=${tournamentInfo.tournament.id}">复制为文本</button>
-                                    <a class="btn btn-outline-light btn-sm"
-                                       th:href="@{/ranking/export/pdf/tournament/{id}/group-overall-ranking(id=${tournamentInfo.tournament.id})}">导出为PDF</a>
+                                            th:attr="data-tournament-id=${tournamentInfo.tournament.id}">
+                                        <i class="bi bi-file-text" aria-hidden="true"></i>
+                                        <span class="export-button-text">复制为文本</span>
+                                    </button>
+                                    <a th:replace="~{fragments :: btn-export-pdf('btn btn-outline-light btn-sm', @{/ranking/export/pdf/tournament/{id}/group-overall-ranking(id=${tournamentInfo.tournament.id})}, null)}"></a>
                                 </div>
                             </div>
                             <div class="card-body table-responsive">
@@ -1759,9 +1751,11 @@
                                     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                                         <div class="fw-bold"><i class="bi bi-slash-circle"></i> 取消资格记录</div>
                                         <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyDisqualificationText()">复制为文本</button>
-                                            <a class="btn btn-outline-secondary btn-sm"
-                                               th:href="@{/ranking/export/pdf/tournament/{id}/disqualification(id=${tournamentInfo.tournament.id})}">导出为PDF</a>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="copyDisqualificationText()">
+                                                <i class="bi bi-file-text" aria-hidden="true"></i>
+                                                <span class="export-button-text">复制为文本</span>
+                                            </button>
+                                            <a th:replace="~{fragments :: btn-export-pdf('btn btn-outline-secondary btn-sm', @{/ranking/export/pdf/tournament/{id}/disqualification(id=${tournamentInfo.tournament.id})}, null)}"></a>
                                         </div>
                                     </div>
                                     <div class="table-responsive">

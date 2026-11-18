@@ -277,6 +277,26 @@
     <script th:src="@{/js/main.js?v=1.4}"></script>
 </th:block>
 
+<!--
+  复制为文本 / 导出PDF：与赛事详情「赛事配置」标题栏一致（bi 图标 + .export-button-text，窄屏只留图标）。
+  btnClass 默认 btn-outline-dark btn-sm；copyTarget 为空时不写 data-copy-target（供自定义 JS 的按钮用）。
+-->
+<button th:fragment="btn-copy-as-text(btnClass, copyTarget, resetMs, btnId)"
+        type="button"
+        th:class="${(btnClass != null and !#strings.isEmpty(btnClass)) ? btnClass : 'btn btn-outline-dark btn-sm'}"
+        th:attr="id=${btnId},data-copy-target=${copyTarget},data-copy-reset-ms=${copyTarget != null ? (resetMs != null ? resetMs : 1200) : null}">
+    <i class="bi bi-file-text" aria-hidden="true"></i>
+    <span class="export-button-text">复制为文本</span>
+</button>
+
+<a th:fragment="btn-export-pdf(btnClass, href, linkId)"
+   th:href="${href}"
+   th:class="${(btnClass != null and !#strings.isEmpty(btnClass)) ? btnClass : 'btn btn-outline-dark btn-sm'}"
+   th:attr="id=${linkId}">
+    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+    <span class="export-button-text">导出PDF</span>
+</a>
+
 <!-- 手写电子签名弹窗（配合 /js/signature-pad.js） -->
 <th:block th:fragment="signature-modal">
     <div class="modal fade" id="signatureModal" tabindex="-1" aria-hidden="true">

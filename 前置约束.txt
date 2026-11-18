@@ -14,11 +14,12 @@
 8. 【前端只改外置目录】以后对前端页面的更改（HTML / CSS / JS / 图片 / favicon），一律只改工程根目录的 templates/、static/（即 @templates、@static）。不要改 src/main/resources/templates 或 src/main/resources/static——本地 Docker 挂载的是根目录这两处，改 classpath 里的副本刷新看不到。Java/配置/Flyway 仍改 src/。
 9. 必须保证当前所有功能都可以正常使用。安全加固、抽组件、去冗余都不能改变已有业务结果、权限范围和页面行为。改完按改动面自检相关页面和接口；拿不准会不会影响现有功能时，保持原行为。
 10. 新增或修改控件时，放在当前页面已有信息流里合适的位置：能加在现有控件上就不要另起一块。任何宽度下都不得撑破或溢出当前布局，信息要能看清，样式跟现有页面一致，安静、不抢主内容。
-11. 已有服务、片段、样式和接口能复用就复用，不要为同一件事再写一套平行实现。
+11. 已有服务、片段、样式和接口能复用就复用，不要为同一件事再写一套平行实现。「复制为文本」「导出PDF」按钮以赛事详情页「赛事配置」标题栏为准（`bi-file-text` / `bi-file-earmark-pdf` + `.export-button-text`，窄屏≤511px 只留图标）；优先用 `fragments :: btn-copy-as-text` / `btn-export-pdf`，勿再各自发明 emoji 或另一套窄屏隐藏逻辑。
 12. 【雪花 ID / Long 主键】本系统用户、赛事、场次等主键多为雪花 ID（约 19 位），超出 JavaScript Number 安全整数（2^53-1）。凡经浏览器 JSON/JS 处理的 ID（接口响应、data-*、拼 URL、本地比较）必须按字符串传递与使用：Jackson 可用 `@JsonSerialize(using = ToStringSerializer.class)` 或显式 `String.valueOf`；前端用 `String(id)` / 字符串比较，禁止依赖 JSON number。模板里 `th:href` 等服务端渲染路径不受此限，但若页面随后用 JS 重绘表格/链接，必须走字符串 ID，否则会精度丢失、查无用户并误跳转（如回首页）。改动涉及 ID 序列化或前端拼链时必须自检此项。
 13. 【办赛人员】办赛人员包括：超级管理员（role=0）、普通管理员（role=1）、赛事主办用户（该届赛事的 hostUserId）。涉及权限、消息通知受众、管理入口时，须按此三类识别；勿把「仅参赛选手」与办赛人员混用同一套受众逻辑。
 14. 【消息通知受众】同一届赛事内：环节汇总（报名开始/结束含报名结果、抽签开始/结束、抽签结果汇总、小组赛/单组完赛详细数据、各淘汰轮落败者积分、赛事结束全量积分等）发给全体办赛人员（含已参赛者）。个人向（分组结果、对阵、本人赛事积分、截止提醒等）只发给当事人；已参赛办赛人员另收本人个人向，未参赛办赛人员不收他人个人向私信。收件箱与详情均以收件关系为准，不得因管理员身份列出或打开全部已发布通知。
 15. 【2c4G 资源】远端小机默认关 MyBatis SQL stdout、应用 DEBUG、生产开 Thymeleaf/静态缓存；堆建议 ≤768m；定时任务避免重复调度与「无活可做仍全量重算」。勿在生产长期开 LOGGING_LEVEL_COM_EXAMPLE=DEBUG 或 MYBATIS_LOG_IMPL=StdOutImpl。
+16. 【restore 无重建兜底】常见操作路径是：`git pull` 后直接跑 `restore_sql.sh`（或等价导入备份），而未必先执行 `./gradlew clean build && docker-compose up --build -d`（或其它「重新构建并启动容器」）。因此新改动必须自检：在「宿主机已拉到新代码 / 新迁移，但正在跑的 app 容器仍是旧镜像；库被 truncate+导入 backup，且 `flyway_schema_history` 可能与镜像内迁移集不一致」时，启动与主要读写路径仍不因缺列、缺表、缺配置而 500/起不来。要求：① 该有的 Flyway 迁移照常新增（重建容器后应能自动对齐）；② 同时在 Java/SQL 访问侧提供 fallback（列/表不存在则跳过、用默认值、降级功能或先探测 information_schema / 捕获并记日志），禁止「只能在已跑完最新迁移的库上才能启动」；③ 不要假设 backup 与当前 WAR 内迁移版本永远一致。改库结构或强依赖新列时，在输出里标明「理想路径需 rebuild；仅 restore 时的降级行为是什么」。
 
 二、避免 500（服务端异常）
 1. 所有可能为 null 的查询结果、集合、Optional 必须先判空再使用，禁止直接 .get(0) / .stream() / .equals()。

@@ -278,10 +278,7 @@
                                                         th:attr="data-tournament-id=${t.id}">
                                                     复制排名
                                                 </button>
-                                                <a class="btn btn-sm btn-outline-secondary"
-                                                   th:href="@{/ranking/export/pdf/tournament/{id}(id=${t.id})}">
-                                                    导出PDF
-                                                </a>
+                                                <a th:replace="~{fragments :: btn-export-pdf('btn btn-sm btn-outline-secondary', @{/ranking/export/pdf/tournament/{id}(id=${t.id})}, null)}"></a>
                                                 <button th:if="${isAdmin}"
                                                         type="button"
                                                         class="btn btn-sm btn-outline-warning"
@@ -540,10 +537,7 @@
                                                         th:attr="data-tournament-id=${t.id}">
                                                     复制排名
                                                 </button>
-                                                <a class="btn btn-sm btn-outline-secondary"
-                                                   th:href="@{/ranking/export/pdf/tournament/{id}(id=${t.id})}">
-                                                    导出PDF
-                                                </a>
+                                                <a th:replace="~{fragments :: btn-export-pdf('btn btn-sm btn-outline-secondary', @{/ranking/export/pdf/tournament/{id}(id=${t.id})}, null)}"></a>
                                                     <button th:if="${isAdmin}"
                                                             type="button"
                                                             class="btn btn-sm btn-outline-warning"

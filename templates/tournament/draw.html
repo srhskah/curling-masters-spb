@@ -180,7 +180,8 @@
                 <a th:if="${canManageDraw}" class="btn btn-sm btn-light"
                    th:href="@{/tournament/{id}/draw/export/pdf(id=${tournament.id},pool=${drawPool})}"
                    target="_blank" rel="noopener noreferrer">
-                    <i class="bi bi-file-pdf"></i> 导出PDF
+                    <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                    <span class="export-button-text">导出PDF</span>
                 </a>
                 <button type="button" class="btn btn-sm btn-light" onclick="copyDrawResults()" th:if="${canManageDraw}">
                     <i class="bi bi-clipboard"></i> 复制文本

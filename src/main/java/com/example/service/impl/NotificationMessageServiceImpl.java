@@ -8,6 +8,7 @@ import com.example.entity.NotificationRecipient;
 import com.example.entity.Season;
 import com.example.entity.Series;
 import com.example.entity.Tournament;
+import com.example.entity.TournamentGroup;
 import com.example.entity.TournamentLevel;
 import com.example.entity.TournamentRegistration;
 import com.example.entity.User;
@@ -15,6 +16,7 @@ import com.example.mapper.NotificationDeleteLogMapper;
 import com.example.mapper.NotificationEditLogMapper;
 import com.example.mapper.NotificationMessageMapper;
 import com.example.mapper.NotificationRecipientMapper;
+import com.example.mapper.TournamentGroupMapper;
 import com.example.mapper.TournamentRegistrationMapper;
 import com.example.service.TournamentUrlService;
 import com.example.service.INotificationService;
@@ -61,6 +63,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
     private final SeasonService seasonService;
     private final ITournamentLevelService tournamentLevelService;
     private final TournamentUrlService tournamentUrlService;
+    private final TournamentGroupMapper tournamentGroupMapper;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public NotificationMessageServiceImpl(NotificationMessageMapper messageMapper,
@@ -74,6 +77,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
                                           SeasonService seasonService,
                                           ITournamentLevelService tournamentLevelService,
                                           TournamentUrlService tournamentUrlService,
+                                          TournamentGroupMapper tournamentGroupMapper,
                                           org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
         this.messageMapper = messageMapper;
         this.recipientMapper = recipientMapper;
@@ -86,6 +90,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
         this.seasonService = seasonService;
         this.tournamentLevelService = tournamentLevelService;
         this.tournamentUrlService = tournamentUrlService;
+        this.tournamentGroupMapper = tournamentGroupMapper;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -916,10 +921,27 @@ public class NotificationMessageServiceImpl implements INotificationService {
         if (messages == null || messages.isEmpty()) {
             return;
         }
-        Set<Long> tidSet = messages.stream()
+        // T_GE_G 的 source_ref_id 是 groupId，需先解析为 tournamentId（历史通知一并生效）
+        Map<Long, Long> groupIdToTournamentId = new HashMap<>();
+        Set<Long> groupIds = messages.stream()
+                .filter(m -> m != null && "T_GE_G".equals(m.getSourceType()) && m.getSourceRefId() != null)
                 .map(NotificationMessage::getSourceRefId)
-                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+        if (!groupIds.isEmpty()) {
+            for (TournamentGroup g : tournamentGroupMapper.selectBatchIds(groupIds)) {
+                if (g != null && g.getId() != null && g.getTournamentId() != null) {
+                    groupIdToTournamentId.put(g.getId(), g.getTournamentId());
+                }
+            }
+        }
+
+        Set<Long> tidSet = new HashSet<>();
+        for (NotificationMessage m : messages) {
+            Long tid = resolveTournamentIdForAttach(m, groupIdToTournamentId);
+            if (tid != null) {
+                tidSet.add(tid);
+            }
+        }
         if (tidSet.isEmpty()) {
             return;
         }
@@ -943,7 +965,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
 
         Map<String, Map<Long, Integer>> editionCache = new HashMap<>();
         for (NotificationMessage m : messages) {
-            Long tid = m.getSourceRefId();
+            Long tid = resolveTournamentIdForAttach(m, groupIdToTournamentId);
             if (tid == null) {
                 continue;
             }
@@ -991,6 +1013,17 @@ public class NotificationMessageServiceImpl implements INotificationService {
             m.setTournamentEditionLabel(seasonLabel + "-" + level + "-" + (edition == null ? "?" : edition));
             m.setTournamentDetailUrl(tournamentUrlService.detailUrl(t));
         }
+    }
+
+    /** 列表/详情关联赛事：多数 source_ref_id 即 tournamentId；T_GE_G 存的是 groupId。 */
+    private static Long resolveTournamentIdForAttach(NotificationMessage m, Map<Long, Long> groupIdToTournamentId) {
+        if (m == null || m.getSourceRefId() == null) {
+            return null;
+        }
+        if ("T_GE_G".equals(m.getSourceType())) {
+            return groupIdToTournamentId.get(m.getSourceRefId());
+        }
+        return m.getSourceRefId();
     }
 
     private static boolean isTestSeries(Series series) {

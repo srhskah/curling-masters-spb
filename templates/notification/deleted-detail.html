@@ -9,10 +9,8 @@
         <h3 class="mb-0" th:text="${deleteLog.title}">标题</h3>
         <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-outline-secondary btn-sm" th:href="@{/notification/deleted}">返回删除记录</a>
-            <a class="btn btn-outline-primary btn-sm"
-               th:href="@{/notification/export/deleted/pdf/{id}(id=${deleteLog.id})}">导出PDF</a>
-            <button type="button" class="btn btn-primary btn-sm"
-                    data-copy-target="#copyText" data-copy-reset-ms="1200">复制为文本</button>
+            <a th:replace="~{fragments :: btn-export-pdf('btn btn-outline-dark btn-sm', @{/notification/export/deleted/pdf/{id}(id=${deleteLog.id})}, null)}"></a>
+            <button th:replace="~{fragments :: btn-copy-as-text('btn btn-outline-dark btn-sm', '#copyText', 1200, null)}"></button>
         </div>
     </div>
     <div class="text-muted small mb-3">

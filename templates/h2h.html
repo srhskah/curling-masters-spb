@@ -559,8 +559,8 @@
         exportToolbarEl.classList.remove('d-none');
         exportToolbarEl.innerHTML =
             '<span class="small text-muted me-1">导出</span>' +
-            '<button type="button" class="btn btn-sm btn-outline-secondary" id="h2hCopyExportBtn"><i class="bi bi-clipboard"></i> 复制为文本</button>' +
-            '<button type="button" class="btn btn-sm btn-outline-secondary" id="h2hPdfExportBtn"><i class="bi bi-file-earmark-pdf"></i> 导出为 PDF</button>';
+            '<button type="button" class="btn btn-sm btn-outline-secondary" id="h2hCopyExportBtn"><i class="bi bi-file-text" aria-hidden="true"></i> <span class="export-button-text">复制为文本</span></button>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary" id="h2hPdfExportBtn"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> <span class="export-button-text">导出PDF</span></button>';
             // + '<span class="small text-muted ms-md-2 d-block d-md-inline w-100 w-md-auto mt-1 mt-md-0">PDF：与单场战绩导出相同版式（含 LOGO、A4 纵向），将下载文件。</span>';
         document.getElementById('h2hCopyExportBtn').addEventListener('click', () => {
             if (!lastH2hPayload) return;

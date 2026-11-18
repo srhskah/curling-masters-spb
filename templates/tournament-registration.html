@@ -252,12 +252,10 @@
                         </button>
                         <button type="button" class="btn btn-outline-light btn-sm" id="registrationListCopyBtn"
                                 th:disabled="${registrationExportB64 == null or registrationExportB64.isEmpty()}">
-                            <i class="bi bi-clipboard"></i> 复制为文本
+                            <i class="bi bi-file-text" aria-hidden="true"></i>
+                            <span class="export-button-text">复制为文本</span>
                         </button>
-                        <a class="btn btn-outline-light btn-sm"
-                           th:href="@{/tournament/registration/{id}/export/pdf(id=${tournament.id})}">
-                            <i class="bi bi-file-pdf"></i> 导出为PDF
-                        </a>
+                        <a th:replace="~{fragments :: btn-export-pdf('btn btn-outline-light btn-sm', @{/tournament/registration/{id}/export/pdf(id=${tournament.id})}, null)}"></a>
                     </div>
                 </div>
                 <div class="card-body p-0">

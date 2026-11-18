@@ -339,6 +339,11 @@
                 const ok = cardMatches(card);
                 card.classList.toggle('d-none', !ok);
                 card.style.display = '';
+                // 卡片外包在 .generic-cards-grid > .col-* 时，只藏卡片会留下空列与 g-* 间距
+                const col = card.closest('.generic-cards-grid > [class*="col"]');
+                if (col && col !== card) {
+                    col.classList.toggle('d-none', !ok);
+                }
             });
             if (onApply) {
                 onApply({

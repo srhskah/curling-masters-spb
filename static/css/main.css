@@ -1103,6 +1103,16 @@ table.table-hover.align-middle tbody tr > td {
     }
 }
 
+/* 复制为文本 / 导出PDF：与赛事详情「赛事配置」标题栏一致，窄屏只保留 bi 图标 */
+.export-button-text {
+    margin-left: 0.15rem;
+}
+@media (max-width: 511px) {
+    .export-button-text {
+        display: none;
+    }
+}
+
 .btn-mobile-compact .btn-emoji {
     display: none;
 }
