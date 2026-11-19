@@ -452,7 +452,7 @@
                             <a th:if="${prevSameLevelTournamentNav != null}"
                                class="btn btn-outline-primary w-100 w-lg-auto"
                                th:href="${@tournamentUrls.detailUrl(prevSameLevelTournamentNav.id)}">
-                                <span class="me-1">⬅️</span>
+                                <span class="me-1"><i class="bi bi-arrow-left" aria-hidden="true"></i></span>
                                 <!-- <span class="me-1">上一个同级别赛事：</span> -->
                                 <span class="d-lg-inline" th:text="${prevSameLevelTournamentNav.desktopText}"></span>
                                 <span class="d-lg-none" th:text="${prevSameLevelTournamentNav.mobileText}"></span>
@@ -468,7 +468,7 @@
                                 <!-- <span class="me-1">下一个同级别赛事：</span> -->
                                 <span th:text="${nextSameLevelTournamentNav.desktopText}" class="d-lg-inline"></span>
                                 <span th:text="${nextSameLevelTournamentNav.mobileText}" class="d-lg-none"></span>
-                                <span class="me-1">➡️</span>
+                                <span class="me-1"><i class="bi bi-arrow-right" aria-hidden="true"></i></span>
                             </a>
                         </div>
                     </div>
@@ -822,7 +822,7 @@
                                             <div class="col-md-2">
                                                 <label class="form-label">小组赛允许平局</label>
                                                 <div class="form-check form-switch mt-2">
-                                                    <input class="form-check-input" type="checkbox" id="groupAllowDrawSwitch" name="groupAllowDraw"
+                                                    <input class="form-check-input" type="checkbox" id="groupAllowDrawSwitch" name="groupAllowDraw" value="true"
                                                            th:checked="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}">
                                                     <label class="form-check-label" for="groupAllowDrawSwitch">启用</label>
                                                     <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-info" 
@@ -1408,7 +1408,7 @@
                                         <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                                         <button type="submit" class="btn btn-warning btn-sm btn-mobile-compact">
                                             <span class="btn-text"><i class="bi bi-arrow-repeat"></i> 一键刷新排名</span>
-                                            <span class="btn-emoji d-none" aria-hidden="true">🔄</span>
+                                            <span class="btn-emoji d-none" aria-hidden="true"><i class="bi bi-arrow-clockwise"></i></span>
                                         </button>
                                     </form>
                                     <button type="button" class="btn btn-light btn-sm"
@@ -1492,7 +1492,7 @@
                                 <table class="table table-sm table-hover align-middle mb-0">
                                     <thead class="table-light">
                                     <tr>
-                                        <th>🏅</th><th>组内</th><th>组</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th>
+                                        <th title="名次"><i class="bi bi-award-fill" aria-hidden="true"></i></th><th>组内</th><th>组</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th>
                                         <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'POINTS')}">积分</th>
                                         <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'NET')}">净胜</th>
                                         <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'TOTAL_SCORE')}">总分</th>
@@ -1546,7 +1546,7 @@
                                         <table class="table table-sm table-hover align-middle">
                                             <thead class="table-light">
                                             <tr>
-                                                <th>🏅</th><th>组内</th><th>组</th><th>选手</th><th>积分</th><th>净胜</th><th>总分</th>
+                                                <th title="名次"><i class="bi bi-award-fill" aria-hidden="true"></i></th><th>组内</th><th>组</th><th>选手</th><th>积分</th><th>净胜</th><th>总分</th>
                                                 <th class="d-none d-md-table-cell">胜</th>
                                                 <th class="d-none d-md-table-cell" th:if="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}">平</th>
                                                 <th class="d-none d-md-table-cell">负</th>
@@ -1705,7 +1705,7 @@
                                     <table class="table table-sm table-striped table-hover align-middle mb-0">
                                         <thead class="table-light">
                                         <tr>
-                                            <th>🏅</th><th>组排</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th>
+                                            <th title="名次"><i class="bi bi-award-fill" aria-hidden="true"></i></th><th>组排</th><th>选手</th><th title="已录入总比分且非 0:0 的场次数 / 本组应赛场次">已赛/应赛</th>
                                             <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'POINTS')}">积分</th>
                                             <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'NET')}">净胜</th>
                                             <th th:if="${rankingPriorityVisibleColumns == null or #sets.contains(rankingPriorityVisibleColumns, 'TOTAL_SCORE')}">总分</th>

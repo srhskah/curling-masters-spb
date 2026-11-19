@@ -46,7 +46,7 @@ public class TournamentCompetitionController {
                              @RequestParam(defaultValue = "false") boolean qualifierEnabled,
                              @RequestParam(required = false) Integer groupMode,
                              @RequestParam(required = false) Integer groupSize,
-                             @RequestParam(required = false) Boolean groupAllowDraw,
+                             @RequestParam(defaultValue = "false") boolean groupAllowDraw,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime groupStageDeadline,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound16Deadline,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound8Deadline,

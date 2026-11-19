@@ -176,13 +176,13 @@
 
   function entrantRow(m, side, pid, name) {
     if (pid == null && name === '待定') {
-      return `<div class="entrant ${side}"><span class="nm tbd">待定</span><span class="tick">✔</span><div class="score-pill empty">–</div></div>`;
+      return `<div class="entrant ${side}"><span class="nm tbd">待定</span><i class="bi bi-check-lg tick" aria-hidden="true"></i><div class="score-pill empty">–</div></div>`;
     }
     const win = m.w != null && pid != null && m.w === pid;
     const nm = name || '待定';
     return `<div class="entrant ${side} ${win ? 'win' : ''}" data-player-id="${pid == null ? '' : pid}">
       <span class="nm" title="${escapeHtml(nm)}">${escapeHtml(nm)}</span>
-      <span class="tick">✔</span>
+      <i class="bi bi-check-lg tick" aria-hidden="true"></i>
       ${scoreHtml(m, pid)}
     </div>`;
   }
@@ -255,17 +255,17 @@
     const runnerName = runnerUp != null ? (runnerUp === F.p1 ? F.n1 : F.n2) : null;
     const thirdName = thirdWin != null ? (thirdWin === T.p1 ? T.n1 : T.n2) : null;
     return `<div class="champ-hero ${champ != null ? 'lit' : ''}">
-      <div class="champ-trophy">🏆</div>
+      <div class="champ-trophy"><i class="bi bi-trophy-fill" aria-hidden="true"></i></div>
       <div class="champ-name ${champ == null ? 'ph' : ''}">${champ != null ? escapeHtml(champ === F.p1 ? F.n1 : F.n2) : '虚位以待'}</div>
       <div class="champ-sub">CHAMPION · 冠军</div>
     </div>
     <div class="podium-row">
       <div class="pd-col silver">
-        <span class="pd-nm ${runnerUp == null ? 'tbd' : ''}">${runnerUp != null ? '🥈 ' + escapeHtml(runnerName) : '待定'}</span>
+        <span class="pd-nm ${runnerUp == null ? 'tbd' : ''}">${runnerUp != null ? '<i class="bi bi-2-circle-fill" aria-hidden="true"></i> ' + escapeHtml(runnerName) : '待定'}</span>
         <div class="pd-face" style="border:1.5px solid #c9d6e6;border-bottom:none;background:linear-gradient(160deg,#fbfdff,#e3eaf4);"><span style="font-size:11px;font-weight:800;color:#68798f;">亚军</span></div>
       </div>
       <div class="pd-col bronze">
-        <span class="pd-nm ${thirdWin == null ? 'tbd' : ''}">${thirdWin != null ? '🥉 ' + escapeHtml(thirdName) : '待定'}</span>
+        <span class="pd-nm ${thirdWin == null ? 'tbd' : ''}">${thirdWin != null ? '<i class="bi bi-3-circle-fill" aria-hidden="true"></i> ' + escapeHtml(thirdName) : '待定'}</span>
         <div class="pd-face" style="border:1.5px solid #ddb98f;border-bottom:none;background:linear-gradient(160deg,#fdf6ee,#f2dcc2);"><span style="font-size:11px;font-weight:800;color:#96703c;">季军</span></div>
       </div>
     </div>`;
@@ -382,7 +382,7 @@
 
     let html = '';
     html += `<section class="ko-mob-block ko-mob-upper" aria-label="上半区">
-      <header class="ko-mob-block-hd"><span class="ko-mob-block-ic">⬆️</span><h3>上半区</h3></header>`;
+      <header class="ko-mob-block-hd"><span class="ko-mob-block-ic"><i class="bi bi-arrow-up" aria-hidden="true"></i></span><h3>上半区</h3></header>`;
     html += mobRoundBlock(L.r16, 'r16', upperR16, firstKey === 'r16' ? firstUpperCls : '');
     if (upperQf) {
       html += mobFlow('晋级');
@@ -400,13 +400,13 @@
 
     html += mobFlow('决赛');
     html += `<section class="ko-mob-block ko-mob-center" aria-label="决赛">
-      <header class="ko-mob-block-hd"><span class="ko-mob-block-ic">🏁</span><h3>决赛</h3></header>
+      <header class="ko-mob-block-hd"><span class="ko-mob-block-ic"><i class="bi bi-flag-fill" aria-hidden="true"></i></span><h3>决赛</h3></header>
       ${buildFinalStackHtml(state, { includeThird: true, stackClass: 'ko-mob-final-stack', medalRow: true })}
     </section>`;
 
     html += mobFlow('下半区');
     html += `<section class="ko-mob-block ko-mob-lower" aria-label="下半区">
-      <header class="ko-mob-block-hd"><span class="ko-mob-block-ic">⬇️</span><h3>下半区</h3></header>`;
+      <header class="ko-mob-block-hd"><span class="ko-mob-block-ic"><i class="bi bi-arrow-down" aria-hidden="true"></i></span><h3>下半区</h3></header>`;
     if (lowerSf) {
       if (firstKey === 'sf') {
         html += mobRoundBlock(L.sf, 'sf', lowerSf, firstLowerCls);

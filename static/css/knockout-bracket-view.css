@@ -728,8 +728,9 @@ body.ko-bracket-printing #ko-bracket-print-stage {
 
 .ko-bracket-root .entrant .tick {
   flex: 0 0 auto;
-  width: 8px;
-  font-size: 10.5px;
+  width: 12px;
+  font-size: 11px;
+  line-height: 1;
   color: #cf8256;
   font-weight: 900;
   visibility: hidden;
