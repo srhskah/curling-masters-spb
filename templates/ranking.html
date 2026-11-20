@@ -12,6 +12,7 @@
 <body th:classappend="${ipBgClass}">
 <div th:replace="~{fragments :: navbar}"></div>
 
+<main id="main-content" tabindex="-1">
 <div th:replace="~{fragments :: success-alert}"></div>
 <div th:replace="~{fragments :: error-alert}"></div>
 
@@ -410,12 +411,13 @@
         </div>
     </div>
 </div>
+</main>
 
 <div th:replace="~{fragments :: footer}"></div>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
 
 <!-- <576px：文本导出弹窗（选择格式后复制到剪贴板） -->
-<div class="modal fade" id="textExportModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="textExportModal" tabindex="-1" aria-hidden="true" aria-labelledby="textExportModalTitle">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">

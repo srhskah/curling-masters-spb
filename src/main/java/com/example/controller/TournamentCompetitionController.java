@@ -47,6 +47,7 @@ public class TournamentCompetitionController {
                              @RequestParam(required = false) Integer groupMode,
                              @RequestParam(required = false) Integer groupSize,
                              @RequestParam(defaultValue = "false") boolean groupAllowDraw,
+                             @RequestParam(required = false, defaultValue = "2_1") String groupOtPointsMode,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime groupStageDeadline,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound16Deadline,
                              @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDateTime knockoutRound8Deadline,
@@ -114,6 +115,7 @@ public class TournamentCompetitionController {
             c.setGroupMode(groupMode);
             c.setGroupSize(groupSize);
             c.setGroupAllowDraw(groupAllowDraw);
+            c.setGroupOtPointsMode(TournamentCompetitionConfig.normalizeGroupOtPointsMode(groupOtPointsMode));
             c.setGroupStageDeadline(groupStageDeadline);
             c.setKnockoutRound16Deadline(knockoutRound16Deadline);
             c.setKnockoutRound8Deadline(knockoutRound8Deadline);

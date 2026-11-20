@@ -676,6 +676,7 @@ public class RankingApiController {
         }
         TournamentCompetitionConfig cfg = tournamentCompetitionService.getConfig(tournamentId);
         boolean allowDraw = cfg == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        boolean otPoints3_0 = cfg != null && TournamentCompetitionConfig.isGroupOtPoints3_0(cfg.getGroupOtPointsMode());
         int regularSets = (cfg != null && cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
 
         List<TournamentGroup> groups = tournamentGroupMapper.selectList(
@@ -709,10 +710,10 @@ public class RankingApiController {
         List<Map<String, Object>> groupRows = new ArrayList<>();
         var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         Map<Long, List<Map<String, Object>>> rankingByGroupId = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets, rankingPriority
+                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets, otPoints3_0, rankingPriority
         );
         List<Map<String, Object>> pseudoGroupRows = groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, rankingByGroupId, groupMatches, setByMatch, acceptByMatch, uname, allowDraw, regularSets, rankingPriority
+                groups, rankingByGroupId, groupMatches, setByMatch, acceptByMatch, uname, allowDraw, regularSets, otPoints3_0, rankingPriority
         );
 
         for (TournamentGroup g : groups) {
@@ -747,14 +748,17 @@ public class RankingApiController {
             return row;
         }).toList();
 
-        return Map.of(
-                "tournamentId", tournamentId,
-                "groups", groupRows,
-                "pseudoGroups", pseudoGroupRows,
-                "groupMatches", groupMatchRows,
-                "rankingCriteria", rankingCriterionCodes(rankingPriority),
-                "groupAllowDraw", allowDraw
-        );
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("tournamentId", tournamentId);
+        out.put("groups", groupRows);
+        out.put("pseudoGroups", pseudoGroupRows);
+        out.put("groupMatches", groupMatchRows);
+        out.put("rankingCriteria", rankingCriterionCodes(rankingPriority));
+        out.put("groupAllowDraw", allowDraw);
+        out.put("groupOtPointsMode", otPoints3_0
+                ? TournamentCompetitionConfig.GROUP_OT_POINTS_3_0
+                : TournamentCompetitionConfig.GROUP_OT_POINTS_2_1);
+        return out;
     }
 
     @GetMapping("/tournament/{tournamentId}/group-overall-ranking")

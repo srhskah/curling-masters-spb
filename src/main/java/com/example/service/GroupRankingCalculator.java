@@ -30,9 +30,10 @@ public class GroupRankingCalculator {
                                                                                TournamentCompetitionConfig cfg,
                                                                                List<RankingCriterion> criteriaOrder) {
         boolean allowDraw = cfg == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        boolean otPoints3_0 = cfg != null && TournamentCompetitionConfig.isGroupOtPoints3_0(cfg.getGroupOtPointsMode());
         int regularSets = (cfg != null && cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
         return buildGroupRankingsByMemberIds(groups, memberIdsByGroup, usernameById, groupMatches, scoreByMatch,
-                allowDraw, regularSets, criteriaOrder);
+                allowDraw, regularSets, otPoints3_0, criteriaOrder);
     }
 
     public Map<Long, List<Map<String, Object>>> buildGroupRankingsByMemberIds(List<TournamentGroup> groups,
@@ -43,7 +44,7 @@ public class GroupRankingCalculator {
                                                                                boolean allowDraw,
                                                                                int regularSets) {
         return buildGroupRankingsByMemberIds(groups, memberIdsByGroup, usernameById, groupMatches, scoreByMatch,
-                allowDraw, regularSets, null);
+                allowDraw, regularSets, false, null);
     }
 
     /**
@@ -57,12 +58,29 @@ public class GroupRankingCalculator {
                                                                                boolean allowDraw,
                                                                                int regularSets,
                                                                                List<RankingCriterion> criteriaOrder) {
+        return buildGroupRankingsByMemberIds(groups, memberIdsByGroup, usernameById, groupMatches, scoreByMatch,
+                allowDraw, regularSets, false, criteriaOrder);
+    }
+
+    /**
+     * @param otPoints3_0 禁平局且常规局打平经加局决出时：true=胜+3/败+0，false=胜+2/败+1
+     * @param criteriaOrder null=默认决胜顺序；非 null=仅按队列内决胜项依次比较（踢出项不参与）
+     */
+    public Map<Long, List<Map<String, Object>>> buildGroupRankingsByMemberIds(List<TournamentGroup> groups,
+                                                                               Map<Long, List<Long>> memberIdsByGroup,
+                                                                               Map<Long, String> usernameById,
+                                                                               List<Match> groupMatches,
+                                                                               Map<Long, List<SetScore>> scoreByMatch,
+                                                                               boolean allowDraw,
+                                                                               int regularSets,
+                                                                               boolean otPoints3_0,
+                                                                               List<RankingCriterion> criteriaOrder) {
         Map<Long, List<Map<String, Object>>> out = new HashMap<>();
         for (TournamentGroup g : groups) {
             List<Long> uids = memberIdsByGroup.getOrDefault(g.getId(), List.of()).stream().filter(Objects::nonNull).distinct().toList();
             Map<Long, Map<String, Object>> stat = initGroupStats(uids, usernameById, g.getGroupName());
             List<Match> gm = groupMatches.stream().filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()) && Objects.equals(m.getGroupId(), g.getId())).toList();
-            fillGroupStats(stat, gm, scoreByMatch, allowDraw, regularSets);
+            fillGroupStats(stat, gm, scoreByMatch, allowDraw, regularSets, otPoints3_0);
             for (Long uid : uids) {
                 Map<String, Object> row = stat.get(uid);
                 if (row == null) {
@@ -109,7 +127,8 @@ public class GroupRankingCalculator {
         return stat;
     }
 
-    private void fillGroupStats(Map<Long, Map<String, Object>> stat, List<Match> matches, Map<Long, List<SetScore>> scoreByMatch, boolean allowDraw, int regularSets) {
+    private void fillGroupStats(Map<Long, Map<String, Object>> stat, List<Match> matches, Map<Long, List<SetScore>> scoreByMatch,
+                                boolean allowDraw, int regularSets, boolean otPoints3_0) {
         for (Match m : matches) {
             Long p1 = m.getPlayer1Id(), p2 = m.getPlayer2Id();
             if (p1 == null || p2 == null || !stat.containsKey(p1) || !stat.containsKey(p2)) continue;
@@ -147,12 +166,14 @@ public class GroupRankingCalculator {
                 addInt(r1, "draws", 1); addInt(r2, "draws", 1); addInt(r1, "points", 1); addInt(r2, "points", 1);
             } else if (p1Total > p2Total) {
                 addInt(r1, "wins", 1); addInt(r2, "losses", 1);
-                addInt(r1, "points", (!allowDraw && p1Reg == p2Reg) ? 2 : 3);
-                addInt(r2, "points", (!allowDraw && p1Reg == p2Reg) ? 1 : 0);
+                boolean otDecided = !allowDraw && p1Reg == p2Reg;
+                addInt(r1, "points", otDecided ? (otPoints3_0 ? 3 : 2) : 3);
+                addInt(r2, "points", otDecided ? (otPoints3_0 ? 0 : 1) : 0);
             } else {
                 addInt(r2, "wins", 1); addInt(r1, "losses", 1);
-                addInt(r2, "points", (!allowDraw && p1Reg == p2Reg) ? 2 : 3);
-                addInt(r1, "points", (!allowDraw && p1Reg == p2Reg) ? 1 : 0);
+                boolean otDecided = !allowDraw && p1Reg == p2Reg;
+                addInt(r2, "points", otDecided ? (otPoints3_0 ? 3 : 2) : 3);
+                addInt(r1, "points", otDecided ? (otPoints3_0 ? 0 : 1) : 0);
             }
         }
     }
@@ -456,7 +477,7 @@ public class GroupRankingCalculator {
             int regularSets) {
         return buildPseudoGroupExportRowsAndApplyMainRanks(
                 groups, rankingByGroupId, groupMatches, setByMatch, acceptByMatch,
-                usernameById, allowDraw, regularSets, null);
+                usernameById, allowDraw, regularSets, false, null);
     }
 
     public List<Map<String, Object>> buildPseudoGroupExportRowsAndApplyMainRanks(
@@ -468,6 +489,22 @@ public class GroupRankingCalculator {
             Map<Long, String> usernameById,
             boolean allowDraw,
             int regularSets,
+            List<RankingCriterion> criteriaOrder) {
+        return buildPseudoGroupExportRowsAndApplyMainRanks(
+                groups, rankingByGroupId, groupMatches, setByMatch, acceptByMatch,
+                usernameById, allowDraw, regularSets, false, criteriaOrder);
+    }
+
+    public List<Map<String, Object>> buildPseudoGroupExportRowsAndApplyMainRanks(
+            List<TournamentGroup> groups,
+            Map<Long, List<Map<String, Object>>> rankingByGroupId,
+            List<Match> groupMatches,
+            Map<Long, List<SetScore>> setByMatch,
+            Map<Long, List<MatchAcceptance>> acceptByMatch,
+            Map<Long, String> usernameById,
+            boolean allowDraw,
+            int regularSets,
+            boolean otPoints3_0,
             List<RankingCriterion> criteriaOrder) {
         List<Map<String, Object>> pseudoGroupRows = new ArrayList<>();
         Map<Long, List<MatchAcceptance>> acceptSafe = acceptByMatch != null ? acceptByMatch : Map.of();
@@ -510,13 +547,14 @@ public class GroupRankingCalculator {
                 pseudoGroup.get(0).setGroupName(pseudoGroupName);
 
                 List<Map<String, Object>> pseudoRanking = buildGroupRankingsByMemberIds(
-                        pseudoGroup, pseudoMember, usernameById, tieMatches, setByMatch, allowDraw, regularSets, criteriaOrder
+                        pseudoGroup, pseudoMember, usernameById, tieMatches, setByMatch,
+                        allowDraw, regularSets, otPoints3_0, criteriaOrder
                 ).getOrDefault(g.getId(), List.of());
 
                 if (criteriaIncludes(criteriaOrder, RankingCriterion.HEAD_TO_HEAD)) {
                     List<Long> recursiveOrder = orderMemberIdsRecursively(
                             new ArrayList<>(tieIds), tieMatches, setByMatch, usernameById,
-                            allowDraw, regularSets, criteriaOrder, g.getId(), 0);
+                            allowDraw, regularSets, otPoints3_0, criteriaOrder, g.getId(), 0);
                     pseudoRanking = reorderRowsByUserIds(pseudoRanking, recursiveOrder);
                 }
 
@@ -689,6 +727,7 @@ public class GroupRankingCalculator {
             Map<Long, String> usernameById,
             boolean allowDraw,
             int regularSets,
+            boolean otPoints3_0,
             List<RankingCriterion> criteriaOrder,
             Long groupId,
             int depth) {
@@ -713,6 +752,7 @@ public class GroupRankingCalculator {
                 setByMatch,
                 allowDraw,
                 regularSets,
+                otPoints3_0,
                 criteriaOrder
         ).getOrDefault(groupId, List.of());
         List<Long> ordered = new ArrayList<>();
@@ -755,7 +795,7 @@ public class GroupRankingCalculator {
                 }
                 List<Long> inner = orderMemberIdsRecursively(
                         comp, miniMatches, setByMatch, usernameById,
-                        allowDraw, regularSets, criteriaOrder, groupId, depth + 1);
+                        allowDraw, regularSets, otPoints3_0, criteriaOrder, groupId, depth + 1);
                 applyOrderToSlots(ordered, inner);
             }
         }

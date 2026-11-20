@@ -143,6 +143,12 @@
         <td class="k">小组赛截止时间</td>
         <td class="v" th:text="${groupStageDeadline}">-</td>
     </tr>
+    <tr th:if="${groupAllowDraw != null and !groupAllowDraw}">
+        <td class="k">加局胜负积分</td>
+        <td class="v" th:text="${groupOtPointsMode != null and groupOtPointsMode == '3_0' ? '胜+3 / 败+0' : '胜+2 / 败+1'}">胜+2 / 败+1</td>
+        <td class="k"></td>
+        <td class="v"></td>
+    </tr>
     <tr th:if="${showKnockoutQualifierDeadline}">
         <td class="k">首轮附加资格赛截止</td>
         <td class="v" th:text="${knockoutQualifierDeadline}">-</td>

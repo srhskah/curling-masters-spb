@@ -738,9 +738,10 @@ public class TournamentLifecycleNotificationService {
         Map<Long, List<Map<String, Object>>> byG = groupRankingCalculator.buildGroupRankingsByMemberIds(
                 groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg, rankingPriority);
         boolean allowDraw = cfg.getGroupAllowDraw() == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        boolean otPoints3_0 = TournamentCompetitionConfig.isGroupOtPoints3_0(cfg.getGroupOtPointsMode());
         int regularSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
         groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDraw, regularSets, rankingPriority);
+                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDraw, regularSets, otPoints3_0, rankingPriority);
         return groupRankingCalculator.buildOverallRanking(byG, rankingPriority);
     }
 

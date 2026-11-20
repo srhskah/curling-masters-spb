@@ -98,12 +98,13 @@
                         <div th:if="${log.oldContentMarkdown != log.newContentMarkdown}">正文已更新</div>
                         <div th:if="${log.action == 'CREATE'}">新建通知</div>
                     </td>
-                    <td>
-                        <img th:if="${log.signature != null and #strings.startsWith(log.signature, 'data:image/')}"
-                             th:src="${log.signature}" alt="签名" style="max-height:48px;background:#fff;"/>
-                        <span th:if="${log.signature == null or #strings.isEmpty(log.signature)}" class="text-muted">无</span>
-                        <span th:if="${log.signature != null and !#strings.isEmpty(log.signature) and !#strings.startsWith(log.signature, 'data:image/')}"
-                              th:text="${log.signature}">签</span>
+                    <td class="cm-sig-cell"
+                        th:attr="data-cm-sig=${log.signature},
+                                 data-wm-user=${log.editorUsername},
+                                 data-wm-uuid=${log.editorUserId != null ? #strings.toString(log.editorUserId) : (log.id != null ? #strings.toString(log.id) : '')},
+                                 data-wm-time=${log.editedAt != null ? #temporals.format(log.editedAt,'yyyy-MM-dd HH:mm:ss') : ''}">
+                        <span class="text-muted" th:if="${log.signature == null or #strings.isEmpty(log.signature)}">无</span>
+                        <span class="text-muted small" th:if="${log.signature != null and !#strings.isEmpty(log.signature)}">加载签名…</span>
                     </td>
                 </tr>
                 </tbody>
@@ -173,7 +174,7 @@
 <div th:replace="~{fragments :: signature-modal}"></div>
 <div th:replace="~{fragments :: footer}"></div>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
-<script th:src="@{/js/signature-pad.js}"></script>
+<script th:src="@{/js/signature-pad.js?v=4}"></script>
 <script th:if="${canTogglePin}">
     let detailPinModal = null;
     function openDetailPinModal(btn) {

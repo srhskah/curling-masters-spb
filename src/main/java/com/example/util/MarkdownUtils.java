@@ -208,6 +208,8 @@ public final class MarkdownUtils {
             return markdown == null ? "" : markdown;
         }
         String out = markdown.replace("\r\n", "\n").replace('\r', '\n');
+        // Tab → 空格：CommonMark 列表嵌套依赖空格缩进，Toast/所见即所得 Tab 必须展开
+        out = expandTabsToSpaces(out, 4);
         // Toast UI 在 Markdown↔WYSIWYG 往返时会过度转义表格字符，并常把表行压成一行
         out = unescapeToastOverEscapedMarkdown(out);
         out = splitCollapsedGfmTableRows(out);
@@ -226,6 +228,39 @@ public final class MarkdownUtils {
         out = SENTENCE_THEN_ORDERED_ITEM.matcher(out).replaceAll("$1\n\n$2");
         out = insertListSplitHtmlBlocks(out);
         return indentImplicitListContinuations(out);
+    }
+
+    /**
+     * 按列展开 Tab（默认 tabWidth=4），使列表缩进与 GFM/CommonMark 空格规则一致。
+     */
+    static String expandTabsToSpaces(String markdown, int tabWidth) {
+        if (markdown == null || markdown.isEmpty() || markdown.indexOf('\t') < 0) {
+            return markdown == null ? "" : markdown;
+        }
+        int tw = tabWidth < 1 ? 4 : tabWidth;
+        String[] lines = markdown.split("\n", -1);
+        StringBuilder sb = new StringBuilder(markdown.length() + 16);
+        for (int li = 0; li < lines.length; li++) {
+            if (li > 0) {
+                sb.append('\n');
+            }
+            String line = lines[li];
+            int col = 0;
+            for (int i = 0; i < line.length(); i++) {
+                char c = line.charAt(i);
+                if (c == '\t') {
+                    int spaces = tw - (col % tw);
+                    for (int s = 0; s < spaces; s++) {
+                        sb.append(' ');
+                    }
+                    col += spaces;
+                } else {
+                    sb.append(c);
+                    col++;
+                }
+            }
+        }
+        return sb.toString();
     }
 
     /**
@@ -313,21 +348,79 @@ public final class MarkdownUtils {
 
     private static final Pattern GFM_TABLE_SEP_CELL = Pattern.compile("^:?-{3,}:?$");
 
+    /**
+     * 正文与表格粘在同一物理行时（如 {@code 说明文字 | 1 | 2 || --- || 3 | 4 |}），
+     * 先剥离表前散文再展开；仅以 {@code |} 开头的行才能被旧逻辑识别。
+     */
     private static String splitOneCollapsedTableLine(String line) {
         if (line == null || line.isBlank()) {
             return line == null ? "" : line;
         }
-        String trimmed = line.stripLeading();
-        if (!trimmed.startsWith("|") || countPipes(trimmed) < 6) {
+        int tableAt = findCollapsedTableStart(line);
+        if (tableAt < 0) {
             return line;
         }
-        if (!trimmed.contains("---") && !trimmed.contains(":--") && !trimmed.contains("--:")) {
+        String prose = tableAt > 0 ? line.substring(0, tableAt).stripTrailing() : "";
+        String tablePart = line.substring(tableAt).stripLeading();
+        String expanded = expandCollapsedTableSegment(tablePart);
+        if (expanded.indexOf('\n') < 0) {
             return line;
+        }
+        if (prose.isEmpty()) {
+            return expanded;
+        }
+        return prose + "\n\n" + expanded;
+    }
+
+    /** 在行内定位「粘连 GFM 表」起点（第一个看起来像表的 {@code |}）。 */
+    private static int findCollapsedTableStart(String line) {
+        if (line == null || line.isEmpty()) {
+            return -1;
+        }
+        int from = 0;
+        while (from < line.length()) {
+            int pipe = line.indexOf('|', from);
+            if (pipe < 0) {
+                return -1;
+            }
+            String candidate = line.substring(pipe).stripLeading();
+            if (looksLikeCollapsedGfmTable(candidate)) {
+                int start = pipe;
+                while (start < line.length() && Character.isWhitespace(line.charAt(start))) {
+                    start++;
+                }
+                return start < line.length() && line.charAt(start) == '|' ? start : pipe;
+            }
+            from = pipe + 1;
+        }
+        return -1;
+    }
+
+    private static boolean looksLikeCollapsedGfmTable(String t) {
+        if (t == null || !t.startsWith("|") || countPipes(t) < 6) {
+            return false;
+        }
+        return t.contains("---") || t.contains(":--") || t.contains("--:");
+    }
+
+    /**
+     * 将已确认以 {@code |} 开头的粘连表行展开为多行 GFM 表。
+     * 支持行间 {@code ||}（空单元格）与 {@code |  |}（双空格）两种压行形态。
+     */
+    private static String expandCollapsedTableSegment(String trimmed) {
+        if (trimmed == null || trimmed.isBlank() || !trimmed.startsWith("|")) {
+            return trimmed == null ? "" : trimmed;
+        }
+        if (countPipes(trimmed) < 6) {
+            return trimmed;
+        }
+        if (!trimmed.contains("---") && !trimmed.contains(":--") && !trimmed.contains("--:")) {
+            return trimmed;
         }
         // "| a | b | note" → ["", " a ", " b ", " note"]
         String[] parts = trimmed.split("\\|", -1);
         if (parts.length < 5) {
-            return line;
+            return trimmed;
         }
         String trailingNote = parts[parts.length - 1] == null ? "" : parts[parts.length - 1].strip();
         List<String> cells = new ArrayList<>();
@@ -335,7 +428,7 @@ public final class MarkdownUtils {
             cells.add(parts[i] == null ? "" : parts[i].strip());
         }
         if (cells.size() < 4) {
-            return line;
+            return trimmed;
         }
 
         int i = 0;
@@ -353,19 +446,19 @@ public final class MarkdownUtils {
         }
         int cols = header.size();
         if (cols < 2 || i >= cells.size()) {
-            return line;
+            return trimmed;
         }
         while (i < cells.size() && cells.get(i).isEmpty()) {
             i++;
         }
         if (i + cols > cells.size()) {
-            return line;
+            return trimmed;
         }
         List<String> sepRow = new ArrayList<>(cols);
         for (int k = 0; k < cols; k++) {
             String c = cells.get(i + k);
             if (!isGfmTableSepCell(c)) {
-                return line;
+                return trimmed;
             }
             sepRow.add(c);
         }
@@ -642,11 +735,14 @@ public final class MarkdownUtils {
         // preserveRelativeLinks：否则 Jsoup 会剥掉 /path 相对链接的 href，只剩 <a>文字</a>
         Safelist allow = Safelist.relaxed()
                 .preserveRelativeLinks(true)
-                .addTags("del", "input", "figure", "figcaption")
+                .addTags("del", "input", "figure", "figcaption", "thead", "tbody", "tfoot", "colgroup", "col")
                 .addAttributes("input", "type", "disabled", "checked", "class", "readonly")
                 .addAttributes("del", "class")
                 .addAttributes("th", "colspan", "rowspan", "align", "scope")
-                .addAttributes("td", "colspan", "rowspan", "align");
+                .addAttributes("td", "colspan", "rowspan", "align")
+                /* 勿对 a/href 调 addProtocols，否则会冲掉相对链接 /path */
+                .addAttributes("a", "title", "target", "rel")
+                .addAttributes("table", "class");
         allow.addAttributes(":all", "class", "id");
         allow.addTags("br");
         // baseUri 不能为空：Jsoup 在空 base 下仍会丢掉以 / 开头的相对 href

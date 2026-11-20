@@ -10,7 +10,7 @@
 <div class="container mt-4 mb-5">
     <div class="mb-3">
         <h3 class="mb-1"><i class="bi bi-sliders2-vertical"></i> 总控台</h3>
-        <p class="text-muted mb-0 small">集中管理系统级默认策略：排名参考优先级、赛制规则默认值（超管）。</p>
+        <p class="text-muted mb-0 small">集中管理系统级默认策略：排名参考优先级、赛事等级小组赛平局默认、赛制规则默认值（超管）。</p>
     </div>
 
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
@@ -114,6 +114,58 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div class="border rounded-3 bg-white p-3 p-md-4 mb-4" id="level-group-draw-defaults">
+        <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+            <div>
+                <h5 class="mb-1"><i class="bi bi-trophy"></i> 赛事等级 · 小组赛平局默认</h5>
+                <p class="text-muted mb-0 small">
+                    按等级设置「是否允许平局」与「禁平局时加局胜负积分」。
+                    保存后仅对<strong>之后新建并首次保存运行配置</strong>的赛事预填生效；已有赛事与已单独改过配置的单届不受影响。
+                    单届仍可在赛事详情配置页单独覆盖。
+                </p>
+            </div>
+            <button type="button" class="btn btn-primary" id="saveLevelGroupDrawBtn">
+                <i class="bi bi-save"></i> 保存等级默认
+            </button>
+        </div>
+        <div id="levelGroupDrawAlert" class="alert d-none" role="alert"></div>
+        <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0" id="levelGroupDrawTable">
+                <thead>
+                <tr>
+                    <th>等级</th>
+                    <th>允许平局</th>
+                    <th>加局胜负积分（禁平局时）</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:if="${levelGroupDrawDefaults == null or #lists.isEmpty(levelGroupDrawDefaults)}">
+                    <td colspan="3" class="text-muted small">暂无赛事等级，或数据库尚未迁移相关列。</td>
+                </tr>
+                <tr th:each="lv : ${levelGroupDrawDefaults}" th:attr="data-level-id=${lv.id}">
+                    <td>
+                        <strong th:text="${lv.name}">CM1000</strong>
+                        <span class="text-muted small ms-1" th:text="${lv.code}">CM1000</span>
+                    </td>
+                    <td>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input level-allow-draw" type="checkbox"
+                                   th:checked="${lv.groupAllowDraw}">
+                            <label class="form-check-label small">允许</label>
+                        </div>
+                    </td>
+                    <td>
+                        <select class="form-select form-select-sm level-ot-mode" style="max-width:14rem;">
+                            <option value="2_1" th:selected="${lv.groupOtPointsMode == null or lv.groupOtPointsMode == '2_1'}">胜 +2 / 败 +1</option>
+                            <option value="3_0" th:selected="${lv.groupOtPointsMode == '3_0'}">胜 +3 / 败 +0</option>
+                        </select>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -296,6 +348,62 @@
     });
 
     refreshRanks();
+
+    const levelSaveBtn = document.getElementById('saveLevelGroupDrawBtn');
+    const levelAlert = document.getElementById('levelGroupDrawAlert');
+    function showLevelAlert(ok, msg) {
+        if (!levelAlert) return;
+        levelAlert.classList.remove('d-none', 'alert-success', 'alert-danger');
+        levelAlert.classList.add(ok ? 'alert-success' : 'alert-danger');
+        levelAlert.textContent = msg;
+    }
+    function syncLevelOtEnabled(tr) {
+        if (!tr) return;
+        const allow = tr.querySelector('.level-allow-draw');
+        const ot = tr.querySelector('.level-ot-mode');
+        if (ot) ot.disabled = !!(allow && allow.checked);
+    }
+    document.querySelectorAll('#levelGroupDrawTable tbody tr[data-level-id]').forEach(tr => {
+        syncLevelOtEnabled(tr);
+        const allow = tr.querySelector('.level-allow-draw');
+        if (allow) allow.addEventListener('change', () => syncLevelOtEnabled(tr));
+    });
+    if (levelSaveBtn) {
+        levelSaveBtn.addEventListener('click', async () => {
+            const levels = [...document.querySelectorAll('#levelGroupDrawTable tbody tr[data-level-id]')].map(tr => {
+                const id = tr.getAttribute('data-level-id');
+                const allow = tr.querySelector('.level-allow-draw');
+                const ot = tr.querySelector('.level-ot-mode');
+                return {
+                    id: String(id),
+                    groupAllowDraw: !!(allow && allow.checked),
+                    groupOtPointsMode: ot ? ot.value : '2_1'
+                };
+            });
+            if (!levels.length) {
+                showLevelAlert(false, '没有可保存的赛事等级');
+                return;
+            }
+            levelSaveBtn.disabled = true;
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (csrfToken) headers[csrfHeader] = csrfToken;
+                const xsrf = document.cookie.split(';').map(s => s.trim()).find(s => s.startsWith('XSRF-TOKEN='));
+                if (xsrf) headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrf.substring('XSRF-TOKEN='.length));
+                const res = await fetch('/admin/console/level-group-draw/save', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ levels })
+                });
+                const data = await res.json();
+                showLevelAlert(!!data.success, data.message || (data.success ? '已保存' : '保存失败'));
+            } catch (e) {
+                showLevelAlert(false, '保存失败：' + (e && e.message ? e.message : e));
+            } finally {
+                levelSaveBtn.disabled = false;
+            }
+        });
+    }
 })();
 </script>
 </body>

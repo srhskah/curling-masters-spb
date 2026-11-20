@@ -68,6 +68,11 @@ public class TournamentCompetitionConfigTextController {
         sb.append("小组赛模式: ").append(data.get("groupModeText")).append("\n");
         sb.append("每组人数: ").append(data.get("groupSize") != null ? data.get("groupSize") : "-").append("\n");
         sb.append("小组赛允许平局: ").append(data.get("groupAllowDraw") != null && (Boolean) data.get("groupAllowDraw") ? "是" : "否").append("\n");
+        boolean allowDrawExport = data.get("groupAllowDraw") == null || Boolean.TRUE.equals(data.get("groupAllowDraw"));
+        if (!allowDrawExport) {
+            String ot = data.get("groupOtPointsMode") == null ? "2_1" : String.valueOf(data.get("groupOtPointsMode"));
+            sb.append("加局胜负积分: ").append("3_0".equals(ot) ? "胜+3 / 败+0" : "胜+2 / 败+1").append("\n");
+        }
         sb.append("小组赛截止时间: ").append(data.get("groupStageDeadline")).append("\n");
         if (Boolean.TRUE.equals(data.get("showKnockoutQualifierDeadline"))) {
             sb.append("首轮附加资格赛截止: ").append(data.get("knockoutQualifierDeadline")).append("\n");

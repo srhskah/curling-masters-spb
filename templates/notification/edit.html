@@ -26,8 +26,8 @@
         <div class="mb-3">
             <label class="form-label">正文（Markdown）</label>
             <p class="form-text text-muted small mb-2">
-                可在「Markdown / 所见即所得」间切换。链接、图片、表格等保存后按 Markdown 渲染；
-                若所见即所得往返弄乱表格分隔符，切换回 Markdown 或保存时会自动修复。
+                可在「Markdown / 所见即所得」间切换。换行、Tab 列表缩进、超链接、表格等保存后按 GFM 渲染；
+                所见即所得往返时会自动展开 Tab、修复表格转义/粘连行，并在有序项下缩进子列表。
             </p>
             <div class="notification-md-editor-wrap">
                 <textarea id="contentMarkdown" name="contentMarkdown" class="form-control" rows="12"
@@ -66,7 +66,7 @@
 <div th:replace="~{fragments :: signature-modal}"></div>
 <div th:replace="~{fragments :: footer}"></div>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
-<script th:src="@{/js/signature-pad.js}"></script>
+<script th:src="@{/js/signature-pad.js?v=4}"></script>
 <link rel="stylesheet" th:href="@{/css/toastui-editor.min.css}"/>
 <script th:src="@{/js/toastui-editor-all.min.js}"></script>
 <script th:inline="javascript">
@@ -78,6 +78,26 @@
         const editorEl = document.createElement('div');
         ta.parentNode.insertBefore(editorEl, ta);
         ta.classList.add('d-none');
+
+        const expandTabs = (md, tabWidth) => {
+            const tw = tabWidth > 0 ? tabWidth : 4;
+            return String(md == null ? '' : md).replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map((line) => {
+                let col = 0;
+                let out = '';
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line.charAt(i);
+                    if (ch === '\t') {
+                        const spaces = tw - (col % tw);
+                        out += ' '.repeat(spaces);
+                        col += spaces;
+                    } else {
+                        out += ch;
+                        col++;
+                    }
+                }
+                return out;
+            }).join('\n');
+        };
 
         const repairMarkdownTables = (md) => {
             if (md == null || md === '') return md == null ? '' : md;
@@ -95,31 +115,35 @@
                 .replace(/\\\]/g, ']');
             const isSep = (c) => /^:?-{3,}:?$/.test(c || '');
             const formatRow = (cells) => '| ' + cells.map((c) => c || '').join(' | ') + ' |';
-            const splitCollapsed = (line) => {
-                const t = line.trimStart();
-                if (!t.startsWith('|')) return line;
-                let pipes = 0;
-                for (let i = 0; i < t.length; i++) if (t.charAt(i) === '|') pipes++;
-                if (pipes < 6) return line;
-                if (!t.includes('---') && !t.includes(':--') && !t.includes('--:')) return line;
+            const countPipes = (s) => {
+                let n = 0;
+                for (let i = 0; i < s.length; i++) if (s.charAt(i) === '|') n++;
+                return n;
+            };
+            const looksLikeCollapsed = (t) => {
+                if (!t || t.charAt(0) !== '|' || countPipes(t) < 6) return false;
+                return t.includes('---') || t.includes(':--') || t.includes('--:');
+            };
+            const expandTableSegment = (t) => {
+                if (!looksLikeCollapsed(t)) return t;
                 const parts = t.split('|');
-                if (parts.length < 5) return line;
+                if (parts.length < 5) return t;
                 let trailingNote = (parts[parts.length - 1] || '').trim();
                 const cells = [];
                 for (let i = 1; i < parts.length - 1; i++) cells.push((parts[i] || '').trim());
-                if (cells.length < 4) return line;
+                if (cells.length < 4) return t;
                 let i = 0;
                 while (i < cells.length && !cells[i]) i++;
                 const header = [];
                 while (i < cells.length && !isSep(cells[i])) { header.push(cells[i]); i++; }
                 while (header.length && !header[header.length - 1]) header.pop();
                 const cols = header.length;
-                if (cols < 2 || i >= cells.length) return line;
+                if (cols < 2 || i >= cells.length) return t;
                 while (i < cells.length && !cells[i]) i++;
-                if (i + cols > cells.length) return line;
+                if (i + cols > cells.length) return t;
                 const sepRow = [];
                 for (let k = 0; k < cols; k++) {
-                    if (!isSep(cells[i + k])) return line;
+                    if (!isSep(cells[i + k])) return t;
                     sepRow.push(cells[i + k]);
                 }
                 i += cols;
@@ -139,8 +163,51 @@
                 if (trailingNote) out += '\n\n' + trailingNote;
                 return out;
             };
+            const splitCollapsed = (line) => {
+                let from = 0;
+                let tableAt = -1;
+                while (from < line.length) {
+                    const pipe = line.indexOf('|', from);
+                    if (pipe < 0) break;
+                    const candidate = line.slice(pipe).trimStart();
+                    if (looksLikeCollapsed(candidate)) {
+                        tableAt = pipe;
+                        while (tableAt < line.length && /\s/.test(line.charAt(tableAt))) tableAt++;
+                        break;
+                    }
+                    from = pipe + 1;
+                }
+                if (tableAt < 0) return line;
+                const prose = tableAt > 0 ? line.slice(0, tableAt).replace(/\s+$/, '') : '';
+                const expanded = expandTableSegment(line.slice(tableAt).trimStart());
+                if (expanded.indexOf('\n') < 0) return line;
+                return prose ? (prose + '\n\n' + expanded) : expanded;
+            };
+            // 有序项后紧跟顶格无序项 → 缩进为子列表（对齐服务端 nestTightUnorderedUnderPrecedingOrdered）
+            const nestUlUnderOl = (text) => {
+                const lines = text.split('\n');
+                let underOrdered = false;
+                return lines.map((line) => {
+                    if (!line.trim()) {
+                        underOrdered = false;
+                        return line;
+                    }
+                    if (/^\d{1,3}\.\s+\S/.test(line)) {
+                        underOrdered = true;
+                        return line;
+                    }
+                    if (underOrdered && /^[-*+]\s+\S/.test(line)) {
+                        return '    ' + line.trimStart();
+                    }
+                    if (underOrdered && line.startsWith('    ')) {
+                        return line;
+                    }
+                    underOrdered = false;
+                    return line;
+                }).join('\n');
+            };
             let inFence = false;
-            return md.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map((line) => {
+            let out = expandTabs(md, 4).split('\n').map((line) => {
                 const trimmed = line.trimStart();
                 if (trimmed.startsWith('```')) {
                     inFence = !inFence;
@@ -149,6 +216,8 @@
                 if (inFence) return line;
                 return splitCollapsed(unescapeLine(line));
             }).join('\n');
+            out = nestUlUnderOl(out);
+            return out;
         };
 
         const initial = repairMarkdownTables(ta.value || '');
@@ -178,6 +247,7 @@
         };
         if (typeof editor.on === 'function') {
             editor.on('changeMode', () => setTimeout(() => syncMarkdownToTextarea({ rewriteEditor: true }), 0));
+            editor.on('blur', () => syncMarkdownToTextarea({ rewriteEditor: false }));
         }
         form.addEventListener('submit', () => syncMarkdownToTextarea({ rewriteEditor: true }), true);
         form.addEventListener('submit', () => syncMarkdownToTextarea({ rewriteEditor: false }), false);

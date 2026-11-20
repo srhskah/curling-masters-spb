@@ -10,6 +10,7 @@
 <body th:classappend="${ipBgClass}">
     <div th:replace="~{fragments :: navbar}"></div>
 
+    <main id="main-content" tabindex="-1">
     <style>
         .tournament-detail-section-tabs .nav-link {
             white-space: nowrap;
@@ -294,7 +295,7 @@
     <div th:if="${success}" class="container mt-3">
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             <span th:text="${success}"></span>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
         </div>
     </div>
     <div th:replace="~{fragments :: error-alert}"></div>
@@ -637,7 +638,7 @@
             <div class="col-12 mt-4">
                 <div class="card border-0 shadow-sm tournament-detail-section-tabs">
                     <div class="card-body d-flex align-items-center justify-content-center py-3">
-                        <ul class="nav nav-pills flex-nowrap overflow-auto justify-content-center w-100 gap-2" role="tablist">
+                        <ul class="nav nav-pills flex-nowrap overflow-auto justify-content-center w-100 gap-2" role="tablist" aria-label="赛事详情分区">
                             <li class="nav-item text-nowrap" role="presentation">
                                 <button class="nav-link active"
                                         id="detail-main-tab"
@@ -823,15 +824,23 @@
                                                 <label class="form-label">小组赛允许平局</label>
                                                 <div class="form-check form-switch mt-2">
                                                     <input class="form-check-input" type="checkbox" id="groupAllowDrawSwitch" name="groupAllowDraw" value="true"
-                                                           th:checked="${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}">
+                                                           th:checked="${formGroupAllowDraw}">
                                                     <label class="form-check-label" for="groupAllowDrawSwitch">启用</label>
-                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-info" 
-                                                            data-bs-toggle="tooltip" 
-                                                            data-help-text="关闭后，常规局打平会自动追加1局加局。"
+                                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-info"
+                                                            data-bs-toggle="tooltip"
+                                                            data-help-text="关闭后，常规局打平会自动追加1局加局。未保存过配置时默认取自总控台该等级设置。"
                                                             onclick="showHelpToast(this)">
                                                         <i class="bi bi-question-circle"></i>
                                                     </button>
                                                 </div>
+                                            </div>
+                                            <div class="col-md-3" id="groupOtPointsModeWrap">
+                                                <label class="form-label" for="groupOtPointsMode">加局胜负积分</label>
+                                                <select class="form-select" id="groupOtPointsMode" name="groupOtPointsMode">
+                                                    <option value="2_1" th:selected="${formGroupOtPointsMode == null or formGroupOtPointsMode == '2_1'}">胜 +2 / 败 +1（默认）</option>
+                                                    <option value="3_0" th:selected="${formGroupOtPointsMode == '3_0'}">胜 +3 / 败 +0</option>
+                                                </select>
+                                                <div class="form-text">仅在不允许平局、且常规局打平经加局决出时生效；只影响本届。</div>
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label">小组赛局数</label>
@@ -1022,6 +1031,11 @@
                                             <div class="col-md-3" th:if="${competitionConfig != null}">
                                                 <strong>小组赛允许平局：</strong>
                                                 <span th:text="${competitionConfig.groupAllowDraw != null and competitionConfig.groupAllowDraw ? '是' : '否'}"></span>
+                                            </div>
+                                            <div class="col-md-3"
+                                                 th:if="${competitionConfig != null and (competitionConfig.groupAllowDraw == null or !competitionConfig.groupAllowDraw)}">
+                                                <strong>加局胜负积分：</strong>
+                                                <span th:text="${competitionConfig.groupOtPointsMode != null and competitionConfig.groupOtPointsMode == '3_0' ? '胜+3 / 败+0' : '胜+2 / 败+1'}">胜+2 / 败+1</span>
                                             </div>
                                             <div class="col-md-3" th:if="${competitionConfig != null and competitionConfig.groupStageSets != null}">
                                                 <strong>小组赛局数：</strong>
@@ -1908,16 +1922,17 @@
             
         </div>
     </div>
+    </main>
 
     <th:block th:replace="~{fragments-group-match-score-modal :: groupMatchScoreModalAndSignature}"/>
     <th:block th:replace="~{fragments-tournament-edit-modal :: tournamentEditModal}"/>
 
-    <div class="modal fade" id="groupRankDetailModal" tabindex="-1">
+    <div class="modal fade" id="groupRankDetailModal" tabindex="-1" aria-labelledby="groupRankDetailModalTitle">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">小组赛详细统计</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="groupRankDetailModalTitle">小组赛详细统计</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-2 d-flex align-items-center gap-2 flex-wrap">
@@ -1943,12 +1958,12 @@
         </div>
     </div>
 
-    <div class="modal fade" id="superAdminScoreModal" tabindex="-1">
+    <div class="modal fade" id="superAdminScoreModal" tabindex="-1" aria-labelledby="superAdminScoreModalTitle">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">超管快速录分（免验收）</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="superAdminScoreModalTitle">超管快速录分（免验收）</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="saMatchIdInput">
@@ -1987,11 +2002,11 @@
         </div>
     </div>
 
-    <div class="modal fade" id="finalRankingExportModeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="finalRankingExportModeModal" tabindex="-1" aria-hidden="true" aria-labelledby="finalRankingExportModeModalTitle">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">选择导出范围</h5>
+                    <h5 class="modal-title" id="finalRankingExportModeModalTitle">选择导出范围</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
                 <div class="modal-body">
@@ -2005,16 +2020,17 @@
         </div>
     </div>
 
-    <div class="modal fade" id="matchPageModal" tabindex="-1">
+    <div class="modal fade" id="matchPageModal" tabindex="-1" aria-labelledby="matchPageModalTitle">
         <div class="modal-dialog modal-xl modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="matchPageModalTitle">比赛详情</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
                 <div class="modal-body p-0">
                     <iframe id="matchPageModalFrame"
                             src="about:blank"
+                            title="比赛详情内容"
                             style="width:100%;height:75vh;border:0;"
                             loading="lazy"></iframe>
                 </div>
@@ -2022,17 +2038,17 @@
         </div>
     </div>
 
-    <div class="modal fade" id="disqualifyModal" tabindex="-1">
+    <div class="modal fade" id="disqualifyModal" tabindex="-1" aria-labelledby="disqualifyModalTitle">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">取消资格确认</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="disqualifyModalTitle">取消资格确认</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="dqUserId"/>
                     <div class="small text-muted mb-2" id="dqTargetUserText">目标选手：-</div>
-                    <label class="form-label">理由（必填）</label>
+                    <label class="form-label" for="dqReason">理由（必填）</label>
                     <textarea class="form-control" id="dqReason" rows="3" maxlength="2000" placeholder="请填写取消资格理由"></textarea>
                     <div class="mb-2 d-flex align-items-center gap-2" id="dqSignatureRow">
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="dqSignatureOpenBtn" onclick="openSignatureModal()">手写电子签名</button>
@@ -2048,15 +2064,15 @@
         </div>
     </div>
 
-    <div class="modal fade" id="koManualModal" tabindex="-1">
+    <div class="modal fade" id="koManualModal" tabindex="-1" aria-labelledby="koManualModalTitle">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <form id="koManualForm" method="post"
                       th:attr="data-detail-url=${@tournamentUrls.detailUrl(tournamentInfo.tournament)}"
                       onsubmit="return submitKoManualForm(event)">
                     <div class="modal-header">
-                        <h5 class="modal-title"><i class="bi bi-ui-checks-grid"></i> 手动排签：淘汰赛首轮</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <h5 class="modal-title" id="koManualModalTitle"><i class="bi bi-ui-checks-grid" aria-hidden="true"></i> 手动排签：淘汰赛首轮</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
@@ -2081,7 +2097,7 @@
     </div>
     
     <!-- 手动录入排名模态框 -->
-    <div class="modal fade" id="rankingModal" tabindex="-1" 
+    <div class="modal fade" id="rankingModal" tabindex="-1" aria-labelledby="rankingModalTitle"
          th:if="${isAdmin or isHost}">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -2089,10 +2105,10 @@
                       method="post">
                     <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                     <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="bi bi-list-ol"></i> 手动录入排名
+                        <h5 class="modal-title" id="rankingModalTitle">
+                            <i class="bi bi-list-ol" aria-hidden="true"></i> 手动录入排名
                         </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                     </div>
                     <div class="modal-body">
                         <div class="alert alert-info">
@@ -2130,13 +2146,27 @@
     <th:block th:replace="~{fragments :: scripts}"></th:block>
     <link rel="stylesheet" th:href="@{/css/knockout-bracket-view.css?v=30}">
     <script th:src="@{/js/Sortable.min.js}"></script>
-    <script th:src="@{/js/group-match-score-modal.js?v=14}"></script>
+    <script th:src="@{/js/signature-pad.js?v=4}"></script>
+    <script th:src="@{/js/group-match-score-modal.js?v=17}"></script>
     <script th:src="@{/js/knockout-bracket-view.js?v=36}"></script>
     <script th:inline="javascript">
         window.rankingVisibleColumns = /*[[${rankingPriorityVisibleColumns}]]*/ null;
-        window.groupStageAllowsDraw = /*[[${competitionConfig == null or competitionConfig.groupAllowDraw == null or competitionConfig.groupAllowDraw}]]*/ true;
+        window.groupStageAllowsDraw = /*[[${formGroupAllowDraw}]]*/ true;
     </script>
     <script>
+        (function () {
+            const drawSwitch = document.getElementById('groupAllowDrawSwitch');
+            const otWrap = document.getElementById('groupOtPointsModeWrap');
+            function syncOtPointsVisibility() {
+                if (!otWrap) return;
+                const allowDraw = !drawSwitch || !!drawSwitch.checked;
+                otWrap.classList.toggle('d-none', allowDraw);
+            }
+            if (drawSwitch) {
+                drawSwitch.addEventListener('change', syncOtPointsVisibility);
+            }
+            syncOtPointsVisibility();
+        })();
         function isPrimeGroupCount(n) {
             if (!Number.isInteger(n) || n <= 1) return false;
             if (n <= 3) return true;

@@ -14,6 +14,7 @@ import com.example.mapper.TournamentGroupMemberMapper;
 import com.example.service.*;
 import com.example.service.knockout.KnockoutBracketLayout;
 import com.example.util.MatchPhaseClassifier;
+import com.example.util.SignatureValidation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -103,6 +104,11 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (form.getGroupMode() != null) db.setGroupMode(form.getGroupMode());
         if (form.getGroupSize() != null) db.setGroupSize(form.getGroupSize());
         if (form.getGroupAllowDraw() != null) db.setGroupAllowDraw(form.getGroupAllowDraw());
+        if (form.getGroupOtPointsMode() != null) {
+            db.setGroupOtPointsMode(TournamentCompetitionConfig.normalizeGroupOtPointsMode(form.getGroupOtPointsMode()));
+        } else if (db.getGroupOtPointsMode() == null) {
+            db.setGroupOtPointsMode(TournamentCompetitionConfig.GROUP_OT_POINTS_2_1);
+        }
         if (form.getGroupStageDeadline() != null) db.setGroupStageDeadline(form.getGroupStageDeadline());
         if (Boolean.TRUE.equals(form.getSyncKnockoutDeadlines())) {
             // 赛事配置表单：按实际淘汰轮次写入/清空截止；附加资格赛截止与正赛首轮独立
@@ -747,8 +753,8 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (hasX && !Boolean.TRUE.equals(autoAccept) && !allowPersistWithXWithoutAutoAccept) {
             throw new IllegalArgumentException("存在X比分时，需确认“是否验收”后才能保存");
         }
-        if (hasX && requiresSignature(match) && (signature == null || signature.trim().isEmpty())) {
-            throw new IllegalArgumentException("存在X比分时，需填写电子签名并验收");
+        if (hasX && requiresSignature(match)) {
+            SignatureValidation.requireNonBlank(signature, "存在X比分时，需填写电子签名并验收（手写或文字签名绘入画板）");
         }
         List<SetScore> oldScores = setScoreService.lambdaQuery()
                 .eq(SetScore::getMatchId, matchId)
@@ -918,8 +924,16 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         Match match = matchService.getById(matchId);
         if (match == null) throw new IllegalStateException("比赛不存在");
         if (operator == null) throw new SecurityException("未登录");
-        if (requiresSignature(match) && (signature == null || signature.trim().isEmpty())) {
-            throw new IllegalArgumentException("该阶段验收必须提供电子签名");
+        String normalizedSig = "";
+        if (requiresSignature(match)) {
+            normalizedSig = SignatureValidation.requireNonBlank(
+                    signature, "该阶段验收必须提供电子签名（手写或点击「使用文字签名」并呈现到画板）");
+        } else if (signature != null && !signature.trim().isEmpty()) {
+            try {
+                normalizedSig = SignatureValidation.requireNonBlank(signature);
+            } catch (IllegalArgumentException ex) {
+                normalizedSig = signature.trim();
+            }
         }
         if (!canAcceptMatchScore(operator, match)) throw new SecurityException("无权验收此比赛");
         MatchAcceptance acceptance = matchAcceptanceMapper.selectOne(Wrappers.<MatchAcceptance>lambdaQuery()
@@ -931,11 +945,11 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
             acceptance.setMatchId(matchId);
             acceptance.setUserId(operator.getId());
             acceptance.setAcceptedAt(LocalDateTime.now());
-            acceptance.setSignature(signature == null ? "" : signature.trim());
+            acceptance.setSignature(normalizedSig);
             matchAcceptanceMapper.insert(acceptance);
         } else {
             acceptance.setAcceptedAt(LocalDateTime.now());
-            acceptance.setSignature(signature == null ? "" : signature.trim());
+            acceptance.setSignature(normalizedSig);
             matchAcceptanceMapper.updateById(acceptance);
         }
         if (!isAcceptanceCompleted(match)) return;
@@ -1526,9 +1540,10 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         Map<Long, List<Map<String, Object>>> byG = groupRankingCalculator.buildGroupRankingsByMemberIds(
                 groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg, rankingPriority);
         boolean allowDraw = cfg.getGroupAllowDraw() == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        boolean otPoints3_0 = TournamentCompetitionConfig.isGroupOtPoints3_0(cfg.getGroupOtPointsMode());
         int regularSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
         groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDraw, regularSets, rankingPriority);
+                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDraw, regularSets, otPoints3_0, rankingPriority);
         return groupRankingCalculator.buildOverallRanking(byG, rankingPriority);
     }
 
@@ -1749,10 +1764,7 @@ public class TournamentCompetitionServiceImpl implements ITournamentCompetitionS
         if (operator == null || !isStaff(operator, tournamentId)) {
             throw new SecurityException("仅办赛人员可提交取消资格");
         }
-        String sign = signature == null ? "" : signature.trim();
-        if (sign.isEmpty()) {
-            throw new IllegalArgumentException("必须提供电子签名");
-        }
+        String sign = SignatureValidation.requireNonBlank(signature);
         String rr = reason == null ? "" : reason.trim();
         TournamentDisqualification dq = tournamentDisqualificationMapper.selectOne(Wrappers.<TournamentDisqualification>lambdaQuery()
                 .eq(TournamentDisqualification::getTournamentId, tournamentId)

@@ -327,8 +327,37 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeNavigation();
     initializeTooltips();
     initializeBackToTopButton();
+    initializeSkipLinkFocus();
     initializeGlobalCopyTextButtons();
+    initializeTableHorizontalScroll();
 });
+
+/**
+ * Skip link：点击后把焦点移到 #main-content（或目标锚点），满足键盘/读屏跳过导航。
+ */
+function initializeSkipLinkFocus() {
+    document.querySelectorAll('a.skip-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            const href = link.getAttribute('href') || '';
+            if (!href.startsWith('#')) return;
+            const target = document.querySelector(href);
+            if (!target) return;
+            event.preventDefault();
+            if (!target.hasAttribute('tabindex')) {
+                target.setAttribute('tabindex', '-1');
+            }
+            try {
+                target.focus({ preventScroll: true });
+            } catch (err) {
+                target.focus();
+            }
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            try {
+                history.replaceState(null, '', href);
+            } catch (err) { /* ignore */ }
+        });
+    });
+}
 
 /**
  * 全站统一：复制纯文本（支持 HTTPS / localhost 的 Clipboard API，否则 textarea + execCommand 降级）
@@ -486,9 +515,11 @@ function showAlert(message, type = 'info') {
     
     const alert = document.createElement('div');
     alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.setAttribute('role', 'alert');
+    alert.setAttribute('aria-live', type === 'danger' || type === 'warning' ? 'assertive' : 'polite');
     alert.innerHTML = `
         ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
     `;
     
     alertContainer.appendChild(alert);
@@ -1037,10 +1068,15 @@ class FormValidator {
 // 将FormValidator添加到全局对象
 window.FormValidator = FormValidator;
 
-// 左下角返回顶部按钮：短按回顶，长按拖动
+// 左下角返回顶部：点击/键盘回顶（2.5.7 非拖拽主路径）；长按拖动为可选增强
 function initializeBackToTopButton() {
     const btn = document.getElementById('backToTopBtn');
     if (!btn) return;
+
+    const scrollToTop = () => {
+        const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+    };
 
     const updateVisibility = () => {
         const show = window.scrollY > 10;
@@ -1091,7 +1127,7 @@ function initializeBackToTopButton() {
         lastY = y;
 
         if (!longPressTriggered) return;
-        // 长按后拖动：跟随手指滚动回顶
+        // 长按后拖动：跟随手指滚动（可选增强；主路径为点击回顶）
         const delta = y - startY;
         window.scrollTo({ top: Math.max(0, startScrollY - delta), behavior: 'auto' });
     };
@@ -1103,7 +1139,7 @@ function initializeBackToTopButton() {
         try { btn.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
 
         if (!longPressTriggered && !moved) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            scrollToTop();
         }
         longPressTriggered = false;
     };
@@ -1113,4 +1149,187 @@ function initializeBackToTopButton() {
     btn.addEventListener('pointerup', onPointerEnd);
     btn.addEventListener('pointercancel', onPointerEnd);
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    btn.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        scrollToTop();
+    });
+}
+
+/**
+ * 管理页表格横向滚动增强：
+ * - 鼠标按住空白处左右拖动即可平移（不必滚到表底找滚动条）
+ * - Shift+滚轮 / 触控板横向手势在表格上左右滚
+ * - 视口底部粘性横向滚动条，表格在屏内时始终可拖滚动条
+ */
+function initializeTableHorizontalScroll() {
+    const SELECTOR = '.table-responsive, .admin-mgmt-table-wrap, .card-body:has(> table.admin-mgmt-table)';
+    const INTERACTIVE = 'a,button,input,select,textarea,label,.btn,.dropdown-toggle,.generic-multi-filter,.form-check';
+
+    const isOverflowing = (el) => el && el.scrollWidth > el.clientWidth + 2;
+
+    const markCursor = (el) => {
+        if (!el) return;
+        el.classList.toggle('cm-hscroll-ready', isOverflowing(el));
+    };
+
+    const enhanceEl = (el) => {
+        if (!el || el.dataset.cmHscrollBound === '1') return;
+        el.dataset.cmHscrollBound = '1';
+        markCursor(el);
+
+        let dragging = false;
+        let moved = false;
+        let startX = 0;
+        let startScroll = 0;
+        let pointerId = null;
+
+        el.addEventListener('pointerdown', (e) => {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (!isOverflowing(el)) return;
+            if (e.target && e.target.closest && e.target.closest(INTERACTIVE)) return;
+            dragging = true;
+            moved = false;
+            startX = e.clientX;
+            startScroll = el.scrollLeft;
+            pointerId = e.pointerId;
+            el.classList.add('cm-hscroll-dragging');
+            try { el.setPointerCapture(pointerId); } catch (err) { /* ignore */ }
+        });
+
+        el.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const dx = e.clientX - startX;
+            if (Math.abs(dx) > 3) moved = true;
+            if (!moved) return;
+            e.preventDefault();
+            el.scrollLeft = startScroll - dx;
+            syncStickyFrom(el);
+        });
+
+        const endDrag = (e) => {
+            if (!dragging) return;
+            dragging = false;
+            el.classList.remove('cm-hscroll-dragging');
+            try {
+                if (pointerId != null) el.releasePointerCapture(pointerId);
+            } catch (err) { /* ignore */ }
+            pointerId = null;
+            // 发生拖动时吞掉随后的 click，避免误点链接
+            if (moved) {
+                const swallow = (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                };
+                el.addEventListener('click', swallow, { capture: true, once: true });
+            }
+            moved = false;
+        };
+        el.addEventListener('pointerup', endDrag);
+        el.addEventListener('pointercancel', endDrag);
+        el.addEventListener('lostpointercapture', endDrag);
+
+        el.addEventListener('wheel', (e) => {
+            if (!isOverflowing(el)) return;
+            const dx = e.deltaX;
+            const dy = e.deltaY;
+            // 触控板横滑，或按住 Shift 用滚轮左右滚
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 0) {
+                el.scrollLeft += dx;
+                e.preventDefault();
+                syncStickyFrom(el);
+                return;
+            }
+            if (e.shiftKey && Math.abs(dy) > 0) {
+                el.scrollLeft += dy;
+                e.preventDefault();
+                syncStickyFrom(el);
+            }
+        }, { passive: false });
+
+        el.addEventListener('scroll', () => syncStickyFrom(el), { passive: true });
+    };
+
+    // —— 视口底部粘性横向滚动条 ——
+    let stickyBar = document.getElementById('cmTableHScrollBar');
+    if (!stickyBar) {
+        stickyBar = document.createElement('div');
+        stickyBar.id = 'cmTableHScrollBar';
+        stickyBar.className = 'cm-table-hscroll-bar';
+        stickyBar.setAttribute('aria-hidden', 'true');
+        const spacer = document.createElement('div');
+        spacer.className = 'cm-table-hscroll-spacer';
+        stickyBar.appendChild(spacer);
+        document.body.appendChild(stickyBar);
+    }
+    const stickySpacer = stickyBar.querySelector('.cm-table-hscroll-spacer');
+    let activeEl = null;
+    let syncing = false;
+
+    const syncStickyFrom = (el) => {
+        if (!el || el !== activeEl || syncing) return;
+        syncing = true;
+        stickyBar.scrollLeft = el.scrollLeft;
+        syncing = false;
+    };
+
+    stickyBar.addEventListener('scroll', () => {
+        if (!activeEl || syncing) return;
+        syncing = true;
+        activeEl.scrollLeft = stickyBar.scrollLeft;
+        syncing = false;
+    }, { passive: true });
+
+    const pickActive = () => {
+        const nodes = Array.from(document.querySelectorAll(SELECTOR));
+        let best = null;
+        let bestScore = 0;
+        const vh = window.innerHeight || 1;
+        nodes.forEach((el) => {
+            markCursor(el);
+            if (!isOverflowing(el)) return;
+            const r = el.getBoundingClientRect();
+            const visible = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+            if (visible <= 40) return;
+            // 表底原生滚动条已在视口内时不必再显示粘性条
+            const nativeBarVisible = r.bottom <= vh + 2 && r.bottom >= vh - 28;
+            if (nativeBarVisible) return;
+            const score = visible;
+            if (score > bestScore) {
+                bestScore = score;
+                best = el;
+            }
+        });
+        activeEl = best;
+        if (!best) {
+            stickyBar.classList.remove('is-visible');
+            return;
+        }
+        const rect = best.getBoundingClientRect();
+        stickySpacer.style.width = best.scrollWidth + 'px';
+        stickyBar.style.left = Math.max(0, rect.left) + 'px';
+        stickyBar.style.width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(0, rect.left)) + 'px';
+        stickyBar.scrollLeft = best.scrollLeft;
+        stickyBar.classList.add('is-visible');
+    };
+
+    const scan = () => {
+        document.querySelectorAll(SELECTOR).forEach(enhanceEl);
+        pickActive();
+    };
+
+    scan();
+    window.addEventListener('scroll', pickActive, { passive: true });
+    window.addEventListener('resize', () => {
+        document.querySelectorAll(SELECTOR).forEach(markCursor);
+        pickActive();
+    }, { passive: true });
+    // 远程列表重绘后补绑
+    if (typeof MutationObserver !== 'undefined') {
+        const mo = new MutationObserver(() => {
+            clearTimeout(mo._t);
+            mo._t = setTimeout(scan, 120);
+        });
+        mo.observe(document.body, { childList: true, subtree: true });
+    }
 }

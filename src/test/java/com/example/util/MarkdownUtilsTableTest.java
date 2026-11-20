@@ -39,4 +39,30 @@ class MarkdownUtilsTableTest {
         assertTrue(html.contains(">查看赛事</a>"), html);
         assertTrue(html.contains(">下载抽签结果PDF</a>"), html);
     }
+
+    @Test
+    void expandsTabsForNestedListsAndKeepsSoftBreaks() {
+        String md = "1. 父项\n\t* 子项A\n\t* 子项B\n\n段落第一行\n段落第二行";
+        String normalized = MarkdownUtils.normalizeMarkdownLineBreaks(md);
+        assertFalse(normalized.contains("\t"), normalized);
+        assertTrue(normalized.contains("    * 子项A") || normalized.contains("    * 子项"), normalized);
+        String html = MarkdownUtils.markdownToSafeHtml(md);
+        assertTrue(html.contains("<ul") || html.contains("<ol"), html);
+        assertTrue(html.contains("<br") || html.contains("段落第二行"), html);
+    }
+
+    @Test
+    void peelsProseBeforeMidLineCollapsedDoublePipeTable() {
+        String md = "要签名 纯键盘签名 | 1 | 2 | 3 || --- | --- | --- || 6 | 5 | 4 || 7 | 8 | 9 |";
+        String normalized = MarkdownUtils.normalizeMarkdownLineBreaks(md);
+        assertTrue(normalized.contains("要签名 纯键盘签名"), normalized);
+        assertTrue(normalized.contains("| 1 | 2 | 3 |"), normalized);
+        assertTrue(normalized.contains("| --- | --- | --- |") || normalized.contains("| --- |"), normalized);
+        assertTrue(normalized.indexOf('\n') > 0, normalized);
+        String html = MarkdownUtils.markdownToSafeHtml(md);
+        assertTrue(html.contains("<table"), html);
+        assertTrue(html.contains("<th") || html.contains("<td"), html);
+        assertTrue(html.contains(">1<") || html.contains(">1</"), html);
+        assertFalse(html.contains("|| ---"), html);
+    }
 }

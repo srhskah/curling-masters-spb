@@ -4,6 +4,7 @@
 <body th:classappend="${ipBgClass}">
     <div th:replace="~{fragments :: navbar}"></div>
 
+    <main id="main-content" tabindex="-1">
     <style>
         /* 与 generic-list 一致：桌面表格 / 移动卡片 */
         .user-manage-page .generic-table-desktop { display: block; }
@@ -104,28 +105,57 @@
         @media (min-width: 768px) {
             .user-manage-page .card-header {
                 flex-wrap: nowrap;
+                min-width: 0;
             }
+            .user-manage-page .um-title {
+                flex: 0 0 auto;
+            }
+            /* 中等宽度：搜索+按钮溢出时允许左右拖动/滚动，不撑破布局 */
             .user-manage-page .user-manage-header-actions {
                 display: flex;
                 flex-wrap: nowrap;
                 align-items: center;
                 gap: 0.5rem;
                 margin-left: auto;
+                min-width: 0;
+                flex: 1 1 auto;
+                max-width: 100%;
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-x: contain;
             }
             .user-manage-page .user-manage-header-btns {
                 flex-wrap: nowrap;
+                flex: 0 0 auto;
             }
             /* 宽屏只调搜索框内部样式，保持与按钮并排 */
             .user-manage-page .card-header #genericSearchInput {
                 display: inline-block;
                 flex: 0 0 auto;
                 width: 16em; /* JS 覆盖为实测宽度 */
-                max-width: 100%;
+                max-width: none;
                 padding: 1rem 0.5rem !important;
                 min-height: 0;
                 height: calc(1.25em + 0.4rem);
                 line-height: 1.25;
                 font-size: 0.875rem;
+            }
+            /* 表格：列随内容变宽，溢出在 table-responsive 内横向滚动（含触控拖动） */
+            .user-manage-page .card-body {
+                min-width: 0;
+                overflow-x: visible;
+            }
+            .user-manage-page .generic-table-desktop {
+                min-width: 0;
+                max-width: 100%;
+            }
+            .user-manage-page .generic-table-desktop .table-responsive {
+                overflow-x: auto;
+                overflow-y: hidden;
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-x: contain;
+                max-width: 100%;
             }
         }
         /* @media (min-width: 992px) {
@@ -182,14 +212,14 @@
                     <table class="table table-hover align-middle admin-mgmt-table">
                         <thead class="table-light">
                             <tr>
-                                <th><input type="checkbox" id="selectAllUsers" class="form-check-input"></th>
-                                <th>ID</th>
-                                <th>用户名</th>
-                                <th>邮箱</th>
-                                <th>角色</th>
-                                <th title="是否计入总积分排名">总排名</th>
-                                <th>注册时间</th>
-                                <th>操作</th>
+                                <th scope="col"><input type="checkbox" id="selectAllUsers" class="form-check-input" aria-label="全选用户"></th>
+                                <th scope="col">ID</th>
+                                <th scope="col">用户名</th>
+                                <th scope="col">邮箱</th>
+                                <th scope="col">角色</th>
+                                <th scope="col" title="是否计入总积分排名">总排名</th>
+                                <th scope="col">注册时间</th>
+                                <th scope="col">操作</th>
                             </tr>
                         </thead>
                         <tbody id="usersTableBody">
@@ -281,22 +311,22 @@
                     </div>
                     <div class="user-card-footer generic-list-actions">
                         <a th:if="${#authentication.principal.role == 0}" th:href="@{'/user/edit/' + ${user.id}}"
-                           class="btn btn-sm btn-outline-primary" title="编辑">
-                            <i class="bi bi-pencil"></i><span class="generic-action-label"> 编辑</span>
+                           class="btn btn-sm btn-outline-primary" title="编辑" aria-label="编辑">
+                            <i class="bi bi-pencil" aria-hidden="true"></i><span class="generic-action-label"> 编辑</span>
                         </a>
                         <button th:if="${user.id == #authentication.principal.id or (#authentication.principal.role == 0 and user.role > 0) or (#authentication.principal.role == 1 and user.role == 2)}"
-                                type="button" class="btn btn-sm btn-outline-warning" title="重置密码"
+                                type="button" class="btn btn-sm btn-outline-warning" title="重置密码" aria-label="重置密码"
                                 onclick="resetPassword(this)" th:data-id="${user.id}" th:data-username="${user.username}">
-                            <i class="bi bi-key"></i><span class="generic-action-label"> 重置密码</span>
+                            <i class="bi bi-key" aria-hidden="true"></i><span class="generic-action-label"> 重置密码</span>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-info" title="禁止记录"
+                        <button type="button" class="btn btn-sm btn-outline-info" title="禁止记录" aria-label="禁止记录"
                                 onclick="viewUserBans(this)" th:data-id="${user.id}" th:data-username="${user.username}">
-                            <i class="bi bi-list"></i><span class="generic-action-label"> 禁止记录</span>
+                            <i class="bi bi-list" aria-hidden="true"></i><span class="generic-action-label"> 禁止记录</span>
                         </button>
                         <button th:if="${#authentication.principal.role == 0 and user.role != 0 and user.id != #authentication.principal.id}"
-                                type="button" class="btn btn-sm btn-outline-danger" title="删除"
+                                type="button" class="btn btn-sm btn-outline-danger" title="删除" aria-label="删除"
                                 onclick="deleteUser(this)" th:data-id="${user.id}" th:data-username="${user.username}">
-                            <i class="bi bi-trash"></i><span class="generic-action-label"> 删除</span>
+                            <i class="bi bi-trash" aria-hidden="true"></i><span class="generic-action-label"> 删除</span>
                         </button>
                     </div>
                 </div>
@@ -304,14 +334,15 @@
             </div>
         </div>
     </div>
+    </main>
 
     <!-- 删除确认模态框 -->
-    <div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalTitle">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">确认删除</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="deleteModalTitle">确认删除</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
                 <div class="modal-body">
                     确定要删除用户 <span id="deleteUsername"></span> 吗？
@@ -328,12 +359,12 @@
     </div>
 
     <!-- 重置密码确认模态框 -->
-    <div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal fade" id="resetPasswordModal" tabindex="-1" aria-labelledby="resetPasswordModalTitle">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">确认重置密码</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title" id="resetPasswordModalTitle">确认重置密码</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
                 <div class="modal-body">
                     <p>确定要重置用户 <strong id="resetUsername"></strong> 的密码吗？</p>

@@ -27,7 +27,7 @@
     </th:block>
     <link href="/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/bootstrap-icons.css">
-    <link th:href="@{/css/main.css?v=2.26}" rel="stylesheet">
+    <link th:href="@{/css/main.css?v=2.31}" rel="stylesheet">
 </head>
 
 <!-- 主导航菜单内容：由外层 th:with="ms='' 或 'M'" 控制 id 后缀，避免桌面/侧栏重复 DOM 时 id 冲突 -->
@@ -37,22 +37,23 @@
             <a class="nav-link text-dark" href="/" data-i18n-key="nav.home">首页</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link text-dark" href="/ranking" data-i18n-key="nav.ranking"><i class="bi bi-list-ol"></i> 排名</a>
+            <a class="nav-link text-dark" href="/ranking" data-i18n-key="nav.ranking"><i class="bi bi-list-ol" aria-hidden="true"></i> 排名</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link text-dark" href="/medals" data-i18n-key="nav.medals"><i class="bi bi-award"></i> 奖牌榜</a>
+            <a class="nav-link text-dark" href="/medals" data-i18n-key="nav.medals"><i class="bi bi-award" aria-hidden="true"></i> 奖牌榜</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link text-dark" href="/leaderboard" data-i18n-key="nav.leaderboard"><i class="bi bi-trophy"></i> 数据</a>
+            <a class="nav-link text-dark" href="/leaderboard" data-i18n-key="nav.leaderboard"><i class="bi bi-trophy" aria-hidden="true"></i> 数据</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link text-dark" href="/h2h" data-i18n-key="nav.h2h"><i class="bi bi-shuffle"></i> H2H</a>
+            <a class="nav-link text-dark" href="/h2h" data-i18n-key="nav.h2h"><i class="bi bi-shuffle" aria-hidden="true"></i> H2H</a>
         </li>
         <li class="nav-item">
             <a class="nav-link text-dark d-inline-flex align-items-center gap-1" href="/notification/list" data-i18n-key="nav.notifications">
-                <i class="bi bi-bell"></i> 消息通知
+                <i class="bi bi-bell" aria-hidden="true"></i> 消息通知
                 <span class="badge rounded-pill bg-danger"
                       th:if="${notificationUnreadCount != null and notificationUnreadCount > 0}"
+                      th:attr="aria-label=|未读 ${notificationUnreadCount} 条|"
                       th:text="${notificationUnreadCount}">0</span>
             </a>
         </li>
@@ -160,9 +161,10 @@
 
 <!-- 导航栏片段：须与窄屏 offcanvas 同片段一并输出，否则各页 th:replace 只有 <nav>、无 #siteNavOffcanvas，汉堡会报错 -->
 <th:block th:fragment="navbar">
-    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+    <a class="skip-link" href="#main-content">跳到主内容</a>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom" aria-label="主导航">
         <div class="container">
-            <a class="navbar-brand" href="/">
+            <a class="navbar-brand" href="/" aria-label="Curling Masters 首页">
                 <img th:replace="~{fragments :: site-logo('40px')}">
             </a>
             <!-- 桌面端语言选择（窄屏隐藏，放到侧边栏） -->
@@ -199,15 +201,12 @@
     <!-- 窄屏侧栏菜单（独立于顶栏折叠层，与 navbar 同片段保证每页都有 DOM 目标） -->
     <div class="offcanvas offcanvas-start site-nav-offcanvas" tabindex="-1" id="siteNavOffcanvas"
          aria-labelledby="siteNavOffcanvasLabel" style="z-index: 1919810;top:4rem;">
-        <!-- <div class="offcanvas-header border-bottom py-2">
-            <h5 class="offcanvas-title" id="siteNavOffcanvasLabel">菜单</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="关闭"></button>
-        </div> -->
+        <h2 id="siteNavOffcanvasLabel" class="visually-hidden">站点菜单</h2>
         <div class="offcanvas-body pt-2">
             <!-- 窄屏语言选择（放在侧边栏顶部） -->
             <div class="mb-3 pb-2 border-bottom">
                 <label class="small text-muted mb-1" for="siteLanguageSelectMobile" data-i18n-key="site.language">语言</label>
-                <select id="siteLanguageSelectMobile" class="form-select form-select-sm">
+                <select id="siteLanguageSelectMobile" class="form-select form-select-sm" aria-label="语言">
                     <option value="zh-CN">简体中文</option>
                     <option value="zh-TW">繁體中文</option>
                     <option value="en">English</option>
@@ -227,26 +226,31 @@
 </th:block>
 
 <!-- 登录导航栏片段（未登录用户使用） -->
-<nav th:fragment="navbar-login" class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/">
-            <img th:replace="~{fragments :: site-logo('40px')}">
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavLogin">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNavLogin">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="/login" data-i18n-key="nav.login">登录</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="/user/register" data-i18n-key="nav.register">注册</a>
-                </li>
-            </ul>
+<th:block th:fragment="navbar-login">
+    <a class="skip-link" href="#main-content">跳到主内容</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark" aria-label="登录导航">
+        <div class="container">
+            <a class="navbar-brand" href="/" aria-label="Curling Masters 首页">
+                <img th:replace="~{fragments :: site-logo('40px')}">
+            </a>
+            <button class="navbar-toggler" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#navbarNavLogin"
+                    aria-controls="navbarNavLogin" aria-expanded="false" aria-label="打开菜单">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNavLogin">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/login" data-i18n-key="nav.login">登录</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/user/register" data-i18n-key="nav.register">注册</a>
+                    </li>
+                </ul>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
+</th:block>
 
 <!-- 页脚片段 -->
 <footer th:fragment="footer" class="footer">
@@ -254,7 +258,7 @@
         <div class="row">
             <div class="col-md-6">
                 <!-- <h5>Curling Masters</h5> -->
-                <a href="/">
+                <a href="/" aria-label="Curling Masters 首页">
                     <img th:src="@{/images/Logo W2.png}" alt="Curling Masters Logo" style="height: 4.5em;">
                 </a>
                 <p data-i18n-key="footer.description">冰壶大师赛 统一赛事管理系统</p>
@@ -267,14 +271,16 @@
     </div>
 </footer>
 
-<!-- 左下角返回顶部按钮（短按回顶，长按拖动） -->
-<button id="backToTopBtn" type="button" aria-label="返回顶部（长按拖动）" title="返回顶部（长按拖动）">↑</button>
+<!-- 左下角返回顶部：点击/键盘回顶；长按拖动为增强，非必需（2.5.7） -->
+<button id="backToTopBtn" type="button"
+        aria-label="返回顶部"
+        title="返回顶部（点击或键盘 Enter；可选：长按拖动滚动）">↑</button>
 
 <!-- 公共脚本片段 -->
 <th:block th:fragment="scripts">
     <script src="/js/bootstrap.bundle.min.js"></script>
     <script th:src="@{/js/site-i18n.js?v=1.0}"></script>
-    <script th:src="@{/js/main.js?v=1.4}"></script>
+    <script th:src="@{/js/main.js?v=1.7}"></script>
 </th:block>
 
 <!--
@@ -299,17 +305,32 @@
 
 <!-- 手写电子签名弹窗（配合 /js/signature-pad.js） -->
 <th:block th:fragment="signature-modal">
-    <div class="modal fade" id="signatureModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="signatureModal" tabindex="-1" aria-labelledby="signatureModalTitle" aria-hidden="true"
+         th:attr="data-signer-username=${#authentication != null ? #authentication.name : ''},
+                  data-signer-user-id=${currentUser != null and currentUser.id != null ? #strings.toString(currentUser.id) : ''}">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">手写电子签名</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="signatureModalTitle">手写电子签名</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
                 </div>
                 <div class="modal-body">
                     <canvas id="signatureCanvas" width="420" height="180"
+                            role="img" tabindex="0"
+                            aria-label="手写签名区域，可用鼠标或触控绘制；亦可用下方文字签名作为非拖拽替代"
                             style="width:100%;border:1px solid #ced4da;border-radius:6px;background:#fff;touch-action:none;"></canvas>
-                    <div class="small text-muted mt-2">请在签名框内手写，保存后用于验收记录。</div>
+                    <div class="small text-muted mt-2" id="signatureCanvasHint">请在签名框内手写，或输入文字后点击「使用文字签名」绘入画板；空白无法提交。验收图将带淡色倾斜水印。</div>
+                    <div class="mt-3">
+                        <label class="form-label" for="signatureTextFallback">文字签名（非拖拽替代）</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="signatureTextFallback"
+                                   maxlength="80" autocomplete="name"
+                                   placeholder="输入姓名作为签名"
+                                   aria-describedby="signatureCanvasHint">
+                            <button type="button" class="btn btn-outline-primary"
+                                    onclick="applyTextSignatureFallback()">使用文字签名</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" onclick="clearSignatureCanvas()">清除</button>
@@ -322,25 +343,28 @@
 
 <!-- 消息提示片段 -->
 <div th:fragment="alert(message, type)" th:if="${message}" class="container mt-3">
-    <div th:class="'alert alert-' + ${type} + ' alert-dismissible fade show'" role="alert">
+    <div th:class="'alert alert-' + ${type} + ' alert-dismissible fade show'"
+         role="alert" aria-live="polite">
         <span th:text="${message}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
     </div>
 </div>
 
 <!-- 错误消息片段 -->
 <div th:fragment="error-alert" th:if="${error}" class="container mt-3">
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <div class="alert alert-danger alert-dismissible fade show"
+         role="alert" aria-live="assertive" id="page-error-alert">
         <span th:text="${error}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
     </div>
 </div>
 
 <!-- 成功消息片段 -->
 <div th:fragment="success-alert" th:if="${message instanceof T(java.lang.String)}" class="container mt-3">
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
+    <div class="alert alert-success alert-dismissible fade show"
+         role="alert" aria-live="polite" id="page-success-alert">
         <span th:text="${message}"></span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
     </div>
 </div>
 
@@ -371,7 +395,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" data-i18n-key="cookie.modalTitle">Cookie 设置</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">

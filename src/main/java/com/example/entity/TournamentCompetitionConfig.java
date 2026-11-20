@@ -64,6 +64,25 @@ public class TournamentCompetitionConfig {
     private Integer groupSize;
     /** 小组赛是否允许平局（true=允许） */
     private Boolean groupAllowDraw;
+
+    /**
+     * 禁平局时加局胜负积分：{@code 2_1}=胜+2/败+1（默认）；{@code 3_0}=胜+3/败+0。
+     * null 按 {@code 2_1} 处理，兼容旧库/未迁移列。
+     */
+    @TableField(value = "group_ot_points_mode", updateStrategy = FieldStrategy.ALWAYS)
+    private String groupOtPointsMode;
+
+    public static final String GROUP_OT_POINTS_2_1 = "2_1";
+    public static final String GROUP_OT_POINTS_3_0 = "3_0";
+
+    public static boolean isGroupOtPoints3_0(String mode) {
+        return GROUP_OT_POINTS_3_0.equalsIgnoreCase(mode == null ? "" : mode.trim());
+    }
+
+    public static String normalizeGroupOtPointsMode(String mode) {
+        return isGroupOtPoints3_0(mode) ? GROUP_OT_POINTS_3_0 : GROUP_OT_POINTS_2_1;
+    }
+
     private LocalDateTime groupStageDeadline;
     /**
      * 1/16、1/8、1/4、半决赛、决赛（round=1 金/铜）截止时间；null 表示不限制。

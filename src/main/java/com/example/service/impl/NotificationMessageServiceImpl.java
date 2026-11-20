@@ -26,6 +26,7 @@ import com.example.service.SeriesService;
 import com.example.service.TournamentService;
 import com.example.service.UserService;
 import com.example.util.MarkdownUtils;
+import com.example.util.SignatureValidation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -334,11 +335,7 @@ public class NotificationMessageServiceImpl implements INotificationService {
     }
 
     private static String requireSignature(String signature) {
-        String sig = signature == null ? "" : signature.trim();
-        if (sig.isEmpty()) {
-            throw new IllegalArgumentException("必须提供电子签名");
-        }
-        return sig;
+        return SignatureValidation.requireNonBlank(signature);
     }
 
     private void insertEditLog(Long messageId, User operator, String action,

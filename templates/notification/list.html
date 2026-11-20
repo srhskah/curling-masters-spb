@@ -3,6 +3,7 @@
 <head th:replace="~{fragments :: head('消息通知')}"></head>
 <body th:classappend="${ipBgClass}">
 <div th:replace="~{fragments :: navbar}"></div>
+<main id="main-content" tabindex="-1">
 <div th:replace="~{fragments :: error-alert}"></div>
 <div th:replace="~{fragments :: success-alert}"></div>
 <div class="container mt-4">
@@ -199,8 +200,9 @@
     </div>
     <div class="text-muted" th:if="${items == null or #lists.isEmpty(items)}">暂无消息。</div>
 </div>
+</main>
 
-<div class="modal fade" id="pinNotificationModal" tabindex="-1" aria-hidden="true" th:if="${isManager}">
+<div class="modal fade" id="pinNotificationModal" tabindex="-1" aria-hidden="true" aria-labelledby="pinModalTitle" th:if="${isManager}">
     <div class="modal-dialog">
         <form class="modal-content" method="post" id="pinNotificationForm"
               th:action="@{/notification/pin/0}"
@@ -211,7 +213,7 @@
             <input type="hidden" name="signature" id="signature" value=""/>
             <div class="modal-header">
                 <h5 class="modal-title" id="pinModalTitle">置顶消息通知</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
             </div>
             <div class="modal-body">
                 <p class="mb-2 small text-muted" id="pinModalHint">请签字验收后确认。</p>
@@ -233,7 +235,7 @@
 <div th:replace="~{fragments :: signature-modal}"></div>
 <div th:replace="~{fragments :: footer}"></div>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
-<script th:src="@{/js/signature-pad.js}"></script>
+<script th:src="@{/js/signature-pad.js?v=4}"></script>
 <script th:src="@{/js/generic-col-filters.js}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {

@@ -8,9 +8,10 @@
     <!-- 登录导航栏 -->
     <div th:replace="~{fragments :: navbar-login}"></div>
 
+    <main id="main-content" tabindex="-1">
     <div class="container mt-4">
         <div class="login-container">
-            <h2 class="text-center mb-4" data-i18n-key="page.login.title">登录 Curling Masters</h2>
+            <h1 class="h2 text-center mb-4" data-i18n-key="page.login.title">登录 Curling Masters</h1>
 
             <!-- 显示错误消息 -->
             <div th:replace="~{fragments :: error-alert}"></div>
@@ -22,11 +23,15 @@
                 <input type="hidden" th:if="${_csrf != null}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                 <div class="mb-3">
                     <label for="username" class="form-label" data-i18n-key="page.login.username">用户名</label>
-                    <input type="text" class="form-control" id="username" name="username" required>
+                    <input type="text" class="form-control" id="username" name="username" required
+                           autocomplete="username"
+                           th:attr="aria-invalid=${error != null ? 'true' : null},aria-describedby=${error != null ? 'page-error-alert' : null}">
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label" data-i18n-key="page.login.password">密码</label>
-                    <input type="password" class="form-control" id="password" name="password" required>
+                    <input type="password" class="form-control" id="password" name="password" required
+                           autocomplete="current-password"
+                           th:attr="aria-invalid=${error != null ? 'true' : null},aria-describedby=${error != null ? 'page-error-alert' : null}">
                 </div>
                 <div class="d-grid">
                     <button type="submit" class="btn btn-primary" data-i18n-key="page.login.loginBtn">登录</button>
@@ -39,6 +44,7 @@
             </div>
         </div>
     </div>
+    </main>
 
     <!-- 页脚 -->
     <div th:replace="~{fragments :: footer}"></div>

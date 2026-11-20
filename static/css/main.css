@@ -1,5 +1,69 @@
 /* Main CSS file for Curling Masters */
 
+/* —— WCAG 2.2 AA：跳过链接、焦点可见、最小触达、减弱动效 —— */
+.skip-link {
+    position: absolute;
+    left: 0.75rem;
+    top: 0.75rem;
+    z-index: 10000;
+    padding: 0.5rem 0.85rem;
+    background: #212529;
+    color: #fff;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    font-weight: 600;
+    transform: translateY(-160%);
+    transition: transform 0.15s ease;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+    transform: translateY(0);
+    color: #fff;
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible,
+.nav-link:focus-visible,
+.dropdown-item:focus-visible,
+.page-link:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+.btn-close {
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+}
+
+#main-content:focus {
+    outline: none;
+}
+#main-content:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    .skip-link {
+        transition: none;
+    }
+}
+
 /* 录分弹窗验收表：手写签名为 Base64 图片时的展示尺寸 */
 .match-acceptance-signature-img {
     max-width: min(240px, 100%);
@@ -31,10 +95,25 @@
     overflow-wrap: anywhere;
     word-break: break-word;
 }
+.markdown-body ul ul,
+.markdown-body ol ol,
+.markdown-body ul ol,
+.markdown-body ol ul {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+}
 .markdown-body li {
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+.markdown-body a {
+    color: #0d6efd;
+    text-decoration: underline;
+}
+.markdown-body a:hover,
+.markdown-body a:focus-visible {
+    color: #0a58ca;
 }
 .markdown-body li > p {
     margin-top: 0.25em;
@@ -427,13 +506,75 @@ input[type=number] {
     padding-inline: 0.9rem;
 }
 
-/* 系统管理列表：表头/操作按钮尽量单行 */
+/* 系统管理列表：表头/操作按钮尽量单行；表宽可超出容器，由外层横向滚动 */
 .admin-mgmt-table,
 .generic-table-desktop table {
     --admin-line: 1.25;
     table-layout: auto;
     width: max-content;
     min-width: 100%;
+}
+
+/*
+ * 管理页表格横向溢出：允许左右 scroll / 触控滑动。
+ * 父级 min-width:0 避免 flex/card 把溢出裁死导致滚不动。
+ */
+.container .card,
+.container-fluid .card,
+.card > .card-body,
+.generic-table-desktop,
+.admin-mgmt-table-wrap {
+    min-width: 0;
+    max-width: 100%;
+}
+.table-responsive,
+.admin-mgmt-table-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    max-width: 100%;
+}
+/* 可横向拖动：溢出时显示抓手光标 */
+.table-responsive.cm-hscroll-ready,
+.admin-mgmt-table-wrap.cm-hscroll-ready,
+.card-body.cm-hscroll-ready {
+    cursor: grab;
+}
+.table-responsive.cm-hscroll-dragging,
+.admin-mgmt-table-wrap.cm-hscroll-dragging,
+.card-body.cm-hscroll-dragging {
+    cursor: grabbing;
+    user-select: none;
+}
+/* 视口底部粘性横向滚动条：表格在屏内时不必滚到表底也能拖条 */
+.cm-table-hscroll-bar {
+    position: fixed;
+    bottom: 0;
+    height: 14px;
+    z-index: 1040;
+    display: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background: rgba(248, 250, 252, 0.95);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+    -webkit-overflow-scrolling: touch;
+}
+.cm-table-hscroll-bar.is-visible {
+    display: block;
+}
+.cm-table-hscroll-spacer {
+    height: 1px;
+    pointer-events: none;
+}
+/* 未包 .table-responsive 的管理表：在 card-body 上横向滚动兜底 */
+.card-body:has(> table.admin-mgmt-table),
+.card-body:has(> table.table.admin-mgmt-table) {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
 }
 .admin-mgmt-table > thead > tr > th,
 .generic-table-desktop table > thead > tr:first-child > th {
@@ -445,6 +586,7 @@ input[type=number] {
     padding-bottom: 0.55rem;
 }
 /* 内容单元格尽量单行；列宽随内容伸展，横向由 table-responsive 滚动 */
+.admin-mgmt-table > tbody > tr > td,
 .generic-table-desktop .admin-mgmt-table > tbody > tr > td,
 .generic-table-desktop table > tbody > tr > td {
     white-space: nowrap;
@@ -454,6 +596,7 @@ input[type=number] {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+.admin-mgmt-table > tbody > tr > td > *,
 .generic-table-desktop .admin-mgmt-table > tbody > tr > td > *,
 .generic-table-desktop table > tbody > tr > td > * {
     white-space: nowrap;
@@ -463,6 +606,7 @@ input[type=number] {
     text-overflow: ellipsis;
     vertical-align: middle;
 }
+.admin-mgmt-table > tbody > tr > td .badge,
 .generic-table-desktop .admin-mgmt-table > tbody > tr > td .badge,
 .generic-table-desktop table > tbody > tr > td .badge {
     display: inline-block;
@@ -593,10 +737,18 @@ table.table-hover.align-middle tbody tr > td {
 
 /* Footer styles */
 .footer {
-    background: rgba(136, 136, 136, 0.618);
-    color: white;
+    background: rgba(70, 74, 78, 0.92);
+    color: #fff;
     padding: 2rem 0;
     margin-top: 3rem;
+}
+.footer a {
+    color: #fff;
+}
+.footer a:hover,
+.footer a:focus-visible {
+    color: #fff;
+    text-decoration: underline;
 }
 
 /* Responsive adjustments */
@@ -2184,10 +2336,13 @@ td.group-ranking-matches-complete {
     color: #212529;
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
 }
-/* 横向滚动即可；禁止纵向撑出滚动条（下拉挂到 body） */
+/* 横向滚动即可；禁止纵向撑出滚动条（下拉挂到 body）；触控可左右拖动 */
 .generic-table-desktop .table-responsive {
     overflow-x: auto;
     overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    max-width: 100%;
 }
 /* 表头始终压在表格内容之上 */
 .generic-table-desktop .admin-mgmt-table > thead > tr > th {

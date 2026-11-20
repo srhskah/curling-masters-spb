@@ -44,4 +44,16 @@ public class TournamentLevel implements Serializable {
     private Integer defaultBottomPoints;
 
     private String description;
+
+    /**
+     * 新建赛事默认：小组赛是否允许平局（null/true=允许）。
+     * 仅影响之后新建并首次保存运行配置的赛事，不回写已有赛事。
+     */
+    private Boolean groupAllowDraw;
+
+    /**
+     * 新建赛事默认：禁平局时加局胜负积分模式。
+     * {@code 2_1}=胜+2/败+1（默认）；{@code 3_0}=胜+3/败+0。
+     */
+    private String groupOtPointsMode;
 }

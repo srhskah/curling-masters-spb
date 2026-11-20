@@ -4,6 +4,7 @@
 <body th:classappend="${ipBgClass}">
 <div th:replace="~{fragments :: navbar}"></div>
 
+<main id="main-content" tabindex="-1">
 <div class="container mt-4 mb-5 h2h-page" id="h2hRoot"
      th:data-api-users="@{/h2h/api/users}"
      th:data-api-opponents="@{/h2h/api/opponents}"
@@ -21,19 +22,21 @@
         <div class="card-body">
             <div class="row g-3 align-items-end">
                 <div class="col-md-5">
-                    <label class="form-label">选手一</label>
+                    <label class="form-label" for="h2hBtnA">选手一</label>
                     <div class="dropdown w-100">
                         <button id="h2hBtnA" type="button"
                                 class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center"
                                 data-bs-toggle="dropdown" data-bs-auto-close="outside"
                                 data-h2h-picker="a"
+                                aria-haspopup="listbox"
                                 aria-expanded="false">
                             <span id="h2hLabelA" class="text-truncate flex-grow-1 me-1">请选择选手</span>
                         </button>
                         <div class="dropdown-menu w-100 p-0 shadow-sm">
                             <div class="p-2 border-bottom bg-white position-sticky top-0" style="z-index: 2;">
+                                <label class="visually-hidden" for="h2hFilterA">搜索选手一</label>
                                 <input type="search" class="form-control form-control-sm" id="h2hFilterA"
-                                       placeholder="搜索用户名…" autocomplete="off">
+                                       placeholder="搜索用户名…" autocomplete="off" aria-label="搜索选手一">
                             </div>
                             <div id="h2hListA" class="list-group list-group-flush overflow-auto" style="max-height: 280px;"></div>
                         </div>
@@ -41,19 +44,21 @@
                     <input type="hidden" id="h2hValA" value="">
                 </div>
                 <div class="col-md-5">
-                    <label class="form-label">选手二</label>
+                    <label class="form-label" for="h2hBtnB">选手二</label>
                     <div class="dropdown w-100">
                         <button id="h2hBtnB" type="button" disabled
                                 class="btn btn-outline-secondary dropdown-toggle w-100 text-start d-flex justify-content-between align-items-center"
                                 data-bs-toggle="dropdown" data-bs-auto-close="outside"
                                 data-h2h-picker="b"
+                                aria-haspopup="listbox"
                                 aria-expanded="false">
                             <span id="h2hLabelB" class="text-truncate flex-grow-1 me-1">请先选择选手一</span>
                         </button>
                         <div class="dropdown-menu w-100 p-0 shadow-sm">
                             <div class="p-2 border-bottom bg-white position-sticky top-0" style="z-index: 2;">
+                                <label class="visually-hidden" for="h2hFilterB">搜索选手二</label>
                                 <input type="search" class="form-control form-control-sm" id="h2hFilterB"
-                                       placeholder="搜索用户名…" autocomplete="off" disabled>
+                                       placeholder="搜索用户名…" autocomplete="off" disabled aria-label="搜索选手二">
                             </div>
                             <div id="h2hListB" class="list-group list-group-flush overflow-auto" style="max-height: 280px;"></div>
                         </div>
@@ -75,12 +80,13 @@
     <div id="h2hStatsBanner" class="d-none mb-3"></div>
     <div id="h2hResults"></div>
 </div>
+</main>
 
 <th:block th:replace="~{fragments-group-match-score-modal :: groupMatchScoreModalAndSignature}"/>
 
 <div th:replace="~{fragments :: footer}"></div>
 <th:block th:replace="~{fragments :: scripts}"></th:block>
-<script th:src="@{/js/group-match-score-modal.js?v=14}"></script>
+<script th:src="@{/js/group-match-score-modal.js?v=16}"></script>
 <script>
 (function () {
     const root = document.getElementById('h2hRoot');

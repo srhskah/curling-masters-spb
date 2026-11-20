@@ -11,9 +11,14 @@
     if (typeof window.__cmSharedSignatureData !== 'string') {
         window.__cmSharedSignatureData = '';
     }
+    /** 文字签名持久化前缀（验收表按文本展示，避免空白 PNG） */
+    const TEXT_SIG_PREFIX = 'TEXT_SIG:';
     let currentMatchPhaseCode = '';
     let drawing = false;
     let sigCtx = null;
+    /** 本次打开画布后是否有手写墨迹 / 是否已点「使用文字签名」绘入 */
+    let sigHasInk = false;
+    let sigTextOnCanvas = false;
     let _groupMatchScoreSubmitting = false;
     /** 签名按钮文案/颜色上下文（随打开场次刷新） */
     let _sigBtnContext = {
@@ -132,7 +137,8 @@
         for (let i = 1; i <= n; i++) {
             items.push(
                 `<div class="score-end-item score-end-head-item" data-end-index="${i}">`
-                + `<span class="score-end-num">${i}</span>`
+                + `<span class="score-end-num" aria-hidden="true">${i}</span>`
+                + `<span class="visually-hidden">第${i}局</span>`
                 + `<span class="score-end-head-hammer" data-end-hammer-label></span>`
                 + `</div>`
             );
@@ -641,12 +647,31 @@
                 s.className = 'text-muted';
                 s.textContent = '(无签名)';
                 tdSig.appendChild(s);
+            } else if (window.CMSignaturePad && typeof window.CMSignaturePad.presentSignatureWithWatermark === 'function') {
+                const holder = document.createElement('div');
+                tdSig.appendChild(holder);
+                window.CMSignaturePad.presentSignatureWithWatermark(holder, rawSig, {
+                    username: a.username || getCurrentUsernameStr() || 'user',
+                    uuid: a.userId != null ? String(a.userId) : (a.id != null ? String(a.id) : ''),
+                    acceptedAt: (a.acceptedAt || '').replace('T', ' ')
+                });
+            } else if (rawSig.startsWith(TEXT_SIG_PREFIX)) {
+                const span = document.createElement('span');
+                span.className = 'text-break fw-semibold';
+                span.textContent = rawSig.slice(TEXT_SIG_PREFIX.length) || '(文字签名)';
+                tdSig.appendChild(span);
             } else if (rawSig.startsWith('data:image/')) {
                 const img = document.createElement('img');
                 img.src = rawSig;
                 img.alt = '电子签名';
                 img.className = 'match-acceptance-signature-img';
                 img.loading = 'lazy';
+                img.onerror = () => {
+                    img.replaceWith(Object.assign(document.createElement('span'), {
+                        className: 'text-muted',
+                        textContent: '(签名图无法显示)'
+                    }));
+                };
                 tdSig.appendChild(img);
             } else {
                 const span = document.createElement('span');
@@ -750,8 +775,8 @@
         if (hasX) {
             const ok = confirm('检测到X。是否验收？验收后不可再修改比分。');
             if (!ok) return;
-            if (needSignature && !window.__cmSharedSignatureData) {
-                alert('该阶段验收需手写签名，请先点击“手写电子签名”');
+            if (needSignature && !isHandwrittenSignatureData(window.__cmSharedSignatureData)) {
+                alert('该阶段验收需电子签名：请手写，或输入文字后点击「使用文字签名」');
                 return;
             }
             form.append('autoAccept', 'true');
@@ -793,8 +818,8 @@
             const ok = confirm('检测到X。验收将锁定比分且不可再改，是否继续？');
             if (!ok) return;
         }
-        if (needSignature && !window.__cmSharedSignatureData) {
-            alert('该阶段验收需手写签名，请先点击“手写电子签名”');
+        if (needSignature && !isHandwrittenSignatureData(window.__cmSharedSignatureData)) {
+            alert('该阶段验收需电子签名：请手写，或输入文字后点击「使用文字签名」');
             return;
         }
         const form = new URLSearchParams();
@@ -828,6 +853,10 @@
 
     function openSignatureModal() {
         if (!signatureModal) signatureModal = new bootstrap.Modal(document.getElementById('signatureModal'));
+        const textInput = document.getElementById('signatureTextFallback');
+        if (textInput) textInput.value = '';
+        sigHasInk = false;
+        sigTextOnCanvas = false;
         signatureModal.show();
         initSignatureCanvas();
     }
@@ -835,10 +864,23 @@
     function initSignatureCanvas() {
         const canvas = document.getElementById('signatureCanvas');
         if (!canvas) return;
+        if (!canvas.hasAttribute('tabindex')) {
+            canvas.setAttribute('tabindex', '0');
+        }
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        const displayW = canvas.clientWidth || 420;
+        const displayH = 180;
+        canvas.width = Math.floor(displayW * ratio);
+        canvas.height = Math.floor(displayH * ratio);
         sigCtx = canvas.getContext('2d');
+        sigCtx.setTransform(ratio, 0, 0, ratio, 0, 0);
         sigCtx.lineWidth = 2;
         sigCtx.lineCap = 'round';
         sigCtx.strokeStyle = '#111';
+        sigCtx.fillStyle = '#fff';
+        sigCtx.fillRect(0, 0, displayW, displayH);
+        sigHasInk = false;
+        sigTextOnCanvas = false;
         const start = (x, y) => {
             drawing = true;
             sigCtx.beginPath();
@@ -848,6 +890,8 @@
             if (!drawing) return;
             sigCtx.lineTo(x, y);
             sigCtx.stroke();
+            sigHasInk = true;
+            sigTextOnCanvas = false;
         };
         const end = () => {
             drawing = false;
@@ -874,12 +918,99 @@
     function clearSignatureCanvas() {
         const canvas = document.getElementById('signatureCanvas');
         if (!canvas || !sigCtx) return;
-        sigCtx.clearRect(0, 0, canvas.width, canvas.height);
+        const displayW = canvas.clientWidth || 420;
+        const displayH = 180;
+        sigCtx.fillStyle = '#fff';
+        sigCtx.fillRect(0, 0, displayW, displayH);
+        const textInput = document.getElementById('signatureTextFallback');
+        if (textInput) textInput.value = '';
+        sigHasInk = false;
+        sigTextOnCanvas = false;
+    }
+
+    function assertGroupSigOnCanvas() {
+        const canvas = document.getElementById('signatureCanvas');
+        if (!sigHasInk && !sigTextOnCanvas) {
+            alert('请先手写签名，或输入文字后点击「使用文字签名」');
+            return false;
+        }
+        if (window.CMSignaturePad && typeof window.CMSignaturePad.isCanvasEffectivelyBlank === 'function'
+            && window.CMSignaturePad.isCanvasEffectivelyBlank(canvas)) {
+            alert('签名不能为空白，请手写或使用文字签名并呈现到画板');
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 将文字绘入签名画布（重置 transform，避免空白图），返回 data URL；失败返回 ''。
+     */
+    function paintTextSignatureToDataUrl(text) {
+        const canvas = document.getElementById('signatureCanvas');
+        if (!canvas || !text) return '';
+        const cssW = Math.max(canvas.clientWidth || 420, 280);
+        const cssH = 180;
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = Math.floor(cssW * ratio);
+        canvas.height = Math.floor(cssH * ratio);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(ratio, ratio);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, cssW, cssH);
+        ctx.fillStyle = '#111';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let fontSize = 36;
+        const fontFamily = '"Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif';
+        ctx.font = '600 ' + fontSize + 'px ' + fontFamily;
+        while (fontSize > 14 && ctx.measureText(text).width > cssW - 24) {
+            fontSize -= 2;
+            ctx.font = '600 ' + fontSize + 'px ' + fontFamily;
+        }
+        ctx.fillText(text, cssW / 2, cssH / 2);
+        sigCtx = ctx;
+        sigTextOnCanvas = true;
+        sigHasInk = false;
+        try {
+            return canvas.toDataURL('image/png');
+        } catch (err) {
+            return '';
+        }
+    }
+
+    /** WCAG 2.5.7：文字签名；必须点本按钮绘入画板，再带水印提交（失败时回退 TEXT_SIG:） */
+    function applyTextSignatureFallback() {
+        const textInput = document.getElementById('signatureTextFallback');
+        const text = textInput ? String(textInput.value || '').trim() : '';
+        if (!text) {
+            alert('请先输入文字签名');
+            if (textInput) textInput.focus();
+            return;
+        }
+        const painted = paintTextSignatureToDataUrl(text);
+        const canvas = document.getElementById('signatureCanvas');
+        if (!painted || (window.CMSignaturePad && window.CMSignaturePad.isCanvasEffectivelyBlank
+            && window.CMSignaturePad.isCanvasEffectivelyBlank(canvas))) {
+            alert('文字签名未能绘入画板，请重试');
+            return;
+        }
+        let data = painted;
+        if (window.CMSignaturePad && typeof window.CMSignaturePad.bakeCanvasWatermarkSync === 'function') {
+            data = window.CMSignaturePad.bakeCanvasWatermarkSync(canvas, {
+                username: getCurrentUsernameStr() || text
+            }) || painted;
+        }
+        window.__cmSharedSignatureData = data || (TEXT_SIG_PREFIX + text);
+        refreshSignatureButtonState();
+        if (signatureModal) signatureModal.hide();
     }
 
     function isHandwrittenSignatureData(sig) {
         const s = String(sig == null ? '' : sig).trim();
         if (!s) return false;
+        if (s.startsWith(TEXT_SIG_PREFIX) && s.length > TEXT_SIG_PREFIX.length) return true;
         if (s.startsWith('data:image/')) return true;
         // 兼容历史：仅存 base64、无 data URL 头
         return s.length > 80 && !s.includes(' ') && !s.includes('SYSTEM_') && !s.includes('SUPER_ADMIN')
@@ -889,8 +1020,15 @@
     function normalizeHandwrittenSignatureData(sig) {
         const s = String(sig == null ? '' : sig).trim();
         if (!s) return '';
+        if (s.startsWith(TEXT_SIG_PREFIX) && s.length > TEXT_SIG_PREFIX.length) return s;
         if (s.startsWith('data:image/')) return s;
-        if (isHandwrittenSignatureData(s)) return 'data:image/png;base64,' + s;
+        if (isHandwrittenSignatureData(s) && !s.startsWith(TEXT_SIG_PREFIX)) {
+            // 仅纯 base64 再补 data URL 头；TEXT_SIG / data:image 已处理
+            if (!s.startsWith('data:') && s.length > 80 && /^[A-Za-z0-9+/=]+$/.test(s)) {
+                return 'data:image/png;base64,' + s;
+            }
+            return s;
+        }
         return '';
     }
 
@@ -968,7 +1106,18 @@
     function saveSignatureCanvas() {
         const canvas = document.getElementById('signatureCanvas');
         if (!canvas) return;
-        window.__cmSharedSignatureData = canvas.toDataURL('image/png');
+        if (!assertGroupSigOnCanvas()) return;
+        let data = canvas.toDataURL('image/png');
+        if (window.CMSignaturePad && typeof window.CMSignaturePad.bakeCanvasWatermarkSync === 'function') {
+            data = window.CMSignaturePad.bakeCanvasWatermarkSync(canvas, {
+                username: getCurrentUsernameStr()
+            }) || data;
+        }
+        if (!data) {
+            alert('签名导出失败，请重试');
+            return;
+        }
+        window.__cmSharedSignatureData = data;
         refreshSignatureButtonState();
         if (signatureModal) signatureModal.hide();
     }
@@ -999,6 +1148,7 @@
                 const sigForPlain = (sig) => {
                     const s = sig != null ? String(sig).trim() : '';
                     if (!s) return '无签名';
+                    if (s.startsWith(TEXT_SIG_PREFIX)) return s.slice(TEXT_SIG_PREFIX.length) || '[文字签名]';
                     if (s.startsWith('data:image/')) return '[手写签名]';
                     return s.length > 60 ? s.slice(0, 60) + '…' : s;
                 };
@@ -1068,6 +1218,7 @@
     window.openSignatureModal = openSignatureModal;
     window.clearSignatureCanvas = clearSignatureCanvas;
     window.saveSignatureCanvas = saveSignatureCanvas;
+    window.applyTextSignatureFallback = applyTextSignatureFallback;
     window.refreshSignatureButtonState = refreshSignatureButtonState;
     window.applyFirstEndHammerSelect = applyFirstEndHammerSelect;
     window.scoreCellTokenFromRow = scoreCellTokenFromRow;

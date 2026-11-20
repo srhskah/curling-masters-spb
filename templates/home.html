@@ -19,6 +19,7 @@
     <!-- 导航栏 -->
     <div th:replace="~{fragments :: navbar}"></div>
 
+    <main id="main-content" tabindex="-1">
     <!-- 消息提示 -->
     <div th:replace="~{fragments :: success-alert}"></div>
     <div th:replace="~{fragments :: error-alert}"></div>
@@ -459,6 +460,7 @@
             </div>
         </div>
     </div>
+    </main>
 
     <!-- 页脚 -->
     <div th:replace="~{fragments :: footer}"></div>

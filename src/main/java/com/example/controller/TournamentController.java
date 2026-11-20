@@ -275,6 +275,8 @@ public class TournamentController {
                 dateRange,
                 createTimeStr
             ));
+            // 表头「赛事等级」复选筛选用纯等级名（不含「第x届」）
+            item.put("levelLabelsJoined", levelName == null ? "" : levelName.trim());
             item.put("filters", Map.of("status", tournament.getStatus()));
             item.put("id", tournament.getId());
             item.put("detailUrl", tournamentUrlService.detailUrl(tournament));
@@ -324,6 +326,8 @@ public class TournamentController {
         model.addAttribute("emptyMessage", "暂无赛事数据");
         model.addAttribute("isAdmin", admin);
         model.addAttribute("currentUser", currentUser);
+        // 「赛事等级」列（index=1）复选筛选用 data-levels 纯等级名，不带届次
+        model.addAttribute("multiFilterCols", List.of(1));
         
         return "generic-list";
     }
@@ -1447,6 +1451,28 @@ public class TournamentController {
         // 筹备中/进行中：手动参赛配置 + 分组赛程（详情页展示与保存由 TournamentCompetitionService 校验状态）
         TournamentCompetitionConfig competitionConfig = tournamentCompetitionService.getConfig(id);
         model.addAttribute("competitionConfig", competitionConfig);
+        // 无本届配置时，表单预填该赛事等级默认（仅预填，不写库；保存后才落本届）
+        boolean formGroupAllowDraw = competitionConfig == null
+                || competitionConfig.getGroupAllowDraw() == null
+                || Boolean.TRUE.equals(competitionConfig.getGroupAllowDraw());
+        String formGroupOtPointsMode = competitionConfig != null && competitionConfig.getGroupOtPointsMode() != null
+                ? TournamentCompetitionConfig.normalizeGroupOtPointsMode(competitionConfig.getGroupOtPointsMode())
+                : TournamentCompetitionConfig.GROUP_OT_POINTS_2_1;
+        if (competitionConfig == null && level != null) {
+            try {
+                if (level.getGroupAllowDraw() != null) {
+                    formGroupAllowDraw = Boolean.TRUE.equals(level.getGroupAllowDraw());
+                }
+                if (level.getGroupOtPointsMode() != null) {
+                    formGroupOtPointsMode = TournamentCompetitionConfig.normalizeGroupOtPointsMode(
+                            level.getGroupOtPointsMode());
+                }
+            } catch (Exception ignore) {
+                // restore 未迁列时降级为允许平局 + 2_1
+            }
+        }
+        model.addAttribute("formGroupAllowDraw", formGroupAllowDraw);
+        model.addAttribute("formGroupOtPointsMode", formGroupOtPointsMode);
         model.addAttribute("defaultKnockoutRequirePrevStageDone",
                 systemConfigService.getDefaultKnockoutRequirePrevStageDone());
         model.addAttribute("defaultCenterLineLimit", systemConfigService.getDefaultCenterLineLimit());
@@ -1618,13 +1644,15 @@ public class TournamentController {
                     .filter(m -> "GROUP".equalsIgnoreCase(m.getPhaseCode()))
                     .toList();
             boolean allowDrawForPseudo = competitionConfig == null || !Boolean.FALSE.equals(competitionConfig.getGroupAllowDraw());
+            boolean otPoints3ForPseudo = competitionConfig != null
+                    && TournamentCompetitionConfig.isGroupOtPoints3_0(competitionConfig.getGroupOtPointsMode());
             int regularSetsForPseudo = (competitionConfig != null && competitionConfig.getGroupStageSets() != null && competitionConfig.getGroupStageSets() > 0)
                     ? competitionConfig.getGroupStageSets() : 8;
             model.addAttribute("uniqueSameWdlTieByGroupId",
                     groupRankingCalculator.uniqueSameWdlTieFlagsByGroupId(groupRankingByGroupId));
             groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
                     groups, groupRankingByGroupId, groupMatchesOnly, scoresByMatchId, Map.of(), usernameById,
-                    allowDrawForPseudo, regularSetsForPseudo, rankingPriority);
+                    allowDrawForPseudo, regularSetsForPseudo, otPoints3ForPseudo, rankingPriority);
             Map<Long, String> dqReasonByUserId = loadEffectiveDisqualificationReasonByUserId(id);
             applyDisqualificationBottomInGroupRanking(groupRankingByGroupId, dqReasonByUserId);
             model.addAttribute("groupRankingByGroupId", groupRankingByGroupId);
@@ -2934,13 +2962,14 @@ public class TournamentController {
                 .stream().collect(Collectors.groupingBy(SetScore::getMatchId, LinkedHashMap::new, Collectors.toList()));
         Map<Long, String> uname = userService.list().stream().collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
         boolean allowDraw = cfg.getGroupAllowDraw() == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        boolean otPoints3_0 = TournamentCompetitionConfig.isGroupOtPoints3_0(cfg.getGroupOtPointsMode());
         int regularSets = (cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
         var rankingPriority = rankingPriorityService.criteriaOrderForTournament(tournamentId);
         Map<Long, List<Map<String, Object>>> byGroup = groupRankingCalculator.buildGroupRankingsByMemberIds(
-                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets, rankingPriority
+                groups, memberIdsByGroup, uname, groupMatches, setByMatch, allowDraw, regularSets, otPoints3_0, rankingPriority
         );
         groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, byGroup, groupMatches, setByMatch, Map.of(), uname, allowDraw, regularSets, rankingPriority
+                groups, byGroup, groupMatches, setByMatch, Map.of(), uname, allowDraw, regularSets, otPoints3_0, rankingPriority
         );
         List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byGroup, rankingPriority);
         List<Long> out = new ArrayList<>();

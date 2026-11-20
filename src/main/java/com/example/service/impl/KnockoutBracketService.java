@@ -1951,9 +1951,10 @@ public class KnockoutBracketService {
         Map<Long, List<Map<String, Object>>> byG = groupRankingCalculator.buildGroupRankingsByMemberIds(
                 groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg, rankingPriority);
         boolean allowDrawKo = cfg == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        boolean otPoints3Ko = cfg != null && TournamentCompetitionConfig.isGroupOtPoints3_0(cfg.getGroupOtPointsMode());
         int regularSetsKo = (cfg != null && cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
         groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDrawKo, regularSetsKo, rankingPriority);
+                groups, byG, matches, scoreByMatch, Map.of(), uname, allowDrawKo, regularSetsKo, otPoints3Ko, rankingPriority);
         List<Map<String, Object>> overall = groupRankingCalculator.buildOverallRanking(byG, rankingPriority);
         List<Long> out = new ArrayList<>();
         for (Map<String, Object> row : overall) {
@@ -2091,9 +2092,10 @@ public class KnockoutBracketService {
         Map<Long, List<Map<String, Object>>> gr = groupRankingCalculator.buildGroupRankingsByMemberIds(
                 groups, memberIdsByGroup, uname, matches, scoreByMatch, cfg, rankingPriority);
         boolean allowDrawGr = cfg == null || !Boolean.FALSE.equals(cfg.getGroupAllowDraw());
+        boolean otPoints3Gr = cfg != null && TournamentCompetitionConfig.isGroupOtPoints3_0(cfg.getGroupOtPointsMode());
         int regularSetsGr = (cfg != null && cfg.getGroupStageSets() != null && cfg.getGroupStageSets() > 0) ? cfg.getGroupStageSets() : 8;
         groupRankingCalculator.buildPseudoGroupExportRowsAndApplyMainRanks(
-                groups, gr, matches, scoreByMatch, Map.of(), uname, allowDrawGr, regularSetsGr, rankingPriority);
+                groups, gr, matches, scoreByMatch, Map.of(), uname, allowDrawGr, regularSetsGr, otPoints3Gr, rankingPriority);
         return gr;
     }
 

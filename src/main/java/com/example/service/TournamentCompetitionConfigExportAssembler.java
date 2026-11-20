@@ -121,6 +121,8 @@ public class TournamentCompetitionConfigExportAssembler {
             root.put("groupModeText", groupModeText(config.getGroupMode()));
             root.put("groupSize", config.getGroupSize());
             root.put("groupAllowDraw", config.getGroupAllowDraw());
+            root.put("groupOtPointsMode",
+                    TournamentCompetitionConfig.normalizeGroupOtPointsMode(config.getGroupOtPointsMode()));
             root.put("groupStageDeadline", config.getGroupStageDeadline() != null ? DT.format(config.getGroupStageDeadline()) : "-");
             java.util.Set<Integer> activeKo = new java.util.HashSet<>(
                     TournamentCompetitionConfig.knockoutRoundsFromStart(config.getKnockoutStartRound()));
@@ -166,6 +168,7 @@ public class TournamentCompetitionConfigExportAssembler {
             root.put("groupModeText", "单循环（不分主客）");
             root.put("groupSize", null);
             root.put("groupAllowDraw", true);
+            root.put("groupOtPointsMode", TournamentCompetitionConfig.GROUP_OT_POINTS_2_1);
             root.put("groupStageDeadline", "-");
             root.put("knockoutDeadlineRounds", java.util.Set.of());
             root.put("knockoutRound16Deadline", "-");
